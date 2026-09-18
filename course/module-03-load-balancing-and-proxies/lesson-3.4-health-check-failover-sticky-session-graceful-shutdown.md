@@ -2,6 +2,8 @@
 
 **Module 3 — Load Balancing & Proxies**
 
+> **Spaced Repetition (Lesson 2.1):** DNS TTL কম রাখলে কী সুবিধা আর কী অসুবিধা হয়? Server migration এর আগে TTL নিয়ে কী পদক্ষেপ নেওয়া উচিত?
+
 **Prerequisite:** Lesson 3.1–3.3
 
 **তুমি এই lesson শেষে পারবে:**

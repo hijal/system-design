@@ -2,6 +2,8 @@
 
 **Module 3 — Load Balancing & Proxies**
 
+> **Spaced Repetition (Lesson 1.5):** p99 latency কেন average latency এর চেয়ে বেশি গুরুত্বপূর্ণ? একটা API এর average ৮০ms কিন্তু p99 ৩ সেকেন্ড হলে তুমি কী সন্দেহ করবে?
+
 **Prerequisite:** Lesson 3.1 (Load Balancer, L4/L7), Lesson 3.2 (LB Algorithms)
 
 **তুমি এই lesson শেষে পারবে:**
