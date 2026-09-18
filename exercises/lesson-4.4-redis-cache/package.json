@@ -1,0 +1,26 @@
+{
+	"name": "taskflow-redis-cache-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"seed": "npm run build && node dist/seed.js",
+		"start": "node dist/server.js",
+		"bench": "npm run build && node dist/bench.js",
+		"stampede": "npm run build && node dist/stampede.js"
+	},
+	"dependencies": {
+		"express": "^4.21.2",
+		"ioredis": "^5.4.2",
+		"pg": "^8.13.1",
+		"sequelize": "^6.37.5",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.21",
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}

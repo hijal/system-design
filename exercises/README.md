@@ -6,10 +6,11 @@ copy-paste করতে হয় না।
 
 Tier 3 (design exercise) এখানে থাকে না — সেখানে চিন্তাটাই deliverable, code নেই।
 
-| Exercise                                                             | Lesson                               | Tier | কী দেখায়                             |
-| -------------------------------------------------------------------- | ------------------------------------ | ---- | ------------------------------------- |
-| [`lesson-2.5-idempotency/`](lesson-2.5-idempotency/)                 | 2.5 — API Design at Scale            | 1    | Idempotency-Key দিয়ে retry-safe POST |
-| [`lesson-3.3-nginx-reverse-proxy/`](lesson-3.3-nginx-reverse-proxy/) | 3.3 — Reverse Proxy vs Forward Proxy | 2    | Nginx reverse proxy + Round Robin LB  |
+| Exercise                                                             | Lesson                               | Tier | কী দেখায়                                  |
+| -------------------------------------------------------------------- | ------------------------------------ | ---- | ------------------------------------------ |
+| [`lesson-2.5-idempotency/`](lesson-2.5-idempotency/)                 | 2.5 — API Design at Scale            | 1    | Idempotency-Key দিয়ে retry-safe POST      |
+| [`lesson-3.3-nginx-reverse-proxy/`](lesson-3.3-nginx-reverse-proxy/) | 3.3 — Reverse Proxy vs Forward Proxy | 2    | Nginx reverse proxy + Round Robin LB       |
+| [`lesson-4.4-redis-cache/`](lesson-4.4-redis-cache/)                 | 4.4 — Redis Hands-on                 | 1    | Cache-Aside + invalidate-on-write, মাপা সহ |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -32,6 +33,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 ```bash
 cd lesson-2.5-idempotency && npm install && npm run typecheck
 cd lesson-3.3-nginx-reverse-proxy/backend && npm install && npm run typecheck
+cd lesson-4.4-redis-cache && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।

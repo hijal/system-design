@@ -1,0 +1,30 @@
+# এই exercise এ শুধু দুইটা datastore container এ চলে — app নিজে
+# তোমার মেশিনে সাধারণ Node process হিসেবে চলবে।
+# Default port এর বদলে 5433/6380 ব্যবহার করা হয়েছে, যাতে তোমার মেশিনে
+# আগে থেকে চলা কোনো Postgres/Redis এর সাথে সংঘাত না লাগে।
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:8-alpine
+    # maxmemory-policy টা Lesson 4.3 এর সিদ্ধান্ত — pure cache, তাই allkeys-lru
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - '6380:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 15
