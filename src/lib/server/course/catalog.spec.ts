@@ -69,4 +69,20 @@ describe('lesson rendering', () => {
 		expect(rendered.headings.map((h) => h.id)).toEqual(['নতুন-বিষয়', 'নতুন-বিষয়-2']);
 		expect(rendered.html).toContain('href="/lesson-2.1?lang=en#dns"');
 	});
+	it('highlights every code fence language the course content uses', () => {
+		const fences: [string, string][] = [
+			['typescript', 'const value: number = 1;'],
+			['sql', 'SELECT 1;'],
+			['bash', 'curl http://localhost:3000'],
+			['json', '{ "a": 1 }'],
+			['yaml', 'services:\n  api: {}'],
+			['dockerfile', 'FROM node:22'],
+			['nginx', 'server {\n  listen 8080;\n}'],
+			['markdown', '# Heading']
+		];
+		for (const [language, code] of fences) {
+			const rendered = renderLesson(`# Title\n\n\`\`\`${language}\n${code}\n\`\`\``, 'bn');
+			expect(rendered.html, `${language} fence rendered without Prism tokens`).toContain('token');
+		}
+	});
 });

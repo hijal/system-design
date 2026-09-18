@@ -7,6 +7,8 @@ import 'prismjs/components/prism-bash';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-docker';
+import 'prismjs/components/prism-nginx';
+import 'prismjs/components/prism-markdown';
 import { localizedHref, type Locale } from '../../docs/i18n';
 import { lessonBody } from './catalog';
 export type Heading = { id: string; text: string; level: number };
