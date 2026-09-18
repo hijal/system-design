@@ -26,7 +26,7 @@ Module 2 জুড়ে আমরা API এর "shape" (REST/GraphQL/gRPC), �
 - একজন user "Create Task" button এ ক্লিক করল, কিন্তু internet slow থাকায় response আসতে দেরি হচ্ছে দেখে সে বিরক্ত হয়ে আবার ক্লিক করল — এখন কি দুইটা task তৈরি হয়ে যাবে?
 - একটা error হলে, client কীভাবে বুঝবে ঠিক কী ভুল হয়েছে, প্রতিটা error কি ভিন্ন ভিন্ন format এ আসবে?
 
-এই চারটা প্রশ্নই আজকের lesson এর বিষয়, এবং **তৃতীয় প্রশ্নটা** (idempotency) তোমার জন্য বিশেষভাবে গুরুত্বপূর্ণ — এটা ঠিক সেই ধরনের সমস্যা যেটা তুমি তোমার fintech কাজে ledger/payment নিয়ে কাজ করার সময় নিয়মিত মোকাবিলা করো।
+এই চারটা প্রশ্নই আজকের lesson এর বিষয়, এবং **তৃতীয় প্রশ্নটা** (idempotency) সবচেয়ে গুরুত্বপূর্ণ — টাকা-পয়সা বা অন্য কোনো অপরিবর্তনীয় কাজ জড়িত থাকলে এই সমস্যাটা সবসময় সামনে আসে।
 
 ---
 
@@ -97,7 +97,7 @@ Response: { "tasks": [...], "next_cursor": "eyJjcmVhdGVkQXQiOiIyMDI2LTA4LTIwIn0"
 
 ### ১.৩ Idempotency Key — Retry কে নিরাপদ করা
 
-Lesson 2.2 তে আমরা idempotency শব্দটা প্রথম দেখেছিলাম (0-RTT এর context এ)। আজকে এটা পুরোপুরি formal ভাবে শিখব — এটা তোমার fintech domain knowledge এর সাথে সরাসরি মেলে।
+Lesson 2.2 তে আমরা idempotency শব্দটা প্রথম দেখেছিলাম (0-RTT এর context এ)। আজকে এটা পুরোপুরি formal ভাবে শিখব।
 
 **মূল সমস্যা:** ধরো, একজন user "Create Task" button এ ক্লিক করল। Request server এ পৌঁছালো, task তৈরি হলো, database এ save হলো — কিন্তু response client পর্যন্ত পৌঁছানোর আগেই network এ কিছু একটা সমস্যা হয়ে গেল (timeout)। Client এর দৃষ্টিকোণ থেকে — সে জানেই না request টা সফল হয়েছিল কিনা! তাই client **retry** করে, একই request আবার পাঠায়। কিন্তু server তো আগেরটা already process করে ফেলেছিল — এখন যদি এটাও process করে, **duplicate task তৈরি হয়ে যাবে**।
 

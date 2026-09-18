@@ -214,4 +214,4 @@ Next: 2.5 — API Design at Scale (Versioning, Pagination, Idempotency Key, Erro
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — Lesson 2.5 এ যাব, Module 2 এর শেষ lesson: API Design at Scale — versioning, pagination, idempotency key, error contract। এটা একটা বিশেষভাবে গুরুত্বপূর্ণ lesson তোমার জন্য, কারণ idempotency তোমার fintech কাজের সাথে সরাসরি সম্পর্কিত একটা concept।
+Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — Lesson 2.5 এ যাব, Module 2 এর শেষ lesson: API Design at Scale — versioning, pagination, idempotency key, error contract। এটা একটা বিশেষভাবে গুরুত্বপূর্ণ lesson, কারণ idempotency ছাড়া কোনো API-ই retry-এর মুখে নিরাপদ না।
