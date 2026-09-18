@@ -9,6 +9,9 @@ bun.lock
 /.svelte-kit
 /build
 
+# Exercise build output (exercises/*/dist, exercises/*/backend/dist)
+dist
+
 # OS
 .DS_Store
 Thumbs.db

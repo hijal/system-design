@@ -202,6 +202,8 @@ Pagination নিয়ে একটা common question — "একটা social
 
 আজকে আমরা সরাসরি একটা কাজ-করা Idempotency Key implementation দেখব এবং verify করব — এটা sandbox এ চালিয়ে পরীক্ষা করা হয়েছে, `tsc --noEmit` clean pass করেছে, এবং curl দিয়ে ৬টা scenario টেস্ট করে দেখানো হয়েছে।
 
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-2.5-idempotency/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-2.5-idempotency) — `npm install && npm run dev` করলেই চলবে। নিচের file গুলো ওখান থেকেই নেওয়া, হাতে copy-paste করার দরকার নেই।
+
 **`package.json`:**
 
 ```json
@@ -224,7 +226,7 @@ Pagination নিয়ে একটা common question — "একটা social
 		"@types/express": "^4.17.21",
 		"@types/node": "^22.10.2",
 		"ts-node": "^10.9.2",
-		"typescript": "^5.7.2"
+		"typescript": "^6.0.3"
 	}
 }
 ```
@@ -235,8 +237,8 @@ Pagination নিয়ে একটা common question — "একটা social
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"module": "commonjs",
-		"moduleResolution": "node",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
 		"lib": ["ES2022"],
 		"outDir": "dist",
 		"rootDir": ".",

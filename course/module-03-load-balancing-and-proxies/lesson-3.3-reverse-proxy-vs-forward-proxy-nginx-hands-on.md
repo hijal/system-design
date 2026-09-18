@@ -119,6 +119,8 @@ Client এর দৃষ্টিকোণ থেকে: "একটাই server 
 
 আমরা ৩টা identical TypeScript/Express backend instance বানাব, আর তাদের সামনে Nginx বসাব reverse proxy + load balancer হিসেবে। Backend এর TypeScript অংশ sandbox এ `tsc --noEmit` দিয়ে verify করা হয়েছে (clean pass)। কিন্তু পুরো Docker Compose + Nginx integration টা এই sandbox এ Docker না থাকায় সরাসরি চালিয়ে verify করিনি — **সততার সাথে বলছি, এটা তোমার নিজের মেশিনে চালিয়ে দেখতে হবে।**
 
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-3.3-nginx-reverse-proxy/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-3.3-nginx-reverse-proxy) — `docker compose up` করলেই চলবে। নিচের file গুলো ওখান থেকেই নেওয়া, হাতে copy-paste করার দরকার নেই।
+
 **Project Structure:**
 
 ```
@@ -152,7 +154,7 @@ nginx-exercise/
 	"devDependencies": {
 		"@types/express": "^4.17.21",
 		"@types/node": "^22.10.2",
-		"typescript": "^5.7.2"
+		"typescript": "^6.0.3"
 	}
 }
 ```
@@ -163,8 +165,8 @@ nginx-exercise/
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"module": "commonjs",
-		"moduleResolution": "node",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
 		"lib": ["ES2022"],
 		"outDir": "dist",
 		"rootDir": ".",
