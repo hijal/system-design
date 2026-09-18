@@ -91,7 +91,7 @@ Lesson 3.2 তে আমরা IP Hash সম্পর্কে শিখেছ�
    গেছে) — তখনই server টা সম্পূর্ণ বন্ধ করা
 ```
 
-Node.js/Express এ practically এটা implement হয় SIGTERM signal handle করে — server নতুন connection নেওয়া বন্ধ করে, কিন্তু existing connection গুলো শেষ হতে দেয়, তারপর process exit করে। এটা এমন একটা pattern যেটা তোমার topup-backend এর মতো production system এ deployment এর সময় সরাসরি প্রাসঙ্গিক — এটা বিস্তারিত আমরা Module 10.6 (Deployment strategies — blue-green, canary) এ আরও গভীরে দেখব।
+Node.js/Express এ practically এটা implement হয় SIGTERM signal handle করে — server নতুন connection নেওয়া বন্ধ করে, কিন্তু existing connection গুলো শেষ হতে দেয়, তারপর process exit করে। এটা এমন একটা pattern যেটা যেকোনো production system এ deployment এর সময় সরাসরি প্রাসঙ্গিক — এটা বিস্তারিত আমরা Module 10.6 (Deployment strategies — blue-green, canary) এ আরও গভীরে দেখব।
 
 > **Trade-off Table — এই lesson এর concept গুলো**
 

@@ -72,7 +72,7 @@ Partner যদি একটা invalid task ID দিয়ে `GET /tasks/:id` 
 
 **Project এর জন্য:**
 
-- তোমার topup-backend এ (course এর বাইরে, নিজের সময়ে) — যদি কোনো payment-related endpoint এ এখনও idempotency key implement করা না থাকে, আজকের pattern টা (হ্যাশ-ভিত্তিক payload comparison + TTL) সেখানে সরাসরি প্রয়োগযোগ্য, শুধু in-memory Map এর জায়গায় Redis ব্যবহার করতে হবে (persistence এবং multi-instance এর জন্য, Lesson 1.6 এর stateless নীতি মনে করে)
+- নিজের সময়ে (course এর বাইরে) — তুমি আগে লেখা কোনো payment-related endpoint এ যদি idempotency key implement করা না থাকে, আজকের pattern টা (হ্যাশ-ভিত্তিক payload comparison + TTL) সেখানে সরাসরি প্রয়োগযোগ্য, শুধু in-memory Map এর জায়গায় Redis ব্যবহার করতে হবে (persistence এবং multi-instance এর জন্য, Lesson 1.6 এর stateless নীতি মনে করে)
 
 ---
 

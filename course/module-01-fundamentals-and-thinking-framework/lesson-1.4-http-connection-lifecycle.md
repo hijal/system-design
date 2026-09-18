@@ -150,7 +150,7 @@ QUIC এর আরেকটা বড় সুবিধা — এটা TCP ha
 | Adoption              | সবজায়গায় সাপোর্টেড                                | বহুল ব্যবহৃত            | ক্রমবর্ধমান, কিন্তু সব infra তে এখনো universal না |
 | Complexity            | সহজ                                                 | মাঝারি                  | জটিল (নতুন protocol stack)                        |
 
-**তোমার stack এর প্রেক্ষিতে:** Cloudflare (তুমি যেটা Golghor আর অন্যান্য প্রজেক্টে ব্যবহার করেছ) automatically HTTP/2 এবং HTTP/3 উভয়ই সাপোর্ট করে যখন এটা তোমার traffic proxy করে — তাই এটা এমন একটা জিনিস যেটা "নিচের লেয়ারে" ঘটে, তোমার Express code কে এটা নিয়ে সচেতন থাকতে হয় না। কিন্তু interview এ এটা জানাটা গুরুত্বপূর্ণ, কারণ এটা বোঝায় তুমি জানো performance শুধু application code এ না, network layer এও নির্ধারিত হয়।
+**তোমার stack এর প্রেক্ষিতে:** Cloudflare এর মতো CDN/proxy automatically HTTP/2 এবং HTTP/3 উভয়ই সাপোর্ট করে যখন এটা তোমার traffic proxy করে — তাই এটা এমন একটা জিনিস যেটা "নিচের লেয়ারে" ঘটে, তোমার Express code কে এটা নিয়ে সচেতন থাকতে হয় না। কিন্তু interview এ এটা জানাটা গুরুত্বপূর্ণ, কারণ এটা বোঝায় তুমি জানো performance শুধু application code এ না, network layer এও নির্ধারিত হয়।
 
 ---
 
@@ -215,7 +215,7 @@ QUIC এর আরেকটা বড় সুবিধা — এটা TCP ha
 
 **Tier 3 — Design Exercise**
 
-এবার একটা ছোট reasoning exercise, যেটা তোমার নিজের Golghor প্রজেক্টের সাথেও সরাসরি সম্পর্কিত (যদিও আজকে আমরা past project reference করছি না course design অনুযায়ী, তবে concept টা তোমার নিজের চিন্তায় apply করার জন্য একটা generic scenario দিচ্ছি):
+এবার একটা ছোট reasoning exercise — connection lifecycle এর ধারণাটা একটা বাস্তব পরিস্থিতিতে প্রয়োগ করে দেখার জন্য:
 
 > **Scenario:** TaskFlow এ একটা "Live Dashboard" ফিচার আসছে, যেখানে user এর browser প্রতি ২ সেকেন্ডে server কে poll করে নতুন task status আছে কিনা জানতে চায় (এটা এখনো WebSocket না, শুধু repeated HTTP request — polling)।
 >

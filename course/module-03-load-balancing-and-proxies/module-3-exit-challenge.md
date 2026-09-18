@@ -66,7 +66,7 @@ Marketing campaign এর সাথে সাথে, TaskFlow একটা ন�
 
 **Project এর জন্য:**
 
-- তোমার Lesson 3.3 এর Docker setup এ ফিরে গিয়ে (course এর বাইরে, নিজের সময়ে) — `max_fails`/`fail_timeout` নিয়ে experiment করে দেখো, আর `proxy_next_upstream` যোগ করে GET endpoint এ failover test করো। এরপর তোমার topup-backend এ যদি কোনো multi-instance deployment থাকে, সেখানে graceful shutdown (SIGTERM handling) implement করা আছে কিনা check করে দেখা একটা ভালো practical exercise হতে পারে
+- তোমার Lesson 3.3 এর Docker setup এ ফিরে গিয়ে (course এর বাইরে, নিজের সময়ে) — `max_fails`/`fail_timeout` নিয়ে experiment করে দেখো, আর `proxy_next_upstream` যোগ করে GET endpoint এ failover test করো। এরপর তুমি আগে deploy করেছ এমন কোনো multi-instance setup থাকলে, সেখানে graceful shutdown (SIGTERM handling) implement করা আছে কিনা check করে দেখা একটা ভালো practical exercise হতে পারে
 
 ---
 

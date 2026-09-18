@@ -75,7 +75,7 @@ Module 1 এর ৬টা lesson শেষ। এতদিন আমরা ট�
 
 **Project এর জন্য:**
 
-- তোমার নিজের topup-backend বা Golghor প্রজেক্টে (course এর বাইরে, নিজের সময়ে) — একবার চিন্তা করে দেখো তোমার existing deployment stateful নাকি stateless। PM2 দিয়ে যদি একাধিক instance চালাও (cluster mode), session/in-progress data কোথায় আছে সেটা audit করে দেখা একটা ভালো practical exercise হতে পারে, যদিও এটা course এর official exercise না।
+- নিজের সময়ে (course এর বাইরে) — তুমি আগে deploy করেছ এমন যেকোনো Node.js app নিয়ে একবার ভেবে দেখো: সেটা stateful নাকি stateless? PM2 cluster mode এ একাধিক instance চালালে session বা in-progress data কোথায় থাকত — process এর memory তে, নাকি বাইরে? এই audit টা করে দেখা একটা ভালো practical exercise, যদিও এটা course এর official exercise না।
 
 ---
 

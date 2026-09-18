@@ -38,7 +38,7 @@
 পরে:  [Server: 16 CPU, 64GB RAM] ──> একই server, কিন্তু বেশি resource
 ```
 
-তোমার VPS-based topup-backend deployment এর প্রেক্ষিতে ভাবলে — vertical scaling মানে হলো VPS provider এর কাছে গিয়ে একটা বড় plan এ upgrade করা (২ vCPU থেকে ৮ vCPU তে যাওয়া, ইত্যাদি)।
+একটা VPS-এ deploy করা app এর প্রেক্ষিতে ভাবলে — vertical scaling মানে হলো VPS provider এর কাছে গিয়ে একটা বড় plan এ upgrade করা (২ vCPU থেকে ৮ vCPU তে যাওয়া, ইত্যাদি)।
 
 **সুবিধা:**
 

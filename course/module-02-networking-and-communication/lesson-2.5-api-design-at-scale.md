@@ -93,7 +93,7 @@ Response: { "tasks": [...], "next_cursor": "eyJjcmVhdGVkQXQiOiIyMDI2LTA4LTIwIn0"
 | Concurrent write এ consistency | shifting সমস্যা হতে পারে                               | স্থিতিশীল, duplicate/missing হয় না |
 | Best fit                       | ছোট dataset, admin panel (যেখানে "page 5 এ যাও" দরকার) | Infinite scroll, বড় dataset, feed  |
 
-**তোমার Sequelize experience এর সাথে সংযোগ:** Sequelize এ `limit`/`offset` ব্যবহার করা সহজ, কিন্তু বড় scale এ cursor-based pagination করতে হলে `WHERE id > :cursor ORDER BY id LIMIT :limit` প্যাটার্নে querying করতে হয় — এটা তোমার topup-backend এর মতো বড় dataset থাকা প্রজেক্টে সরাসরি প্রাসঙ্গিক।
+**তোমার Sequelize experience এর সাথে সংযোগ:** Sequelize এ `limit`/`offset` ব্যবহার করা সহজ, কিন্তু বড় scale এ cursor-based pagination করতে হলে `WHERE id > :cursor ORDER BY id LIMIT :limit` প্যাটার্নে querying করতে হয় — বড় dataset থাকা যেকোনো প্রজেক্টে এটা সরাসরি প্রাসঙ্গিক।
 
 ### ১.৩ Idempotency Key — Retry কে নিরাপদ করা
 
