@@ -155,8 +155,7 @@ TaskFlow state: Nginx reverse proxy + LB সামনে, horizontal-scale-ready
 এখন caching layer যোগ হওয়ার প্রস্তুতি শুরু
 Terms learned (Module 4 so far): Cache Hierarchy, CDN, PoP, Edge Cache TTL,
 Buffer Pool
-Weak spots: [Module 3 এর মূল pattern — সঠিক সিদ্ধান্তে পৌঁছেও root cause বা alternative
-approach (যেমন workload splitting) miss করা — এটাই এখন সবচেয়ে বেশি নজর দেওয়ার জায়গা]
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
 Next: 4.2 — Caching Strategies (Cache-Aside, Write-Through, Write-Behind, Read-Through)
 =======================
 ```

@@ -4,8 +4,11 @@ import { z } from 'zod';
 const REDIS_URL: string = process.env.REDIS_URL ?? 'redis://localhost:6380';
 
 export const redis = new Redis(REDIS_URL, {
-	// cache যেন কখনো request কে আটকে না রাখে — Redis ধীর হলে দ্রুত হাল ছেড়ে
-	// DB তে চলে যাওয়াই ভালো (Lesson 4.2: "cache optional")
+	// লক্ষ্য: Redis ধীর বা বন্ধ হলে দ্রুত হাল ছেড়ে DB তে চলে যাওয়া (Lesson 4.2: "cache optional")।
+	// কিন্তু সাবধান — এই দুটো option একা সেটা নিশ্চিত করে না। ioredis এর offline queue
+	// (enableOfflineQueue, default true) চালু থাকায় Redis বন্ধ হলে প্রতিটা command queue তে
+	// বসে reconnect এর অপেক্ষা করে, latency সেকেন্ডে পৌঁছায়। এটা ইচ্ছা করে রেখে দেওয়া —
+	// Lesson 4.4 এর experiment ৪ এ তুমি নিজে মেপে ঠিক করবে।
 	maxRetriesPerRequest: 1,
 	connectTimeout: 1000
 });

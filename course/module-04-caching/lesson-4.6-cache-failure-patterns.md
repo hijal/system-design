@@ -194,7 +194,7 @@ GET /api/tasks/999999   →  cache এ নেই (স্বাভাবিক, �
                         →  পরের বার আবার একই ঘটনা
 ```
 
-প্রতিটা request DB পর্যন্ত যাচ্ছে, অথচ cache hit ratio এর হিসাবে এটা ধরাই পড়ছে না। **Cache টা কার্যত bypass হয়ে গেছে।**
+প্রতিটা request DB পর্যন্ত যাচ্ছে। Hit ratio তে এগুলো miss হিসেবে গোনা হয় ঠিকই, কিন্তু মোট traffic এর তুলনায় সংখ্যাটা ছোট বলে চোখে পড়ে না — আর সাধারণ miss এর মতো এগুলো কখনো "সেরে ওঠে" না, **একই key বারবার miss হয়**। ওই key গুলোর জন্য **cache টা কার্যত bypass হয়ে গেছে।**
 
 প্রতিকার:
 
@@ -231,7 +231,7 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 
 সবচেয়ে common প্রশ্ন: **"তোমার একটা জনপ্রিয় cache entry expire হলো, আর ঠিক সেই মুহূর্তে ১০০০টা request এলো — কী হবে?"** এটা সরাসরি stampede এর প্রশ্ন। উত্তরে সমস্যাটার নাম বলো, তারপর প্রতিকার — single-flight/lock, আর stale-while-revalidate। যদি যোগ করতে পারো যে in-process lock একাধিক instance এ শুধু _কমায়_, _মেটায় না_ (distributed lock লাগে), তাহলে তুমি স্পষ্টভাবে আলাদা।
 
-দ্বিতীয়টা প্রায়ই follow-up হিসেবে আসে: **"cache hit ratio ৯৮%, তবু DB এর load বেশি — কেন হতে পারে?"** এখানে দুটো উত্তরই ভালো: (ক) penetration — যেসব key কখনো cache হয় না সেগুলোই DB তে যাচ্ছে, hit ratio তে ধরাই পড়ছে না; (খ) ওই ২% ই হয়তো সবচেয়ে ভারী query।
+দ্বিতীয়টা প্রায়ই follow-up হিসেবে আসে: **"cache hit ratio ৯৮%, তবু DB এর load বেশি — কেন হতে পারে?"** এখানে দুটো উত্তরই ভালো: (ক) penetration — যেসব key কখনো cache হয় না সেগুলোই বারবার miss হয়ে DB তে যাচ্ছে; ২% miss দেখতে নিরীহ, কিন্তু সেগুলো কখনো hit এ পরিণত হয় না; (খ) ওই ২% ই হয়তো সবচেয়ে ভারী query।
 
 আর একটা প্রশ্ন যেটা দিয়ে seniority মাপা হয়: **"Redis cluster এ node যোগ করলাম, তবু একটা node এর CPU ১০০% — কেন?"** — hot key। Key hash করে shard এ যায়, তাই একটা key এর traffic কখনো ভাগ হয় না। এটা জানা মানে তুমি Redis কে কালো বাক্স হিসেবে দেখছ না।
 
@@ -304,9 +304,9 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 
 - Spike নেই, ছন্দ নেই → stampede বা avalanche না (দুটোই TTL এর ছন্দে spike বানায়)
 - কোনো node গরম না → hot key না
-- Hit ratio ৯৭% অথচ DB ব্যস্ত → মানে যে request গুলো DB তে যাচ্ছে, সেগুলো **hit ratio এর হিসাবেই ঢুকছে না**
+- Hit ratio ৯৭% অথচ DB ব্যস্ত → মানে সমস্যাটা ওই **৩% miss** এর ভেতরে, আর সেই miss গুলো কখনো hit এ পরিণত হচ্ছে না
 
-এটাই penetration এর স্বাক্ষর — অনুপস্থিত key এর জন্য cache এ কিছু লেখাই হয় না, তাই সেগুলো hit/miss এর পরিসংখ্যানে ঠিকমতো প্রতিফলিত হয় না, অথচ প্রতিটা DB পর্যন্ত যায়।
+এটাই penetration এর স্বাক্ষর। সাধারণ miss এর পরে key টা cache এ ঢুকে যায়, তাই পরের বার hit হয় — miss গুলো নিজে থেকেই "সেরে ওঠে"। কিন্তু অনুপস্থিত key এর জন্য cache এ কিছু লেখাই হয় না, তাই **একই key বারবার miss হতে থাকে**, আর প্রতিবার DB পর্যন্ত যায়। Hit ratio তে এগুলো miss হিসেবেই গোনা হয় (Redis এর `keyspace_misses`), কিন্তু ৩% miss দেখে কেউ সন্দেহ করে না — অথচ সেই ৩% ই একটানা DB কে ব্যস্ত রাখছে।
 
 **নিশ্চিত করতে কী দেখবে:** DB এর query log এ কত ভাগ query **শূন্য row** ফেরত দিচ্ছে। যদি সেটা অস্বাভাবিক বেশি হয় (ধরো ৪০%), তাহলে ধরা পড়ে গেল। সাথে application log এ 404 response এর হার দেখো — একই গল্প বলবে।
 
@@ -356,13 +356,11 @@ Terms learned (Module 4 সম্পূর্ণ): Cache Hierarchy, CDN, PoP, Ed
 Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start, TTL, Staleness Window, Cache Invalidation,
 Eviction Policy, LRU, LFU, Cache Pollution, Cache Hit Ratio,
-Discriminated Union, Fail-safe, Connection Timeout, Anycast, Cache Key,
+Discriminated Union, Fail-safe, Offline Queue, Anycast, Cache Key,
 s-maxage, stale-while-revalidate, ETag, Purge, Origin Shield,
 Cache Stampede, Thundering Herd, Single-flight, TTL Jitter,
 Cache Avalanche, Hot Key, Negative Caching
-Weak spots: [cache down হলে latency ধসে পড়া (4.4 ex.৪); public vs private এর
-নিরাপত্তা তাৎপর্য (4.5 ex.৪)। আজকের নজর — রোগনির্ণয়: DB load বেশি দেখলেই
-প্রতিকার না বসিয়ে আগে "spike নাকি একটানা" জিজ্ঞেস করা]
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
 Next: Module 4 Exit Challenge
 =======================
 ```

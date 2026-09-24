@@ -275,11 +275,9 @@ Terms learned (Module 4 so far): Cache Hierarchy, CDN, PoP, Edge Cache TTL,
 Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start, TTL, Staleness Window, Cache Invalidation,
 Eviction Policy, LRU, LFU, Cache Pollution, Cache Hit Ratio,
-Discriminated Union, Fail-safe, Connection Timeout, Anycast, Cache Key,
+Discriminated Union, Fail-safe, Offline Queue, Anycast, Cache Key,
 s-maxage, stale-while-revalidate, ETag, Purge, Origin Shield
-Weak spots: [cache down হলে latency ধসে পড়া (4.4 exercise ৪); আজকের নতুন
-নজরের জায়গা — `public` বনাম `private` এর নিরাপত্তা তাৎপর্য, কারণ এখানে
-ভুল করলে সেটা bug না, breach]
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
 Next: 4.6 — Cache Failure Patterns (stampede, thundering herd, hot key)
 =======================
 ```

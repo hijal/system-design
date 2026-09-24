@@ -71,7 +71,7 @@ error  →  Redis উত্তরই দিচ্ছে না (down, timeout, n
 
 শেষ দুটোতে তোমার code একই কাজ করবে (DB তে যাবে), তাই এগুলো গুলিয়ে ফেলার প্রলোভন আছে। কিন্তু **আলাদা রাখলে তুমি মাপতে পারো** — cache hit ratio কম কেন, সেটা কি TTL এর জন্য, নাকি Redis আসলে ধুঁকছে? এই দুটোর চিকিৎসা সম্পূর্ণ আলাদা।
 
-main.md §৬ এর একটা নিয়ম আছে — _"Discriminated union দিয়ে state model করবে, optional field এর জঙ্গল বানাবে না।"_ ঠিক এই জায়গার জন্যই:
+এই course এর code এর একটা নিয়ম আছে — _"Discriminated union দিয়ে state model করবে, optional field এর জঙ্গল বানাবে না।"_ ঠিক এই জায়গার জন্যই:
 
 ```typescript
 export type CacheLookup<T> =
@@ -100,7 +100,7 @@ export async function writeList(key: string, value: TaskDTO[], ttlSeconds: numbe
 
 ### ১.৪ Sequelize model টাইপ করা
 
-main.md §৬ এর আরেকটা নিয়ম — Sequelize model কখনো untyped রাখা যাবে না:
+Course এর code এর আরেকটা নিয়ম — Sequelize model কখনো untyped রাখা যাবে না:
 
 ```typescript
 export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<Task>> {
@@ -119,9 +119,9 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 
 এই lesson টা hands-on, কিন্তু এখান থেকেই interview এর সবচেয়ে ধারালো প্রশ্নটা আসে: **"তোমার cache মরে গেলে কী হয়?"**
 
-বেশিরভাগ candidate বলে _"কিছু হবে না, request গুলো DB তে চলে যাবে"_ — আর এটাই সেই উত্তর যেটা তোমাকে আটকে দেবে, কারণ এটা অর্ধসত্য। আজকের exercise এ তুমি নিজের চোখে দেখবে যে correctness ঠিক থাকে, কিন্তু **latency ১২ ms থেকে লাফিয়ে ১১০০+ ms এ যায়** — শুধু DB load বাড়ার কারণে না, বরং client library টা প্রতিটা request এ Redis এর জন্য অপেক্ষা করে, retry করে, তারপর হাল ছাড়ে।
+বেশিরভাগ candidate বলে _"কিছু হবে না, request গুলো DB তে চলে যাবে"_ — আর এটাই সেই উত্তর যেটা তোমাকে আটকে দেবে, কারণ এটা অর্ধসত্য। আজকের exercise এ তুমি নিজের চোখে দেখবে যে correctness ঠিক থাকে, কিন্তু **latency ১২ ms থেকে লাফিয়ে কয়েক সেকেন্ডে যায়, আর প্রতিটা request এ বাড়তেই থাকে** — DB load বাড়ার কারণে না, বরং client library টা প্রতিটা command কে একটা queue তে রেখে Redis ফিরে আসার অপেক্ষা করে, তারপর হাল ছাড়ে।
 
-মানে **তোমার cache client এর timeout setting টাই ঠিক করে দেয় cache down হওয়াটা "একটু ধীর" হবে নাকি "পুরো outage" হবে।** এই কথাটা বলতে পারলে তুমি এমন একজন হিসেবে দেখাবে যে সত্যিই একটা cache production এ চালিয়েছে।
+মানে **তোমার cache client এর setting (offline queue, command timeout) ই ঠিক করে দেয় cache down হওয়াটা "একটু ধীর" হবে নাকি "পুরো outage" হবে।** আর মজার ব্যাপার — যে setting টা দেখে সবাই প্রথমে সন্দেহ করে (`connectTimeout`), সেটা এখানে কোনো কাজেই আসে না। এই কথাটা বলতে পারলে তুমি এমন একজন হিসেবে দেখাবে যে সত্যিই একটা cache production এ চালিয়েছে।
 
 দ্বিতীয় common প্রশ্ন: **"Cache hit ratio কত হলে ভালো?"** — সঠিক উত্তর হলো "নির্ভর করে"। ৯৫% hit ratio দারুণ শোনায়, কিন্তু যদি miss গুলোই সবচেয়ে দামি query হয় তাহলে লাভ কম। আর ৬০% hit ratio ও যথেষ্ট হতে পারে যদি সেই ৬০% ই তোমার সবচেয়ে ভারী endpoint হয়। **মাপো, তারপর বলো** — এটাই মূল কথা।
 
@@ -136,19 +136,19 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 - একটা write এ **derived view ও** মুছতে হয় — `tasks:user:7` এর সাথে `tasks:user:7:completed`
 - Sequelize এ `InferAttributes`/`InferCreationAttributes`, untyped model না
 - Cache এর লাভ **দাবি কোরো না, মাপো** — `X-Cache` header আর একটা bench script ই যথেষ্ট
-- **Cache down মানে শুধু "একটু ধীর" না** — client timeout ঠিক না থাকলে এটা পুরো outage হয়ে যেতে পারে
+- **Cache down মানে শুধু "একটু ধীর" না** — client এর offline queue বন্ধ বা command timeout ছোট না থাকলে এটা পুরো outage হয়ে যেতে পারে
 
 ---
 
 ## ৪. নতুন Term (Glossary)
 
-| Term                      | অর্থ                                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------- |
-| **Cache Hit Ratio**       | মোট request এর কত ভাগ cache থেকেই মিটে গেছে — cache কতটা কাজে লাগছে তার মাপ              |
-| **Discriminated Union**   | একটা `status`-জাতীয় field দিয়ে আলাদা করা type, যাতে ভুল field পড়া compile এই ধরা পড়ে |
-| **Fail-safe (cache)**     | cache ব্যর্থ হলে request ব্যর্থ না করে চুপচাপ DB তে চলে যাওয়ার নকশা                     |
-| **Connection Timeout**    | একটা connection এর জন্য কতক্ষণ অপেক্ষা করে হাল ছেড়ে দেবে                                |
-| **Cold Path / Warm Path** | যথাক্রমে cache miss (DB পর্যন্ত যাওয়া) আর cache hit (cache থেকেই ফেরা) এর পথ            |
+| Term                      | অর্থ                                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| **Cache Hit Ratio**       | মোট request এর কত ভাগ cache থেকেই মিটে গেছে — cache কতটা কাজে লাগছে তার মাপ                 |
+| **Discriminated Union**   | একটা `status`-জাতীয় field দিয়ে আলাদা করা type, যাতে ভুল field পড়া compile এই ধরা পড়ে    |
+| **Fail-safe (cache)**     | cache ব্যর্থ হলে request ব্যর্থ না করে চুপচাপ DB তে চলে যাওয়ার নকশা                        |
+| **Offline Queue**         | Redis এর সাথে connection না থাকলে client যেখানে command জমিয়ে রাখে, reconnect এর অপেক্ষায় |
+| **Cold Path / Warm Path** | যথাক্রমে cache miss (DB পর্যন্ত যাওয়া) আর cache hit (cache থেকেই ফেরা) এর পথ               |
 
 ---
 
@@ -160,7 +160,7 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 
 2. Bench এ দেখা গেছে DB path ~১২ ms, cache path ~৩.৭ ms — মাত্র ~৩.৩ গুণ দ্রুত। অথচ Lesson 4.1 এ বলা হয়েছিল memory আর disk এর পার্থক্য ~১০০০ গুণ। এত কম কেন? পার্থক্যটা কোথায় খেয়ে গেল?
 
-3. Redis বন্ধ করে দেখা গেল প্রথম request ১১৬৯ ms, পরেরটা ২৬৯১ ms — সময়টা **বাড়ছে**। যদি cache শুধু "কাজ করছে না" হতো, তাহলে প্রতিটা request সমান সময় নেওয়ার কথা ছিল। বাড়ছে কেন?
+3. Redis বন্ধ করে পরপর ৫টা request পাঠানো হলো: ৬২৩ ms, ১৪৯২ ms, ২২৯৯ ms, ৩০৯৫ ms, ৩৮৯৫ ms — সময়টা **বাড়ছে**। যদি cache শুধু "কাজ করছে না" হতো, তাহলে প্রতিটা request সমান সময় নেওয়ার কথা ছিল। বাড়ছে কেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -181,11 +181,22 @@ Exercise এ `await` রাখা হয়েছে সরলতার জন�
 
 **প্রশ্ন ৩:** কারণ তুমি cache এর **অনুপস্থিতি** মাপছ না, মাপছ **cache এর জন্য অপেক্ষা**।
 
-Redis বন্ধ থাকলে ioredis সাথে সাথে "নেই" বলে না — সে connect করার চেষ্টা করে, `connectTimeout` (এখানে ১০০০ ms) পর্যন্ত অপেক্ষা করে, retry করে, আর ভেতরে একটা backoff আছে যেটা প্রতিবার অপেক্ষার সময় বাড়িয়ে দেয়। তাই ১১৬৯ → ২৬৯১।
+Redis বন্ধ থাকলে ioredis সাথে সাথে "নেই" বলে না। সে command টা ফেলে না দিয়ে একটা **offline queue** তে রেখে দেয় (`enableOfflineQueue`, default `true`) — Redis ফিরে এলে পাঠাবে বলে। তারপর reconnect এর চেষ্টা করে, আর প্রতিটা ব্যর্থ চেষ্টার পর পরের চেষ্টা আরও পিছিয়ে দেয় (default retry strategy: `min(times × 50, 2000)` ms)। Queue তে বসে থাকা command টা error হয়ে ফেরে শুধু তখন, যখন `maxRetriesPerRequest` এর সীমা পার হয়। ফলে যত সময় যায়, প্রতিটা request তত বেশি অপেক্ষা করে।
 
-**এটাই এই exercise এর সবচেয়ে বড় শিক্ষা।** "Cache optional" কথাটা correctness এর দিক থেকে সত্যি, কিন্তু **latency এর দিক থেকে সম্পূর্ণ মিথ্যা হতে পারে** — যদি তোমার cache client আক্রমণাত্মকভাবে retry করে। ২.৭ সেকেন্ডের response মানে বাস্তবে user এর কাছে outage, আর upstream এ load balancer timeout শুরু করে দেবে।
+**`connectTimeout` এখানে কেন কাজে আসে না?** কারণ Redis এর container বন্ধ থাকলে connect এর চেষ্টা সাথে সাথেই refuse হয়ে যায় — timeout পর্যন্ত অপেক্ষাই করতে হয় না। আমি মেপে দেখেছি: `connectTimeout` ১০০০ থেকে ১০০ করলে কোনো উন্নতি হয় না (১৭৬৩ → ৫৪৯৬ ms, আগের মতোই বাড়ছে)।
 
-সমাধান: cache client এ **কঠোর, ছোট timeout** (১০০-২০০ ms), কম retry, আর আদর্শভাবে একটা **circuit breaker** — টানা কয়েকবার fail করলে কিছুক্ষণের জন্য Redis এ যাওয়াই বন্ধ করে দাও, সরাসরি DB তে যাও। Circuit breaker নিয়ে বিস্তারিত Lesson 9.4 এ।
+**এটাই এই exercise এর সবচেয়ে বড় শিক্ষা।** "Cache optional" কথাটা correctness এর দিক থেকে সত্যি, কিন্তু **latency এর দিক থেকে সম্পূর্ণ মিথ্যা হতে পারে** — যদি তোমার cache client command আটকে রেখে অপেক্ষা করে। ৪ সেকেন্ডের response মানে বাস্তবে user এর কাছে outage, আর upstream এ load balancer timeout শুরু করে দেবে।
+
+সমাধান — একই মেশিনে মাপা:
+
+```
+default (offline queue চালু)      : ৬২৩ → ৩৮৯৫ ms, বাড়তেই থাকে
+connectTimeout: 100               : ১৭৬৩ → ৫৪৯৬ ms, কোনো উন্নতি নেই
+commandTimeout: 100               : ~২১০ ms প্রতিবার, স্থির
+enableOfflineQueue: false         : ~১২ ms প্রতিবার — Redis না থাকলে সাথে সাথে error, সরাসরি DB
+```
+
+মানে cache client এ **offline queue বন্ধ** রাখো (cache এর জন্য queue করে অপেক্ষা করার কোনো মানে নেই), অথবা অন্তত একটা **ছোট command timeout** দাও, আর আদর্শভাবে একটা **circuit breaker** — টানা কয়েকবার fail করলে কিছুক্ষণের জন্য Redis এ যাওয়াই বন্ধ করে দাও, সরাসরি DB তে যাও। Circuit breaker নিয়ে বিস্তারিত Lesson 9.4 এ।
 
 </details>
 
@@ -203,11 +214,25 @@ Redis বন্ধ থাকলে ioredis সাথে সাথে "নেই"
 
 1. `npm run bench` চালাও। তোমার মেশিনে MISS আর HIT এর median কত? অনুপাতটা আমার পাওয়া ~৩.৩x এর কাছাকাছি, নাকি আলাদা? আলাদা হলে কেন বলে মনে হয়?
 
-2. `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে **২** করে দাও, rebuild করে আবার bench চালাও। Cache hit ratio তে কী হলো? Lesson 4.3 এর প্রশ্ন ২ এ যা যুক্তি দিয়ে বলেছিলাম, সেটা কি মিলল?
+2. `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে **২** করে দাও, rebuild করো। প্রথমে `npm run bench` চালাও — দেখবে hit ratio **এখনো ২০/২০**! কেন? (ইঙ্গিত: bench এর ২০টা HIT request মোট কত সময় নেয়?) এবার হাতে পরীক্ষা করো: একটা request পাঠাও, **৩ সেকেন্ড অপেক্ষা করো**, আবার পাঠাও — `X-Cache` header কী বলে?
+
+   ```bash
+   curl -s -D - -o /dev/null "http://localhost:3000/api/tasks?userId=7" | grep X-Cache
+   sleep 3
+   curl -s -D - -o /dev/null "http://localhost:3000/api/tasks?userId=7" | grep X-Cache
+   ```
+
+   দুটো ফল মিলিয়ে বলো — hit ratio আসলে কীসের উপর নির্ভর করে: TTL এর উপর একা, নাকি **TTL আর একই key তে request আসার হারের** সম্পর্কের উপর? Lesson 4.3 এর প্রশ্ন ২ এর যুক্তির সাথে মেলাও। (আর এখান থেকে একটা বাড়তি শিক্ষা: একটা benchmark যে pattern এ request পাঠায়, সেটা বাস্তব traffic এর মতো না হলে সংখ্যাটা ভুল গল্প বলে।)
 
 3. `PATCH` handler এ `affected` array থেকে `keys.completedByUser(...)` লাইনটা বাদ দাও। এবার: completed list টা cache করো → একটা task এর `completed` বদলাও → আবার completed list পড়ো। **কী ভুল দেখছ?** কতক্ষণ পর নিজে থেকে ঠিক হয়ে যায়, আর কেন?
 
-4. **সবচেয়ে গুরুত্বপূর্ণটা:** `docker compose stop redis` করে পরপর ৫টা request পাঠাও, প্রতিটার `tookMs` লিখে রাখো। এবার `src/cache.ts` এ `connectTimeout` ১০০০ থেকে **১০০** করে, rebuild করে আবার একই পরীক্ষা করো। দুই সেটের সংখ্যা পাশাপাশি রেখে এক অনুচ্ছেদে লেখো — **একটা client setting কীভাবে "cache down" কে "site down" এ পরিণত করতে পারে।**
+4. **সবচেয়ে গুরুত্বপূর্ণটা:** `docker compose stop redis` করে পরপর ৫টা request পাঠাও, প্রতিটার `tookMs` লিখে রাখো। তারপর `src/cache.ts` এ Redis client এর option বদলে তিনবার একই পরীক্ষা করো (প্রতিবার rebuild, আর পরীক্ষার আগে `docker compose start redis` করে server চালু করে তারপর আবার stop):
+
+   - (ক) `connectTimeout` ১০০০ থেকে **১০০**
+   - (খ) `connectTimeout` আগের মতো, সাথে `commandTimeout: 100` যোগ
+   - (গ) `commandTimeout` বাদ, সাথে `enableOfflineQueue: false` যোগ
+
+   চার সেটের সংখ্যা পাশাপাশি রাখো। কোনটায় কোনো উন্নতিই হলো না, আর কেন? এক অনুচ্ছেদে লেখো — **একটা client setting কীভাবে "cache down" কে "site down" এ পরিণত করতে পারে, আর যে setting টা সবাই প্রথমে সন্দেহ করে সেটা কেন ভুল জায়গা।**
 
 ---
 
@@ -225,9 +250,8 @@ Terms learned (Module 4 so far): Cache Hierarchy, CDN, PoP, Edge Cache TTL,
 Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start, TTL, Staleness Window, Cache Invalidation,
 Eviction Policy, LRU, LFU, Cache Pollution, Cache Hit Ratio,
-Discriminated Union, Fail-safe, Connection Timeout
-Weak spots: [নতুন নজরের জায়গা — cache down হলে latency ধসে পড়ার ব্যাপারটা;
-exercise ৪ এ এটা হাতে-কলমে না দেখলে interview এ অর্ধসত্য উত্তর দেওয়ার ঝুঁকি]
+Discriminated Union, Fail-safe, Offline Queue
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
 Next: 4.5 — CDN কীভাবে কাজ করে
 =======================
 ```

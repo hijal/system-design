@@ -140,14 +140,18 @@ Expected: **HTTP 200-ই আসবে**, `X-Cache: ERROR`, `"source":"database"`
 ## নিজে ভেঙে দেখো (Experiments)
 
 1. **TTL কমিয়ে দাও।** `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে ২ করে দাও, rebuild করে
-   `npm run bench` চালাও। Cache hit ratio কী হয়? Lesson 4.3 এর প্রশ্ন ২ এর উত্তরটা
-   এবার নিজের চোখে দেখো।
+   `npm run bench` চালাও — hit ratio এখনো ২০/২০ দেখাবে, কারণ bench এর ২০টা request
+   ২ সেকেন্ডের অনেক আগেই শেষ হয়ে যায়। এবার একটা request পাঠিয়ে **৩ সেকেন্ড অপেক্ষা
+   করে** আবার পাঠাও, `X-Cache` header দেখো। Hit ratio আসলে TTL আর request এর হারের
+   সম্পর্কের উপর নির্ভর করে — Lesson 4.3 এর প্রশ্ন ২ এর উত্তরটা এবার নিজের চোখে দেখো।
 
 2. **Redis বন্ধ করে latency মাপো।** `docker compose stop redis` করে পরপর কয়েকটা request
-   পাঠাও, `tookMs` লক্ষ্য করো। আমার মেশিনে প্রথমটা **১১৬৯ ms**, পরেরটা **২৬৯১ ms** —
-   অথচ DB একদম সুস্থ। কেন বাড়ছে? (ইঙ্গিত: `src/cache.ts` এ `maxRetriesPerRequest` আর
-   `connectTimeout`।) এবার `connectTimeout` ১০০ ms করে দিয়ে আবার দেখো — পার্থক্যটা
-   বোঝা এই exercise এর সবচেয়ে গুরুত্বপূর্ণ শিক্ষা।
+   পাঠাও, `tookMs` লক্ষ্য করো। আমার মেশিনে: **৬২৩ → ১৪৯২ → ২২৯৯ → ৩০৯৫ → ৩৮৯৫ ms** —
+   অথচ DB একদম সুস্থ। কেন বাড়ছে? (ইঙ্গিত: ioredis এর `enableOfflineQueue`, default
+   `true`।) এবার `src/cache.ts` এ একে একে তিনটা জিনিস চেষ্টা করো — `connectTimeout: 100`,
+   তারপর `commandTimeout: 100`, তারপর `enableOfflineQueue: false` — আর প্রতিবার সংখ্যা
+   মিলাও। কোনটায় কোনো লাভই হয় না, আর কেন — সেটা বোঝা এই exercise এর সবচেয়ে
+   গুরুত্বপূর্ণ শিক্ষা (বিস্তারিত Lesson 4.4 এর প্রশ্ন ৩)।
 
 3. **Invalidation ইচ্ছা করে ভাঙো।** `PATCH` handler এ `affected` array থেকে
    `keys.completedByUser(...)` লাইনটা বাদ দাও। তারপর: completed list টা cache করো,

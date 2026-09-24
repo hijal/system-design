@@ -90,7 +90,7 @@ TTL শুধু safety net। আসল কাজটা হলো — data ব�
 **কেন delete ভালো?** তিনটা কারণে:
 
 1. **Update করতে গেলে তোমাকে নতুন value টা বানাতে হবে** — মানে আবার DB query, আবার serialize। Delete এ সেই খরচ নেই, আর data টা আসলে কেউ পড়তে চাইলে তখন এমনিতেই load হয়ে যাবে।
-2. **Race condition কম।** দুইজন একসাথে update করলে, "update" পদ্ধতিতে কার value শেষে cache এ বসবে সেটা অনিশ্চিত — এমনকি পুরনো value নতুনটার উপরে বসে যেতে পারে। Delete এ এই ঝামেলা নেই; cache খালি থাকলে পরের read DB এর সত্যটাই আনবে।
+2. **Race condition কম।** দুইজন একসাথে update করলে, "update" পদ্ধতিতে কার value শেষে cache এ বসবে সেটা অনিশ্চিত — এমনকি পুরনো value নতুনটার উপরে বসে যেতে পারে। Delete এ এই নির্দিষ্ট ঝামেলাটা নেই; cache খালি থাকলে পরের read DB এর সত্যটাই আনবে। তবে delete করলেও race পুরোপুরি চলে যায় না — নিচের নোটটা দেখো।
 3. **কেউ হয়তো ওই data আর পড়বেই না।** তাহলে cache এ নতুন value বসিয়ে memory নষ্ট করার মানে কী?
 
 তোমার stack এ:
@@ -111,6 +111,17 @@ async function updateTask(
 ```
 
 **ক্রমটা গুরুত্বপূর্ণ — আগে DB, পরে cache।** উল্টো করলে একটা সূক্ষ্ম bug আছে: cache মুছে দিলে, কিন্তু DB write টা fail করল — এর মাঝখানে যদি কেউ read করে, সে DB থেকে **পুরনো** value এনে আবার cache এ ভরে দেবে। ফলে cache এ পুরনো data ফিরে আসবে, আর TTL শেষ না হওয়া পর্যন্ত থেকে যাবে।
+
+**একটা সৎ নোট — "আগে DB, পরে delete" এও একটা সরু race থেকে যায়:**
+
+```
+t=0   Reader : cache miss → DB থেকে পুরনো value পড়ছে (একটা ধীর query)
+t=1   Writer : DB তে নতুন value লিখল
+t=2   Writer : cache key delete করল (এটা এমনিতেই খালি — মোছার কিছু নেই)
+t=3   Reader : তার ধীর query শেষ হলো → পুরনো value টা cache এ লিখে দিল
+```
+
+এখন TTL শেষ না হওয়া পর্যন্ত cache এ পুরনো data থাকবে। এর জন্য দুর্ভাগ্যজনক timing লাগে (write এর আগে শুরু হওয়া একটা read, যেটা delete এর পরে শেষ হয়), তাই এটা বিরল — কিন্তু high load এ বিরল জিনিস রোজ ঘটে। **TTL safety net** যে বাদ দেওয়া যায় না, এটা তার আরেকটা কারণ। প্রচলিত প্রতিকার: একটু দেরি করে দ্বিতীয়বার delete করা (_delayed double delete_), অথবা একটা lease/version check, যাতে বাসি reader cache ভরতে না পারে (Facebook এর memcache paper এটাকে _lease_ বলে)।
 
 ### ১.৪ কোন key গুলো মুছতে হবে — গত lesson এর প্রশ্নের উত্তর
 
@@ -321,9 +332,7 @@ Terms learned (Module 4 so far): Cache Hierarchy, CDN, PoP, Edge Cache TTL,
 Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start, TTL, Staleness Window, Cache Invalidation,
 Eviction Policy, LRU, LFU, Cache Pollution
-Weak spots: [আজকের exercise এ দেখার বিষয় — derived/filtered view এর key গুলো
-(যেমন :completed, :page:2) invalidation এর সময় মনে থাকছে কিনা; এগুলোই
-বাস্তবে সবচেয়ে বেশি miss হয়]
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
 Next: 4.4 — Redis Hands-on: Express + Sequelize এ caching layer (Tier 1, প্রথম
 runnable code এই module এ)
 =======================

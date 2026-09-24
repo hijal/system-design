@@ -39,7 +39,7 @@ Cache আর session একই Redis এ, আর `maxmemory-policy` সেট �
 **৬. পুরো নকশাটা আবার সাজাও (Lesson 4.1-4.6)**
 সব জেনে, `/share/{token}` এর জন্য একটা সম্পূর্ণ caching নকশা লেখো — browser থেকে DB পর্যন্ত প্রতিটা স্তরে কী থাকবে, TTL কত, key কী, invalidation কীভাবে, আর কোন ব্যর্থতার বিরুদ্ধে কোন রক্ষাকবচ। এক পাতায় ধরাতে হবে।
 
-**মনে রাখার কথা:** এই module এ তোমার দুটো নজরের জায়গা তৈরি হয়েছে — (ক) cache down হলে latency ধসে পড়া, (খ) `public` বনাম `private` এর নিরাপত্তা তাৎপর্য। আজকের scenario তে দুটোই লুকিয়ে আছে। আর সবচেয়ে গুরুত্বপূর্ণ অভ্যাসটা: **প্রতিকার বসানোর আগে রোগনির্ণয়** — "DB load বেশি" যথেষ্ট না, "spike নাকি একটানা, আর কোন ছন্দে" — সেটাই আসল প্রশ্ন।
+**মনে রাখার কথা:** এই module এর দুটো জায়গায় সবচেয়ে সহজে ভুল হয় — (ক) cache down হলে latency ধসে পড়া, (খ) `public` বনাম `private` এর নিরাপত্তা তাৎপর্য। আজকের scenario তে দুটোই লুকিয়ে আছে। আর সবচেয়ে গুরুত্বপূর্ণ অভ্যাসটা: **প্রতিকার বসানোর আগে রোগনির্ণয়** — "DB load বেশি" যথেষ্ট না, "spike নাকি একটানা, আর কোন ছন্দে" — সেটাই আসল প্রশ্ন।
 
 আমি এটা প্রতিটা ধাপ ধরে ধরে critique করব।
 
@@ -57,7 +57,7 @@ Cache আর session একই Redis এ, আর `maxmemory-policy` সেট �
 - [ ] LRU আর LFU এর পার্থক্য, আর কোন traffic pattern এ কোনটা — বলতে পারি
 - [ ] Express + Sequelize + Redis দিয়ে একটা কাজ করা Cache-Aside layer **নিজে বানিয়েছি**, আর cache এর লাভটা মেপে দেখিয়েছি (Lesson 4.4)
 - [ ] Cache থেকে আসা data ও runtime input — Zod দিয়ে validate করতে হয়, `as` দিয়ে না — এটা কেন, বুঝি
-- [ ] Cache এর ব্যর্থতা কখনো request ব্যর্থ করা উচিত না, আর client timeout ঠিক না থাকলে "cache down" কীভাবে "site down" হয়ে যায় — হাতে-কলমে দেখেছি
+- [ ] Cache এর ব্যর্থতা কখনো request ব্যর্থ করা উচিত না, আর client এর offline queue বা command timeout ঠিক না থাকলে "cache down" কীভাবে "site down" হয়ে যায় — হাতে-কলমে দেখেছি
 - [ ] `max-age` / `s-maxage` / `private` / `no-cache` / `no-store` — কোনটা কাকে উদ্দেশ্য করে বলা, আর `no-cache` যে "cache কোরো না" মানে না — জানি
 - [ ] Personalized response CDN এ cache হলে সেটা bug না, **breach** — এই ঝুঁকিটা চিনি
 - [ ] Content hashing কেন purge এর চেয়ে ভালো — বলতে পারি

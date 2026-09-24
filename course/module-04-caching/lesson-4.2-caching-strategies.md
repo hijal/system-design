@@ -134,9 +134,11 @@ Read-Through:  App ──> Cache ──> DB   (App শুধু Cache কে চ
 
 ```
 WRITE:
-  App ──> [Cache এ লেখো] ──> [DB তে লেখো] ──> তারপর client কে 200 দাও
+  App ──> [DB তে লেখো] ──> [Cache এ লেখো] ──> তারপর client কে 200 দাও
           └──────────── দুটোই শেষ হলে তবেই success ────────────┘
 ```
+
+ক্রমটা খেয়াল করো — **আগে DB, পরে cache**। উল্টো করলে (আগে cache) DB write fail করলেও cache এ এমন একটা value বসে থাকবে যেটা DB তে কখনো লেখাই হয়নি, আর পরের সব read সেই মিথ্যা value টাই পাবে। এই "আগে সত্যের উৎস" নিয়মটা পরের lesson (4.3) এ আবার আসবে।
 
 **সুবিধা:** Cache কখনো "বাসি" (stale) হয় না — write শেষ হওয়ার সাথে সাথেই cache এ নতুন value আছে। পরের read সবসময় cache hit, আর সেটা সঠিক।
 
@@ -271,9 +273,7 @@ Redis এখনো বসানো হয়নি
 Terms learned (Module 4 so far): Cache Hierarchy, CDN, PoP, Edge Cache TTL,
 Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start
-Weak spots: [Module 3 এর pattern — সঠিক সিদ্ধান্তে পৌঁছেও alternative approach
-miss করা। আজকের exercise এ দেখার বিষয় — পুরো app এ একটাই strategy চাপিয়ে
-দিচ্ছ, নাকি প্রতিটা endpoint এর চরিত্র আলাদা করে ভাবছ]
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
 Next: 4.3 — Invalidation, TTL, Eviction (LRU, LFU)
 =======================
 ```
