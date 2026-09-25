@@ -1,0 +1,45 @@
+# Lesson 5.7 — PostgreSQL streaming replication: একটা primary, একটা replica।
+# Port 5438 (primary) আর 5439 (replica) — আগের exercise গুলোর (5433–5437) সাথে সংঘাত এড়াতে।
+services:
+  primary:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    # synchronous_standby_names: replica এর নাম ("*" = যেকোনো একটা) — তবে default
+    # synchronous_commit = local, তাই সাধারণ commit async। শুধু যে transaction নিজে
+    # `SET LOCAL synchronous_commit = remote_apply` বলবে, সেটাই replica এর অপেক্ষা করবে।
+    command: >
+      postgres
+      -c synchronous_standby_names='*'
+      -c synchronous_commit=local
+    ports:
+      - '5438:5432'
+    volumes:
+      - ./docker/primary-init.sh:/docker-entrypoint-initdb.d/primary-init.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  replica:
+    image: postgres:17-alpine
+    user: postgres
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_PASSWORD: taskflow
+    entrypoint: ['/replica-entrypoint.sh']
+    ports:
+      - '5439:5432'
+    volumes:
+      - ./docker/replica-entrypoint.sh:/replica-entrypoint.sh:ro
+    depends_on:
+      primary:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 30
