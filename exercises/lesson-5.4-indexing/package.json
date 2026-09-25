@@ -1,0 +1,22 @@
+{
+	"name": "taskflow-indexing-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"seed": "npm run build && node dist/seed.js",
+		"lab": "npm run build && node dist/lab.js",
+		"writecost": "npm run build && node dist/writecost.js"
+	},
+	"dependencies": {
+		"pg": "^8.13.1",
+		"sequelize": "^6.37.5",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
