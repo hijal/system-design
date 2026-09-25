@@ -1,0 +1,28 @@
+# Lesson 5.8 — তিনটা আলাদা PostgreSQL, প্রতিটা একটা "shard"।
+# shard0 কে partitioning এর demo তেও ব্যবহার করা হয় (npm run partition)।
+# Port 5440–5442 — আগের exercise গুলোর (5433–5439) সাথে সংঘাত এড়াতে।
+x-shard: &shard
+  image: postgres:17-alpine
+  environment:
+    POSTGRES_USER: taskflow
+    POSTGRES_PASSWORD: taskflow
+    POSTGRES_DB: taskflow
+  healthcheck:
+    test: ['CMD-SHELL', 'pg_isready -U taskflow']
+    interval: 2s
+    timeout: 3s
+    retries: 15
+
+services:
+  shard0:
+    <<: *shard
+    ports:
+      - '5440:5432'
+  shard1:
+    <<: *shard
+    ports:
+      - '5441:5432'
+  shard2:
+    <<: *shard
+    ports:
+      - '5442:5432'

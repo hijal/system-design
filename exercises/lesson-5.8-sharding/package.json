@@ -1,0 +1,22 @@
+{
+	"name": "taskflow-sharding-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"partition": "npm run build && node dist/partition.js",
+		"shard": "npm run build && node dist/shard.js",
+		"keys": "npm run build && node dist/keys.js"
+	},
+	"dependencies": {
+		"pg": "^8.13.1",
+		"sequelize": "^6.37.5",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
