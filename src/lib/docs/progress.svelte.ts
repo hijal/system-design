@@ -36,23 +36,34 @@ function write(data: ProgressData): void {
 	}
 }
 
-const initial = read();
-
+// Starts empty on both server and client so the first client render matches the SSR HTML;
+// the layout calls load() after mount to pull in the saved progress.
 class ProgressStore {
-	completed = new SvelteSet<string>(initial.completed);
-	lastVisited = $state<string | null>(initial.lastVisited);
+	completed = new SvelteSet<string>();
+	lastVisited = $state<string | null>(null);
+	#loaded = false;
+
+	load(): void {
+		if (this.#loaded) return;
+		this.#loaded = true;
+		const saved = read();
+		for (const id of saved.completed) this.completed.add(id);
+		this.lastVisited ??= saved.lastVisited;
+	}
 
 	isCompleted(id: string): boolean {
 		return this.completed.has(id);
 	}
 
 	toggle(id: string): void {
+		this.load();
 		if (this.completed.has(id)) this.completed.delete(id);
 		else this.completed.add(id);
 		write({ completed: [...this.completed], lastVisited: this.lastVisited });
 	}
 
 	visit(id: string): void {
+		this.load();
 		if (this.lastVisited === id) return;
 		this.lastVisited = id;
 		write({ completed: [...this.completed], lastVisited: id });

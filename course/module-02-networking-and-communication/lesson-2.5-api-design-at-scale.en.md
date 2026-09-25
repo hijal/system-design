@@ -218,7 +218,9 @@ if (cached !== undefined) {
 // Step 2 — validate the body (runtime input is never trusted via a type assertion)
 const parseResult = createTaskSchema.safeParse(req.body);
 if (!parseResult.success) {
-	/* ... 422 with the error contract ... */
+	// 422 with the error contract. NOT cached: nothing was executed, so a retry
+	// with a corrected body and the same key must be processed fresh (Stripe does the same).
+	/* ... */
 }
 
 // Step 3 — the actual "write", the non-idempotent part we are protecting

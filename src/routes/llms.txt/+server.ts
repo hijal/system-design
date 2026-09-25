@@ -20,6 +20,15 @@ export const GET: RequestHandler = ({ url }) => {
 		}
 		lines.push('');
 	}
+	lines.push('## English edition', '');
+	for (const lesson of catalogs.en.lessons) {
+		if (!lesson.available) continue;
+		const path = lesson.href.split('?')[0];
+		lines.push(
+			`- [${lesson.id} — ${lesson.title}](${origin}${path}.md?lang=en): ${origin}${lesson.href}`
+		);
+	}
+	lines.push('');
 	return new Response(lines.join('\n'), {
 		headers: { 'content-type': 'text/plain; charset=utf-8' }
 	});

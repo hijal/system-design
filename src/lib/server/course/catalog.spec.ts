@@ -48,6 +48,14 @@ describe('course discovery', () => {
 			createCatalog(base, { ...sources, '/course/module-01/lesson-1.1-other.md': '# Duplicate' })
 		).toThrow('Duplicate course ID 1.1:bn');
 	});
+	it('fails loudly instead of rendering an empty course when the curriculum heading moves', () => {
+		expect(() => createCatalog('## Curriculum\n### Module 1: X\n- 1.1 Y', sources)).toThrow(
+			'No modules found'
+		);
+	});
+	it('numbers exit challenges so they stay distinguishable in search results', () => {
+		expect(createCatalog(base, sources, 'en').lessons[2].title).toBe('Module 1 Exit Challenge');
+	});
 });
 describe('lesson rendering', () => {
 	it('preserves safe answer-key disclosures, code, and tables while removing executable HTML', () => {
@@ -68,6 +76,10 @@ describe('lesson rendering', () => {
 		);
 		expect(rendered.headings.map((h) => h.id)).toEqual(['নতুন-বিষয়', 'নতুন-বিষয়-2']);
 		expect(rendered.html).toContain('href="/lesson-2.1?lang=en#dns"');
+	});
+	it('keeps rel on external links through sanitization', () => {
+		const rendered = renderLesson('# Title\n\n[x](https://example.com)', 'bn');
+		expect(rendered.html).toContain('rel="noopener noreferrer"');
 	});
 	it('highlights every code fence language the course content uses', () => {
 		const fences: [string, string][] = [

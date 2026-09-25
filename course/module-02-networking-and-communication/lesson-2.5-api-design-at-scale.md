@@ -353,7 +353,8 @@ app.post(
 				'Request body failed validation.',
 				parseResult.error.flatten()
 			);
-			idempotencyStore.set(idempotencyKey, { statusCode: 422, body });
+			// Validation error cache করা হয় না: কিছুই execute হয়নি, তাই client body ঠিক করে
+			// একই key দিয়ে retry করলে সেটা নতুন করে process হওয়া উচিত (Stripe ও তাই করে)
 			res.status(422).json(body);
 			return;
 		}

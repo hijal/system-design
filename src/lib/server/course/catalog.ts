@@ -53,7 +53,7 @@ export function createCatalog(
 			title:
 				locale === 'en'
 					? kind === 'challenge'
-						? 'Module Exit Challenge'
+						? `Module ${moduleId} Exit Challenge`
 						: (englishTitles[id] ?? cleanTitle(translatedHeading ?? title))
 					: cleanTitle(title),
 			moduleId,
@@ -77,8 +77,16 @@ export function createCatalog(
 		if (lesson) current.lessons.push(entry(lesson[1], lesson[2], 'lesson', current.id));
 		else if (/^- \*\*Module Exit Challenge\*\*/.test(line))
 			current.lessons.push(
-				entry(`${current.id}-challenge`, 'Module Exit Challenge', 'challenge', current.id)
+				entry(
+					`${current.id}-challenge`,
+					`Module ${current.id} Exit Challenge`,
+					'challenge',
+					current.id
+				)
 			);
 	}
+	// A renamed curriculum heading would otherwise silently produce an empty course.
+	if (modules.length === 0)
+		throw new Error('No modules found: expected "## ৯. Curriculum" … "## ১০." in course/main.md');
 	return { modules, contents, lessons: modules.flatMap((module) => module.lessons) };
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
 	import Icon from '$lib/docs/Icon.svelte';
 	import { copy, localizedHref } from '$lib/docs/i18n';
@@ -22,6 +23,7 @@
 		theme ??
 			(browser && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
 	);
+	onMount(() => courseProgress.load());
 	afterNavigate(() => {
 		mobileOpen = false;
 		query = '';

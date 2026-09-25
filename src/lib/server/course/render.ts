@@ -80,6 +80,7 @@ export function renderLesson(raw: string, locale: Locale) {
 		allowedAttributes: {
 			...sanitizeHtml.defaults.allowedAttributes,
 			'*': ['id', 'class'],
+			a: [...(sanitizeHtml.defaults.allowedAttributes.a ?? []), 'rel'],
 			details: ['open'],
 			img: ['src', 'alt', 'width', 'height', 'loading']
 		},
