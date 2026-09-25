@@ -22,6 +22,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-6.2-raft/`](lesson-6.2-raft/)                               | 6.2 — Consensus & Raft               | 1    | Raft election, partition, election restriction          |
 | [`lesson-6.3-session-guarantees/`](lesson-6.3-session-guarantees/)   | 6.3 — Quorum in Practice             | 1    | Replica routing, consistent prefix, read repair         |
 | [`lesson-6.4-logical-clocks/`](lesson-6.4-logical-clocks/)           | 6.4 — Logical Clocks                 | 1    | Clock skew LWW, Lamport, vector clock + siblings        |
+| [`lesson-6.5-consistency-models/`](lesson-6.5-consistency-models/)   | 6.5 — Consistency Models             | 1    | History checker (mini Jepsen), model ladder             |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -56,6 +57,7 @@ cd lesson-6.1-split-brain && npm install && npm run typecheck
 cd lesson-6.2-raft && npm install && npm run typecheck
 cd lesson-6.3-session-guarantees && npm install && npm run typecheck
 cd lesson-6.4-logical-clocks && npm install && npm run typecheck
+cd lesson-6.5-consistency-models && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।

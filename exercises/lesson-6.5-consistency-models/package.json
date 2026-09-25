@@ -1,0 +1,16 @@
+{
+	"name": "taskflow-consistency-models-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"models": "npm run build && node dist/models.js",
+		"jepsen": "npm run build && node dist/jepsen.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
