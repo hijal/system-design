@@ -1,0 +1,23 @@
+{
+	"name": "taskflow-pooling-nplusone-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"pool": "npm run build && node dist/pool.js",
+		"nplusone": "npm run build && node dist/nplusone.js",
+		"hydration": "npm run build && node dist/hydration.js"
+	},
+	"dependencies": {
+		"pg": "^8.13.1",
+		"sequelize": "^6.37.5",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/pg": "^8.11.10",
+		"typescript": "^6.0.3"
+	}
+}

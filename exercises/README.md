@@ -14,6 +14,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-5.2-data-modeling/`](lesson-5.2-data-modeling/)             | 5.2 — Schema & Data Modeling         | 1    | Anomaly, denormalized counter, মাপা সহ      |
 | [`lesson-5.4-indexing/`](lesson-5.4-indexing/)                       | 5.4 — Indexing Deep Dive             | 1    | EXPLAIN ANALYZE lab, index এর লেখার দাম     |
 | [`lesson-5.5-transactions/`](lesson-5.5-transactions/)               | 5.5 — Transactions & Isolation       | 1    | Anomaly timeline, lost update এর ৭টা সমাধান |
+| [`lesson-5.6-pooling-nplusone/`](lesson-5.6-pooling-nplusone/)       | 5.6 — Connection Pooling & N+1       | 1    | Pool size sweep, N+1, hydration মাপা        |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -40,6 +41,7 @@ cd lesson-4.4-redis-cache && npm install && npm run typecheck
 cd lesson-5.2-data-modeling && npm install && npm run typecheck
 cd lesson-5.4-indexing && npm install && npm run typecheck
 cd lesson-5.5-transactions && npm install && npm run typecheck
+cd lesson-5.6-pooling-nplusone && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
