@@ -1,0 +1,17 @@
+# শুধু PostgreSQL container এ — script গুলো তোমার মেশিনে সাধারণ Node process হিসেবে চলবে।
+# Port 5434, যাতে তোমার মেশিনের নিজস্ব Postgres (5432) বা Lesson 4.4 এর exercise (5433)
+# এর সাথে সংঘাত না লাগে।
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - '5434:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15
