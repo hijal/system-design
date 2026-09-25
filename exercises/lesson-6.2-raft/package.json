@@ -1,0 +1,20 @@
+{
+	"name": "taskflow-raft-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"election": "npm run build && node dist/election.js",
+		"partition": "npm run build && node dist/partition.js safe",
+		"unsafe": "npm run build && node dist/partition.js unsafe"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	},
+	"dependencies": {
+		"zod": "^3.25.76"
+	}
+}
