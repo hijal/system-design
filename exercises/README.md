@@ -18,6 +18,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-5.7-replication/`](lesson-5.7-replication/)                 | 5.7 — Replication                    | 2    | Primary + replica, lag, read-your-writes, failover      |
 | [`lesson-5.8-sharding/`](lesson-5.8-sharding/)                       | 5.8 — Sharding & Partitioning        | 1    | Partition pruning, retention, shard key, scatter-gather |
 | [`lesson-5.9-quorum/`](lesson-5.9-quorum/)                           | 5.9 — CAP & Quorum                   | 1    | Quorum simulation (R+W>N), CP বনাম AP partition         |
+| [`lesson-6.1-split-brain/`](lesson-6.1-split-brain/)                 | 6.1 — Failure Model & Split Brain    | 1    | Timeout trade-off, process pause, fencing token         |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -48,6 +49,7 @@ cd lesson-5.6-pooling-nplusone && npm install && npm run typecheck
 cd lesson-5.7-replication && npm install && npm run typecheck
 cd lesson-5.8-sharding && npm install && npm run typecheck
 cd lesson-5.9-quorum && npm install && npm run typecheck
+cd lesson-6.1-split-brain && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
