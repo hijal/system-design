@@ -1,0 +1,17 @@
+{
+	"name": "taskflow-session-guarantees-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"session": "npm run build && node dist/session.js",
+		"prefix": "npm run build && node dist/prefix.js",
+		"quorum": "npm run build && node dist/quorum.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
