@@ -1,0 +1,16 @@
+{
+	"name": "taskflow-logical-clocks-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"clocks": "npm run build && node dist/clocks.js",
+		"lww": "npm run build && node dist/lww.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
