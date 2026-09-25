@@ -166,3 +166,25 @@ Interviewer আসলে যা দেখতে চায়:
 > 3. এই ৩টা non-functional requirement এর মধ্যে কোনটা সবচেয়ে বেশি architecture কে প্রভাবিত করবে বলে তোমার মনে হয়, এবং কেন?
 
 তোমার উত্তর লিখে পাঠাও — আমি দেখব তুমি functional আর non-functional requirement এর পার্থক্যটা আসলেই ধরতে পারছ কিনা, নাকি এখনো "feature list" আর "requirement" গুলিয়ে ফেলছ। এটা খুবই common একটা junior-level ভুল, আর এটা ধরিয়ে দেওয়াটাই আজকের exercise এর আসল উদ্দেশ্য।
+
+---
+
+## ৭. Progress Ledger
+
+```
+=== PROGRESS LEDGER ===
+Completed: —
+Current: 1.1 — System Design আসলে কী, কেন শিখবো, Engineer রা কীভাবে চিন্তা করে
+TaskFlow state: single Express server + 1 Postgres, ~100 users
+Terms learned: System Design, Scale/Scaling, Trade-off, Functional Requirement,
+Non-functional Requirement
+Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Next: 1.2 — The Design Framework (requirements → estimation → high-level design → deep dive → trade-off)
+=======================
+```
+
+---
+
+## ৮. পরের Lesson
+
+Exercise টা করে পাঠাও, আমি দেখব functional আর non-functional requirement ঠিকমতো আলাদা করতে পারছ কিনা। রেডি হলে `next` লিখো — Lesson 1.2 এ যাব, যেখানে একটা **Design Framework** শিখব: যেকোনো system design প্রশ্নে requirements → estimation → high-level design → deep dive → trade-off — এই কাঠামো ধরে কীভাবে এগোতে হয়। বাকি পুরো course এই কাঠামোর উপরেই দাঁড়াবে।

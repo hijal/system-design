@@ -164,3 +164,25 @@ Read the scenario below, then answer. I am not giving a model answer up front �
 > 3. Of those three non-functional requirements, which do you think will influence the architecture the most, and why?
 
 Send me your answer. I will be looking at whether you can genuinely separate functional from non-functional requirements, or whether you are still mixing up "feature list" with "requirements". That confusion is a very common junior-level mistake, and catching it is the real point of today's exercise.
+
+---
+
+## 7. Progress Ledger
+
+```
+=== PROGRESS LEDGER ===
+Completed: —
+Current: 1.1 — What is System Design, why learn it, and how engineers think
+TaskFlow state: single Express server + 1 Postgres, ~100 users
+Terms learned: System Design, Scale/Scaling, Trade-off, Functional Requirement,
+Non-functional Requirement
+Weak spots: [where you got stuck — write it yourself]
+Next: 1.2 — The Design Framework (requirements → estimation → high-level design → deep dive → trade-off)
+=======================
+```
+
+---
+
+## 8. Next Lesson
+
+Send me the exercise and I will check whether you can cleanly separate functional from non-functional requirements. When you are ready, write `next` — we move to Lesson 1.2, where we learn a **Design Framework**: how to work through any system design question in the order requirements → estimation → high-level design → deep dive → trade-off. The rest of the course is built on this structure.
