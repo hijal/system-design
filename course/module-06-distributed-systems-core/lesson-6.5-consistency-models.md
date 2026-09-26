@@ -129,8 +129,8 @@ Causal এর একটা বিশেষ গুরুত্ব আছে: গ�
    Strict serializable    │  transaction + আসল সময় (Spanner) ─────────── ১.৮
           │
    Linearizable           │  একটাই কপি, আসল সময় মানে       lock, leader, unique নাম
-          │                    ── partition এ সব দিক থেকে উত্তর দেওয়া অসম্ভব (CAP) ──
    Sequential             │  এক সারি, শুধু নিজের ক্রম
+          │                    ── partition এ সব দিক থেকে উত্তর দেওয়া অসম্ভব (CAP) ──
           │
    Causal                 │  কার্যকারণ সবাই একই ক্রমে দেখে    ← partition এও সম্ভব
           │
@@ -141,7 +141,7 @@ Causal এর একটা বিশেষ গুরুত্ব আছে: গ�
                      দুর্বল — বেশি অবাক করা, সস্তা, সবসময় উত্তর দেয়
 ```
 
-উপরের ধাপ নিচের সব নিশ্চয়তা দেয় (linearizable হলে causal ও, read-your-writes ও)। নিচে নামলে দুটো জিনিস পাও: কম latency (কাছের replica থেকে উত্তর), আর partition এ availability। আর দুটো জিনিস হারাও: প্রতিটা ধাপে user কে একটা নতুন ধরনের অদ্ভুত জিনিস দেখানোর অনুমতি দাও — `models` এর table এর প্রতিটা ✗ একটা support ticket।
+উপরের ধাপ নিচের সব নিশ্চয়তা দেয় (linearizable হলে causal ও, read-your-writes ও)। নিচে নামলে দুটো জিনিস পাও: কম latency (কাছের replica থেকে উত্তর), আর partition এ availability। আর একটা জিনিস হারাও: প্রতিটা ধাপে user কে একটা নতুন ধরনের অদ্ভুত জিনিস দেখানোর অনুমতি দাও — `models` এর table এর প্রতিটা ✗ একটা support ticket।
 
 ### ১.৭ Jepsen — দাবি নয়, history
 

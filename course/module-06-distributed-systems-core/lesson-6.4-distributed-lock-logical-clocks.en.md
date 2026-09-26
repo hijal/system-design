@@ -90,7 +90,7 @@ The exercise's `npm run lww` — like TaskFlow's pilot: three replicas, n3 (Sing
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the numbers are identical.)
 
-**"Later edit lost to the earlier one" — 10.** Meaning: the bot **saw** the title, then wrote it with `[DONE]` — its write really was later, and made knowing the earlier one — and yet the earlier one won. Measured: all 10 are the bot's, all 10 on n3. The bot reacts in 200 ms, n3's clock is 400 ms behind, so the timestamp of the bot's write is **older even than the write it saw before writing**. Ticket 1 exactly.
+**"Later edit lost to the earlier one" — 10.** Meaning: the bot **saw** the title, then wrote it with `[DONE]` — its write really was later, and was made with knowledge of the earlier one — and yet the earlier one won. Measured: all 10 are the bot's, all 10 on n3. The bot reacts in 200 ms, n3's clock is 400 ms behind, so the timestamp of the bot's write is **older even than the write it saw before writing**. Ticket 1 exactly.
 
 (The exercise's experiment 1: fixing n3's clock drops this column from 10 to 0. So this damage is entirely the clock's.)
 

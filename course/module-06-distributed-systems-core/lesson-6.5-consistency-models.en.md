@@ -131,8 +131,8 @@ A ✓ in the last column — all replicas eventually reached the same value (hav
    Strict serializable    │  transactions + real time (Spanner) ─────────── 1.8
           │
    Linearizable           │  one copy, respects real time      locks, leaders, unique names
-          │                    ── impossible to answer from every side during a partition (CAP) ──
    Sequential             │  one line, only your own order
+          │                    ── impossible to answer from every side during a partition (CAP) ──
           │
    Causal                 │  everyone sees causality in the same order    ← possible even under partition
           │
@@ -143,7 +143,7 @@ A ✓ in the last column — all replicas eventually reached the same value (hav
                      weaker — more surprises, cheaper, always answers
 ```
 
-A higher rung gives every guarantee of the lower ones (if it's linearizable, it's causal too, and read-your-writes too). Going down gets you two things: lower latency (answers from a nearby replica), and availability during partitions. And loses two things: at each step you allow users to see a new kind of oddity — every ✗ in `models`' table is a support ticket.
+A higher rung gives every guarantee of the lower ones (if it's linearizable, it's causal too, and read-your-writes too). Going down gets you two things: lower latency (answers from a nearby replica), and availability during partitions. And loses one thing: at each step you allow users to see a new kind of oddity — every ✗ in `models`' table is a support ticket.
 
 ### 1.7 Jepsen — histories, not claims
 
