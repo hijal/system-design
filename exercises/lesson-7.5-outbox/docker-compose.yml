@@ -1,0 +1,28 @@
+# Postgres (comment আর outbox) আর Redis (event stream) — দুটোই container এ; writer, relay আর
+# scenario তোমার মেশিনে সাধারণ Node process। Port 5443/6382, যাতে আগের exercise গুলোর সাথে সংঘাত না লাগে।
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - '5443:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:8-alpine
+    # Event stream এর Redis — queue এর মতোই: কিছু ফেলে দেবে না, restart এ টিকবে (Lesson 7.3)
+    command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendonly yes --appendfsync everysec
+    ports:
+      - '6382:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 15

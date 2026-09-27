@@ -6,27 +6,28 @@ copy-paste করতে হয় না।
 
 Tier 3 (design exercise) এখানে থাকে না — সেখানে চিন্তাটাই deliverable, code নেই।
 
-| Exercise                                                             | Lesson                                      | Tier | কী দেখায়                                                 |
-| -------------------------------------------------------------------- | ------------------------------------------- | ---- | --------------------------------------------------------- |
-| [`lesson-2.5-idempotency/`](lesson-2.5-idempotency/)                 | 2.5 — API Design at Scale                   | 1    | Idempotency-Key দিয়ে retry-safe POST                     |
-| [`lesson-3.3-nginx-reverse-proxy/`](lesson-3.3-nginx-reverse-proxy/) | 3.3 — Reverse Proxy vs Forward Proxy        | 2    | Nginx reverse proxy + Round Robin LB                      |
-| [`lesson-4.4-redis-cache/`](lesson-4.4-redis-cache/)                 | 4.4 — Redis Hands-on                        | 1    | Cache-Aside + invalidate-on-write, মাপা সহ                |
-| [`lesson-5.2-data-modeling/`](lesson-5.2-data-modeling/)             | 5.2 — Schema & Data Modeling                | 1    | Anomaly, denormalized counter, মাপা সহ                    |
-| [`lesson-5.4-indexing/`](lesson-5.4-indexing/)                       | 5.4 — Indexing Deep Dive                    | 1    | EXPLAIN ANALYZE lab, index এর লেখার দাম                   |
-| [`lesson-5.5-transactions/`](lesson-5.5-transactions/)               | 5.5 — Transactions & Isolation              | 1    | Anomaly timeline, lost update এর ৭টা সমাধান               |
-| [`lesson-5.6-pooling-nplusone/`](lesson-5.6-pooling-nplusone/)       | 5.6 — Connection Pooling & N+1              | 1    | Pool size sweep, N+1, hydration মাপা                      |
-| [`lesson-5.7-replication/`](lesson-5.7-replication/)                 | 5.7 — Replication                           | 2    | Primary + replica, lag, read-your-writes, failover        |
-| [`lesson-5.8-sharding/`](lesson-5.8-sharding/)                       | 5.8 — Sharding & Partitioning               | 1    | Partition pruning, retention, shard key, scatter-gather   |
-| [`lesson-5.9-quorum/`](lesson-5.9-quorum/)                           | 5.9 — CAP & Quorum                          | 1    | Quorum simulation (R+W>N), CP বনাম AP partition           |
-| [`lesson-6.1-split-brain/`](lesson-6.1-split-brain/)                 | 6.1 — Failure Model & Split Brain           | 1    | Timeout trade-off, process pause, fencing token           |
-| [`lesson-6.2-raft/`](lesson-6.2-raft/)                               | 6.2 — Consensus & Raft                      | 1    | Raft election, partition, election restriction            |
-| [`lesson-6.3-session-guarantees/`](lesson-6.3-session-guarantees/)   | 6.3 — Quorum in Practice                    | 1    | Replica routing, consistent prefix, read repair           |
-| [`lesson-6.4-logical-clocks/`](lesson-6.4-logical-clocks/)           | 6.4 — Logical Clocks                        | 1    | Clock skew LWW, Lamport, vector clock + siblings          |
-| [`lesson-6.5-consistency-models/`](lesson-6.5-consistency-models/)   | 6.5 — Consistency Models                    | 1    | History checker (mini Jepsen), model ladder               |
-| [`lesson-7.1-async-thinking/`](lesson-7.1-async-thinking/)           | 7.1 — Async Thinking                        | 1    | ধীর provider, cascading failure, sync বনাম queue          |
-| [`lesson-7.2-queue-vs-pubsub/`](lesson-7.2-queue-vs-pubsub/)         | 7.2 — Message Queue vs Pub/Sub              | 1    | Queue, pub/sub, log: fanout, crash, replay, ordering      |
-| [`lesson-7.3-bullmq/`](lesson-7.3-bullmq/)                           | 7.3 — BullMQ Hands-on                       | 1    | API/worker/Redis crash, stalled job, retry, job ID dedupe |
-| [`lesson-7.4-reliable-consumers/`](lesson-7.4-reliable-consumers/)   | 7.4 — Idempotency, Retry, DLQ, Backpressure | 1    | Crash point গোনা, retry storm, poison/DLQ, backpressure   |
+| Exercise                                                             | Lesson                                      | Tier | কী দেখায়                                                      |
+| -------------------------------------------------------------------- | ------------------------------------------- | ---- | -------------------------------------------------------------- |
+| [`lesson-2.5-idempotency/`](lesson-2.5-idempotency/)                 | 2.5 — API Design at Scale                   | 1    | Idempotency-Key দিয়ে retry-safe POST                          |
+| [`lesson-3.3-nginx-reverse-proxy/`](lesson-3.3-nginx-reverse-proxy/) | 3.3 — Reverse Proxy vs Forward Proxy        | 2    | Nginx reverse proxy + Round Robin LB                           |
+| [`lesson-4.4-redis-cache/`](lesson-4.4-redis-cache/)                 | 4.4 — Redis Hands-on                        | 1    | Cache-Aside + invalidate-on-write, মাপা সহ                     |
+| [`lesson-5.2-data-modeling/`](lesson-5.2-data-modeling/)             | 5.2 — Schema & Data Modeling                | 1    | Anomaly, denormalized counter, মাপা সহ                         |
+| [`lesson-5.4-indexing/`](lesson-5.4-indexing/)                       | 5.4 — Indexing Deep Dive                    | 1    | EXPLAIN ANALYZE lab, index এর লেখার দাম                        |
+| [`lesson-5.5-transactions/`](lesson-5.5-transactions/)               | 5.5 — Transactions & Isolation              | 1    | Anomaly timeline, lost update এর ৭টা সমাধান                    |
+| [`lesson-5.6-pooling-nplusone/`](lesson-5.6-pooling-nplusone/)       | 5.6 — Connection Pooling & N+1              | 1    | Pool size sweep, N+1, hydration মাপা                           |
+| [`lesson-5.7-replication/`](lesson-5.7-replication/)                 | 5.7 — Replication                           | 2    | Primary + replica, lag, read-your-writes, failover             |
+| [`lesson-5.8-sharding/`](lesson-5.8-sharding/)                       | 5.8 — Sharding & Partitioning               | 1    | Partition pruning, retention, shard key, scatter-gather        |
+| [`lesson-5.9-quorum/`](lesson-5.9-quorum/)                           | 5.9 — CAP & Quorum                          | 1    | Quorum simulation (R+W>N), CP বনাম AP partition                |
+| [`lesson-6.1-split-brain/`](lesson-6.1-split-brain/)                 | 6.1 — Failure Model & Split Brain           | 1    | Timeout trade-off, process pause, fencing token                |
+| [`lesson-6.2-raft/`](lesson-6.2-raft/)                               | 6.2 — Consensus & Raft                      | 1    | Raft election, partition, election restriction                 |
+| [`lesson-6.3-session-guarantees/`](lesson-6.3-session-guarantees/)   | 6.3 — Quorum in Practice                    | 1    | Replica routing, consistent prefix, read repair                |
+| [`lesson-6.4-logical-clocks/`](lesson-6.4-logical-clocks/)           | 6.4 — Logical Clocks                        | 1    | Clock skew LWW, Lamport, vector clock + siblings               |
+| [`lesson-6.5-consistency-models/`](lesson-6.5-consistency-models/)   | 6.5 — Consistency Models                    | 1    | History checker (mini Jepsen), model ladder                    |
+| [`lesson-7.1-async-thinking/`](lesson-7.1-async-thinking/)           | 7.1 — Async Thinking                        | 1    | ধীর provider, cascading failure, sync বনাম queue               |
+| [`lesson-7.2-queue-vs-pubsub/`](lesson-7.2-queue-vs-pubsub/)         | 7.2 — Message Queue vs Pub/Sub              | 1    | Queue, pub/sub, log: fanout, crash, replay, ordering           |
+| [`lesson-7.3-bullmq/`](lesson-7.3-bullmq/)                           | 7.3 — BullMQ Hands-on                       | 1    | API/worker/Redis crash, stalled job, retry, job ID dedupe      |
+| [`lesson-7.4-reliable-consumers/`](lesson-7.4-reliable-consumers/)   | 7.4 — Idempotency, Retry, DLQ, Backpressure | 1    | Crash point গোনা, retry storm, poison/DLQ, backpressure        |
+| [`lesson-7.5-outbox/`](lesson-7.5-outbox/)                           | 7.5 — Event-Driven Architecture             | 1    | Dual write বনাম transactional outbox, crash আর Redis outage সহ |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -66,6 +67,7 @@ cd lesson-7.1-async-thinking && npm install && npm run typecheck
 cd lesson-7.2-queue-vs-pubsub && npm install && npm run typecheck
 cd lesson-7.3-bullmq && npm install && npm run typecheck
 cd lesson-7.4-reliable-consumers && npm install && npm run typecheck
+cd lesson-7.5-outbox && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
