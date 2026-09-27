@@ -1,0 +1,21 @@
+{
+	"name": "taskflow-reliable-consumers-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"idempotency": "npm run build && node dist/idempotency.js",
+		"storm": "npm run build && node dist/storm.js",
+		"dlq": "npm run build && node dist/dlq.js",
+		"backpressure": "npm run build && node dist/backpressure.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	},
+	"dependencies": {
+		"zod": "^3.25.76"
+	}
+}
