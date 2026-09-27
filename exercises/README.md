@@ -24,6 +24,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-6.4-logical-clocks/`](lesson-6.4-logical-clocks/)           | 6.4 — Logical Clocks                 | 1    | Clock skew LWW, Lamport, vector clock + siblings        |
 | [`lesson-6.5-consistency-models/`](lesson-6.5-consistency-models/)   | 6.5 — Consistency Models             | 1    | History checker (mini Jepsen), model ladder             |
 | [`lesson-7.1-async-thinking/`](lesson-7.1-async-thinking/)           | 7.1 — Async Thinking                 | 1    | ধীর provider, cascading failure, sync বনাম queue        |
+| [`lesson-7.2-queue-vs-pubsub/`](lesson-7.2-queue-vs-pubsub/)         | 7.2 — Message Queue vs Pub/Sub       | 1    | Queue, pub/sub, log: fanout, crash, replay, ordering    |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -60,6 +61,7 @@ cd lesson-6.3-session-guarantees && npm install && npm run typecheck
 cd lesson-6.4-logical-clocks && npm install && npm run typecheck
 cd lesson-6.5-consistency-models && npm install && npm run typecheck
 cd lesson-7.1-async-thinking && npm install && npm run typecheck
+cd lesson-7.2-queue-vs-pubsub && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।

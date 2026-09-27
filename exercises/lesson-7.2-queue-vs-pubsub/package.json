@@ -1,0 +1,23 @@
+{
+	"name": "taskflow-queue-vs-pubsub-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"fanout": "npm run build && node dist/main.js fanout",
+		"crash": "npm run build && node dist/main.js crash",
+		"slow": "npm run build && node dist/main.js slow",
+		"replay": "npm run build && node dist/main.js replay",
+		"ordering": "npm run build && node dist/main.js ordering",
+		"all": "npm run build && node dist/main.js all"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	},
+	"dependencies": {
+		"zod": "^3.25.76"
+	}
+}
