@@ -28,6 +28,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-7.3-bullmq/`](lesson-7.3-bullmq/)                           | 7.3 — BullMQ Hands-on                       | 1    | API/worker/Redis crash, stalled job, retry, job ID dedupe      |
 | [`lesson-7.4-reliable-consumers/`](lesson-7.4-reliable-consumers/)   | 7.4 — Idempotency, Retry, DLQ, Backpressure | 1    | Crash point গোনা, retry storm, poison/DLQ, backpressure        |
 | [`lesson-7.5-outbox/`](lesson-7.5-outbox/)                           | 7.5 — Event-Driven Architecture             | 1    | Dual write বনাম transactional outbox, crash আর Redis outage সহ |
+| [`lesson-7.6-batch-stream-olap/`](lesson-7.6-batch-stream-olap/)     | 7.6 — Batch vs Stream, OLTP vs OLAP         | 1    | Postgres বনাম DuckDB, OLTP এর উপর analytics এর চাপ, watermark  |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -68,6 +69,7 @@ cd lesson-7.2-queue-vs-pubsub && npm install && npm run typecheck
 cd lesson-7.3-bullmq && npm install && npm run typecheck
 cd lesson-7.4-reliable-consumers && npm install && npm run typecheck
 cd lesson-7.5-outbox && npm install && npm run typecheck
+cd lesson-7.6-batch-stream-olap && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।

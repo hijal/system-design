@@ -1,0 +1,20 @@
+# শুধু Postgres container এ — TaskFlow এর "production" OLTP database এর ভূমিকায়।
+# DuckDB (analytics) container লাগে না: সে একটা library, একটা file এ data রাখে (data/analytics.duckdb)।
+# cpus: 2 — ইচ্ছা করে সীমা, যাতে তোমার মেশিনের core সংখ্যা যাই হোক, analytics আর OLTP এর CPU এর লড়াই
+# একই রকম দেখা যায় (production database এরও core সীমিত)। Port 5444 — আগের exercise গুলোর সাথে সংঘাত নেই।
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - '5444:5432'
+    cpus: 2
+    shm_size: 256mb
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15

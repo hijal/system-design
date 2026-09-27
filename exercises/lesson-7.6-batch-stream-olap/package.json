@@ -1,0 +1,23 @@
+{
+	"name": "taskflow-batch-stream-olap-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"seed": "npm run build && node dist/seed.js",
+		"olap": "npm run build && node dist/olap.js",
+		"stream": "npm run build && node dist/stream.js"
+	},
+	"dependencies": {
+		"@duckdb/node-api": "1.5.5-r.5",
+		"pg": "^8.13.1",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/pg": "^8.11.10",
+		"typescript": "^6.0.3"
+	}
+}
