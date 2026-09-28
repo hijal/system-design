@@ -1,0 +1,19 @@
+# শুধু Postgres — TaskFlow এর OLTP database, যেখানে comment গুলো থাকে। pg_trgm আর full-text search দুটোই
+# Postgres এর ভেতরের জিনিস, আলাদা কিছু লাগে না। cpus: 2 — Lesson 7.6/8.1 এর মতো, যাতে সংখ্যা মেশিন ভেদে
+# কাছাকাছি থাকে। Port 5446 — আগের exercise গুলোর সাথে সংঘাত নেই।
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - '5446:5432'
+    cpus: 2
+    shm_size: 256mb
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15

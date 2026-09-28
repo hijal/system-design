@@ -31,6 +31,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-7.6-batch-stream-olap/`](lesson-7.6-batch-stream-olap/)     | 7.6 — Batch vs Stream, OLTP vs OLAP         | 1    | Postgres বনাম DuckDB, OLTP এর উপর analytics এর চাপ, watermark     |
 | [`lesson-8.1-object-storage/`](lesson-8.1-object-storage/)           | 8.1 — Object / Blob Storage                 | 1    | bytea বনাম object storage, stateless, erasure coding, S3 API      |
 | [`lesson-8.2-file-upload/`](lesson-8.2-file-upload/)                 | 8.2 — File Upload at Scale                  | 1    | App এর ভেতর দিয়ে বনাম presigned, multipart resume, CDN cache key |
+| [`lesson-8.3-search/`](lesson-8.3-search/)                           | 8.3 — Search & Inverted Index               | 1    | ILIKE বনাম trigram বনাম full-text, নিজের inverted index, BM25     |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -74,6 +75,7 @@ cd lesson-7.5-outbox && npm install && npm run typecheck
 cd lesson-7.6-batch-stream-olap && npm install && npm run typecheck
 cd lesson-8.1-object-storage && npm install && npm run typecheck
 cd lesson-8.2-file-upload && npm install && npm run typecheck
+cd lesson-8.3-search && npm install && npm run typecheck
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
