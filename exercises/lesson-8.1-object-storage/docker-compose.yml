@@ -1,0 +1,35 @@
+# Postgres (TaskFlow এর OLTP database) আর SeaweedFS (S3-compatible object storage) — দুটোই container এ;
+# script গুলো তোমার মেশিনে সাধারণ Node process।
+# cpus: 2 দুটোতেই — যাতে তোমার মেশিনের core সংখ্যা যাই হোক, তুলনাটা একই রকম দেখায় (Lesson 7.6 এর মতো)।
+# Port 5445/8335 — আগের exercise গুলোর সাথে সংঘাত নেই।
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow
+      POSTGRES_DB: taskflow
+    ports:
+      - '5445:5432'
+    cpus: 2
+    shm_size: 256mb
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskflow']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  s3:
+    # SeaweedFS — S3 API বলে এমন একটা open-source object store। এক container এ master (কোন file কোন
+    # volume এ — metadata), volume server (আসল bytes), filer আর S3 gateway — lesson এর §১.৪ এর ছবিটাই।
+    # (MinIO এর community Docker image আর Docker Hub এ পাওয়া যায় না — তাই এটা।)
+    image: chrislusf/seaweedfs:4.47
+    command: server -dir=/data -s3 -s3.port=8333 -master.volumeSizeLimitMB=256 -volume.max=100
+    ports:
+      - '8335:8333'
+    cpus: 2
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/ || exit 1']
+      interval: 2s
+      timeout: 3s
+      retries: 30
