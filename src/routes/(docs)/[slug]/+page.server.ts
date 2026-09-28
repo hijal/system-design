@@ -3,6 +3,16 @@ import { catalogs } from '$lib/server/course';
 import { renderLesson } from '$lib/server/course/render';
 import { localizedHref } from '$lib/docs/i18n';
 import type { PageServerLoad } from './$types';
+// Course content is bundled at build time, so a lesson's HTML never changes while the worker lives.
+const rendered = new Map<string, ReturnType<typeof renderLesson>>();
+function cachedRender(key: string, raw: string, locale: Parameters<typeof renderLesson>[1]) {
+	let result = rendered.get(key);
+	if (!result) {
+		result = renderLesson(raw, locale);
+		rendered.set(key, result);
+	}
+	return result;
+}
 export const load: PageServerLoad = ({ params, locals, url }) => {
 	url.searchParams.get('lang'); // Rerun this load when the selected language changes.
 	const locale = locals.courseLocale;
@@ -17,12 +27,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			404,
 			locale === 'bn' ? 'এই lesson-টি curriculum-এ নেই।' : 'This lesson is not in the curriculum.'
 		);
-	const raw = course.contents.get(`${id}:${locale}`) ?? '';
-	const rendered = lesson.available ? renderLesson(raw, locale) : { html: '', headings: [] };
+	const key = `${id}:${locale}`;
+	const raw = course.contents.get(key) ?? '';
+	const page = lesson.available ? cachedRender(key, raw, locale) : { html: '', headings: [] };
 	return {
 		lesson,
 		raw,
-		...rendered,
+		...page,
 		module: course.modules.find((m) => m.id === lesson.moduleId)!,
 		previous: course.lessons[index - 1] ?? null,
 		next: course.lessons[index + 1] ?? null

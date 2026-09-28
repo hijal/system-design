@@ -104,6 +104,9 @@
 		name="description"
 		content={`${data.module.title} — ${data.lesson.title}. System Design Handbook.`}
 	/><link
+		rel="canonical"
+		href={`${page.url.origin}${localizedHref(page.url.pathname, data.locale)}`}
+	/><link
 		rel="alternate"
 		hreflang="bn"
 		href={`${page.url.origin}${localizedHref(page.url.pathname, 'bn')}`}
@@ -156,7 +159,7 @@
 						<details class="ai-actions">
 							<summary>{t.moreWays}</summary>
 							<div class="ai-actions-menu">
-								<a href={`${page.url.pathname}.md${page.url.search}`} target="_blank" rel="noopener"
+								<a href={mdUrl} target="_blank" rel="noopener"
 									><Icon name="external" size={13} />{t.viewMarkdown}</a
 								><a
 									href={`https://chatgpt.com/?q=${encodeURIComponent(aiPrompt)}`}

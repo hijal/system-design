@@ -12,17 +12,18 @@ import 'prismjs/components/prism-markdown';
 import { localizedHref, type Locale } from '../../docs/i18n';
 import { lessonBody } from './catalog';
 export type Heading = { id: string; text: string; level: number };
+// Stateless across calls, so one parser serves every render.
+const md = new MarkdownIt({
+	html: true,
+	linkify: true,
+	typographer: false,
+	highlight(code, language) {
+		const grammar = Prism.languages[language];
+		return grammar ? Prism.highlight(code, grammar, language) : '';
+	}
+});
 export function renderLesson(raw: string, locale: Locale) {
 	const headings: Heading[] = [];
-	const md = new MarkdownIt({
-		html: true,
-		linkify: true,
-		typographer: false,
-		highlight(code, language) {
-			const grammar = Prism.languages[language];
-			return grammar ? Prism.highlight(code, grammar, language) : '';
-		}
-	});
 	const tokens = md.parse(lessonBody(raw), {});
 	const counts = new Map<string, number>();
 	for (let i = 0; i < tokens.length; i++) {

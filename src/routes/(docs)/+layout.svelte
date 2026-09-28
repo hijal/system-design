@@ -19,10 +19,8 @@
 	let theme = $state<'light' | 'dark' | null>(null);
 	const allLessons = $derived(data.modules.flatMap((m) => m.lessons));
 	const active = $derived(allLessons.find((l) => l.href.split('?')[0] === page.url.pathname));
-	const effectiveTheme = $derived<'light' | 'dark'>(
-		theme ??
-			(browser && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-	);
+	let systemDark = $state(false);
+	const effectiveTheme = $derived<'light' | 'dark'>(theme ?? (systemDark ? 'dark' : 'light'));
 	onMount(() => courseProgress.load());
 	afterNavigate(() => {
 		mobileOpen = false;
@@ -54,6 +52,13 @@
 			cancelled = true;
 			clearTimeout(timer);
 		};
+	});
+	$effect(() => {
+		const media = window.matchMedia('(prefers-color-scheme: dark)');
+		const sync = () => (systemDark = media.matches);
+		sync();
+		media.addEventListener('change', sync);
+		return () => media.removeEventListener('change', sync);
 	});
 	$effect(() => {
 		if (!browser) return;
