@@ -1,0 +1,18 @@
+# SeaweedFS — S3-compatible object store (Lesson 8.1 এর মতো), কিন্তু এবার authentication চালু: s3.json এ
+# একটা identity, তাই প্রতিটা request এর signature আসলেই যাচাই হয় — presigned URL এর পরীক্ষার জন্য জরুরি
+# (authentication ছাড়া SeaweedFS signature দেখেই না)। Script গুলো তোমার মেশিনে সাধারণ Node process।
+# Port 8336 — আগের exercise গুলোর সাথে সংঘাত নেই।
+services:
+  s3:
+    image: chrislusf/seaweedfs:4.47
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256 -volume.max=100
+    volumes:
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
+    ports:
+      - '8336:8333'
+    cpus: 2
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1']
+      interval: 2s
+      timeout: 3s
+      retries: 30

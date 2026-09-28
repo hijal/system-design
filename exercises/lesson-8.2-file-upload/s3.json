@@ -1,0 +1,9 @@
+{
+	"identities": [
+		{
+			"name": "taskflow-api",
+			"credentials": [{ "accessKey": "taskflow", "secretKey": "taskflow-secret" }],
+			"actions": ["Admin", "Read", "Write", "List", "Tagging"]
+		}
+	]
+}
