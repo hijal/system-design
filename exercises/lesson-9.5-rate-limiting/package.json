@@ -1,0 +1,21 @@
+{
+	"name": "taskflow-rate-limiting-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"window": "npm run build && node --expose-gc dist/window.js",
+		"bucket": "npm run build && node dist/bucket.js",
+		"distributed": "npm run build && node dist/distributed.js"
+	},
+	"dependencies": {
+		"express": "^4.21.2"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.21",
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}

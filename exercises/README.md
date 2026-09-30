@@ -36,6 +36,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-9.2-gateway-bff/`](lesson-9.2-gateway-bff/)                               | 9.2 — API Gateway & BFF                            | 1    | BFF বনাম সরাসরি (round trip, byte), gateway এর দাম, পরিচয়, canary    |
 | [`lesson-9.3-saga-2pc/`](lesson-9.3-saga-2pc/)                                     | 9.3 — Distributed Transactions: Saga, 2PC          | 1    | আসল 2PC আর in-doubt lock, saga এর recovery আর idempotency, isolation  |
 | [`lesson-9.4-discovery-breaker-bulkhead/`](lesson-9.4-discovery-breaker-bulkhead/) | 9.4 — Service Discovery, Circuit Breaker, Bulkhead | 1    | Registry বনাম static list, fail-fast এর লাভ, board কে ডুবতে না দেওয়া |
+| [`lesson-9.5-rate-limiting/`](lesson-9.5-rate-limiting/)                           | 9.5 — Rate Limiting Algorithms                     | 1    | Boundary burst, token বনাম leaky, আর instance সংখ্যার সমান ফাঁস       |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -85,6 +86,7 @@ block একসাথে paste করা যায়, আবার একটা
 (cd lesson-9.2-gateway-bff && npm install && npm run typecheck)
 (cd lesson-9.3-saga-2pc && npm install && npm run typecheck)
 (cd lesson-9.4-discovery-breaker-bulkhead && npm install && npm run typecheck)
+(cd lesson-9.5-rate-limiting && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
