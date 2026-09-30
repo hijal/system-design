@@ -6,35 +6,36 @@ copy-paste করতে হয় না।
 
 Tier 3 (design exercise) এখানে থাকে না — সেখানে চিন্তাটাই deliverable, code নেই।
 
-| Exercise                                                                         | Lesson                                      | Tier | কী দেখায়                                                            |
-| -------------------------------------------------------------------------------- | ------------------------------------------- | ---- | -------------------------------------------------------------------- |
-| [`lesson-2.5-idempotency/`](lesson-2.5-idempotency/)                             | 2.5 — API Design at Scale                   | 1    | Idempotency-Key দিয়ে retry-safe POST                                |
-| [`lesson-3.3-nginx-reverse-proxy/`](lesson-3.3-nginx-reverse-proxy/)             | 3.3 — Reverse Proxy vs Forward Proxy        | 2    | Nginx reverse proxy + Round Robin LB                                 |
-| [`lesson-4.4-redis-cache/`](lesson-4.4-redis-cache/)                             | 4.4 — Redis Hands-on                        | 1    | Cache-Aside + invalidate-on-write, মাপা সহ                           |
-| [`lesson-5.2-data-modeling/`](lesson-5.2-data-modeling/)                         | 5.2 — Schema & Data Modeling                | 1    | Anomaly, denormalized counter, মাপা সহ                               |
-| [`lesson-5.4-indexing/`](lesson-5.4-indexing/)                                   | 5.4 — Indexing Deep Dive                    | 1    | EXPLAIN ANALYZE lab, index এর লেখার দাম                              |
-| [`lesson-5.5-transactions/`](lesson-5.5-transactions/)                           | 5.5 — Transactions & Isolation              | 1    | Anomaly timeline, lost update এর ৭টা সমাধান                          |
-| [`lesson-5.6-pooling-nplusone/`](lesson-5.6-pooling-nplusone/)                   | 5.6 — Connection Pooling & N+1              | 1    | Pool size sweep, N+1, hydration মাপা                                 |
-| [`lesson-5.7-replication/`](lesson-5.7-replication/)                             | 5.7 — Replication                           | 2    | Primary + replica, lag, read-your-writes, failover                   |
-| [`lesson-5.8-sharding/`](lesson-5.8-sharding/)                                   | 5.8 — Sharding & Partitioning               | 1    | Partition pruning, retention, shard key, scatter-gather              |
-| [`lesson-5.9-quorum/`](lesson-5.9-quorum/)                                       | 5.9 — CAP & Quorum                          | 1    | Quorum simulation (R+W>N), CP বনাম AP partition                      |
-| [`lesson-6.1-split-brain/`](lesson-6.1-split-brain/)                             | 6.1 — Failure Model & Split Brain           | 1    | Timeout trade-off, process pause, fencing token                      |
-| [`lesson-6.2-raft/`](lesson-6.2-raft/)                                           | 6.2 — Consensus & Raft                      | 1    | Raft election, partition, election restriction                       |
-| [`lesson-6.3-session-guarantees/`](lesson-6.3-session-guarantees/)               | 6.3 — Quorum in Practice                    | 1    | Replica routing, consistent prefix, read repair                      |
-| [`lesson-6.4-logical-clocks/`](lesson-6.4-logical-clocks/)                       | 6.4 — Logical Clocks                        | 1    | Clock skew LWW, Lamport, vector clock + siblings                     |
-| [`lesson-6.5-consistency-models/`](lesson-6.5-consistency-models/)               | 6.5 — Consistency Models                    | 1    | History checker (mini Jepsen), model ladder                          |
-| [`lesson-7.1-async-thinking/`](lesson-7.1-async-thinking/)                       | 7.1 — Async Thinking                        | 1    | ধীর provider, cascading failure, sync বনাম queue                     |
-| [`lesson-7.2-queue-vs-pubsub/`](lesson-7.2-queue-vs-pubsub/)                     | 7.2 — Message Queue vs Pub/Sub              | 1    | Queue, pub/sub, log: fanout, crash, replay, ordering                 |
-| [`lesson-7.3-bullmq/`](lesson-7.3-bullmq/)                                       | 7.3 — BullMQ Hands-on                       | 1    | API/worker/Redis crash, stalled job, retry, job ID dedupe            |
-| [`lesson-7.4-reliable-consumers/`](lesson-7.4-reliable-consumers/)               | 7.4 — Idempotency, Retry, DLQ, Backpressure | 1    | Crash point গোনা, retry storm, poison/DLQ, backpressure              |
-| [`lesson-7.5-outbox/`](lesson-7.5-outbox/)                                       | 7.5 — Event-Driven Architecture             | 1    | Dual write বনাম transactional outbox, crash আর Redis outage সহ       |
-| [`lesson-7.6-batch-stream-olap/`](lesson-7.6-batch-stream-olap/)                 | 7.6 — Batch vs Stream, OLTP vs OLAP         | 1    | Postgres বনাম DuckDB, OLTP এর উপর analytics এর চাপ, watermark        |
-| [`lesson-8.1-object-storage/`](lesson-8.1-object-storage/)                       | 8.1 — Object / Blob Storage                 | 1    | bytea বনাম object storage, stateless, erasure coding, S3 API         |
-| [`lesson-8.2-file-upload/`](lesson-8.2-file-upload/)                             | 8.2 — File Upload at Scale                  | 1    | App এর ভেতর দিয়ে বনাম presigned, multipart resume, CDN cache key    |
-| [`lesson-8.3-search/`](lesson-8.3-search/)                                       | 8.3 — Search & Inverted Index               | 1    | ILIKE বনাম trigram বনাম full-text, নিজের inverted index, BM25        |
-| [`lesson-9.1-monolith-vs-microservices/`](lesson-9.1-monolith-vs-microservices/) | 9.1 — Monolith vs Microservices             | 1    | Function বনাম network call, আলাদা ব্যর্থতা, ভাঙা transaction         |
-| [`lesson-9.2-gateway-bff/`](lesson-9.2-gateway-bff/)                             | 9.2 — API Gateway & BFF                     | 1    | BFF বনাম সরাসরি (round trip, byte), gateway এর দাম, পরিচয়, canary   |
-| [`lesson-9.3-saga-2pc/`](lesson-9.3-saga-2pc/)                                   | 9.3 — Distributed Transactions: Saga, 2PC   | 1    | আসল 2PC আর in-doubt lock, saga এর recovery আর idempotency, isolation |
+| Exercise                                                                           | Lesson                                             | Tier | কী দেখায়                                                             |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------- | ---- | --------------------------------------------------------------------- |
+| [`lesson-2.5-idempotency/`](lesson-2.5-idempotency/)                               | 2.5 — API Design at Scale                          | 1    | Idempotency-Key দিয়ে retry-safe POST                                 |
+| [`lesson-3.3-nginx-reverse-proxy/`](lesson-3.3-nginx-reverse-proxy/)               | 3.3 — Reverse Proxy vs Forward Proxy               | 2    | Nginx reverse proxy + Round Robin LB                                  |
+| [`lesson-4.4-redis-cache/`](lesson-4.4-redis-cache/)                               | 4.4 — Redis Hands-on                               | 1    | Cache-Aside + invalidate-on-write, মাপা সহ                            |
+| [`lesson-5.2-data-modeling/`](lesson-5.2-data-modeling/)                           | 5.2 — Schema & Data Modeling                       | 1    | Anomaly, denormalized counter, মাপা সহ                                |
+| [`lesson-5.4-indexing/`](lesson-5.4-indexing/)                                     | 5.4 — Indexing Deep Dive                           | 1    | EXPLAIN ANALYZE lab, index এর লেখার দাম                               |
+| [`lesson-5.5-transactions/`](lesson-5.5-transactions/)                             | 5.5 — Transactions & Isolation                     | 1    | Anomaly timeline, lost update এর ৭টা সমাধান                           |
+| [`lesson-5.6-pooling-nplusone/`](lesson-5.6-pooling-nplusone/)                     | 5.6 — Connection Pooling & N+1                     | 1    | Pool size sweep, N+1, hydration মাপা                                  |
+| [`lesson-5.7-replication/`](lesson-5.7-replication/)                               | 5.7 — Replication                                  | 2    | Primary + replica, lag, read-your-writes, failover                    |
+| [`lesson-5.8-sharding/`](lesson-5.8-sharding/)                                     | 5.8 — Sharding & Partitioning                      | 1    | Partition pruning, retention, shard key, scatter-gather               |
+| [`lesson-5.9-quorum/`](lesson-5.9-quorum/)                                         | 5.9 — CAP & Quorum                                 | 1    | Quorum simulation (R+W>N), CP বনাম AP partition                       |
+| [`lesson-6.1-split-brain/`](lesson-6.1-split-brain/)                               | 6.1 — Failure Model & Split Brain                  | 1    | Timeout trade-off, process pause, fencing token                       |
+| [`lesson-6.2-raft/`](lesson-6.2-raft/)                                             | 6.2 — Consensus & Raft                             | 1    | Raft election, partition, election restriction                        |
+| [`lesson-6.3-session-guarantees/`](lesson-6.3-session-guarantees/)                 | 6.3 — Quorum in Practice                           | 1    | Replica routing, consistent prefix, read repair                       |
+| [`lesson-6.4-logical-clocks/`](lesson-6.4-logical-clocks/)                         | 6.4 — Logical Clocks                               | 1    | Clock skew LWW, Lamport, vector clock + siblings                      |
+| [`lesson-6.5-consistency-models/`](lesson-6.5-consistency-models/)                 | 6.5 — Consistency Models                           | 1    | History checker (mini Jepsen), model ladder                           |
+| [`lesson-7.1-async-thinking/`](lesson-7.1-async-thinking/)                         | 7.1 — Async Thinking                               | 1    | ধীর provider, cascading failure, sync বনাম queue                      |
+| [`lesson-7.2-queue-vs-pubsub/`](lesson-7.2-queue-vs-pubsub/)                       | 7.2 — Message Queue vs Pub/Sub                     | 1    | Queue, pub/sub, log: fanout, crash, replay, ordering                  |
+| [`lesson-7.3-bullmq/`](lesson-7.3-bullmq/)                                         | 7.3 — BullMQ Hands-on                              | 1    | API/worker/Redis crash, stalled job, retry, job ID dedupe             |
+| [`lesson-7.4-reliable-consumers/`](lesson-7.4-reliable-consumers/)                 | 7.4 — Idempotency, Retry, DLQ, Backpressure        | 1    | Crash point গোনা, retry storm, poison/DLQ, backpressure               |
+| [`lesson-7.5-outbox/`](lesson-7.5-outbox/)                                         | 7.5 — Event-Driven Architecture                    | 1    | Dual write বনাম transactional outbox, crash আর Redis outage সহ        |
+| [`lesson-7.6-batch-stream-olap/`](lesson-7.6-batch-stream-olap/)                   | 7.6 — Batch vs Stream, OLTP vs OLAP                | 1    | Postgres বনাম DuckDB, OLTP এর উপর analytics এর চাপ, watermark         |
+| [`lesson-8.1-object-storage/`](lesson-8.1-object-storage/)                         | 8.1 — Object / Blob Storage                        | 1    | bytea বনাম object storage, stateless, erasure coding, S3 API          |
+| [`lesson-8.2-file-upload/`](lesson-8.2-file-upload/)                               | 8.2 — File Upload at Scale                         | 1    | App এর ভেতর দিয়ে বনাম presigned, multipart resume, CDN cache key     |
+| [`lesson-8.3-search/`](lesson-8.3-search/)                                         | 8.3 — Search & Inverted Index                      | 1    | ILIKE বনাম trigram বনাম full-text, নিজের inverted index, BM25         |
+| [`lesson-9.1-monolith-vs-microservices/`](lesson-9.1-monolith-vs-microservices/)   | 9.1 — Monolith vs Microservices                    | 1    | Function বনাম network call, আলাদা ব্যর্থতা, ভাঙা transaction          |
+| [`lesson-9.2-gateway-bff/`](lesson-9.2-gateway-bff/)                               | 9.2 — API Gateway & BFF                            | 1    | BFF বনাম সরাসরি (round trip, byte), gateway এর দাম, পরিচয়, canary    |
+| [`lesson-9.3-saga-2pc/`](lesson-9.3-saga-2pc/)                                     | 9.3 — Distributed Transactions: Saga, 2PC          | 1    | আসল 2PC আর in-doubt lock, saga এর recovery আর idempotency, isolation  |
+| [`lesson-9.4-discovery-breaker-bulkhead/`](lesson-9.4-discovery-breaker-bulkhead/) | 9.4 — Service Discovery, Circuit Breaker, Bulkhead | 1    | Registry বনাম static list, fail-fast এর লাভ, board কে ডুবতে না দেওয়া |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -52,36 +53,38 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 
 ## Typecheck
 
-প্রতিটা TypeScript exercise আলাদাভাবে typecheck হয়:
+প্রতিটা TypeScript exercise আলাদাভাবে typecheck হয়। প্রতিটা লাইন নিজের subshell এ চলে, তাই পুরো
+block একসাথে paste করা যায়, আবার একটা লাইন আলাদা করেও চালানো যায় — `exercises/` থেকে:
 
 ```bash
-cd lesson-2.5-idempotency && npm install && npm run typecheck
-cd lesson-3.3-nginx-reverse-proxy/backend && npm install && npm run typecheck
-cd lesson-4.4-redis-cache && npm install && npm run typecheck
-cd lesson-5.2-data-modeling && npm install && npm run typecheck
-cd lesson-5.4-indexing && npm install && npm run typecheck
-cd lesson-5.5-transactions && npm install && npm run typecheck
-cd lesson-5.6-pooling-nplusone && npm install && npm run typecheck
-cd lesson-5.7-replication && npm install && npm run typecheck
-cd lesson-5.8-sharding && npm install && npm run typecheck
-cd lesson-5.9-quorum && npm install && npm run typecheck
-cd lesson-6.1-split-brain && npm install && npm run typecheck
-cd lesson-6.2-raft && npm install && npm run typecheck
-cd lesson-6.3-session-guarantees && npm install && npm run typecheck
-cd lesson-6.4-logical-clocks && npm install && npm run typecheck
-cd lesson-6.5-consistency-models && npm install && npm run typecheck
-cd lesson-7.1-async-thinking && npm install && npm run typecheck
-cd lesson-7.2-queue-vs-pubsub && npm install && npm run typecheck
-cd lesson-7.3-bullmq && npm install && npm run typecheck
-cd lesson-7.4-reliable-consumers && npm install && npm run typecheck
-cd lesson-7.5-outbox && npm install && npm run typecheck
-cd lesson-7.6-batch-stream-olap && npm install && npm run typecheck
-cd lesson-8.1-object-storage && npm install && npm run typecheck
-cd lesson-8.2-file-upload && npm install && npm run typecheck
-cd lesson-8.3-search && npm install && npm run typecheck
-cd lesson-9.1-monolith-vs-microservices && npm install && npm run typecheck
-cd lesson-9.2-gateway-bff && npm install && npm run typecheck
-cd lesson-9.3-saga-2pc && npm install && npm run typecheck
+(cd lesson-2.5-idempotency && npm install && npm run typecheck)
+(cd lesson-3.3-nginx-reverse-proxy/backend && npm install && npm run typecheck)
+(cd lesson-4.4-redis-cache && npm install && npm run typecheck)
+(cd lesson-5.2-data-modeling && npm install && npm run typecheck)
+(cd lesson-5.4-indexing && npm install && npm run typecheck)
+(cd lesson-5.5-transactions && npm install && npm run typecheck)
+(cd lesson-5.6-pooling-nplusone && npm install && npm run typecheck)
+(cd lesson-5.7-replication && npm install && npm run typecheck)
+(cd lesson-5.8-sharding && npm install && npm run typecheck)
+(cd lesson-5.9-quorum && npm install && npm run typecheck)
+(cd lesson-6.1-split-brain && npm install && npm run typecheck)
+(cd lesson-6.2-raft && npm install && npm run typecheck)
+(cd lesson-6.3-session-guarantees && npm install && npm run typecheck)
+(cd lesson-6.4-logical-clocks && npm install && npm run typecheck)
+(cd lesson-6.5-consistency-models && npm install && npm run typecheck)
+(cd lesson-7.1-async-thinking && npm install && npm run typecheck)
+(cd lesson-7.2-queue-vs-pubsub && npm install && npm run typecheck)
+(cd lesson-7.3-bullmq && npm install && npm run typecheck)
+(cd lesson-7.4-reliable-consumers && npm install && npm run typecheck)
+(cd lesson-7.5-outbox && npm install && npm run typecheck)
+(cd lesson-7.6-batch-stream-olap && npm install && npm run typecheck)
+(cd lesson-8.1-object-storage && npm install && npm run typecheck)
+(cd lesson-8.2-file-upload && npm install && npm run typecheck)
+(cd lesson-8.3-search && npm install && npm run typecheck)
+(cd lesson-9.1-monolith-vs-microservices && npm install && npm run typecheck)
+(cd lesson-9.2-gateway-bff && npm install && npm run typecheck)
+(cd lesson-9.3-saga-2pc && npm install && npm run typecheck)
+(cd lesson-9.4-discovery-breaker-bulkhead && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
