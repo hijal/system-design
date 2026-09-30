@@ -1,0 +1,17 @@
+{
+	"name": "taskflow-discovery-breaker-bulkhead-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"discovery": "npm run build && node dist/discovery.js",
+		"circuit": "npm run build && node dist/circuit.js",
+		"isolation": "npm run build && node dist/isolation.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
