@@ -38,7 +38,7 @@ function write(data: ProgressData): void {
 
 // Starts empty on both server and client so the first client render matches the SSR HTML;
 // the layout calls load() after mount to pull in the saved progress.
-class ProgressStore {
+export class ProgressStore {
 	completed = new SvelteSet<string>();
 	lastVisited = $state<string | null>(null);
 	#loaded = false;

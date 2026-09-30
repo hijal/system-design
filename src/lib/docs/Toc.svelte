@@ -2,9 +2,7 @@
 	import { copy, type Locale } from './i18n';
 	import type { Heading } from '$lib/server/course/render';
 	let { headings, locale }: { headings: Heading[]; locale: Locale } = $props();
-	const sections = $derived(
-		headings.some((h) => h.level === 2) ? headings.filter((h) => h.level === 2) : headings
-	);
+	const sections = $derived(headings);
 	let activeId = $state('');
 	let progress = $state(0);
 	$effect(() => {

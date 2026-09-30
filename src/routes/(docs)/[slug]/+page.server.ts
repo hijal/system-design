@@ -32,7 +32,6 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const page = lesson.available ? cachedRender(key, raw, locale) : { html: '', headings: [] };
 	return {
 		lesson,
-		raw,
 		...page,
 		module: course.modules.find((m) => m.id === lesson.moduleId)!,
 		previous: course.lessons[index - 1] ?? null,

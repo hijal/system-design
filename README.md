@@ -40,7 +40,7 @@ During development, Vite watches content changes. For an already deployed site, 
 
 ```sh
 bun run check
-bun run test:unit -- --run --project server
+bun run test
 bun run build
 ```
 

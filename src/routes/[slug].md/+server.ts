@@ -1,10 +1,9 @@
 import { error } from '@sveltejs/kit';
 import { catalogs } from '$lib/server/course';
 import type { RequestHandler } from './$types';
-import type { Locale } from '$lib/docs/i18n';
 
-export const GET: RequestHandler = ({ params, url }) => {
-	const locale: Locale = url.searchParams.get('lang') === 'en' ? 'en' : 'bn';
+export const GET: RequestHandler = ({ params, locals }) => {
+	const locale = locals.courseLocale;
 	const id = params.slug.replace(/^lesson-/, '');
 	const catalog = catalogs[locale];
 	const lesson = catalog.lessons.find((l) => l.id === id);
@@ -13,7 +12,8 @@ export const GET: RequestHandler = ({ params, url }) => {
 	return new Response(raw, {
 		headers: {
 			'content-type': 'text/markdown; charset=utf-8',
-			'cache-control': 'public, max-age=300'
+			'cache-control': 'public, max-age=300',
+			vary: 'Cookie'
 		}
 	});
 };

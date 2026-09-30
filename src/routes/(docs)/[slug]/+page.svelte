@@ -7,7 +7,7 @@
 	let { data } = $props();
 	const t = $derived(copy[data.locale]);
 	const titleParts = $derived(data.lesson.title.split(' — '));
-	let copyState = $state<'idle' | 'copied' | 'error'>('idle');
+	let copyState = $state<'idle' | 'copying' | 'copied' | 'error'>('idle');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const mdUrl = $derived(`${page.url.origin}${page.url.pathname}.md?lang=${data.locale}`);
 	const isDone = $derived(courseProgress.isCompleted(data.lesson.id));
@@ -46,8 +46,19 @@
 		if (data.lesson.available) courseProgress.visit(data.lesson.id);
 	});
 	async function copyMarkdown() {
+		copyState = 'copying';
+		const markdown = fetch(mdUrl).then((response) => {
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			return response.text();
+		});
 		try {
-			await navigator.clipboard.writeText(data.raw);
+			if (typeof ClipboardItem === 'function')
+				await navigator.clipboard.write([
+					new ClipboardItem({
+						'text/plain': markdown.then((text) => new Blob([text], { type: 'text/plain' }))
+					})
+				]);
+			else await navigator.clipboard.writeText(await markdown);
 			copyState = 'copied';
 		} catch {
 			copyState = 'error';
@@ -145,7 +156,9 @@
 									? t.copied
 									: copyState === 'error'
 										? t.copyError
-										: t.copy}</span
+										: copyState === 'copying'
+											? t.copying
+											: t.copy}</span
 							></button
 						><button
 							class="mark-complete"
@@ -183,10 +196,7 @@
 								>{/each}
 						</nav>
 					</details>{/if}
-				{#key `${data.lesson.id}:${data.locale}:${data.html}`}<article
-						class="doc-content"
-						use:enhanceCode
-					>
+				{#key `${data.lesson.id}:${data.locale}`}<article class="doc-content" use:enhanceCode>
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- data.html is server-rendered through sanitize-html (render.ts), never raw user input -->
 						{@html data.html}
 					</article>{/key}
