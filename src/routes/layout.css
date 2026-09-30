@@ -2278,6 +2278,26 @@ body:has(.reader-page) .workspace {
 .theme-toggle:hover svg {
 	transform: rotate(20deg);
 }
+.theme-toggle > span {
+	display: contents;
+}
+.theme-toggle .theme-icon-sun {
+	display: none;
+}
+:root[data-theme='dark'] .theme-toggle .theme-icon-sun {
+	display: contents;
+}
+:root[data-theme='dark'] .theme-toggle .theme-icon-moon {
+	display: none;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) .theme-toggle .theme-icon-sun {
+		display: contents;
+	}
+	:root:not([data-theme='light']) .theme-toggle .theme-icon-moon {
+		display: none;
+	}
+}
 .progress-strip {
 	border-top: 1px solid var(--line);
 	align-items: center;

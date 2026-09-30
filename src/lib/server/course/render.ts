@@ -11,6 +11,7 @@ import 'prismjs/components/prism-nginx';
 import 'prismjs/components/prism-markdown';
 import { localizedHref, type Locale } from '../../docs/i18n';
 import { lessonBody } from './catalog';
+Prism.languages.svelte ??= Prism.languages.markup;
 export type Heading = { id: string; text: string; level: number };
 // Stateless across calls, so one parser serves every render.
 const md = new MarkdownIt({

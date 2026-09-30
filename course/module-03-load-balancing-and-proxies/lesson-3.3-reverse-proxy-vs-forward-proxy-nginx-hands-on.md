@@ -119,14 +119,14 @@ Client এর দৃষ্টিকোণ থেকে: "একটাই server 
 
 **Tier 2 — Infra Setup**
 
-আমরা ৩টা identical TypeScript/Express backend instance বানাব, আর তাদের সামনে Nginx বসাব reverse proxy + load balancer হিসেবে। Backend এর TypeScript অংশ sandbox এ `tsc --noEmit` দিয়ে verify করা হয়েছে (clean pass)। কিন্তু পুরো Docker Compose + Nginx integration টা এই sandbox এ Docker না থাকায় সরাসরি চালিয়ে verify করিনি — **সততার সাথে বলছি, এটা তোমার নিজের মেশিনে চালিয়ে দেখতে হবে।**
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-3.3-nginx-reverse-proxy/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-3.3-nginx-reverse-proxy) — `docker compose up` করলেই চলবে। পুরো setup, acceptance criteria আর experiment ওই folder এর `README.md` তে আছে।
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-3.3-nginx-reverse-proxy/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-3.3-nginx-reverse-proxy) — `docker compose up` করলেই চলবে। নিচের file গুলো ওখান থেকেই নেওয়া, হাতে copy-paste করার দরকার নেই।
+আমরা ৩টা identical TypeScript/Express backend instance বানাব, আর তাদের সামনে Nginx বসাব reverse proxy + load balancer হিসেবে। Backend এর TypeScript অংশ `tsc --noEmit` দিয়ে verify করা হয়েছে (clean pass)। কিন্তু পুরো Docker Compose + Nginx integration টা এখানে সরাসরি চালিয়ে verify করা হয়নি — **সততার সাথে বলছি, এটা তোমার নিজের মেশিনে চালিয়ে দেখতে হবে।**
 
 **Project Structure:**
 
-```
-nginx-exercise/
+```text
+lesson-3.3-nginx-reverse-proxy/
 ├── docker-compose.yml
 ├── nginx.conf
 ├── backend/
@@ -137,257 +137,48 @@ nginx-exercise/
 └── README.md
 ```
 
-**`backend/package.json`:**
-
-```json
-{
-	"name": "taskflow-backend-demo",
-	"version": "1.0.0",
-	"private": true,
-	"type": "commonjs",
-	"scripts": {
-		"build": "tsc",
-		"typecheck": "tsc --noEmit",
-		"start": "node dist/server.js"
-	},
-	"dependencies": {
-		"express": "^4.21.2"
-	},
-	"devDependencies": {
-		"@types/express": "^4.17.21",
-		"@types/node": "^22.10.2",
-		"typescript": "^6.0.3"
-	}
-}
-```
-
-**`backend/tsconfig.json`:**
-
-```json
-{
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "nodenext",
-		"moduleResolution": "nodenext",
-		"lib": ["ES2022"],
-		"outDir": "dist",
-		"rootDir": ".",
-		"strict": true,
-		"noUncheckedIndexedAccess": true,
-		"exactOptionalPropertyTypes": true,
-		"noImplicitOverride": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true
-	},
-	"include": ["server.ts"]
-}
-```
-
-**`backend/server.ts`** (verified — `tsc --noEmit` clean):
+**মূল কৌশল** যেটা Round Robin কে চোখে দেখায়: প্রতিটা backend environment variable থেকে একটা নাম পায় আর response এ সেটা ফেরত দেয়, তাই দেখা যায় কোন instance তোমাকে serve করল।
 
 ```typescript
-import express, { type Request, type Response } from 'express';
-
-interface Task {
-	id: number;
-	title: string;
-}
-
-interface TaskListResponse {
-	tasks: Task[];
-	servedBy: string;
-}
-
-interface HealthResponse {
-	status: 'ok';
-	instance: string;
-}
-
 // Docker Compose থেকে environment variable দিয়ে প্রতিটা instance কে
 // একটা নাম দেওয়া হবে, যাতে আমরা দেখতে পারি Nginx কোন instance এ
 // request পাঠাচ্ছে (Round Robin verify করার জন্য এটাই key trick)
 const INSTANCE_ID: string = process.env.INSTANCE_ID ?? 'unknown-instance';
 
-const tasks: Task[] = [
-	{ id: 1, title: 'Fix login bug' },
-	{ id: 2, title: 'Write Q3 report' }
-];
-
-const app = express();
-
 app.get('/api/tasks', (_req: Request, res: Response<TaskListResponse>): void => {
 	res.status(200).json({ tasks, servedBy: INSTANCE_ID });
 });
-
-app.get('/health', (_req: Request, res: Response<HealthResponse>): void => {
-	res.status(200).json({ status: 'ok', instance: INSTANCE_ID });
-});
-
-const PORT = 3000;
-app.listen(PORT, (): void => {
-	console.log(`Backend instance "${INSTANCE_ID}" listening on port ${PORT}`);
-});
 ```
 
-**`backend/Dockerfile`:**
-
-```dockerfile
-FROM node:24-alpine AS build
-WORKDIR /app
-COPY package.json tsconfig.json ./
-RUN npm install
-COPY server.ts ./
-RUN npm run build
-
-FROM node:24-alpine
-WORKDIR /app
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
-COPY package.json ./
-EXPOSE 3000
-CMD ["node", "dist/server.js"]
-```
-
-_(Node 24 ব্যবহার করা হয়েছে কারণ এটা ২০২৬ এর current Active LTS version।)_
-
-**`nginx.conf`:**
+আর Nginx এর দিকে — `upstream` block যেটা backend pool এর নাম দেয়:
 
 ```nginx
-events {}
+upstream taskflow_backend {
+    # Default algorithm Round Robin (Lesson 3.2) — কিছু specify না করলে এটাই হয়
 
-http {
-    upstream taskflow_backend {
-        # Default algorithm Round Robin (Lesson 3.2) — কিছু specify না করলে এটাই হয়
+    server backend1:3000;
+    server backend2:3000;
+    server backend3:3000;
 
-        server backend1:3000;
-        server backend2:3000;
-        server backend3:3000;
-
-        # Experiment এর জন্য — নিচের লাইনগুলো uncomment করে দেখো:
-        # least_conn;   # Least Connections algorithm
-        # ip_hash;      # Session Affinity (IP Hash)
-    }
-
-    server {
-        listen 80;
-
-        location /api/ {
-            proxy_pass http://taskflow_backend;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-        }
-
-        location /health {
-            proxy_pass http://taskflow_backend;
-        }
-    }
+    # Experiment এর জন্য — নিচের লাইনগুলো uncomment করে দেখো:
+    # least_conn;   # Least Connections algorithm
+    # ip_hash;      # Session Affinity (IP Hash)
 }
 ```
 
-**`docker-compose.yml`:**
+**যাচাই করো (acceptance criteria):**
 
-```yaml
-services:
-  backend1:
-    build: ./backend
-    environment:
-      - INSTANCE_ID=backend-1
-
-  backend2:
-    build: ./backend
-    environment:
-      - INSTANCE_ID=backend-2
-
-  backend3:
-    build: ./backend
-    environment:
-      - INSTANCE_ID=backend-3
-
-  nginx:
-    image: nginx:stable-alpine
-    ports:
-      - '8080:80'
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - backend1
-      - backend2
-      - backend3
+```bash
+curl http://localhost:8080/api/tasks   # কয়েকবার চালাও
 ```
 
-**`README.md`:**
+Expected: `servedBy` ঘুরে ঘুরে আসবে — `backend-1`, `backend-2`, `backend-3`, `backend-1`, ... এটাই Round Robin এর প্রমাণ। আরও লক্ষ্য করো — তুমি কখনোই সরাসরি backend1/2/3 এর সাথে কথা বলছ না (তাদের কোনো port ই host এ expose করা হয়নি) — শুধু Nginx এর port 8080 এর সাথে। এটাই Reverse Proxy এর মূল কথা: backend topology client থেকে সম্পূর্ণ লুকানো।
 
-```markdown
-# Nginx Reverse Proxy + Load Balancer Demo
+**তারপর নিজে ভেঙে দেখো (experiments):**
 
-## কী বানাচ্ছি
-
-৩টা identical TypeScript/Express backend, আর তাদের সামনে Nginx reverse
-proxy + load balancer — Round Robin আচরণ চোখে দেখার জন্য।
-
-## Prerequisite
-
-Docker এবং Docker Compose ইনস্টল থাকতে হবে।
-
-## Setup
-
-docker compose build
-
-## Run
-
-docker compose up
-
-# Nginx চলবে http://localhost:8080 এ
-
-## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
-
-# একই endpoint বারবার call করো, "servedBy" field বদলাতে থাকবে
-
-curl http://localhost:8080/api/tasks
-curl http://localhost:8080/api/tasks
-curl http://localhost:8080/api/tasks
-curl http://localhost:8080/api/tasks
-
-# Expected: servedBy ঘুরে ঘুরে আসবে: backend-1, backend-2, backend-3,
-
-# backend-1, ... (Round Robin এর প্রমাণ)
-
-curl http://localhost:8080/health
-
-# Expected: {"status":"ok","instance":"backend-X"} (কোনো একটা instance)
-
-## কী দেখার জন্য এটা বানানো
-
-লক্ষ্য করো — তুমি কখনোই সরাসরি backend1/backend2/backend3 এর সাথে কথা
-বলছ না (তাদের কোনো port ই host machine এ expose করা হয়নি) — শুধু Nginx
-এর port 8080 এর সাথে কথা বলছ। এটাই Reverse Proxy এর মূল কথা — backend
-topology client থেকে সম্পূর্ণ হিডেন।
-
-## নিজে ভেঙে দেখো (Experiments)
-
-1. nginx.conf এ `least_conn;` uncomment করে `docker compose restart nginx`
-   করো। তারপর একটা backend এ ইচ্ছাকৃতভাবে delay যোগ করে (server.ts এ
-   একটা setTimeout সহ নতুন endpoint বানিয়ে) দেখো distribution কীভাবে বদলায়।
-2. `ip_hash;` uncomment করে দেখো — বারবার call করলে কি সবসময় একই
-   backend এ যাচ্ছে? (তোমার নিজের IP থেকে সব request আসছে বলে)
-3. একটা backend container বন্ধ করে দাও (`docker compose stop backend2`),
-   তারপর কয়েকবার curl করো — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error
-   দেয়? (এখানে একটা সীমাবদ্ধতা দেখবে — plain open-source Nginx নিজে থেকে
-   "active health check" করে না by default, এটাই Lesson 3.4 এর বিষয়)
-
-## Teardown
-
-docker compose down -v
-```
-
-**Verification status:**
-
-- Backend `server.ts` — sandbox এ `tsc --noEmit` দিয়ে যাচাই করা হয়েছে, clean pass (কোনো type error নেই)
-- পুরো Docker Compose + Nginx integration — **এই sandbox এ Docker না থাকায় সরাসরি চালিয়ে verify করা হয়নি।** তোমার মেশিনে চালিয়ে উপরের acceptance criteria মিলিয়ে দেখো।
+1. `nginx.conf` এ `least_conn;` uncomment করে `docker compose restart nginx` করো। তারপর একটা backend এ ইচ্ছাকৃতভাবে delay যোগ করে (`setTimeout` সহ নতুন endpoint বানিয়ে) দেখো distribution কীভাবে বদলায়।
+2. `ip_hash;` uncomment করে দেখো — বারবার call করলে কি সবসময় একই backend এ যাচ্ছে? (তোমার নিজের IP থেকে সব request আসছে বলে।)
+3. একটা backend container বন্ধ করে দাও (`docker compose stop backend2`), তারপর কয়েকবার curl করো — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা দেখবে: plain open-source Nginx by default **active health check** করে না। এটাই Lesson 3.4 এর বিষয়।
 
 ---
 

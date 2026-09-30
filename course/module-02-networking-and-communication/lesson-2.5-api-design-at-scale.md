@@ -200,280 +200,51 @@ Pagination নিয়ে একটা common question — "একটা social
 
 **Tier 1 — Runnable Code**
 
-আজকে আমরা সরাসরি একটা কাজ-করা Idempotency Key implementation দেখব এবং verify করব — এটা sandbox এ চালিয়ে পরীক্ষা করা হয়েছে, `tsc --noEmit` clean pass করেছে, এবং curl দিয়ে ৬টা scenario টেস্ট করে দেখানো হয়েছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-2.5-idempotency/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-2.5-idempotency) — `npm install && npm run dev` করলেই চলবে। পুরো setup, acceptance criteria আর experiment ওই folder এর `README.md` তে আছে।
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-2.5-idempotency/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-2.5-idempotency) — `npm install && npm run dev` করলেই চলবে। নিচের file গুলো ওখান থেকেই নেওয়া, হাতে copy-paste করার দরকার নেই।
+Exercise টা একটা Express + TypeScript endpoint যেটা `Idempotency-Key` header দিয়ে duplicate task creation প্রতিরোধ করে — network retry হলেও একই task দুইবার তৈরি হবে না। Code এর সব নিয়ম মানা হয়েছে: TypeScript `strict: true`, একটাও `any` নেই, আর runtime input Zod দিয়ে validate করা।
 
-**`package.json`:**
-
-```json
-{
-	"name": "taskflow-idempotency-exercise",
-	"version": "1.0.0",
-	"private": true,
-	"type": "commonjs",
-	"scripts": {
-		"build": "tsc",
-		"typecheck": "tsc --noEmit",
-		"start": "node dist/server.js",
-		"dev": "ts-node server.ts"
-	},
-	"dependencies": {
-		"express": "^4.21.2",
-		"zod": "^3.24.1"
-	},
-	"devDependencies": {
-		"@types/express": "^4.17.21",
-		"@types/node": "^22.10.2",
-		"ts-node": "^10.9.2",
-		"typescript": "^6.0.3"
-	}
-}
-```
-
-**`tsconfig.json`:**
-
-```json
-{
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "nodenext",
-		"moduleResolution": "nodenext",
-		"lib": ["ES2022"],
-		"outDir": "dist",
-		"rootDir": ".",
-		"strict": true,
-		"noUncheckedIndexedAccess": true,
-		"exactOptionalPropertyTypes": true,
-		"noImplicitOverride": true,
-		"noUnusedLocals": true,
-		"noUnusedParameters": true,
-		"esModuleInterop": true,
-		"skipLibCheck": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true
-	},
-	"include": ["server.ts"]
-}
-```
-
-**`server.ts`:**
+**Mechanism এর মূল অংশ** — handler এর ভেতরের তিনটা ধাপ:
 
 ```typescript
-import express, { type Request, type Response } from 'express';
-import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
-
-// ---------- Domain Types ----------
-
-interface Task {
-	id: string;
-	title: string;
-	description: string | null;
-	createdAt: string;
+// ধাপ ১: এই key আগে দেখা গেছে কিনা check করো — যদি হ্যাঁ, cached result ফেরত দাও,
+// আবার business logic execute কোরো না (এটাই idempotency এর মূল কথা)
+const cached = idempotencyStore.get(idempotencyKey);
+if (cached !== undefined) {
+	res.status(cached.statusCode).json(cached.body);
+	return;
 }
 
-interface ApiErrorBody {
-	error: {
-		code: string;
-		message: string;
-		details?: unknown;
-	};
+// ধাপ ২: body validate করো (runtime input কে type assertion দিয়ে বিশ্বাস করা হয় না)
+const parseResult = createTaskSchema.safeParse(req.body);
+if (!parseResult.success) {
+	// Error contract সহ 422। Cache করা হয় না: কিছুই execute হয়নি, তাই client body ঠিক করে
+	// একই key দিয়ে retry করলে সেটা নতুন করে process হওয়া উচিত (Stripe ও তাই করে)
+	/* ... */
 }
 
-type ApiResponseBody = Task | ApiErrorBody;
+// ধাপ ৩: actual "write" — এটাই সেই non-idempotent অংশ যেটা আমরা রক্ষা করছি
+const newTask: Task = { id: randomUUID() /* ... */ };
+tasks.push(newTask);
 
-interface IdempotencyRecord {
-	statusCode: number;
-	body: ApiResponseBody;
-}
-
-// ---------- "Storage" (in-memory for this exercise) ----------
-// NOTE: এই exercise এ Map ব্যবহার করা হয়েছে শুধু demonstration এর জন্য।
-// Production এ (Module 4.4 এর পরে) এটা Redis এ থাকা উচিত, কারণ:
-//   1. Server restart হলে in-memory data হারিয়ে যায় (durability নেই)
-//   2. Horizontal scaling এ (Lesson 1.6) একাধিক server এর মধ্যে এই state শেয়ার হবে না
-const idempotencyStore = new Map<string, IdempotencyRecord>();
-const tasks: Task[] = [];
-
-// ---------- Validation Schema ----------
-// Runtime input (req.body) কখনো সরাসরি বিশ্বাস করা হয় না — Zod দিয়ে parse করা হয়
-const createTaskSchema = z.object({
-	title: z.string().min(1, 'title is required and cannot be empty'),
-	description: z.string().optional()
-});
-
-type CreateTaskInput = z.infer<typeof createTaskSchema>;
-
-// ---------- Error Contract Helper ----------
-// exactOptionalPropertyTypes: true থাকায়, `details: undefined` explicitly assign করা যায় না,
-// তাই conditional object construction করা হয়েছে
-function buildErrorResponse(code: string, message: string, details?: unknown): ApiErrorBody {
-	if (details === undefined) {
-		return { error: { code, message } };
-	}
-	return { error: { code, message, details } };
-}
-
-// ---------- App ----------
-
-const app = express();
-app.use(express.json());
-
-app.post(
-	'/api/tasks',
-	(
-		req: Request<Record<string, never>, ApiResponseBody, unknown>,
-		res: Response<ApiResponseBody>
-	): void => {
-		const idempotencyKey = req.header('Idempotency-Key');
-
-		if (idempotencyKey === undefined || idempotencyKey.trim().length === 0) {
-			const body = buildErrorResponse(
-				'MISSING_IDEMPOTENCY_KEY',
-				'Idempotency-Key header is required for this operation.'
-			);
-			res.status(400).json(body);
-			return;
-		}
-
-		// ধাপ ১: এই key আগে দেখা গেছে কিনা check করো — যদি হ্যাঁ, cached result ফেরত দাও,
-		// আবার business logic execute কোরো না (এটাই idempotency এর মূল কথা)
-		const cached = idempotencyStore.get(idempotencyKey);
-		if (cached !== undefined) {
-			res.status(cached.statusCode).json(cached.body);
-			return;
-		}
-
-		// ধাপ ২: body validate করো
-		const parseResult = createTaskSchema.safeParse(req.body);
-		if (!parseResult.success) {
-			const body = buildErrorResponse(
-				'VALIDATION_ERROR',
-				'Request body failed validation.',
-				parseResult.error.flatten()
-			);
-			// Validation error cache করা হয় না: কিছুই execute হয়নি, তাই client body ঠিক করে
-			// একই key দিয়ে retry করলে সেটা নতুন করে process হওয়া উচিত (Stripe ও তাই করে)
-			res.status(422).json(body);
-			return;
-		}
-
-		// ধাপ ৩: actual "write" — এটাই সেই non-idempotent অংশ যেটা আমরা রক্ষা করছি
-		const input: CreateTaskInput = parseResult.data;
-		const newTask: Task = {
-			id: randomUUID(),
-			title: input.title,
-			description: input.description ?? null,
-			createdAt: new Date().toISOString()
-		};
-		tasks.push(newTask);
-
-		idempotencyStore.set(idempotencyKey, { statusCode: 201, body: newTask });
-		res.status(201).json(newTask);
-	}
-);
-
-app.get('/api/tasks', (_req: Request, res: Response<{ tasks: Task[]; count: number }>): void => {
-	res.status(200).json({ tasks, count: tasks.length });
-});
-
-const PORT = 3000;
-app.listen(PORT, (): void => {
-	console.log(`TaskFlow idempotency demo server listening on port ${PORT}`);
-});
+idempotencyStore.set(idempotencyKey, { statusCode: 201, body: newTask });
+res.status(201).json(newTask);
 ```
 
-**`README.md`:**
+**যাচাই করো (acceptance criteria):**
 
-```markdown
-# Idempotency Key Demo — TaskFlow Task Creation
+1. Header ছাড়া → `400 MISSING_IDEMPOTENCY_KEY`
+2. Invalid body → `422 VALIDATION_ERROR` (§১.৪ এর error contract)
+3. Valid request → `201`, নতুন task তৈরি
+4. **একই key আবার → `201`, একদম SAME task id, নতুন task তৈরি হয়নি**
+5. ভিন্ন key → নতুন, ভিন্ন task
+6. `GET /api/tasks` → count দেখেই প্রমাণ হয় duplicate তৈরি হয়নি
 
-## কী বানাচ্ছি
+**তারপর নিজে ভেঙে দেখো (experiments):**
 
-একটা Express + TypeScript endpoint যেটা Idempotency-Key header দিয়ে
-duplicate task creation প্রতিরোধ করে — network retry হলেও একই task দুইবার তৈরি হবে না।
-
-## Prerequisite
-
-Node.js 18+ (crypto.randomUUID এর জন্য), npm। Docker লাগবে না।
-
-## Setup
-
-npm install
-
-## Run
-
-npm run build && npm start
-
-# অথবা dev mode এ: npm run dev
-
-# Server চলবে http://localhost:3000 এ
-
-## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
-
-# Idempotency-Key ছাড়া request -> 400 আসার কথা
-
-curl -X POST http://localhost:3000/api/tasks \
--H "Content-Type: application/json" \
--d '{"title":"Test"}'
-
-# Expected: {"error":{"code":"MISSING_IDEMPOTENCY_KEY",...}} status 400
-
-# একই key দিয়ে দুইবার request পাঠাও
-
-curl -X POST http://localhost:3000/api/tasks \
--H "Content-Type: application/json" \
--H "Idempotency-Key: test-key-1" \
--d '{"title":"Fix bug"}'
-
-# তারপর ঠিক একই command আবার চালাও (একই key)
-
-# Expected: দুইবারই ঠিক একই "id" ফেরত আসবে
-
-# Verify duplicate তৈরি হয়নি
-
-curl http://localhost:3000/api/tasks
-
-# Expected: count হবে 1, দুইটা call সত্ত্বেও (কারণ দ্বিতীয়টা ছিল retry)
-
-## কী দেখার জন্য এটা বানানো
-
-লক্ষ্য করো — একই Idempotency-Key দিয়ে দুইবার POST করলেও, response এর "id"
-field ঠিক একই থাকে, আর GET /api/tasks এ শুধু ১টা task দেখাবে, ২টা না।
-
-## নিজে ভেঙে দেখো (Experiments)
-
-1. একই key দিয়ে কিন্তু ভিন্ন body (ভিন্ন title) পাঠিয়ে দেখো কী হয় —
-   এই code টা এখন body বদলে গেলেও পুরনো cached result-ই ফেরত দেয়। এটা কি
-   ঠিক আচরণ? (Stripe এর মতো real-world system এখানে একটা 409 Conflict
-   error দেয় যদি একই key তে ভিন্ন body আসে — এই code এ সেটা যোগ করার
-   চেষ্টা করো)
-2. idempotencyStore তে একটা TTL/expiry যোগ করার চেষ্টা করো (Reflection
-   Question 2 এর উত্তর অনুযায়ী)
-3. Server বন্ধ করে আবার চালাও — সব idempotency record হারিয়ে যায় কেন?
-   (এটাই in-memory storage এর সীমাবদ্ধতা যেটা README এ mention করা আছে)
-
-## Project Structure
-
-idempotency-exercise/
-├── package.json
-├── tsconfig.json
-├── server.ts # সব logic এখানে (এই exercise এর scope এ single file)
-└── README.md
-```
-
-**Verification (sandbox এ চালিয়ে যাচাই করা হয়েছে):**
-
-- `tsc --noEmit` → clean pass, কোনো type error নেই
-- Missing header → `400 MISSING_IDEMPOTENCY_KEY` ✓
-- Invalid body → `422 VALIDATION_ERROR` ✓
-- প্রথমবার valid request → `201`, নতুন task তৈরি ✓
-- **একই key দিয়ে retry → `201`, একদম SAME task id, নতুন task তৈরি হয়নি** ✓
-- ভিন্ন key → নতুন, ভিন্ন task তৈরি হয় ✓
-- চূড়ান্ত count = ২ (৩ না, কারণ retry টা duplicate করেনি) ✓
-
-তুমি চাইলে এই code টা নিজের মেশিনে চালিয়ে experiment গুলো try করতে পারো।
+1. একই key দিয়ে কিন্তু **ভিন্ন body** (ভিন্ন title) পাঠাও। এই code টা এখন body বদলে গেলেও পুরনো cached result-ই ফেরত দেয়। এটা কি ঠিক আচরণ? (Stripe এর মতো real-world system একই key তে ভিন্ন body এলে `409 Conflict` দেয় — সেটা যোগ করার চেষ্টা করো।)
+2. `idempotencyStore` তে একটা TTL/expiry যোগ করো (Reflection Question 2 এর উত্তর অনুযায়ী)।
+3. Server বন্ধ করে আবার চালাও — সব idempotency record হারিয়ে গেল কেন? এটাই in-memory storage এর সীমাবদ্ধতা, আর ঠিক এই কারণেই Module 4.4 এর পরে এটা Redis এ যাবে: (a) restart এর পরেও data টিকে থাকে, (b) horizontal scaling এ (Lesson 1.6) সব server একই state দেখে।
 
 ---
 

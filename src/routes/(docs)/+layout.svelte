@@ -152,7 +152,9 @@
 		class="icon-button theme-toggle"
 		aria-label={effectiveTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
 		onclick={toggleTheme}
-		><Icon name={effectiveTheme === 'dark' ? 'sun' : 'moon'} size={18} /></button
+		><span class="theme-icon-sun"><Icon name="sun" size={18} /></span><span class="theme-icon-moon"
+			><Icon name="moon" size={18} /></span
+		></button
 	>
 	<button
 		class="icon-button mobile-toggle"
