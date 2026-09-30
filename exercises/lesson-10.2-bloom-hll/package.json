@@ -1,0 +1,22 @@
+{
+	"name": "taskflow-bloom-hll-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"bloom": "npm run build && node dist/bloom-lab.js",
+		"penetration": "npm run build && node dist/penetration.js",
+		"hll": "npm run build && node dist/hll-lab.js",
+		"heavy": "npm run build && node dist/heavy.js",
+		"redis": "npm run build && node dist/redis-memory.js"
+	},
+	"dependencies": {
+		"ioredis": "^5.11.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}

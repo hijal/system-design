@@ -38,6 +38,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-9.4-discovery-breaker-bulkhead/`](lesson-9.4-discovery-breaker-bulkhead/) | 9.4 — Service Discovery, Circuit Breaker, Bulkhead | 1    | Registry বনাম static list, fail-fast এর লাভ, board কে ডুবতে না দেওয়া |
 | [`lesson-9.5-rate-limiting/`](lesson-9.5-rate-limiting/)                           | 9.5 — Rate Limiting Algorithms                     | 1    | Boundary burst, token বনাম leaky, আর instance সংখ্যার সমান ফাঁস       |
 | [`lesson-10.1-consistent-hashing/`](lesson-10.1-consistent-hashing/)               | 10.1 — Consistent Hashing Deep Dive                | 1    | কত key নড়ে আর কোথায়, virtual node, cache এর DB চাপ, hot key         |
+| [`lesson-10.2-bloom-hll/`](lesson-10.2-bloom-hll/)                                 | 10.2 — Bloom Filter, HyperLogLog                   | 1    | Penetration এ Bloom বনাম negative cache, পুরনো filter, HLL merge, CMS |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -89,6 +90,7 @@ block একসাথে paste করা যায়, আবার একটা
 (cd lesson-9.4-discovery-breaker-bulkhead && npm install && npm run typecheck)
 (cd lesson-9.5-rate-limiting && npm install && npm run typecheck)
 (cd lesson-10.1-consistent-hashing && npm install && npm run typecheck)
+(cd lesson-10.2-bloom-hll && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
