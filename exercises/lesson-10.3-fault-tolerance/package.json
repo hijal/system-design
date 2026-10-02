@@ -1,0 +1,19 @@
+{
+	"name": "taskflow-fault-tolerance-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"matrix": "npm run build && node dist/matrix.js",
+		"redundancy": "npm run build && node dist/redundancy.js",
+		"brownout": "npm run build && node dist/brownout.js",
+		"static": "npm run build && node dist/static.js",
+		"chaos": "npm run build && node dist/chaos.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
