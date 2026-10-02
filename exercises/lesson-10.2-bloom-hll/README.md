@@ -47,7 +47,7 @@ npm install
 docker compose up -d --wait
 ```
 
-Redis চলে port **6382** এ, যাতে Lesson 4.4 (6380) আর 7.3 (6381) এর সাথে সংঘাত না লাগে। Persistence বন্ধ।
+Redis চলে port **6383** এ, যাতে Lesson 4.4 (6380), 7.3 (6381) আর 7.5 (6382) এর সাথে সংঘাত না লাগে। Persistence বন্ধ।
 
 ## Run
 
@@ -172,7 +172,7 @@ version ভেদে সামান্য আলাদা হতে পার�
 ## Project Structure
 
 ```
-docker-compose.yml   Redis 8 (port 6382, persistence বন্ধ) — শুধু npm run redis এর জন্য
+docker-compose.yml   Redis 8 (port 6383, persistence বন্ধ) — শুধু npm run redis এর জন্য
 src/
   hash.ts            MurmurHash3 x86_32, আর দুটো seed এর জোড়া (double hashing আর 64-bit এর জন্য)
   bloom.ts           BloomFilter, CountingBloomFilter, আর bit/k/false positive এর সূত্র

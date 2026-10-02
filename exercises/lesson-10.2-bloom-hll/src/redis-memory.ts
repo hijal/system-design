@@ -4,7 +4,7 @@ import { heading, pct, row } from './random';
 const USERS = Number(process.env.USERS ?? 1_000_000);
 const PROBES = Number(process.env.PROBES ?? 100_000);
 const CHUNK = 10_000;
-const redis = new Redis({ port: Number(process.env.REDIS_PORT ?? 6382), lazyConnect: true });
+const redis = new Redis({ port: Number(process.env.REDIS_PORT ?? 6383), lazyConnect: true });
 
 function asNumber(value: unknown): number {
 	if (typeof value === 'number') return value;

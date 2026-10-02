@@ -3,7 +3,7 @@ services:
     image: redis:8-alpine
     command: redis-server --save '' --appendonly no
     ports:
-      - '6382:6379'
+      - '6383:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 2s
