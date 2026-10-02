@@ -99,12 +99,6 @@
 </script>
 
 <svelte:window onkeydown={keys} onclick={closeSearchOutside} />
-<svelte:head
-	><meta
-		name="description"
-		content="বাংলায় System Design: fundamentals থেকে distributed systems, practical lessons ও interview preparation।"
-	/></svelte:head
->
 <a class="skip-link" href="#main-content">{t.skip}</a>
 <header class="topbar">
 	<a class="brand" href={localizedHref('/', data.locale)} aria-label="System Design home"

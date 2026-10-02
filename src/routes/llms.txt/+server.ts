@@ -16,7 +16,9 @@ export const GET: RequestHandler = ({ url }) => {
 		for (const lesson of courseModule.lessons) {
 			if (!lesson.available) continue;
 			const path = lesson.href.split('?')[0];
-			lines.push(`- [${lesson.id} — ${lesson.title}](${origin}${path}.md): ${origin}${path}`);
+			lines.push(
+				`- [${lesson.id} — ${lesson.title}](${origin}${path}.md?lang=bn): ${origin}${lesson.href}`
+			);
 		}
 		lines.push('');
 	}

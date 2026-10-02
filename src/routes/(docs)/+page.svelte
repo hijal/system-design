@@ -33,13 +33,11 @@
 
 <svelte:head>
 	<title>{t.title}</title>
+	<meta name="description" content={t.intro} />
+	<link rel="canonical" href={`${page.url.origin}${localizedHref('/', data.locale)}`} />
 	<link rel="alternate" hreflang="bn" href={`${page.url.origin}${localizedHref('/', 'bn')}`} />
 	<link rel="alternate" hreflang="en" href={`${page.url.origin}${localizedHref('/', 'en')}`} />
-	<link
-		rel="alternate"
-		hreflang="x-default"
-		href={`${page.url.origin}${localizedHref('/', 'bn')}`}
-	/>
+	<link rel="alternate" hreflang="x-default" href={`${page.url.origin}/`} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- schemaScript is our own JSON.stringify output (curriculum titles + static copy, never user input), with "<" escaped -->
 	{@html schemaScript}
 </svelte:head>
