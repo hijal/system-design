@@ -1,0 +1,19 @@
+{
+	"name": "taskflow-observability-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"percentiles": "npm run build && node dist/percentiles.js",
+		"cardinality": "npm run build && node dist/cardinality.js",
+		"sampling": "npm run build && node dist/sampling.js",
+		"alerts": "npm run build && node dist/alerts.js",
+		"trace": "npm run build && node dist/trace.js"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
