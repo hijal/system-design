@@ -1,0 +1,23 @@
+{
+	"name": "chat-system-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"estimate": "npm run build && node dist/estimate.js",
+		"gateway": "npm run build && node dist/gateway.js",
+		"delivery": "npm run build && node dist/delivery.js",
+		"smoke": "npm run build && node dist/smoke.js"
+	},
+	"dependencies": {
+		"ws": "^8.18.0",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/ws": "^8.5.13",
+		"typescript": "^6.0.3"
+	}
+}
