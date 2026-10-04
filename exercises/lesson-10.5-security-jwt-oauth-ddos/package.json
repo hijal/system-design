@@ -1,0 +1,22 @@
+{
+	"name": "taskflow-security-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"authz": "npm run build && node dist/authz.js",
+		"sessions": "npm run build && node dist/sessions.js",
+		"oauth": "npm run build && node dist/oauth.js",
+		"secrets": "npm run build && node dist/secrets.js",
+		"abuse": "npm run build && node dist/abuse.js"
+	},
+	"dependencies": {
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
