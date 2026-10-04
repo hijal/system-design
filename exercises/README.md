@@ -51,6 +51,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-11.4-news-feed/`](lesson-11.4-news-feed/)                                 | 11.4 — Case Study: Design a News Feed                | 1    | Follower এর power law, push বনাম pull বনাম hybrid, fan-out queue, tail amplification আর hedge, offset বনাম cursor, আসল hybrid feed |
 | [`lesson-11.5-notification-system/`](lesson-11.5-notification-system/)             | 11.5 — Case Study: Design a Notification System      | 1    | Channel এর খরচ, campaign বনাম OTP আর pacing, timeout/duplicate/failover, aggregation আর quiet hours, আসল notification service      |
 | [`lesson-11.6-video-streaming/`](lesson-11.6-video-streaming/)                     | 11.6 — Case Study: Design a Video Streaming Platform | 1    | Egress এর বিল, টুকরো করে transcoding আর spot, ABR, জনপ্রিয়তা আর AV1, আসল HLS service                                              |
+| [`lesson-11.7-payment-system/`](lesson-11.7-payment-system/)                       | 11.7 — Case Study: Design a Payment System           | 1    | PSP timeout আর unknown, intent আগে, double-entry বনাম balance column, পয়সা আর rounding, reconciliation, আসল payment service       |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -115,6 +116,7 @@ block একসাথে paste করা যায়, আবার একটা
 (cd lesson-11.4-news-feed && npm install && npm run typecheck)
 (cd lesson-11.5-notification-system && npm install && npm run typecheck)
 (cd lesson-11.6-video-streaming && npm install && npm run typecheck)
+(cd lesson-11.7-payment-system && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।

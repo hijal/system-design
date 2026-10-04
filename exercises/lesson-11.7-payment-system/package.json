@@ -1,0 +1,24 @@
+{
+	"name": "payment-system-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"estimate": "npm run build && node dist/estimate.js",
+		"timeout": "npm run build && node dist/timeout.js",
+		"ledger": "npm run build && node dist/ledger.js",
+		"reconcile": "npm run build && node dist/reconcile.js",
+		"smoke": "npm run build && node dist/smoke.js"
+	},
+	"dependencies": {
+		"express": "^4.21.2",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.21",
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
