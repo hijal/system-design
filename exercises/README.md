@@ -46,6 +46,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-10.7-cost/`](lesson-10.7-cost/)                                           | 10.7 — Cost & Cloud Economics                       | 1    | লাইন ধরে বিল, unit economics, autoscale আর commit, storage tier এর ফাঁদ, NAT আর cross-AZ                |
 | [`lesson-10.8-multi-region/`](lesson-10.8-multi-region/)                           | 10.8 — Multi-Region & Geo-Distribution              | 1    | Topology ধরে latency, DR এর RTO/RPO আর দাম, DNS এর লেজ, split brain, LWW এর হারানো লেখা, data residency |
 | [`lesson-11.1-url-shortener/`](lesson-11.1-url-shortener/)                         | 11.1 — Case Study: Design a URL Shortener           | 1    | Estimation, code এর চার পথ আর range allocation, redirect এর cache আর 301/302, আসল Express shortener     |
+| [`lesson-11.2-rate-limiter-service/`](lesson-11.2-rate-limiter-service/)           | 11.2 — Case Study: Design a Rate Limiter Service    | 1    | Op/s আর shard, atomic বনাম lease বনাম async sync, hot tenant, limiter ধীর বা বন্ধ, আসল limiter + client |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -105,6 +106,7 @@ block একসাথে paste করা যায়, আবার একটা
 (cd lesson-10.7-cost && npm install && npm run typecheck)
 (cd lesson-10.8-multi-region && npm install && npm run typecheck)
 (cd lesson-11.1-url-shortener && npm install && npm run typecheck)
+(cd lesson-11.2-rate-limiter-service && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
