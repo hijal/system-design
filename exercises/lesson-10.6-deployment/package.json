@@ -1,0 +1,24 @@
+{
+	"name": "taskflow-deployment-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"rollout": "npm run build && node dist/rollout.js",
+		"flags": "npm run build && node dist/flags.js",
+		"drain": "npm run build && node dist/drain.js",
+		"locks": "npm run build && node dist/locks.js",
+		"rename": "npm run build && node dist/rename.js"
+	},
+	"dependencies": {
+		"pg": "^8.13.1",
+		"sequelize": "^6.37.5"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"@types/pg": "^8.11.10",
+		"typescript": "^6.0.3"
+	}
+}
