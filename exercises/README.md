@@ -43,6 +43,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-10.4-observability/`](lesson-10.4-observability/)                         | 10.4 — Observability: Logging, Metrics, Tracing     | 1    | Percentile আর rollup, label cardinality, head/tail sampling, burn rate, আসল trace                     |
 | [`lesson-10.5-security-jwt-oauth-ddos/`](lesson-10.5-security-jwt-oauth-ddos/)     | 10.5 — Security at Scale                            | 1    | জাল JWT, BOLA, revoke এর দেরি, OAuth এর আক্রমণ, ফাঁস হওয়া secret, credential stuffing, DDoS          |
 | [`lesson-10.6-deployment/`](lesson-10.6-deployment/)                               | 10.6 — Deployment: Blue-Green, Canary, Feature Flag | 1    | কৌশল ধরে খারাপ version এর ক্ষতি, canary এর পরিসংখ্যান, graceful shutdown, lock queue, expand/contract |
+| [`lesson-10.7-cost/`](lesson-10.7-cost/)                                           | 10.7 — Cost & Cloud Economics                       | 1    | লাইন ধরে বিল, unit economics, autoscale আর commit, storage tier এর ফাঁদ, NAT আর cross-AZ              |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -99,6 +100,7 @@ block একসাথে paste করা যায়, আবার একটা
 (cd lesson-10.4-observability && npm install && npm run typecheck)
 (cd lesson-10.5-security-jwt-oauth-ddos && npm install && npm run typecheck)
 (cd lesson-10.6-deployment && npm install && npm run typecheck)
+(cd lesson-10.7-cost && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
