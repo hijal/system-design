@@ -1,0 +1,24 @@
+{
+	"name": "notification-system-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"estimate": "npm run build && node dist/estimate.js",
+		"queue": "npm run build && node dist/queue.js",
+		"retry": "npm run build && node dist/retry.js",
+		"aggregate": "npm run build && node dist/aggregate.js",
+		"smoke": "npm run build && node dist/smoke.js"
+	},
+	"dependencies": {
+		"express": "^4.21.2",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/express": "^4.17.21",
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}

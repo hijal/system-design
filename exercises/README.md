@@ -49,6 +49,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-11.2-rate-limiter-service/`](lesson-11.2-rate-limiter-service/)           | 11.2 — Case Study: Design a Rate Limiter Service    | 1    | Op/s আর shard, atomic বনাম lease বনাম async sync, hot tenant, limiter ধীর বা বন্ধ, আসল limiter + client                            |
 | [`lesson-11.3-chat-system/`](lesson-11.3-chat-system/)                             | 11.3 — Case Study: Design a Chat System             | 1    | Connection আর heartbeat এর মাপ, gateway routing, reconnect storm, ack/dedupe আর seq, আসল দুই-gateway WebSocket chat                |
 | [`lesson-11.4-news-feed/`](lesson-11.4-news-feed/)                                 | 11.4 — Case Study: Design a News Feed               | 1    | Follower এর power law, push বনাম pull বনাম hybrid, fan-out queue, tail amplification আর hedge, offset বনাম cursor, আসল hybrid feed |
+| [`lesson-11.5-notification-system/`](lesson-11.5-notification-system/)             | 11.5 — Case Study: Design a Notification System     | 1    | Channel এর খরচ, campaign বনাম OTP আর pacing, timeout/duplicate/failover, aggregation আর quiet hours, আসল notification service      |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
 দেখো" experiment সহ।
@@ -111,6 +112,7 @@ block একসাথে paste করা যায়, আবার একটা
 (cd lesson-11.2-rate-limiter-service && npm install && npm run typecheck)
 (cd lesson-11.3-chat-system && npm install && npm run typecheck)
 (cd lesson-11.4-news-feed && npm install && npm run typecheck)
+(cd lesson-11.5-notification-system && npm install && npm run typecheck)
 ```
 
 এগুলো root SvelteKit app এর `bun run check` এর অংশ না — আলাদা project, আলাদা dependency।
