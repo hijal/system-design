@@ -24,7 +24,7 @@ Lesson 7.2 এর সিদ্ধান্ত মতো TaskFlow এর "খব�
 await sequelize.transaction(async (t) => {
 	await Comment.create({ taskId, authorId, body }, { transaction: t });
 });
-await redis.xadd('events:comments', '*', 'data', JSON.stringify(event)); // commit এর পরে
+await redis.xadd('events:comments', '*', 'data', JSON.stringify(event)); // after the commit
 res.status(201).json(comment);
 ```
 
@@ -129,7 +129,7 @@ TaskFlow এর জন্য মাঝামাঝি: event এ ID গুলো
 Exercise এর `npm run scenario` — ২০০০টা comment, প্রতি ৫০টায় মোটামুটি একটায় writer ঠিক দুই লেখার মাঝখানে নিজেকে `SIGKILL` করে (কোন comment এ সেটা id থেকে ঠিক — তাই প্রতিটা mode এ একই ৪১টা)। শেষে Postgres আর Redis Stream মেলানো:
 
 ```
-   mode             comment   হারাল   ভুতুড়ে   বাড়তি (একই eventId)
+   mode            comments    lost  phantom    extra (same eventId)
    commit-first        2000      41        0        0
    publish-first       1959       0       41        0
 ```
@@ -140,9 +140,9 @@ Exercise এর `npm run scenario` — ২০০০টা comment, প্রত�
 আর crash না, শুধু Redis ৩ সেকেন্ড বন্ধ (experiment ১, ঘটনা ২) — দুটো ক্রমের দুটো ভিন্ন দুর্ভোগ:
 
 ```
-   mode             comment   হারাল   user error দেখল
-   commit-first        2000     449                  0      ← নীরবে ৪৪৯টা event নেই
-   publish-first       1466       0                534      ← ৫৩৪ জন comment ই করতে পারল না
+   mode             comments   lost   user saw an error
+   commit-first        2000     449                  0      ← 449 events silently missing
+   publish-first       1466       0                534      ← 534 people couldn't comment at all
 ```
 
 `publish-first` "consistent" — কোনো comment event ছাড়া নেই — কিন্তু দাম দিল availability তে: Redis এর প্রতিটা খারাপ সেকেন্ড এখন comment feature এর খারাপ সেকেন্ড। 7.1 এর critical path এর গুণফল আবার — Redis এখন comment তৈরির পথে।
@@ -172,9 +172,9 @@ Dual write এর দুটো লেখা এখন একটা database এ�
 Exercise এর তৃতীয় সারি:
 
 ```
-   mode             comment   হারাল   ভুতুড়ে   বাড়তি (একই eventId)
+   mode            comments    lost  phantom    extra (same eventId)
    outbox              1959       0        0      160
-   relay crash: 11 · commit থেকে stream এ পৌঁছাতে p50 118 ms, p99 457 ms
+   relay crashes: 11 · from commit to reaching the stream p50 118 ms, p99 457 ms
 ```
 
 (বাড়তি আর relay crash এর সংখ্যা run ভেদে একটু বদলায় — relay এর crash কোন batch এ পড়ে সেটা timing এর উপর নির্ভর করে।)
@@ -210,11 +210,11 @@ Event একবার বেরোলে কে পড়ছে জানা থ
 
 ```typescript
 export const commentCreatedSchema = z.object({
-	eventId: z.string().uuid(), // স্থির — retry আর relay এর duplicate এ বদলায় না; consumer এর dedupe key
-	type: z.literal('comment.created'), // অতীত কাল
-	version: z.literal(1), // আকৃতি বদলালে
-	occurredAt: z.string(), // কখন ঘটেছে — কখন পাঠানো হলো না (outbox এ দুটো আলাদা)
-	taskId: z.number().int().positive(), // ক্রম আর partition এর key (7.2)
+	eventId: z.string().uuid(), // fixed — doesn't change on retries or relay duplicates; the consumer's dedupe key
+	type: z.literal('comment.created'), // past tense
+	version: z.literal(1), // for when the shape changes
+	occurredAt: z.string(), // when it happened — not when it was sent (in an outbox those two differ)
+	taskId: z.number().int().positive(), // the key for order and partitioning (7.2)
 	commentId: z.number().int().positive()
 });
 ```
@@ -300,16 +300,16 @@ export const commentCreatedSchema = z.object({
 
 ```typescript
 {
-	eventId: 'uuid',                 // স্থির, dedupe
+	eventId: 'uuid',                 // fixed, dedupe
 	type: 'task.completed',
 	version: 1,
-	occurredAt: '2026-…',            // complete হওয়ার মুহূর্ত
-	workspaceId: 12,                 // billing, আর partition/tenancy
+	occurredAt: '2026-…',            // the moment of completion
+	workspaceId: 12,                 // billing, and partition/tenancy
 	projectId: 7,                    // analytics
 	taskId: 42,                      // key (7.2)
-	title: 'Release 2.1 notes',      // notification আর webhook — ফিরে call না করতে
+	title: 'Release 2.1 notes',      // notification and webhooks — so they don't call back
 	assigneeId: 9,
-	watcherIds: [3, 5]               // notification — কিন্তু বড় হলে শুধু ID, email না
+	watcherIds: [3, 5]               // notification — but if it's large, only IDs, not emails
 }
 ```
 

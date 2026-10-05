@@ -22,7 +22,7 @@ npm install
 ```bash
 npm run build && npm start
 
-# অথবা dev mode এ:
+# or in dev mode:
 npm run dev
 ```
 

@@ -1,13 +1,13 @@
-# এই exercise এ শুধু Redis container এ চলে — API, worker আর নকল email provider
-# তোমার মেশিনে সাধারণ Node process। Port 6381, যাতে আগে থেকে চলা Redis (বা Lesson 4.4 এর 6380)
-# এর সাথে সংঘাত না লাগে।
+# In this exercise only Redis runs in a container — the API, worker and fake email provider
+# are ordinary Node processes on your machine. Port 6381, so it does not clash with a Redis already running
+# (or Lesson 4.4's 6380).
 services:
   redis:
     image: redis:8-alpine
-    # Queue এর Redis আর cache এর Redis এর নিয়ম উল্টো (Lesson 4.3/4.4 এ ছিল allkeys-lru):
-    #   noeviction   — memory ভরলে কোনো key ফেলে দেবে না; job ফেলে দেওয়া মানে কাজ হারানো
-    #   appendonly   — প্রতিটা লেখা disk এর AOF file এ; Redis restart হলেও job থাকে
-    #   everysec     — প্রতি সেকেন্ডে fsync: crash এ সর্বোচ্চ ~১ সেকেন্ডের লেখা হারাতে পারে
+    # A queue's Redis and a cache's Redis have opposite rules (Lesson 4.3/4.4 used allkeys-lru):
+    #   noeviction   — never drop a key when memory is full; dropping a job means losing work
+    #   appendonly   — every write goes to the AOF file on disk; jobs survive a Redis restart
+    #   everysec     — fsync every second: a crash can lose at most ~1 second of writes
     command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendonly yes --appendfsync everysec
     ports:
       - '6381:6379'

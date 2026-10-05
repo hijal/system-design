@@ -65,8 +65,8 @@ npm run chaos
 গেছে কিন্তু user error দেখেছে); নতুন code এ `flags` এর সারি পুরো ✓:
 
 ```
-── ক. একটা dependency মরা (connection refused) — আগের code ──
-মরা dependency            login       board create-task     comment      search      upload  share-link
+── A. One dependency dead (connection refused) — old code ──
+dead dependency          login       board  create-task     comment      search      upload  share-link
 pg-replica                   ✓           ✗           ✓           ✓           ✗           ✓           ✓
 redis-cache                  ✓           ✓          ✗!           ✓           ✓           ✓           ✓
 redis-queue                  ✓           ✓           ✓          ✗!           ✓           ✓           ✓
@@ -74,57 +74,57 @@ billing                      ✓           ✗           ~           ✓        
 flags                        ✗           ✗           ✗           ✗           ✗           ✗           ✗
 email                        ✓           ✓           ✓           ✓           ✓           ✓           ✓
 
-── খ. একটা dependency মরা — degradation মাথায় রেখে লেখা code ──
+── B. One dependency dead — code written with degradation in mind ──
 pg-replica                   ✓           ~           ✓           ✓           ✗           ✓           ✓
 billing                      ✓           ~           ~           ✓           ✓           ✓           ✓
 flags                        ✓           ✓           ✓           ✓           ✓           ✓           ✓
 
-journey        hard dep (আগের)        সূত্র   আগের code     বন্ধ/বছর   hard dep (নতুন)       চলেছে       পুরোটা     বন্ধ/বছর
-board                       3   99.301%    99.300%    3,680 মি                0  100.000%   99.791%        0 মি
+journey        hard dep (old)   formula   old code  down/year   hard dep (new)    worked   in full  down/year
+board                       3   99.301%    99.300%  3,680 min                0  100.000%   99.791%      0 min
 ```
 
 `npm run redundancy` — সূত্র বলে ৩টা instance এ বছরে ০.০১১ সেকেন্ড; মাপা ১৬০ মিনিট, তার বেশিরভাগ AZ আর deploy:
 
 ```
-নকশা                                    সূত্রে বন্ধ/বছর         মাপা        ব্যর্থ মিনিট/বছর  instance      AZ   deploy       পুরো বন্ধ
-১টা instance                                365 মি    99.905%               497       343      82       72       461 মি
-৩টা, একই AZ, একসাথে deploy                  0.011 সে    99.970%               160         6      82       72       117 মি
-৩টা, ৩টা AZ, একসাথে deploy                   0.011 সে    99.985%                78         6       0       72        35 মি
-৩টা, ৩টা AZ, একটা একটা করে                    0.011 সে    99.992%                43         6       0       37         0 মি
+design                          formula down/year   measured   failed min/year  instance      AZ   deploy  full outage
+1 instance                                365 min    99.905%               497       343      82       72     461 min
+3, same AZ, deployed together              0.011 s    99.970%               160         6      82       72     117 min
+3, 3 AZs, deployed together               0.011 s    99.985%                78         6       0       72      35 min
+3, 3 AZs, one at a time                   0.011 s    99.992%                43         6       0       37       0 min
 ```
 
 `npm run brownout` — কিছু না করলে চাপের ৭ মিনিটে **কেউ** board পায় না, আর চাপ শেষেও সারে না; brownout এ
 সবাই পায়:
 
 ```
-নীতি                       board পেল    পুরো page      503   timeout       p50       p99     নষ্ট কাজ        চাপ শেষে সারতে
-কিছু না                         0.0%       0.0%     0.0%    100.0%         —         —    100.0%        ১৫ মিনিটেও না
-+ deadline check            34.1%      34.1%     0.0%     65.9%    2.99 s    3.00 s     59.1%            সাথে সাথে
-load shedding (7.4)         64.0%      64.0%    36.0%      0.0%    348 ms    373 ms      0.0%            সাথে সাথে
-brownout                   100.0%       2.9%     0.0%      0.0%     18 ms    360 ms      0.0%            সাথে সাথে
+policy                  got board  full page      503   timeout       p50       p99  wasted work  recovery after load
+nothing                      0.0%       0.0%     0.0%    100.0%         —         —      100.0%  not even in 15 minutes
++ deadline check            34.1%      34.1%     0.0%     65.9%    2.99 s    3.00 s       59.1%          immediately
+load shedding (7.4)         64.0%      64.0%    36.0%      0.0%    348 ms    373 ms        0.0%          immediately
+brownout                   100.0%       2.9%     0.0%      0.0%     18 ms    360 ms        0.0%          immediately
 ```
 
 `npm run static` — শুধু snapshot সহ last-known-good control plane এর outage এর মধ্যে restart আর autoscale টিকে
 থাকে:
 
 ```
-নকশা                              ব্যর্থ request        সবচেয়ে খারাপ মিনিট      ঘাটতির মিনিট     ব্যর্থ boot      config এর বয়স (সর্বোচ্চ)
-প্রতি request এ জিজ্ঞেস                     44.05%              100.0%            45           0                        —
-cache, TTL 5 মিনিট                     40.82%              100.0%            40         463                    5 মিনিট
-last-known-good                      12.08%               50.0%            25         463                   45 মিনিট
-last-known-good + snapshot            0.24%               20.0%             1           0                   45 মিনিট
+design                        failed requests        worst minute  short minutes  failed boots         config age (max)
+ask on every request                   44.05%              100.0%            45             0                        —
+cache, TTL 5 minutes                   40.82%              100.0%            40           463                5 minutes
+last-known-good                        12.08%               50.0%            25           463               45 minutes
+last-known-good + snapshot              0.24%               20.0%             1             0               45 minutes
 ```
 
 `npm run chaos` — সূক্ষ্ম bug এ ০.১% blast radius global alarm কখনো ধরে না, control group ধরে ৯টা request এর
 ক্ষতিতে; ১০০% এ সরাসরি চালালে ক্ষতি ২৫০:
 
 ```
-── খ. সূক্ষ্ম bug — ঢোকানো request এর 5% ব্যর্থ (শুধু ৫০০+ task এর board এ) ──
-blast radius    global: ধরল       কখন       ক্ষতি  control: ধরল       কখন       ক্ষতি
-0.1%                     0%         —       45         100%     6.2 মি        9
+── B. A subtle bug — 5% of injected requests fail (only on boards with 500+ tasks) ──
+blast radius     global: caught      when     harm  control: caught      when     harm
+0.1%                         0%         —       45             100%   6.2 min        9
 1%                       2%      10 s      447         100%      40 s       11
 5%                     100%      10 s       14         100%      10 s       14
-100% (সবাই)             100%      10 s      250            —         —        —
+100% (all)                 100%      10 s      250                —         —        —
 ```
 
 সব সংখ্যা তোমার machine এও **হুবহু এক** হওয়ার কথা।

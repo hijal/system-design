@@ -77,22 +77,22 @@ const TASKS_TTL_SECONDS = 300;
 async function getTasksForUser(redis: Redis, userId: number): Promise<TaskDTO[]> {
 	const cacheKey = `tasks:user:${userId}`;
 
-	// ধাপ ১ — আগে cache এ দেখো
+	// Step 1 — look in the cache first
 	const cached = await redis.get(cacheKey);
 	if (cached !== null) {
-		// Redis থেকে আসা string টা runtime input — সরাসরি বিশ্বাস করা যায় না,
-		// তাই JSON.parse এর ফল unknown ধরে নেওয়া হচ্ছে।
+		// The string coming from Redis is runtime input — it can't be trusted directly,
+		// so the result of JSON.parse is treated as unknown.
 		const parsed: unknown = JSON.parse(cached);
 		if (Array.isArray(parsed)) {
-			// `as` এখানে ব্যবহার করতে হচ্ছে কারণ Array.isArray শুধু unknown[] পর্যন্ত
-			// narrow করে — ভেতরের element গুলো সত্যিই TaskDTO কিনা সেটা যাচাই করে না।
-			// অর্থাৎ এটা একটা অসম্পূর্ণ, সাময়িক সমাধান। Lesson 4.4 এ আমরা এটাকে Zod
-			// schema দিয়ে সরিয়ে দেব, তখন `as` এর আর দরকারই থাকবে না।
+			// `as` is needed here because Array.isArray only narrows to unknown[] —
+			// it does not check whether the elements really are TaskDTO.
+			// So this is an incomplete, temporary solution. In Lesson 4.4 we replace it
+			// with a Zod schema, and then `as` won't be needed at all.
 			return parsed as TaskDTO[];
 		}
 	}
 
-	// ধাপ ২ — cache miss, তাই DB তে যাও
+	// Step 2 — cache miss, so go to the DB
 	const rows = await Task.findAll({ where: { userId } });
 	const tasks: TaskDTO[] = rows.map((row) => ({
 		id: row.id,
@@ -100,7 +100,7 @@ async function getTasksForUser(redis: Redis, userId: number): Promise<TaskDTO[]>
 		completed: row.completed
 	}));
 
-	// ধাপ ৩ — পরেরবারের জন্য cache এ রেখে দাও
+	// Step 3 — keep it in the cache for next time
 	await redis.set(cacheKey, JSON.stringify(tasks), 'EX', TASKS_TTL_SECONDS);
 
 	return tasks;

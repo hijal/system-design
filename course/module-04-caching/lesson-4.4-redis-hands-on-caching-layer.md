@@ -91,7 +91,7 @@ export async function writeList(key: string, value: TaskDTO[], ttlSeconds: numbe
 	try {
 		await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
 	} catch {
-		// cache এ লিখতে না পারা কখনোই request fail করার কারণ হওয়া উচিত না
+		// failing to write to the cache should never be a reason to fail the request
 	}
 }
 ```

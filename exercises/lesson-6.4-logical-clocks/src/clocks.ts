@@ -1,10 +1,10 @@
-// Lesson 6.4 §১.৪–১.৬ — Lamport clock আর vector clock, হাতে মেলানোর মতো ছোট একটা উদাহরণ।
+// Lesson 6.4 §1.4–1.6 — Lamport clocks and vector clocks, in a small example you can check by hand.
 //
-// তিনটা process: A (রহিমের laptop), B (TaskFlow server), C (করিমের phone)। প্রতিটা ঘটনা হয় local
-// (নিজের কাজ), send (message পাঠানো), বা receive (message পাওয়া)। Program নিয়ম মেনে প্রতিটা ঘটনার
-// Lamport timestamp আর vector timestamp হিসাব করে, তারপর কয়েকটা জোড়া তুলনা করে।
+// Three processes: A (Rahim's laptop), B (the TaskFlow server), C (Karim's phone). Every event is local
+// (its own work), send (sending a message), or receive (getting a message). Following the rules, the program
+// computes the Lamport timestamp and vector timestamp of every event, then compares a few pairs.
 //
-// প্রথমে নিজে কাগজে হিসাব করো, তারপর চালিয়ে মেলাও।
+// Work it out on paper yourself first, then run it and compare.
 
 type Proc = 'A' | 'B' | 'C';
 const PROCS: Proc[] = ['A', 'B', 'C'];
@@ -15,18 +15,18 @@ type Step =
 	| { kind: 'send'; proc: Proc; name: string; note: string; message: string }
 	| { kind: 'receive'; proc: Proc; name: string; note: string; message: string };
 
-// একটা বৈধ ক্রম — প্রতিটা receive তার send এর পরে
+// a valid order — every receive after its send
 const STEPS: Step[] = [
-	{ kind: 'local', proc: 'A', name: 'a1', note: 'রহিম title লিখল' },
-	{ kind: 'local', proc: 'C', name: 'c1', note: 'করিম offline এ একটা comment লিখল' },
-	{ kind: 'send', proc: 'A', name: 'a2', note: 'title server এ পাঠাল', message: 'm1' },
-	{ kind: 'receive', proc: 'B', name: 'b1', note: 'server title পেল', message: 'm1' },
-	{ kind: 'local', proc: 'A', name: 'a3', note: 'রহিম description বদলাল' },
-	{ kind: 'send', proc: 'B', name: 'b2', note: 'server করিমকে notify করল', message: 'm2' },
-	{ kind: 'local', proc: 'B', name: 'b3', note: 'server audit log লিখল' },
-	{ kind: 'receive', proc: 'C', name: 'c2', note: 'করিম notification পেল', message: 'm2' },
-	{ kind: 'send', proc: 'C', name: 'c3', note: 'করিম উত্তর দিল রহিমকে', message: 'm3' },
-	{ kind: 'receive', proc: 'A', name: 'a4', note: 'রহিম উত্তর পেল', message: 'm3' }
+	{ kind: 'local', proc: 'A', name: 'a1', note: 'Rahim wrote the title' },
+	{ kind: 'local', proc: 'C', name: 'c1', note: 'Karim wrote a comment offline' },
+	{ kind: 'send', proc: 'A', name: 'a2', note: 'sent the title to the server', message: 'm1' },
+	{ kind: 'receive', proc: 'B', name: 'b1', note: 'the server got the title', message: 'm1' },
+	{ kind: 'local', proc: 'A', name: 'a3', note: 'Rahim changed the description' },
+	{ kind: 'send', proc: 'B', name: 'b2', note: 'the server notified Karim', message: 'm2' },
+	{ kind: 'local', proc: 'B', name: 'b3', note: 'the server wrote an audit log' },
+	{ kind: 'receive', proc: 'C', name: 'c2', note: 'Karim got the notification', message: 'm2' },
+	{ kind: 'send', proc: 'C', name: 'c3', note: 'Karim replied to Rahim', message: 'm3' },
+	{ kind: 'receive', proc: 'A', name: 'a4', note: 'Rahim got the reply', message: 'm3' }
 ];
 
 type Stamp = { lamport: number; vector: Vector };
@@ -41,17 +41,17 @@ function main(): void {
 	const inFlight = new Map<string, Stamp>();
 	const stamps = new Map<string, Stamp>();
 
-	console.log('\n   ঘটনা  process  ধরন       Lamport   vector [A,B,C]   কী হলো');
+	console.log('\n   event process  kind      Lamport   vector [A,B,C]   what happened');
 	for (const step of STEPS) {
 		const p = step.proc;
 		if (step.kind === 'receive') {
-			// নিয়ম: পাওয়া message এর timestamp এর সাথে মিলিয়ে নাও — Lamport এ max, vector এ প্রতিটা ঘরে max
+			// rule: merge with the received message's timestamp — max for Lamport, max in every slot for vector
 			const got = inFlight.get(step.message);
-			if (!got) throw new Error(`${step.message} পাঠানোর আগে পাওয়া যায় না`);
+			if (!got) throw new Error(`${step.message} cannot be received before it is sent`);
 			lamport[p] = Math.max(lamport[p], got.lamport);
 			for (const q of PROCS) vector[p][q] = Math.max(vector[p][q], got.vector[q]);
 		}
-		// নিয়ম: প্রতিটা ঘটনায় নিজের ঘর এক বাড়াও
+		// rule: on every event, increment your own slot
 		lamport[p] += 1;
 		vector[p][p] += 1;
 		const stamp: Stamp = { lamport: lamport[p], vector: { ...vector[p] } };
@@ -75,17 +75,17 @@ function main(): void {
 		const y = stamps.get(b);
 		if (!x || !y) throw new Error('unknown event');
 		const byLamport =
-			x.lamport < y.lamport ? `${a} < ${b}` : x.lamport > y.lamport ? `${a} > ${b}` : 'সমান';
+			x.lamport < y.lamport ? `${a} < ${b}` : x.lamport > y.lamport ? `${a} > ${b}` : 'equal';
 		const byVector =
 			leq(x.vector, y.vector) && !leq(y.vector, x.vector)
-				? `${a} → ${b} (আগে ঘটেছে)`
+				? `${a} → ${b} (happened before)`
 				: leq(y.vector, x.vector) && !leq(x.vector, y.vector)
-					? `${b} → ${a} (আগে ঘটেছে)`
-					: 'concurrent — কেউ কারো কথা জানত না';
+					? `${b} → ${a} (happened before)`
+					: 'concurrent — neither knew about the other';
 		return { byLamport, byVector };
 	}
 
-	console.log('\n   জোড়া       Lamport বলে       Vector clock বলে');
+	console.log('\n   pair       Lamport says      vector clock says');
 	for (const [a, b] of [
 		['a1', 'a4'],
 		['a2', 'c2'],
@@ -97,7 +97,7 @@ function main(): void {
 		console.log(`   ${`${a}, ${b}`.padEnd(10)}  ${r.byLamport.padEnd(15)}   ${r.byVector}`);
 	}
 	console.log(
-		'\n   Lamport এর ছোট সংখ্যা মানে "আগে ঘটেছে" না — শুধু উল্টোটা সত্যি। Concurrent চিনতে vector লাগে।\n'
+		'\n   A smaller Lamport number does not mean "happened before" — only the reverse is true. Recognising concurrency needs vectors.\n'
 	);
 }
 

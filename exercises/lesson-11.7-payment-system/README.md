@@ -56,51 +56,51 @@ npm run smoke
 `npm run estimate` — চাপ ছোট, টাকা বড়:
 
 ```
-payment / s (sale এর দিনে, 10×)                                  1,157   একটা Postgres এর জন্য ছোট
-দিনে টাকার পরিমাণ                                                   $30 কোটি
-0.01% payment এ ভুল                                           $30,000           $1.1 কোটি
+payments / s (on a sale day, 10×)                              1,157   small for a Postgres
+money per day                                           $300 million
+mistakes on 0.01% of payments                                $30,000     $10.9 million
 ```
 
 `npm run timeout` — timeout কে ব্যর্থ ধরলে দুবার কাটা আর হারানো টাকা; key বা "unknown" এ শূন্য; আগে intent লিখলে crash এ কিছু
 হারায় না:
 
 ```
-timeout = ব্যর্থ, user আবার চেষ্টা করুক                          4,060           1,819            —
-নিজে আবার পাঠাও, নতুন request                                5,821               0            —
-নিজে আবার পাঠাও, একই idempotency key                            0               0            —
-"unknown" রাখো: webhook, না এলে status জিজ্ঞেস                     0               0         52 s
-PSP তে charge → তারপর DB তে payment লেখো                                              970                   0
-DB তে intent (created) → PSP → DB তে ফল                                              0                 955
+timeout = failed, let the user try again                      4,060              1,819            —
+resend it ourselves, a new request                            5,821                  0            —
+resend it ourselves, the same idempotency key                     0                  0            —
+keep "unknown": webhook, else ask for the status                  0                  0         52 s
+charge at the PSP → then write the payment to the DB                                 970                   0
+intent in the DB (created) → PSP → the result in the DB                                0                 955
 ```
 
 `npm run ledger` — balance column এ টাকা উধাও; double-entry এ শূন্য, কিন্তু গরম account এ lock এর লাইন:
 
 ```
-balance column: পড়ো, হিসাব করো, লেখো                           -5,139,292              0           158               না       0.00 ms
-double-entry: এক transaction, দুই account lock                     0              0             0        হ্যাঁ, Σ = 0       37.40 s
-double-entry: শুধু টাকা যে দেয় তার lock                                  0              0             0        হ্যাঁ, Σ = 0       7.39 ms
+balance column: read, compute, write                             -5,139,292                 0           158              no        0.00 ms
+double-entry: one transaction, locks on both accounts                     0                 0             0      yes, Σ = 0        37.40 s
+double-entry: lock only the account paying out                            0                 0             0      yes, Σ = 0        7.39 ms
 0.1 + 0.2 = 0.30000000000000004; 0.029 * 100 = 2.9000000000000004
 ```
 
 `npm run reconcile` — amount দিয়ে মেলালে আসল সমস্যা লুকায়; id দিয়ে একই তারিখে পাঁচ লাখ মিথ্যা alert; id + ±১ দিনে নিখুঁত:
 
 ```
-একই তারিখ, শুধু amount মিলিয়ে                                56,020         1       56,019      371 (100%)
-আমাদের payment id (PSP এর reference এ), একই তারিখ        500,514       318      500,196        54 (15%)
-payment id, ±১ দিনের জানালা                                   372       372            0          0 (0%)
+same date, matching amounts only                          56,020         1        56,019        371 (100%)
+our payment id (in the PSP's reference), same date       500,514       318       500,196          54 (15%)
+payment id, a ±1 day window                                  372       372             0            0 (0%)
 ```
 
 `npm run smoke` — ১৩টা ধাপ:
 
 ```
-1   $30.00 এর payment                                     201 succeeded; psp_receivable $30.00, merchant:m_shop −$28.83, revenue:fees −$1.17
-2   একই idempotency key আবার (client এর retry)             200 pay_1 (আগেরটা pay_1); PSP call 1
-4   $55.00, PSP timeout (আসলে কেটেছে)                         202 unknown
-6   জাল webhook (ভুল secret)                                401; pay_1 এখনও succeeded
-7   $77.00 timeout, webhook হারাল; ৫ মিনিট পরে recovery job    1টা ঠিক হলো → succeeded
-10  আরও $25.00 refund (মোট captured ছাড়ায়)                   409 exceeds
-11  দিনশেষে PSP এর report মেলানো                                pay_3: PSP তে 2 বার
-13  সব entry এর যোগফল                                      0 পয়সা (12টা entry)
+1   a $30.00 payment                                            201 succeeded; psp_receivable $30.00, merchant:m_shop −$28.83, revenue:fees −$1.17
+2   the same idempotency key again (the client's retry)         200 pay_1 (earlier pay_1); PSP calls 1
+4   $55.00, PSP timeout (actually charged)                      202 unknown
+6   a fake webhook (wrong secret)                               401; pay_1 still succeeded
+7   $77.00 timeout, webhook lost; recovery job 5 minutes later  1 fixed → succeeded
+10  refund another $25.00 (over the total captured)             409 exceeds
+11  matching the PSP's report at the end of the day             pay_3: 2 times at the PSP
+13  the sum of all entries                                      0 cents (12 entries)
 ```
 
 ## কী দেখার জন্য এটা বানানো

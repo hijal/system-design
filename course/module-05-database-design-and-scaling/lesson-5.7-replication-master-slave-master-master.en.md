@@ -99,8 +99,8 @@ Now TaskFlow's bug. The exercise's `npm run lag` does exactly what TaskFlow's co
 
 ```
 situation                               not found   time until visible on the replica
-normal (same machine, no load)          199/200     p50    1.8 ms   p99    2.3 ms
-replica 200 ms behind (simulated lag)    50/50      p50  200.1 ms   p99  200.9 ms
+normal (same machine, no load)          199/200   p50    1.8 ms   p99    2.3 ms
+replica 200 ms behind (simulated lag)    50/50   p50  200.1 ms   p99  200.9 ms
 ```
 
 The first line holds the most important number in this lesson. The primary and replica are **on the same machine**, there's no load, the lag is only **~2 ms** — yet 199 times out of 200 the newly created task couldn't be found. Because the next read arrives faster than 2 ms. The question is never "how small is the lag" — it is **"is the lag zero"**, and with async replication it never is.
@@ -114,11 +114,11 @@ In real life the lag gets bigger: a replica busy with heavy reads, a wave of WAL
 The exercise's `npm run ryw` — the replica 200 ms behind, "write → read immediately" 30 times per strategy:
 
 ```
-strategy                                    found   write (median)   read (median)
-a. nothing (read from the replica)           0/30        2.1 ms         0.4 ms
-b. useMaster: true (from the primary)       30/30        2.1 ms         0.4 ms
-c. LSN token — wait until replica catches up 30/30       1.8 ms       200.7 ms
-d. synchronous_commit = remote_apply        30/30      202.2 ms         0.7 ms
+strategy                                      found  write median   read median
+a. nothing (read from the replica)            0/30        2.1 ms        0.4 ms
+b. useMaster: true (from the primary)        30/30        2.1 ms        0.4 ms
+c. LSN token — wait for the replica          30/30        1.8 ms      200.7 ms
+d. synchronous_commit = remote_apply         30/30      202.2 ms        0.7 ms
 ```
 
 All three fixes are correct (30/30). But look at the numbers — each one **moves the cost somewhere different**:

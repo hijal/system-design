@@ -56,32 +56,41 @@ Light travels about two hundred thousand kilometres a second in optical fibre. S
 `npm run latency` runs users in five cities (Dhaka 35%, Delhi 10%, Singapore 15%, London 25%, New York 15%), with approximate RTTs and ±15% fluctuation. Opening a board means one new connection (TCP + TLS 1.3, two round trips, 2.2), then three API calls one after another, each with three queries to the database. 20% of workspaces are shared with people in another region. Four topologies:
 
 ```
-everything in Singapore
-city         users   board p50   board p95   create task p50   stale read after write
-Dhaka           35%      346 ms      386 ms           77 ms                 0.0%
-Delhi           10%      422 ms      472 ms           92 ms                 0.0%
-Singapore       15%       94 ms       98 ms           27 ms                 0.0%
-London          25%      925 ms      1.05 s          192 ms                 0.0%
-New York        15%      1.23 s      1.39 s          252 ms                 0.0%
-everyone (weighted)      390 ms      1.27 s
+all in Singapore
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      346 ms      386 ms            77 ms                    0.0%
+Delhi              10%      422 ms      472 ms            92 ms                    0.0%
+Singapore          15%       94 ms       98 ms            27 ms                    0.0%
+London             25%      925 ms      1.05 s           192 ms                    0.0%
+New York           15%      1.23 s      1.39 s           252 ms                    0.0%
+all (weighted)                390 ms      1.27 s
 
 + TLS at the CDN edge
-London          25%      599 ms      678 ms          192 ms                 0.0%
-New York        15%      780 ms      887 ms          252 ms                 0.0%
-everyone (weighted)      289 ms      807 ms
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      266 ms      292 ms            77 ms                    0.0%
+Delhi              10%      301 ms      334 ms            92 ms                    0.0%
+Singapore          15%       94 ms       98 ms            27 ms                    0.0%
+London             25%      599 ms      678 ms           192 ms                    0.0%
+New York           15%      780 ms      887 ms           252 ms                    0.0%
+all (weighted)                289 ms      807 ms
 
-+ app + read replica in every region (writes to the Singapore primary)
-Dhaka           35%      236 ms      258 ms          185 ms                 0.2%
-Delhi           10%      180 ms      195 ms          170 ms                 9.6%
-London          25%      131 ms      139 ms          355 ms                61.1%
-New York        15%      116 ms      122 ms          470 ms                66.8%
-everyone (weighted)      135 ms      250 ms
++ app + read replica in every region
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      236 ms      258 ms           185 ms                    0.2%
+Delhi              10%      180 ms      195 ms           170 ms                    9.6%
+Singapore          15%       94 ms       98 ms            27 ms                    0.0%
+London             25%      131 ms      139 ms           355 ms                   61.1%
+New York           15%      116 ms      122 ms           470 ms                   66.8%
+all (weighted)                135 ms      250 ms
 
-workspace home region (cell)
-Dhaka           35%      239 ms      758 ms           69 ms                 0.0%
-London          25%      132 ms      567 ms           38 ms                 0.0%
-New York        15%      117 ms      755 ms           32 ms                 0.0%
-everyone (weighted)      186 ms      698 ms
+the workspace's home region (cell)
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      239 ms      758 ms            69 ms                    0.0%
+Delhi              10%      183 ms      717 ms            54 ms                    0.0%
+Singapore          15%       95 ms      706 ms            27 ms                    0.0%
+London             25%      132 ms      567 ms            38 ms                    0.0%
+New York           15%      117 ms      755 ms            32 ms                    0.0%
+all (weighted)                186 ms      698 ms
 ```
 
 Four lessons, one at a time:
@@ -98,12 +107,12 @@ The last topology, the **cell**: every workspace has a home region, and all of t
 Reads can be brought close (replicas). Writes are harder, because a write needs an owner (5.7). And if you want writes to be durable across several regions, so that a write is not lost even if a region dies, the write's commit has to wait for another region's ack. `npm run latency` part B, a Raft-like majority commit (6.2):
 
 ```
-where                               nodes   majority   commit   regions that can be lost
-3 AZs in Singapore                       3          2     2 ms   0 (lose the region, lose it all)
-Singapore + Mumbai + Frankfurt           3          2    60 ms   1
-same, leader in Mumbai                   3          2    60 ms   1
-four regions, leader in Singapore        4          3   160 ms   1
-four regions, leader in Frankfurt        4          3   110 ms   1
+where                             node   majority   commit  regions it can lose
+Singapore's 3 AZs                  3          2     2 ms  0 (lose the region, lose everything)
+Singapore + Mumbai + Frankfurt    3          2    60 ms   1
+the same, leader in Mumbai            3          2    60 ms   1
+four regions, leader in Singapore    4          3   160 ms   1
+four regions, leader in Frankfurt      4          3   110 ms   1
 ```
 
 A majority commit needs the ack of the **second-nearest** node. 2 ms across three AZs, but lose the region and you lose it all. 60 ms across three regions: 30 times more on every write, in exchange for surviving the loss of a whole region **with zero data lost** (RPO = 0). Four regions do not increase how many can be lost (the majority of four is three, so only one can be lost), but the commit is 160 ms. The rule: **an odd number, and the leader near the writers.** Systems like Google Spanner or CockroachDB pay exactly this price, and much of their design is about hiding or reducing it (moving the leader near the writer, leases for reads). This is the "else" part of 5.9's PACELC: even with no partition, the price of consistency is latency.
@@ -117,17 +126,17 @@ Most user-facing writes do not want to pay this price. So the usual path is: wri
 `npm run failover` part A: the Singapore region down for 4 hours, 300 req/s, 10% of them writes. Five strategies. Each one's RTO is the sum of its steps (assumed times), and the monthly extra cost is on top of 10.7's $8,276:
 
 ```
-strategy                                      RTO     RPO    writes lost   failed requests   extra / month
-one region, wait for it to return            4.0 h      0             0       4,320,000            $0
-backup & restore (daily snapshot to another region) 2.2 h  12.0 h  1,296,000   2,340,000          $359
-pilot light (DB replica running, app off)    42 min    5 s           150         756,000          $833
-warm standby (small app running)             27 min    5 s           150         486,000        $1,259
-active-active (running in every region)       4 min    5 s           150          72,000        $3,836
+strategy                                                   RTO       RPO  lost writes  failed requests  extra / month
+one region, wait for it to return                        4.0 h         0            0        4,320,000             $0
+backup & restore (daily snapshot to another region)      2.2 h    12.0 h    1,296,000        2,340,000           $359
+pilot light (DB replica running, app off)               42 min       5 s          150          756,000           $833
+warm standby (small app running)                        27 min       5 s          150          486,000         $1,259
+active-active (running in every region)                  4 min       5 s          150           72,000         $3,836
 
 backup:      detect 5 → decide 15 → infra via IaC 30 → DB restore (900 GB) 60 → verify 15 → DNS 5
-pilot light: detect 5 → decide 15 → start the app from zero 15 → promote replica 2 → DNS 5
-warm:        detect 5 → decide 10 → scale out 5 → promote replica 2 → DNS 5
-active:      detect 2 → automatic promotion (with a witness) 1 → global LB / anycast 1
+pilot light: detect 5 → decide 15 → start app from zero 15 → replica promote 2 → DNS 5
+warm:        detect 5 → decide 10 → scale out 5 → replica promote 2 → DNS 5
+active:      detect 2 → automatic promote (with witness) 1 → global LB / anycast 1
 ```
 
 **Active-Passive / Active-Active** — in active-passive one region takes traffic and another waits. There are three well-known levels of how ready it waits: **backup & restore** (only a copy of the data), **pilot light** (data on a running replica, compute off), **warm standby** (everything running at small size). In active-active every region takes traffic, so when one dies the others just take its share. The more preparation, the smaller the RTO and the bigger the monthly price.
@@ -148,11 +157,11 @@ The last step of RTO: sending users' traffic to the new region.
 **The spaced repetition answer:** the TTL is lowered before a migration so that resolvers do not cache the old answer for long. But not everyone respects TTLs. `npm run failover` part B, an assumed mix of clients: 70% respect the TTL, 20% have resolvers that treat the TTL as at least 5 minutes, 10% hold on to the old IP for up to an hour (open connections, the app's own DNS cache). After DNS is changed, what % of traffic still goes to the dead region:
 
 ```
-routing                              +1 min   +5 min   +15 min   +30 min   +60 min   failed in the first hour
+routing                              +1 min  +5 min  +15 min  +30 min  +60 min  failed in hour 1
 DNS, TTL 60 s                          26%      9%       8%       5%       0%               69,450
 DNS, TTL 300 s                         82%      9%       8%       5%       0%               94,650
 DNS, TTL 3,600 s                       98%     92%      75%      50%       0%              540,150
-anycast / global LB (DNS unchanged)     0%      0%       0%       0%       0%                9,150
+anycast / global LB (DNS doesn't change)  0%      0%       0%       0%       0%                9,150
 ```
 
 The difference between TTL 60 and 300 is only in the first few minutes. After that both get stuck on the same tail: the 10% who do not respect the TTL at all. TTLs cannot stop that. And with an hour-long TTL, the first half hour of a failover is almost pointless. So in DR planning the DNS TTL is always kept short (2.1's migration advice, this time permanent). And for a small RTO, anycast or a global load balancer, where nothing has to change on the client. (In a mobile app there is another path: the app itself knows two endpoints and switches to the other on failure.)
@@ -160,10 +169,10 @@ The difference between TTL 60 and 300 is only in the first few minutes. After th
 **Who says the region has died?** Now the most dangerous question. In active-active or automatic failover, a machine decides "Singapore is dead, make Mumbai primary." But remember 6.1: from another machine, "dead" and "unreachable" look exactly the same. `npm run failover` part C: Singapore has not died, it is just cut off from the others for 10 minutes (a partition), and Singapore's users can still reach it (15% of writes):
 
 ```
-policy                                     failed writes   writes diverging on both sides   who could write
-no automatic failover                         15,300                   0   only Singapore; everyone else's writes fail
-Mumbai promotes itself after 2 minutes         3,060               2,160   both sides — two primaries (split brain)
-with a witness (majority + lease, fencing)     5,625                   0   Mumbai's side; Singapore stops itself after 30 s
+policy                                   failed writes  divergent writes  who could write
+no automatic failover                      15,300                   0  Singapore only; everyone else's writes fail
+Mumbai promotes itself after 2 minutes    3,060               2,160  both sides — two primaries (split brain)
+with a witness (majority + lease, fencing)       5,625                   0  the Mumbai side; Singapore stops itself after 30 s
 ```
 
 - **No failover:** nothing is lost, but for 10 minutes everyone outside Singapore has their writes fail. CAP's C.
@@ -177,11 +186,11 @@ Now the pile of support tickets. 6.4's pilot accepts writes in every region and 
 `npm run conflicts`, one day: a million edits, about 200,000 of them in 20,000 joint sessions (2–4 people working on the same task for a few minutes, with people from another region in 30% of sessions). Replication between regions is usually half the distance + 50 ms. But from 2 p.m. to 4 p.m. the link is bad, with a median of 20 seconds. And Frankfurt's clock is 250 ms behind (6.4). Two edits are concurrent if one is written before the other has reached its region:
 
 ```
-rule                          edits silently lost   % of total   concurrent   reversed by the clock   in the 2-hour incident
-LWW, whole row, wall clock                2,068    0.207%                2,025               43                1,858
-LWW, per field, wall clock                  642    0.064%                  633                9                  599
-LWW, per field, HLC                         633    0.063%                  633                0                  599
-writes in the workspace's home region         0        0%                    0                0                    0
+rule                         silently lost edits  % of total  concurrent          reversed by clock  in the 2 h incident
+LWW, whole row, wall clock             2,068    0.207%                2,025               43                1,858
+LWW, per field, wall clock                642    0.064%                  633                9                  599
+LWW, per field, HLC                       633    0.063%                  633                0                  599
+writes to the workspace's home region      0        0%                    0                0                    0
 ```
 
 - **2,068 edits are silently lost a day** with whole-row LWW. 0.2% sounds small, but each one is a person who wrote something and later found it gone, with no error. The pile of tickets is real.
@@ -204,22 +213,22 @@ The German contract: "all personal data inside the EU." The first plan was a dat
 `npm run residency` counts this customer's (300 workspaces, 6,000 users) data paths, under three designs:
 
 ```
-path                                  GB/month   personal data              all in Singapore   DB + app + S3 in EU   full EU cell
-Postgres (primary + replica)              80   names, emails, tasks           out ✗              in EU              in EU
-attachments (S3)                       3,000   files                          out ✗              in EU              in EU
-DR copy: backups and replica           3,100   everything                     out ✗             out ✗             in EU
-CDN edge cache                           600   files                          out ✗             out ✗             in EU
-logs (central log store)                  45   user id, IP                    out ✗             out ✗             in EU
-traces                                    15   user id, workspace             out ✗             out ✗             in EU
-metrics                                    2   none (labels cleaned)          out ✗             out ✗            out ✗
-search index (8.3)                        40   task text                      out ✗             out ✗             in EU
-analytics warehouse (7.6)                 60   events, user id                out ✗             out ✗             in EU
-analytics: aggregates only (no user id)    1   none                           out ✗             out ✗            out ✗
-identity: users' email and profile         1   email, name                    out ✗             out ✗             in EU
-email provider                             5   email, name, task titles       out ✗             out ✗             in EU
-error tracker (with request bodies)        3   whatever is in the body        out ✗             out ✗             in EU
-paths taking personal data out                                               11 / 11              9 / 11            0 / 11
-personal data leaving / month                                                  6.9 TB              3.9 TB              0 GB
+path                                          GB/month                           personal data    all in Singapore  DB + app + S3 in the EU      a full EU cell
+Postgres (primary + replica)                        80                      name, email, tasks           outside ✗           in the EU           in the EU
+attachment (S3)                                  3,000                                    file           outside ✗           in the EU           in the EU
+DR copy: backups and replicas                    3,100                              everything           outside ✗           outside ✗           in the EU
+CDN edge cache                                     600                                    file           outside ✗           outside ✗           in the EU
+logs (central log store)                            45                             user id, IP           outside ✗           outside ✗           in the EU
+trace                                               15                      user id, workspace           outside ✗           outside ✗           in the EU
+metric                                               2                     none (clean labels)           outside ✗           outside ✗           outside ✗
+search index (8.3)                                  40                               task text           outside ✗           outside ✗           in the EU
+analytics warehouse (7.6)                           60                          event, user id           outside ✗           outside ✗           in the EU
+analytics: aggregates only (no user id)              1    none (counts by day × plan × feature)           outside ✗           outside ✗           outside ✗
+identity: user email and profile                     1                             email, name           outside ✗           outside ✗           in the EU
+email provider                                       5                email, name, task titles           outside ✗           outside ✗           in the EU
+error tracker (with request bodies)                  3                 whatever is in the body           outside ✗           outside ✗           in the EU
+paths taking personal data outside                                                                        11 / 11              9 / 11              0 / 11
+personal data going outside / month                                                                        6.9 TB              3.9 TB                0 GB
 ```
 
 **Moving the database and S3 to Frankfurt fixes only 2 of the 11 paths.** The other 9 are each a decision from almost every module of this course. 10.3's DR copy (in Singapore, because "another region"), 4.5's CDN (private files cached in PoPs around the world), 10.4's central logs and traces (user ids, IPs — IPs are personal data too), 8.3's search cluster, 7.6's analytics, 9.2's identity, and external services (email, the error tracker, whose request bodies nobody knows the contents of). Residency is not a database setting. It is a property of every path in the system.
@@ -234,14 +243,14 @@ In the full EU cell, no path takes personal data out. What does leave (metrics, 
 app (min 3, commit)                                $273
 Postgres Multi-AZ + 1 replica                    $1,444
 Redis (cache + queue)                              $190
-NAT ×3 + LB + endpoints                            $221
+NAT ×3 + LB + endpoint                             $221
 log/trace/metric stack (the cell's own)            $450
-DR: pilot light in a second EU region              $512
+DR: pilot light in a second EU region               $512
 search (the cell's own)                            $280
-people's time on average (on-call, upgrades × 2 cells) $1,500
+average people time (on-call, upgrades × 2 cells)  $1,500
 cell total / month                               $4,870
 this customer's revenue (4,200 paid seats × $9)  $37,800
-cell cost as % of revenue                           13%
+the cell's cost as % of revenue                     13%
 ```
 
 A cell has a **fixed base cost**, however small the customer: the database's Multi-AZ, NAT, the observability stack, and the biggest line, people. Two cells means every deploy, every migration (10.6's expand/contract), every on-call incident in two places. 13% of this customer's revenue, four times TaskFlow's usual 3% (10.7). For the first EU customer, a cell is an investment. The second and third EU customers go in the same cell, and the base cost is shared. So it is a business decision: "do we expect more customers in the EU market?" And that comes before the cell's design.

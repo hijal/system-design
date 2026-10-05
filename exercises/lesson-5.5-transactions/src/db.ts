@@ -10,8 +10,8 @@ import {
 const DATABASE_URL: string =
 	process.env.DATABASE_URL ?? 'postgres://taskflow:taskflow@localhost:5436/taskflow';
 
-// Pool এ ১০টা connection — দুটো transaction সত্যিই একসাথে চলতে হলে দুটো আলাদা
-// connection লাগে। একটা transaction পুরো সময় তার connection ধরে রাখে (Lesson 5.6)।
+// 10 connections in the pool — for two transactions to really run at once they need two separate
+// connections. A transaction holds its connection the whole time (Lesson 5.6).
 export const sequelize = new Sequelize(DATABASE_URL, {
 	logging: false,
 	pool: { max: 10, min: 0, idle: 10_000 }
@@ -21,8 +21,8 @@ export class Project extends Model<InferAttributes<Project>, InferCreationAttrib
 	declare id: CreationOptional<number>;
 	declare name: string;
 	declare openTaskCount: CreationOptional<number>;
-	// Optimistic locking এর জন্য — `version: true` দিলে Sequelize প্রতিটা save এ এটা মিলিয়ে
-	// দেখে আর এক বাড়ায় (lostupdate.ts এর কৌশল ৬)
+	// For optimistic locking — with `version: true` Sequelize checks it on every save
+	// and increments it (lostupdate.ts's strategy 6)
 	declare version: CreationOptional<number>;
 }
 

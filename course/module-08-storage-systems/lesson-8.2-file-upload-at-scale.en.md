@@ -39,11 +39,11 @@ First the spaced repetition answer, because Monday's first hit was right there. 
 The exercise's `npm run through-app`: TaskFlow's API in a separate process, and 8 users each uploading two 64 MB files at once — each at 16 MB per second (good broadband). Three paths:
 
 ```
-   path                                     app memory (start → peak)   uploads open in the app at once   through the app   ping p50 / p99      event loop delay p99 / max   all uploads done
+   path                                      app memory start→peak     uploads open at once    through the app   ping p50 / p99          event loop p99 / max   uploads done
    ping only                                            81 → 99 MB                        0             0.0 MB   0.5 ms / 2.1 ms              1.5 ms / 6.2 ms              —
    buffer (whole file in memory)                      79 → 1159 MB                        8          1024.0 MB   0.4 ms / 2.2 ms            1.8 ms / 434.6 ms        13.71 s
    stream (flows through the app)                      80 → 111 MB                        8          1024.0 MB   0.5 ms / 1.3 ms             1.6 ms / 19.5 ms         8.19 s
-   presigned (straight to object storage)              79 → 99 MB                        0             0.0 MB   0.5 ms / 1.2 ms             1.6 ms / 16.7 ms         8.19 s
+   presigned (straight to object storage)               79 → 99 MB                        0             0.0 MB   0.5 ms / 1.2 ms             1.6 ms / 16.7 ms         8.19 s
 ```
 
 - **Buffer (8.1's path):** eight 64 MB files at once = the app's memory going from 79 MB to **1159 MB**. Nearly double the file size for each upload (Buffers being concatenated, the SDK's copy). And the event loop blocked once for 435 ms. Experiment 1: 624 MB with 4 users — linear. 50 people uploading 2 GB videos at once means about 200 GB of memory — the arithmetic behind Monday's OOM-kill.
@@ -84,14 +84,14 @@ So what can someone do with this URL in hand? The exercise's `npm run presign`, 
 
 ```
 ── Presigned URL for upload (PUT) ──
-    1. correct file, correct content-type                               → 200
-    2. the same URL again (before expiry)                               → 200
-    3. the same URL, content-type changed (text/html)                   → 403
-    4. changing the URL's key to write to another object                → 403
-    5. a bigger file, the same URL (size signed)                        → 403
-    6. expiry 2 s, used after 3.5 s                                     → 403
-    7. a file 50 times bigger on a URL without the size signed          → 200
-    8. URL signed with the SDK's default checksum                       → 400 BadDigest
+    1. correct file, correct content-type                             → 200
+    2. the same URL again (before expiry)                             → 200
+    3. the same URL, content-type changed (text/html)                 → 403
+    4. changing the URL's key to write to another object              → 403
+    5. a bigger file, the same URL (size signed)                      → 403
+    6. expiry 2 s, used after 3.5 s                                   → 403
+    7. a file 50 times bigger on a URL without the size signed        → 200
+    8. URL signed with the SDK's default checksum                     → 400 BadDigest
 ```
 
 Three lessons:
@@ -135,13 +135,13 @@ S3's rules (from the documentation): every part except the last is at least 5 MB
 The exercise's `npm run resume`: a 200 MB file, on a network that tears on average every 60 MB sent. The uploads are real — presigned URLs, with the connection really cut midway; the "time" is a calculation: 2.5 MB/s (≈20 Mbps) and 150 ms per request:
 
 ```
-   method                                finished?   sent       × file size   requests   torn   est. time    MD5 matches   ETag
-   one PUT, network fine                     yes    200.0 MB           1.00         1         0      1.3 min         yes   "…"
-   one PUT, broken network                    no    819.3 MB           4.10        15        15      5.5 min           —
-   multipart, 5 MB parts                     yes    208.0 MB           1.04        44         4      1.5 min         yes   "…-40"
-   multipart, 16 MB parts                    yes    238.0 MB           1.19        17         4      1.6 min         yes   "…-13"
-   multipart, 64 MB parts                    yes    758.7 MB           3.79        18        14      5.1 min         yes   "…-4"
-   multipart, 16 MB, tab closed midway       yes    238.0 MB           1.19        17         4      1.6 min         yes   "…-13"
+   method                                  done?        sent    × file size  requests      torn      est. time   MD5 match   ETag
+   one PUT, network fine                     yes    200.0 MB           1.00         1         0        1.3 min         yes   "…"
+   one PUT, broken network                    no    819.3 MB           4.10        15        15        5.5 min           —
+   multipart, 5 MB part                      yes    208.0 MB           1.04        44         4        1.5 min         yes   "…-40"
+   multipart, 16 MB part                     yes    238.0 MB           1.19        17         4        1.6 min         yes   "…-13"
+   multipart, 64 MB part                     yes    758.7 MB           3.79        18        14        5.1 min         yes   "…-4"
+   multipart, 16 MB, tab closed midway       yes    238.0 MB           1.19        17         4        1.6 min         yes   "…-13"
                                         13 parts, 4 resent · after closing the tab 6 were already there
 ```
 
@@ -149,11 +149,11 @@ One run is one roll of the dice — so at the end the script runs a model of the
 
 ```
 ── Model: the same network, 1000 different seeds (no IO, just byte accounting) ──
-   method                    finished   sent (avg, × file size)   time avg     time p95     requests avg
-   one PUT                       43%                       2.61    3.5 min      6.5 min              7
-   multipart, 5 MB parts        100%                       1.04    1.5 min      1.6 min             43
-   multipart, 16 MB parts       100%                       1.14    1.6 min      1.8 min             17
-   multipart, 64 MB parts       100%                       1.76    2.4 min      3.7 min             10
+   method                       done    sent (avg, × file size)     time avg     time p95     requests
+   one PUT                       43%                       2.61      3.5 min      6.5 min            7
+   multipart, 5 MB part         100%                       1.04      1.5 min      1.6 min           43
+   multipart, 16 MB part        100%                       1.14      1.6 min      1.8 min           17
+   multipart, 64 MB part        100%                       1.76      2.4 min      3.7 min           10
 ```
 
 - **One PUT:** the probability of getting 200 MB through in one go is e^(−200/60) ≈ 3.6%. Each attempt goes some way on average and tears, and those bytes are wasted. In the real run: 15 attempts, 819 MB sent (four times the file) — and it still didn't finish. In the model it finishes within 15 attempts in only 43% of cases. Thursday's designer.
@@ -200,9 +200,9 @@ In the confirm step the app doesn't trust the browser — it asks object storage
 
 ```
 ── Confirm: the browser said "done", the app verifies ──
-       correct upload                              → ready (ETag "…")
-       took the URL, never uploaded                → rejected: no object — not uploaded
-       size not signed, a bigger file arrived      → rejected: size 1500 (declared 30) — object deleted
+       correct upload                           → ready (ETag "…")
+       took the URL, never uploaded             → rejected: no object — not uploaded
+       size not signed, a bigger file arrived   → rejected: size 1500 (declared 30) — object deleted
 ```
 
 The full flow, with the failure points:
@@ -358,7 +358,7 @@ Friday's webinar: 300 people opening the same PDF. The file is private — so ea
 
 ```
    path                                          downloads   cache hit   requests to object storage   out of object storage
-   no CDN — presigned GET directly                  1500          0%                       1500                  1851.6 MB
+   no CDN — presigned GET directly                 1500          0%                       1500                  1851.6 MB
    CDN + each person's own presigned URL            1500          0%                       1500                  1851.6 MB
    CDN + the CDN's signed token (cached by path)    1500         87%                        200                    63.3 MB
 

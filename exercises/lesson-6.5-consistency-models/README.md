@@ -49,23 +49,23 @@ npm run jepsen
 **১. `npm run models`**
 
 ```
-   ঘটনা                                   lesson   linear.  sequential  causal  RYW  mono.read  eventual
-   এক primary, সব স্বাভাবিক               5.x      ✓        ✓           ✓       ✓    ✓          ✓
-   লেখা চলার মাঝে পড়া নতুন মান পেল       6.2      ✓        ✓           ✓       ✓    ✓          ✓
-   পুরনো leader থেকে পড়া                 6.2      ✗        ✓           ✓       ✓    ✓          ✓
-   Replica lag: নিজের লেখা নেই            5.7      ✗        ✗           ✗       ✗    ✓          ✓
-   Refresh এ task উধাও                    6.3      ✗        ✗           ✗       ✓    ✗          ✓
-   উত্তর আছে, প্রশ্ন নেই                  6.3      ✗        ✗           ✗       ✓    ✓          ✓
-   LWW: ঘড়ির ভুলে bot এর edit হারাল      6.4      ✗        ✗           ✗       ✗    ✓          ✓
+   incident                               lesson   linear.  sequential  causal  RYW  mono.read  eventual
+   one primary, all normal                5.x      ✓        ✓           ✓       ✓    ✓          ✓
+   read during a write got the new value  6.2      ✓        ✓           ✓       ✓    ✓          ✓
+   read from the old leader               6.2      ✗        ✓           ✓       ✓    ✓          ✓
+   replica lag: own write missing         5.7      ✗        ✗           ✗       ✗    ✓          ✓
+   task vanishes on refresh               6.3      ✗        ✗           ✗       ✓    ✗          ✓
+   answer present, question missing       6.3      ✗        ✗           ✗       ✓    ✓          ✓
+   LWW: bot's edit lost to a clock error  6.4      ✗        ✗           ✗       ✗    ✓          ✓
 ```
 
 **২. `npm run jepsen`**
 
 ```
    system                        linear.  sequential  causal    RYW   mono.read  eventual
-   এক primary                    100%     100%      100%    100%     100%      100%
-   যেকোনো replica                 32%      58%       61%     70%      85%      100%
-   client প্রতি একটা replica      29%      57%       63%     67%     100%      100%
+   one primary                   100%     100%      100%    100%     100%      100%
+   any replica                    32%      58%       61%     70%      85%      100%
+   one replica per client         29%      57%       63%     67%     100%      100%
    version token                  48%     100%      100%    100%     100%      100%
 ```
 

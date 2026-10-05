@@ -8,12 +8,12 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { APP_ORIGIN, emptyBucket, env, prepareBucket, s3, s3Client } from './common';
 
-// Lesson 8.2 §১.২ — presigned URL এর নিয়ম, আসল request দিয়ে। প্রতিটা পরীক্ষা একটা প্রশ্ন:
-// "এই URL হাতে পেলে কেউ কী করতে পারে, আর কী পারে না?" শেষে confirm ধাপ — upload এর পরে app নিজে যাচাই করে।
+// Lesson 8.2 §1.2 — the rules of presigned URLs, with real requests. Every test is one question:
+// "what can someone do with this URL in hand, and what can't they?" At the end a confirm step — after the upload the app verifies itself.
 
 const B = env.BUCKET;
 
-// Attachment এর অবস্থা — discriminated union, optional field এর জঙ্গল না (main.md এর নিয়ম)
+// An attachment's state — a discriminated union, not a jungle of optional fields (main.md's rule)
 type Attachment =
 	| { status: 'pending'; key: string; declaredSize: number; contentType: string }
 	| { status: 'ready'; key: string; size: number; etag: string }
@@ -29,7 +29,7 @@ async function put(url: string, body: string | Buffer, contentType?: string): Pr
 	return res.status;
 }
 
-// app এর দিক: upload এর অনুমতি। Key app বানায়, আকার আর ধরন sign করা থাকে।
+// the app's side: permission to upload. The app builds the key; the size and type are signed.
 async function presignUpload(
 	size: number,
 	contentType: string,
@@ -39,13 +39,13 @@ async function presignUpload(
 	const url = await getSignedUrl(
 		s3,
 		new PutObjectCommand({ Bucket: B, Key: key, ContentType: contentType, ContentLength: size }),
-		// যা sign করা, শুধু সেটাই আটকায় — content-type আর content-length কে স্পষ্টভাবে sign এর তালিকায়
+		// only what is signed is enforced — content-type and content-length explicitly in the signed list
 		{ expiresIn, signableHeaders: new Set(['content-type', 'content-length']) }
 	);
 	return { attachment: { status: 'pending', key, declaredSize: size, contentType }, url };
 }
 
-// app এর দিক: browser বলল "upload শেষ" — বিশ্বাস না করে object storage কে জিজ্ঞেস করা
+// the app's side: the browser said "upload done" — ask object storage instead of trusting it
 async function confirm(a: Attachment): Promise<Attachment> {
 	if (a.status !== 'pending') return a;
 	try {
@@ -55,12 +55,12 @@ async function confirm(a: Attachment): Promise<Attachment> {
 			return {
 				status: 'rejected',
 				key: a.key,
-				reason: `আকার ${head.ContentLength ?? '?'} (বলা ছিল ${a.declaredSize}) — object মুছে ফেলা হলো`
+				reason: `size ${head.ContentLength ?? '?'} (declared ${a.declaredSize}) — object deleted`
 			};
 		}
 		return { status: 'ready', key: a.key, size: head.ContentLength, etag: head.ETag ?? '' };
 	} catch {
-		return { status: 'rejected', key: a.key, reason: 'object নেই — upload হয়নি' };
+		return { status: 'rejected', key: a.key, reason: 'no object — not uploaded' };
 	}
 }
 
@@ -68,29 +68,33 @@ async function main(): Promise<void> {
 	await prepareBucket();
 	await emptyBucket();
 	const pdf = Buffer.from('%PDF-1.7 … release notes …');
-	console.log('\n── Upload এর presigned URL (PUT) ──');
+	console.log('\n── Presigned URL for upload (PUT) ──');
 
 	const a = await presignUpload(pdf.length, 'application/pdf');
-	line(1, 'ঠিক file, ঠিক content-type', String(await put(a.url, pdf, 'application/pdf')));
-	line(2, 'একই URL দিয়ে আবার (মেয়াদের মধ্যে)', String(await put(a.url, pdf, 'application/pdf')));
-	line(3, 'একই URL, content-type বদলে (text/html)', String(await put(a.url, pdf, 'text/html')));
+	line(1, 'correct file, correct content-type', String(await put(a.url, pdf, 'application/pdf')));
+	line(2, 'the same URL again (before expiry)', String(await put(a.url, pdf, 'application/pdf')));
+	line(
+		3,
+		'the same URL, content-type changed (text/html)',
+		String(await put(a.url, pdf, 'text/html'))
+	);
 	const otherKey = a.url.replace(/att\/[0-9a-f-]+/, 'att/someone-elses-file');
 	line(
 		4,
-		'URL এর key বদলে অন্য object এ লেখার চেষ্টা',
+		"changing the URL's key to write to another object",
 		String(await put(otherKey, pdf, 'application/pdf'))
 	);
 	line(
 		5,
-		'বড় file, একই URL (আকার sign করা)',
+		'a bigger file, the same URL (size signed)',
 		String(await put(a.url, Buffer.alloc(50 * pdf.length, 1), 'application/pdf'))
 	);
 
 	const short = await presignUpload(pdf.length, 'application/pdf', 2);
 	await new Promise((resolve) => setTimeout(resolve, 3500));
-	line(6, 'মেয়াদ ২ s, ৩.৫ s পরে ব্যবহার', String(await put(short.url, pdf, 'application/pdf')));
+	line(6, 'expiry 2 s, used after 3.5 s', String(await put(short.url, pdf, 'application/pdf')));
 
-	// আকার sign না করলে: URL বলে "যেকোনো আকার চলবে"
+	// without signing the size: the URL says "any size is fine"
 	const loose = await getSignedUrl(
 		s3,
 		new PutObjectCommand({
@@ -102,11 +106,11 @@ async function main(): Promise<void> {
 	);
 	line(
 		7,
-		'আকার sign না করা URL এ ৫০ গুণ বড় file',
+		'a file 50 times bigger on a URL without the size signed',
 		String(await put(loose, Buffer.alloc(50 * pdf.length, 1), 'application/pdf'))
 	);
 
-	// SDK এর default (checksum সহ) দিয়ে sign করলে
+	// signing with the SDK's default (with a checksum)
 	const defaultClient = s3Client({ requestChecksumCalculation: 'WHEN_SUPPORTED' });
 	const trap = await getSignedUrl(
 		defaultClient,
@@ -115,15 +119,15 @@ async function main(): Promise<void> {
 	);
 	const trapRes = await fetch(trap, { method: 'PUT', body: pdf });
 	const trapCode = /<Code>(\w+)<\/Code>/.exec(await trapRes.text())?.[1] ?? '';
-	line(8, 'SDK এর default checksum সহ sign করা URL', `${trapRes.status} ${trapCode}`);
+	line(8, "URL signed with the SDK's default checksum", `${trapRes.status} ${trapCode}`);
 
-	console.log('\n── Confirm: browser বলল "শেষ", app যাচাই করে ──');
+	console.log('\n── Confirm: the browser said "done", the app verifies ──');
 	const good = await presignUpload(pdf.length, 'application/pdf');
 	await put(good.url, pdf, 'application/pdf');
 	const never = await presignUpload(pdf.length, 'application/pdf');
 	for (const [label, att] of [
-		['ঠিকঠাক upload', good.attachment],
-		['URL নিয়েছে, upload করেনি', never.attachment]
+		['correct upload', good.attachment],
+		['took the URL, never uploaded', never.attachment]
 	] as const) {
 		const result = await confirm(att);
 		const text =
@@ -132,7 +136,7 @@ async function main(): Promise<void> {
 				: `${result.status}: ${result.status === 'rejected' ? result.reason : ''}`;
 		console.log(`       ${label.padEnd(40)} → ${text}`);
 	}
-	// sign না করা আকারের পথে কেউ বড় file দিলে confirm ধরে
+	// if someone sends a big file on the unsigned-size path, confirm catches it
 	const bigKey = `ws/12/att/${randomUUID()}`;
 	const bigUrl = await getSignedUrl(
 		s3,
@@ -150,18 +154,18 @@ async function main(): Promise<void> {
 		contentType: 'application/pdf'
 	});
 	console.log(
-		`       ${'আকার sign ছিল না, বড় file এসেছে'.padEnd(40)} → ${caught.status}${caught.status === 'rejected' ? `: ${caught.reason}` : ''}`
+		`       ${'size not signed, a bigger file arrived'.padEnd(40)} → ${caught.status}${caught.status === 'rejected' ? `: ${caught.reason}` : ''}`
 	);
 
-	console.log('\n── Download এর presigned URL (GET) ──');
+	console.log('\n── Presigned URL for download (GET) ──');
 	const readyKey = good.attachment.key;
 	const get = await getSignedUrl(
 		s3,
 		new GetObjectCommand({
 			Bucket: B,
 			Key: readyKey,
-			// download এ কী নাম দেখাবে — প্রতিটা URL এ আলাদা হতে পারে (user এর দেওয়া নাম database থেকে)
-			ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent('রিলিজ নোট.pdf')}`
+			// what name the download shows — can differ per URL (the user-given name from the database)
+			ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent('Release notes — v2.1.pdf')}`
 		}),
 		{ expiresIn: 60 }
 	);
@@ -170,10 +174,10 @@ async function main(): Promise<void> {
 	line(9, 'presigned GET', `${got.status} · ${got.headers.get('content-disposition') ?? ''}`);
 	const anon = await fetch(`${env.S3_ENDPOINT}/${B}/${readyKey}`);
 	await anon.arrayBuffer();
-	line(10, 'একই object, signature ছাড়া', String(anon.status));
+	line(10, 'the same object, without a signature', String(anon.status));
 
 	console.log(
-		'\n── CORS: browser অন্য origin থেকে bucket এ PUT করার আগে জিজ্ঞেস করে (preflight) ──'
+		'\n── CORS: the browser asks before PUTting to the bucket from another origin (preflight) ──'
 	);
 	for (const origin of [APP_ORIGIN, 'https://evil.example']) {
 		const pre = await fetch(`${env.S3_ENDPOINT}/${B}/${readyKey}`, {
@@ -182,7 +186,7 @@ async function main(): Promise<void> {
 		});
 		await pre.arrayBuffer();
 		console.log(
-			`       ${origin.padEnd(40)} → ${pre.status} · allow-origin: ${pre.headers.get('access-control-allow-origin') ?? '(নেই)'}`
+			`       ${origin.padEnd(40)} → ${pre.status} · allow-origin: ${pre.headers.get('access-control-allow-origin') ?? '(none)'}`
 		);
 	}
 	console.log();

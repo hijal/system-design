@@ -11,14 +11,14 @@ import {
 import { request } from 'node:http';
 import { z } from 'zod';
 
-// Lesson 8.2 — সব script এর ভাগ করা অংশ: env, S3 client, bucket এর প্রস্তুতি, আর ধীর/ছিঁড়ে যাওয়া
-// network এর মতো করে HTTP PUT পাঠানো।
+// Lesson 8.2 — the part shared by every script: env, the S3 client, preparing the bucket, and sending an HTTP PUT
+// the way a slow/tearing network would.
 
 export const env = z
 	.object({
 		S3_ENDPOINT: z.string().url().default('http://localhost:8336'),
 		BUCKET: z.string().default('taskflow-uploads'),
-		// s3.json এ দেওয়া identity — শুধু API server এর কাছে থাকে, browser কখনো দেখে না
+		// the identity given in s3.json — kept only on the API server, the browser never sees it
 		S3_ACCESS_KEY: z.string().default('taskflow'),
 		S3_SECRET_KEY: z.string().default('taskflow-secret')
 	})
@@ -30,9 +30,9 @@ export function s3Client(extra: Partial<S3ClientConfig> = {}): S3Client {
 		region: 'us-east-1',
 		forcePathStyle: true,
 		credentials: { accessKeyId: env.S3_ACCESS_KEY, secretAccessKey: env.S3_SECRET_KEY },
-		// AWS SDK v3 এর নতুন version default এ presigned PUT এর URL এ body এর একটা checksum বসায় —
-		// sign করার সময় body নেই, তাই খালি body এর checksum; আসল file এলে server বলে BadDigest।
-		// শুধু যেখানে দরকার সেখানে checksum (presign.ts এর ৭ নম্বর পরীক্ষা এই ফাঁদটা দেখায়)
+		// Newer versions of AWS SDK v3 by default put a checksum of the body in a presigned PUT's URL —
+		// at signing time there is no body, so it's the checksum of an empty body; when the real file arrives the server says BadDigest.
+		// checksums only where needed (presign.ts's test 7 shows this trap)
 		requestChecksumCalculation: 'WHEN_REQUIRED',
 		...extra
 	});
@@ -48,11 +48,11 @@ export async function prepareBucket(): Promise<void> {
 	} catch (error: unknown) {
 		const name = error instanceof Error ? error.name : '';
 		if (name !== 'BucketAlreadyOwnedByYou' && name !== 'BucketAlreadyExists') {
-			console.error('S3 পাওয়া যাচ্ছে না — আগে `docker compose up -d --wait`।');
+			console.error('S3 cannot be reached — run `docker compose up -d --wait` first.');
 			throw error;
 		}
 	}
-	// Browser অন্য origin থেকে সরাসরি bucket এ PUT করবে — তাই bucket এ CORS এর নিয়ম লাগে
+	// The browser will PUT straight to the bucket from another origin — so the bucket needs CORS rules
 	await s3.send(
 		new PutBucketCorsCommand({
 			Bucket: env.BUCKET,
@@ -62,7 +62,7 @@ export async function prepareBucket(): Promise<void> {
 						AllowedOrigins: [APP_ORIGIN],
 						AllowedMethods: ['PUT', 'GET'],
 						AllowedHeaders: ['content-type', 'content-length'],
-						ExposeHeaders: ['ETag'], // multipart এ প্রতিটা part এর ETag browser কে পড়তে হয়
+						ExposeHeaders: ['ETag'], // with multipart the browser has to read each part's ETag
 						MaxAgeSeconds: 3600
 					}
 				]
@@ -71,7 +71,7 @@ export async function prepareBucket(): Promise<void> {
 	);
 }
 
-// সব object আর অসমাপ্ত multipart upload মুছে পরিষ্কার শুরু
+// delete every object and unfinished multipart upload for a clean start
 export async function emptyBucket(): Promise<void> {
 	const uploads = await s3.send(new ListMultipartUploadsCommand({ Bucket: env.BUCKET }));
 	for (const u of uploads.Uploads ?? []) {
@@ -92,10 +92,10 @@ export type SendResult =
 	| { kind: 'done'; status: number; etag: string | null; sent: number }
 	| { kind: 'dropped'; sent: number };
 
-// একটা HTTP PUT, টুকরো টুকরো করে লেখা:
-//   mbps     — প্রতি সেকেন্ডে কত MB (০ = যত দ্রুত পারে) — ধীর user এর মতো
-//   dropAt   — এত byte পাঠানোর পরে connection ছিঁড়ে যায় (network চলে গেল); null = ছেঁড়ে না
-// fetch এর বদলে node:http কারণ: মাঝপথে ঠিক একটা byte এ connection কাটা, আর Content-Length সহ stream।
+// An HTTP PUT, written piece by piece:
+//   mbps     — how many MB per second (0 = as fast as it can) — like a slow user
+//   dropAt   — the connection tears after this many bytes (the network went away); null = never tears
+// node:http instead of fetch because: cutting the connection at exactly one byte midway, and a stream with Content-Length.
 export function sendPut(
 	url: string,
 	body: Buffer,
@@ -137,18 +137,18 @@ export function sendPut(
 			if (opts.dropAt != null && end > opts.dropAt) {
 				sent = Math.max(sent, opts.dropAt);
 				dropped = true;
-				req.destroy(); // network গেল — server অর্ধেক body পেয়ে থামে
+				req.destroy(); // the network went — the server stops with half a body
 				return;
 			}
 			const ok = req.write(body.subarray(sent, end));
 			sent = end;
 			const mbps = opts.mbps ?? 0;
-			// ধীর user: যতটা পাঠানো হলো, সেই অনুপাতে সময় না হওয়া পর্যন্ত অপেক্ষা
+			// a slow user: wait until enough time has passed for what has been sent
 			const wait =
 				mbps > 0 ? (sent / (mbps * 1024 * 1024)) * 1000 - (performance.now() - start) : 0;
 			const go = (): void => void setTimeout(writeNext, Math.max(0, wait));
 			if (ok) go();
-			else req.once('drain', go); // backpressure (Lesson 7.4) — socket এর buffer ভরা
+			else req.once('drain', go); // backpressure (Lesson 7.4) — the socket's buffer is full
 		};
 		writeNext();
 	});
@@ -164,7 +164,7 @@ export function percentile(values: number[], p: number): number {
 	return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))] ?? 0;
 }
 
-// Seeded PRNG (mulberry32) — প্রতিবার একই "random" ক্রম
+// Seeded PRNG (mulberry32) — the same "random" sequence every time
 export function mulberry32(seed: number): () => number {
 	let a = seed;
 	return () => {

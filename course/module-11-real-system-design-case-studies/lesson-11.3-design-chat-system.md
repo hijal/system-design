@@ -59,26 +59,26 @@ End-to-end encryption এর এক লাইন: message ফোনে encrypt �
 `npm run estimate`:
 
 ```
-── অংশ ক — connection: 50 কোটি DAU, peak এ 30% online ──
-একসাথে খোলা connection                                               15 কোটি   প্রতিটা একটা TCP + TLS + WebSocket
-connection এর memory (20.0 KB প্রতিটা, আনুমানিক)                       3.0 TB   kernel buffer, TLS, app এর অবস্থা
-gateway server (500,000 connection প্রতিটা)                            300   একটা মরলে এতগুলো মানুষ একসাথে reconnect করে
-heartbeat / s (প্রতি 30 s এ)                                    5,000,000   message এর চেয়েও বেশি
+── Part A — connections: 500 million DAU, 30% online at peak ──
+connections open at once                                   150 million   each is a TCP + TLS + WebSocket
+connection memory (20.0 KB each, approximate)                   3.0 TB   kernel buffers, TLS, app state
+gateway servers (500,000 connections each)                         300   when one dies, this many people reconnect at once
+heartbeats / s (every 30 s)                                  5,000,000   more than the messages
 
-── অংশ খ — message: দিনে user প্রতি 40টা, 30% group এ (গড়ে 20 জন) ──
-পাঠানো message / s (peak, 3×)                                     694,444
-প্রতি message এ পৌঁছানো (fan-out)                                         6.4   group এর প্রতিটা সদস্য একটা আলাদা delivery
+── Part B — messages: 40 a day per user, 30% in groups (20 people on average) ──
+messages sent / s (peak, 3×)                                   694,444
+deliveries per message (fan-out)                                   6.4   each group member is a separate delivery
 delivery / s (peak)                                          4,444,444
-receipt (delivered + read) / s (peak)                        8,888,889   প্রতিটা delivery থেকে দুটো — message এর চেয়ে বেশি লেখা
+receipt (delivered + read) / s (peak)                        8,888,889   two from each delivery — more writes than messages
 
-── অংশ গ — storage: message প্রতি 200 B ──
-সব history চিরকাল (10 বছর, এক কপি)                                14.6 PB   server এ history (Messenger/Slack এর মতো)
-শুধু না-পৌঁছানো message (পৌঁছালে মুছে ফেলা)                                    3.2 TB   50% delivery গড়ে 6 ঘণ্টা অপেক্ষা করে
-পার্থক্য                                                           4,562 গুণ   একটা product এর সিদ্ধান্ত, storage এর না
+── Part C — storage: 200 B per message ──
+all history forever (10 years, one copy)                       14.6 PB   history on the server (like Messenger/Slack)
+only undelivered messages (deleted once delivered)              3.2 TB   50% of deliveries wait 6 hours on average
+difference                                                 4,562 times   a product decision, not a storage one
 
-── অংশ ঘ — presence: গড়ে 200 contact, দিনে 20 বার online ↔ offline ──
-সব contact কে push / s                                       23,148,148   presence storm
-শুধু যাদের chat খোলা (1%) / s                                        231,481   lazy presence: subscribe করলে তবেই
+── Part D — presence: 200 contacts on average, online ↔ offline 20 times a day ──
+push to every contact / s                                   23,148,148   presence storm
+only those with the chat open (1%) / s                         231,481   lazy presence: only if subscribed
 ```
 
 1. **আসল খরচ connection এ।** ১৫ কোটি খোলা connection, ৩ TB memory শুধু তাদের ধরে রাখতে, ৩০০টা gateway। আর heartbeat (connection বেঁচে আছে কিনা দেখার ছোট ping) সেকেন্ডে ৫০ লাখ, peak এর message এর **৭ গুণ**। Heartbeat এর ব্যবধান একটা trade-off: ছোট হলে মরা connection দ্রুত ধরা পড়ে, কিন্তু ফোনের battery আর server এর CPU যায়; বড় হলে NAT আর mobile network এর মাঝের যন্ত্র চুপচাপ connection কেটে দেয়, আর server অনেকক্ষণ টের পায় না।
@@ -127,11 +127,11 @@ Message এর key `(conv_id, seq)`: একটা conversation এর সব mes
 এখন 2.4 এর প্রশ্ন: chat service জানে message টা Bob এর জন্য। Bob কোন gateway তে? `npm run gateway` অংশ ক, peak এ সেকেন্ডে ৪৪ লাখ delivery, ৩০০টা gateway:
 
 ```
-পথ                                                      gateway প্রতি গৃহীত/s      কাজে লাগে       মাঝের স্তরে op/s
-সব gateway কে broadcast (একটা pub/sub channel)                   4,444,444       0.3%     1,333,333,200
-user প্রতি channel, Redis Cluster এর পুরনো PUBLISH (10 node এ ছড়ায়)                 14,815     100.0%        44,444,440
-user প্রতি channel, sharded pub/sub (SPUBLISH)                       14,815     100.0%         4,444,444
-session registry (user → gateway) + সরাসরি পাঠানো                      14,815     100.0%         8,888,888
+path                                                                      received/s per gateway     useful  op/s in the middle layer
+broadcast to every gateway (one pub/sub channel)                                       4,444,444       0.3%             1,333,333,200
+a channel per user, Redis Cluster's old PUBLISH (spread over 10 nodes)                    14,815     100.0%                44,444,440
+a channel per user, sharded pub/sub (SPUBLISH)                                            14,815     100.0%                 4,444,444
+session registry (user → gateway) + direct send                                           14,815     100.0%                 8,888,888
 ```
 
 - **2.4 এর "একটা shared pub/sub" এর সবচেয়ে সরল রূপ, একটা channel এ সব কিছু, এই মাপে মরে।** প্রতিটা gateway প্রতিটা delivery পায় (৪৪ লাখ/s), যার ০.৩% তার নিজের। মাঝের স্তরে সেকেন্ডে ১৩৩ কোটি। ছোট মাপে (কয়েকটা server) এটা ঠিক উত্তর, আর 2.4 এ সেই মাপের কথাই ছিল।
@@ -145,12 +145,12 @@ session registry (user → gateway) + সরাসরি পাঠানো     
 একটা gateway এ পাঁচ লাখ connection। Gateway টা crash করল (বা deploy এর জন্য বন্ধ হলো)। পাঁচ লাখ ফোন প্রায় একই মুহূর্তে জানতে পারে, আর সবাই ফিরতে চায়। প্রতিটা ফেরা মানে TCP, TLS, auth, registry লেখা, আর sync। বাকি fleet এর মোট ক্ষমতা ধরো সেকেন্ডে ২০,০০০ এমন handshake। আর একটা বাস্তব খুঁটিনাটি: **প্রত্যাখ্যাত চেষ্টাও বিনা মূল্যে না।** Server overload বলে না বলার আগে TCP আর TLS এর কিছু কাজ হয়ে যায়; ধরো একটা পূর্ণ handshake এর ০.২ ভাগ। `npm run gateway` অংশ খ:
 
 ```
-নীতি                                                   চেষ্টা/s (শীর্ষ)           মোট চেষ্টা   প্রতি client   ৫০% ফিরল   ৯৯% ফিরল          সব ফিরল
-সাথে সাথে, ব্যর্থ হলে আবার সাথে সাথে                               5,000,000   3,000,000,000       6,000         —         —     0% (10 মি এ)
-সাথে সাথে, ব্যর্থ হলে ঠিক ১ s পরে                               5,000,000     300,000,000         600         —         —     0% (10 মি এ)
-exponential backoff, jitter ছাড়া                       5,000,000       7,500,000          15         —         —     0% (10 মি এ)
-প্রথমটা ০–10 s এ ছড়ানো + full jitter                        251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
-সবচেয়ে ভালো সম্ভব: 500,000 ÷ 20,000/s = 25.00 s।
+policy                                          attempts/s (peak)  total attempts  per client  50% back  99% back        all back
+at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         —         —  0% (in 10 min)
+at once, and exactly 1 s later on failure               5,000,000     300,000,000         600         —         —  0% (in 10 min)
+exponential backoff, no jitter                          5,000,000       7,500,000          15         —         —  0% (in 10 min)
+first one spread over 0–10 s + full jitter                251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
+best possible: 500,000 ÷ 20,000/s = 25.00 s.
 ```
 
 **Spaced repetition এর উত্তর:** jitter ছাড়া একসাথে ব্যর্থ হওয়া client রা একসাথেই আবার চেষ্টা করে, কারণ সবার হিসাব একই। Backoff শুধু ঢেউ গুলোর মাঝের ফাঁক বাড়ায়, ঢেউ এর উচ্চতা কমায় না। Jitter (এলোমেলো দেরি) ঢেউ কে সময়ে ছড়িয়ে দেয়।
@@ -164,9 +164,9 @@ exponential backoff, jitter ছাড়া                       5,000,000     
 **Registry পুরনো থাকার সময়টা।** অংশ গ: এই পাঁচ লাখ জনের কাছে সেকেন্ডে ~১৪,৮০০টা message আসছে, আর registry তখনও মরা gateway দেখায় যতক্ষণ না তারা অন্য জায়গায় ফেরে:
 
 ```
-নীতি                                                  শুধু push: হারাল      আগে store, তারপর push: হারাল    দেরি p50    দেরি p99
-সাথে সাথে, ব্যর্থ হলে আবার সাথে সাথে                            444,444 (100%)                             0    > 10 মি    > 10 মি
-প্রথমটা ০–10 s এ ছড়ানো + full jitter                    391,250 (88%)                             0   16.82 s   64.77 s
+policy                                           push only: lost  store first, then push: lost  delay p50  delay p99
+at once, and again at once on failure             444,444 (100%)                             0   > 10 min   > 10 min
+first one spread over 0–10 s + full jitter          391,250 (88%)                             0   16.82 s   64.77 s
 ```
 
 যদি message শুধু push করা হয় (registry দেখে gateway কে পাঠানো, ব্যস), প্রথম ৩০ সেকেন্ডের ৮৮% হারায়। যদি **আগে store, তারপর push**, কিছুই হারায় না: message store এ টেকসই, push টা শুধু একটা দ্রুত পথ, আর ফোন ফিরে এসে sync এ যা পায়নি তা নেয়। দাম শুধু দেরি (p99 ৬৫ s, ফোন ফেরার সময়)। এটা এই নকশার সবচেয়ে গুরুত্বপূর্ণ নিয়ম:
@@ -178,10 +178,10 @@ exponential backoff, jitter ছাড়া                       5,000,000     
 Mobile network এ packet হারায়, connection কাটে, ফোন tunnel এ ঢোকে। `npm run delivery` অংশ ক: A → server → B, প্রতিটা packet ৩% হারায়:
 
 ```
-নীতি                                                  B পেল না      B দুবার দেখল    server এ দুবার জমা packet / message
-একবার পাঠাও, ack নেই (at-most-once)                      5.94%          0.00%              0.00%             3.94
-ack না এলে আবার পাঠাও (at-least-once)                     0.00%          5.80%              2.92%             4.31
-আবার পাঠাও + client_msg_id আর seq দিয়ে বাদ                 0.00%          0.00%              0.00%             4.25
+policy                                          B missed it  B saw it twice       stored twice  packet / message
+send once, no ack (at-most-once)                     5.94%          0.00%              0.00%             3.94
+resend if no ack (at-least-once)                     0.00%          5.80%              2.92%             4.31
+resend + drop by client_msg_id and seq               0.00%          0.00%              0.00%             4.25
 ```
 
 - **Retry ছাড়া প্রায় ৬% হারায়** (দুটো hop, প্রতিটায় ৩%)। Experiment ৩: ১০% হারানো network এ ১৯%।
@@ -197,11 +197,11 @@ Cursor এর ধারণা receipt এর চাপ কমায়: Bob দ�
 Group এ দুটো সমস্যা: (১) **কার্যকারণ**: C একটা প্রশ্ন দেখে উত্তর দিল; কারো screen এ যেন উত্তর প্রশ্নের উপরে না আসে। (২) **মিল**: দুজন প্রায় একসাথে লিখল; সবাই যেন একই ক্রমে দেখে, নইলে কথোপকথনের অর্থ মানুষ ভেদে বদলায়। অংশ খ, ৫ জনের group, ফোনের ঘড়ি ±৫০০ ms (২% ফোন মিনিট খানেক ভুল), তিনটা chat server (±৩০ ms):
 
 ```
-ক্রম                                                    উত্তর প্রশ্নের উপরে          সদস্যরা আলাদা ক্রম দেখে
-পাঠানোর ফোনের ঘড়ি ধরে সাজানো                                         10.21%                   0.00%
-যে ক্রমে পৌঁছাল সেভাবে দেখানো                                            0.41%                  47.59%
-chat server এর ঘড়ি ধরে সাজানো                                    0.00%                   0.00%
-conversation প্রতি seq (একটা sequencer)                         0.00%                   0.00%
+order                                         answer above question   members see different orders
+sorted by the sending phone's clock                          10.21%                          0.00%
+shown in the order they arrived                               0.41%                         47.59%
+sorted by the chat server's clock                             0.00%                          0.00%
+per-conversation seq (one sequencer)                          0.00%                          0.00%
 ```
 
 - **ফোনের ঘড়ি:** সবাই একই ক্রম দেখে (একই timestamp), কিন্তু **১০% উত্তর প্রশ্নের উপরে।** 6.4 এর কথা: ঘড়ি বিশ্বাসযোগ্য না, আর ফোনের ঘড়ি সবচেয়ে কম। যার ফোন দুই মিনিট পিছিয়ে, তার প্রতিটা উত্তর উপরে উঠে যায়।
@@ -216,18 +216,18 @@ Seq এর আসল মূল্য শুধু ক্রম না: এটা
 `npm run smoke` উপরের সব নিয়ম এক জায়গায় চালায়: দুটো আসল WebSocket gateway (`ws`), একটা `ChatCore` (registry, conversation এর log আর seq, dedupe, fan-out, receipt, sync), তিনজন user:
 
 ```
-#   ধাপ                                                      ফল
-1   alice → bob: "hi"                                       ack seq 1 (✓ server এ টেকসই)
-2   bob পেল (gw2 তে, registry দেখে)                             1:hi
-3   bob এর phone স্বয়ংক্রিয় "delivered"                           alice পেল receipt: delivered (✓✓)
-4   bob পড়ল                                                 alice পেল receipt: read (নীল ✓✓)
-5   alice আবার পাঠাল একই client_msg_id (ack হারিয়েছিল ধরে)          ack seq 1, duplicate: true; bob এ 1টা
-6   alice → team এ ৩টা, carol offline                        bob: 1:standup?, 2:১০টায়, 3:ok; offline push: 3
-7   carol online (gw1), sync { }                            1:standup?, 2:১০টায়, 3:ok
-8   gw2 crash; alice → bob ২টা (registry তখনও gw2)           stale route: 2, store এ dm: 3টা
-9   bob gw1 এ reconnect, sync { dm: 1, team: 3 }            2:আছো?, 3:call দাও
-10  alice আর bob একসাথে team এ                                carol দেখে: 4:আমি আগে, 5:না আমি; seq: 4, 5
-11  core এর হিসাব                                             জমা 8, duplicate 1, অন্য gateway 9, একই gateway 8
+#   step                                                            result
+1   alice → bob: "hi"                                               ack seq 1 (✓ durable on the server)
+2   bob received it (on gw2, via the registry)                      1:hi
+3   bob's phone sends "delivered" automatically                     alice got receipt: delivered (✓✓)
+4   bob read it                                                     alice got receipt: read (blue ✓✓)
+5   alice resent the same client_msg_id (as if the ack was lost)    ack seq 1, duplicate: true; 1 at bob
+6   alice → team, 3 messages, carol offline                         bob: 1:standup?, 2:at 10, 3:ok; offline push: 3
+7   carol online (gw1), sync { }                                    1:standup?, 2:at 10, 3:ok
+8   gw2 crashes; alice → bob 2 messages (registry still gw2)        stale route: 2, 3 in dm in the store
+9   bob reconnects on gw1, sync { dm: 1, team: 3 }                  2:you there?, 3:call me
+10  alice and bob in team at the same time                          carol sees: 4:me first, 5:no, me; seq: 4, 5
+11  the core's counts                                               stored 8, duplicate 1, other gateway 9, same gateway 8
 ```
 
 - ধাপ ১-৪: তিনটা টিক, তিনটা আলাদা ঘটনা। Alice gw1 এ, Bob gw2 এ; registry দেখে message আর receipt দুই দিকে যায়।

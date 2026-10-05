@@ -22,17 +22,17 @@ const MONTH = 30;
 const perDay = DAU * PER_USER;
 const avg = perDay / DAY;
 
-heading(`অংশ ক — চাপ: ${big(DAU)} DAU, user প্রতি দিনে ${PER_USER}টা notification`);
+heading(`Part A — load: ${big(DAU)} DAU, ${PER_USER} notifications a day per user`);
 console.log(
 	row([
 		['', 46],
-		['গড়/s', 14],
+		['average/s', 14],
 		[`peak/s (${PEAK}×)`, 16]
 	])
 );
 console.log(
 	row([
-		['সব notification', 46],
+		['all notifications', 46],
 		[n(avg), 14],
 		[n(avg * PEAK), 16]
 	])
@@ -40,21 +40,21 @@ console.log(
 const campaignRate = CAMPAIGN / (CAMPAIGN_HOURS * 3_600);
 console.log(
 	row([
-		[`একটা campaign: ${big(CAMPAIGN)} জন, ${CAMPAIGN_HOURS} ঘণ্টায়`, 46],
+		[`one campaign: ${big(CAMPAIGN)} people, in ${CAMPAIGN_HOURS} h`, 46],
 		[n(campaignRate), 14],
-		[`${(campaignRate / avg).toFixed(1)}× গড়`, 16]
+		[`${(campaignRate / avg).toFixed(1)}× the average`, 20]
 	])
 );
 
-heading(`অংশ খ — channel আর মাসিক খরচ (আনুমানিক দাম)`);
+heading(`Part B — channels and monthly cost (approximate prices)`);
 console.log(
 	row([
 		['channel', 18],
-		['ভাগ', 8],
-		['দিনে', 16],
-		['প্রতিটা', 12],
-		['মাসে', 14],
-		['খরচের ভাগ', 12]
+		['share', 8],
+		['per day', 16],
+		['each', 12],
+		['monthly', 14],
+		['share of cost', 15]
 	])
 );
 const channels: [string, number, number][] = [
@@ -73,26 +73,26 @@ channels.forEach(([name, share, cost], i) => {
 			[big(perDay * share), 16],
 			[cost === 0 ? '$0' : `$${cost}`, 12],
 			[`$${n(monthly[i] ?? 0)}`, 14],
-			[pct(monthly[i] ?? 0, total, 1), 12]
+			[pct(monthly[i] ?? 0, total, 1), 15]
 		])
 	);
 });
 console.log(
-	`SMS এর ${pct(SMS_SHARE, 1, 0)} notification থেকে খরচের ${pct(monthly[2] ?? 0, total, 0)} — একটা OTP push এ গেলে বাঁচে।`
+	`SMS: ${pct(SMS_SHARE, 1, 0)} of notifications, ${pct(monthly[2] ?? 0, total, 0)} of the cost — every OTP sent by push instead is a saving.`
 );
 
 heading(
-	`অংশ গ — device token: ${big(TOKENS)} token, ${pct(STALE_SHARE, 1, 0)} মরা (app মুছে ফেলা, ফোন বদলানো)`
+	`Part C — device tokens: ${big(TOKENS)} tokens, ${pct(STALE_SHARE, 1, 0)} dead (app deleted, phone changed)`
 );
 const pushPerDay = perDay * PUSH_SHARE;
 console.log(
-	`প্রতি user এর সব token এ পাঠালে দিনে ${big(pushPerDay * (TOKENS / DAU))} push, তার ${big(pushPerDay * (TOKENS / DAU) * STALE_SHARE)} মরা token এ`
+	`sending to every token of every user is ${big(pushPerDay * (TOKENS / DAU))} pushes a day, ${big(pushPerDay * (TOKENS / DAU) * STALE_SHARE)} of them to dead tokens`
 );
 console.log(
-	'APNs/FCM মরা token এ "unregistered" ফেরত দেয় — সেটা পড়ে token মুছে না ফেললে এই অপচয় প্রতিদিন বাড়ে।'
+	'APNs/FCM return "unregistered" for a dead token — if you don\'t read that and delete the token, this waste grows every day.'
 );
 
-heading(`অংশ ঘ — প্রতিটা notification এর ইতিহাস (${EVENT_BYTES} B, ${RETENTION_DAYS} দিন)`);
+heading(`Part D — the history of every notification (${EVENT_BYTES} B, ${RETENTION_DAYS} days)`);
 console.log(
-	`দিনে ${bytes(perDay * EVENT_BYTES)}, ${RETENTION_DAYS} দিনে ${bytes(perDay * EVENT_BYTES * RETENTION_DAYS)} — "কেন পেলাম/পেলাম না" এর উত্তর আর dedupe এর জন্য`
+	`${bytes(perDay * EVENT_BYTES)} a day, ${bytes(perDay * EVENT_BYTES * RETENTION_DAYS)} over ${RETENTION_DAYS} days — for answering "why did/didn't I get it" and for dedupe`
 );

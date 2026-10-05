@@ -1,19 +1,19 @@
 import { mulberry32 } from './random';
 
-// Lesson 6.4 §১.৩, ১.৫–১.৬ — একই task এর title, তিনটা replica, তিন রকম "কোনটা জিতবে" নিয়ম।
+// Lesson 6.4 §1.3, 1.5–1.6 — the title of one task, three replicas, three kinds of "which one wins" rule.
 //
-// TaskFlow এর multi-leader setup (Lesson 5.7): তিনটা replica, প্রত্যেকে লেখা নেয়, তারপর বাকিদের
-// পাঠায় (১০–৫০ ms পরে)। n3 এর NTP ভাঙা — তার ঘড়ি ৪০০ ms পিছিয়ে। n2 ৩০ ms এগিয়ে।
+// TaskFlow's multi-leader setup (Lesson 5.7): three replicas, each takes writes, then sends them
+// to the others (10–50 ms later). n3's NTP is broken — its clock is 400 ms behind. n2 is 30 ms ahead.
 //
-// ৬ জন মানুষ (ভাবতে গড়ে ৩ s, দুটো edit এর মাঝে গড়ে ১৫ s) আর ২টা bot (যেমন "status বদলালে title এ
-// [DONE] লাগাও" — প্রতিক্রিয়া ৫০–৩০০ ms) ২ মিনিট ধরে একই title edit করে: একটা replica থেকে পড়ে, একটু ভাবে, তারপর
-// (হয়তো অন্য) replica তে লেখে। প্রতিটা লেখা জানে সে কোন version গুলো দেখে লিখেছে — সেটাই সত্যিকারের
-// কার্যকারণ (ground truth), যেটা দিয়ে মাপি কোন নিয়ম কী ভুল করল।
+// 6 people (thinking 3 s on average, 15 s between two edits on average) and 2 bots (like "when the status changes, put
+// [DONE] in the title" — reacting in 50–300 ms) edit the same title for 2 minutes: read from one replica, think a little, then
+// write to a (maybe different) replica. Every write knows which versions it saw when it was written — that is the real
+// causality (ground truth), which we use to measure what each rule got wrong.
 //
-//   wall     — last-write-wins, replica এর ঘড়ির timestamp দিয়ে (Cassandra এর default এর মতো)
-//   lamport  — last-write-wins, Lamport clock দিয়ে
-//   vector   — dotted version vector: কার্যকারণ থাকলে পুরনোটা বাদ, না থাকলে দুটোই রাখো (sibling)
-//              আর পরের পাঠক দুটো দেখে মিলিয়ে লেখে
+//   wall     — last-write-wins, by the replica clock's timestamp (like Cassandra's default)
+//   lamport  — last-write-wins, by a Lamport clock
+//   vector   — dotted version vector: with causality drop the older one, without it keep both (siblings)
+//              and the next reader sees both and writes a merge
 
 const NODES = ['n1', 'n2', 'n3'] as const;
 type NodeId = (typeof NODES)[number];
@@ -25,17 +25,17 @@ const BOTS = 2;
 type Strategy = 'wall' | 'lamport' | 'vector';
 type Clock = Record<NodeId, number>;
 
-// একটা লেখার সত্যিকারের ইতিহাস — কোন নিয়মই এটা দেখে না, শুধু আমরা মাপার জন্য দেখি
+// the real history of a write — no rule sees this, only we do, for measuring
 type Write = { id: number; ancestors: Set<number> };
 
-// Replica তে রাখা একটা version
+// a version kept on a replica
 type Version = {
 	writeId: number;
 	wall: number;
 	lamport: number;
 	node: NodeId;
-	dot: [NodeId, number]; // এই লেখার নিজের পরিচয়: কোন replica র কত নম্বর লেখা
-	ctx: Clock; // লেখার সময় client যা যা দেখেছিল (vector clock)
+	dot: [NodeId, number]; // this write's own identity: which replica's write number how many
+	ctx: Clock; // what the client had seen when writing (vector clock)
 };
 
 type Event = { at: number; seq: number; run: () => void };
@@ -65,7 +65,7 @@ class Queue {
 const emptyClock = (): Clock => ({ n1: 0, n2: 0, n3: 0 });
 
 function covers(a: Version, b: Version): boolean {
-	// a এর ইতিহাসে b আছে কিনা — b এর dot a এর দেখা context এর মধ্যে পড়ে
+	// whether b is in a's history — b's dot falls within the context a saw
 	return a.writeId === b.writeId || a.ctx[b.dot[0]] >= b.dot[1];
 }
 
@@ -91,9 +91,9 @@ function run(strategy: Strategy): Result {
 
 	const ancestorsOf = (id: number): Set<number> => writes[id]?.ancestors ?? new Set();
 
-	// LWW এ একটা version বাদ পড়ল — সত্যিকারের কার্যকারণ দিয়ে শ্রেণিভাগ
+	// LWW dropped a version — classify it by real causality
 	function discarded(loser: Version, winner: Version): void {
-		if (ancestorsOf(winner.writeId).has(loser.writeId)) return; // ঠিক আছে: winner পরে, loser কে দেখে লেখা
+		if (ancestorsOf(winner.writeId).has(loser.writeId)) return; // fine: the winner came later, written after seeing the loser
 		const key = `${loser.writeId}<${winner.writeId}`;
 		if (ancestorsOf(loser.writeId).has(winner.writeId)) causalLoss.add(key);
 		else concurrentDrop.add(key);
@@ -102,7 +102,7 @@ function run(strategy: Strategy): Result {
 	function apply(node: NodeId, v: Version): void {
 		const current = state[node];
 		if (strategy === 'vector') {
-			if (current.some((s) => covers(s, v))) return; // ইতিমধ্যে আছে, বা পুরনো
+			if (current.some((s) => covers(s, v))) return; // already there, or older
 			state[node] = [...current.filter((s) => !covers(v, s)), v];
 			return;
 		}
@@ -119,7 +119,7 @@ function run(strategy: Strategy): Result {
 		];
 		const [a, an] = key(v);
 		const [b, bn] = key(existing);
-		const newWins = a > b || (a === b && an > bn); // সমান হলে node এর নাম দিয়ে ভাঙা
+		const newWins = a > b || (a === b && an > bn); // ties broken by the node's name
 		if (newWins) {
 			discarded(existing, v);
 			state[node] = [v];
@@ -142,7 +142,7 @@ function run(strategy: Strategy): Result {
 		counter[node] += 1;
 		const v: Version = {
 			writeId: id,
-			wall: q.now + SKEW_MS[node], // replica এর নিজের ঘড়ি
+			wall: q.now + SKEW_MS[node], // the replica's own clock
 			lamport: lamport[node],
 			node,
 			dot: [node, counter[node]],
@@ -158,7 +158,7 @@ function run(strategy: Strategy): Result {
 		const loop = (): void => {
 			if (q.now > SIM_MS) return;
 			const seen = [...state[pick()]];
-			if (seen.length > 1) siblingReads++; // app কে দুটো মান দেখিয়ে মেলাতে বলা হলো
+			if (seen.length > 1) siblingReads++; // the app was shown two values and asked to merge them
 			const think = bot ? 50 + random() * 250 : -3000 * Math.log(1 - random());
 			const target = pick();
 			q.add(q.now + think, () => {
@@ -169,12 +169,12 @@ function run(strategy: Strategy): Result {
 		q.add(random() * 2000, loop);
 	}
 
-	q.add(0, () => write('n1', [])); // শুরুর title
+	q.add(0, () => write('n1', [])); // the initial title
 	for (let i = 0; i < HUMANS; i++) client(false);
 	for (let i = 0; i < BOTS; i++) client(true);
 	q.run();
 
-	// সব replication শেষ — কোন লেখা গুলোর কোনো চিহ্ন নেই (না টিকে আছে, না কোনো টিকে থাকা লেখার ইতিহাসে)?
+	// all replication done — which writes left no trace (neither surviving, nor in a surviving write's history)?
 	const survivors = new Set<number>();
 	for (const n of NODES) for (const v of state[n]) survivors.add(v.writeId);
 	const remembered = new Set<number>(survivors);
@@ -197,24 +197,26 @@ function run(strategy: Strategy): Result {
 
 function main(): void {
 	console.log(
-		`\n   ৩টা replica (n3 এর ঘড়ি ৪০০ ms পিছিয়ে, n2 ৩০ ms এগিয়ে), ${HUMANS} জন মানুষ + ${BOTS}টা bot, ${SIM_MS / 1000} s`
-	);
-	console.log('   সবাই একই task এর title edit করে (seed দেওয়া — প্রতিবার একই ফল)\n');
-	console.log(
-		'   নিয়ম                 মোট edit   পরে-করা edit আগেরটার    একসাথে-করা edit    app কে মেলাতে    শেষ title এর    replica'
+		`\n   3 replicas (n3's clock 400 ms behind, n2 30 ms ahead), ${HUMANS} people + ${BOTS} bots, ${SIM_MS / 1000} s`
 	);
 	console.log(
-		'                                     কাছে হারল            নীরবে বাদ          বলা হলো         ইতিহাসে নেই       এক?'
+		'   everyone edits the title of the same task (seeded — the same result every time)\n'
+	);
+	console.log(
+		'   rule                   total edits   later edit lost to   concurrent edit   app asked to   not in final     replicas'
+	);
+	console.log(
+		'                                       the earlier one       silently dropped  merge           title history    agree?'
 	);
 	const labels: Record<Strategy, string> = {
-		wall: 'LWW — ঘড়ির সময়',
+		wall: 'LWW — wall clock',
 		lamport: 'LWW — Lamport clock',
 		vector: 'Vector clock (sibling)'
 	};
 	for (const strategy of ['wall', 'lamport', 'vector'] as const) {
 		const r = run(strategy);
 		console.log(
-			`   ${labels[strategy].padEnd(22)} ${String(r.writes).padStart(6)}   ${String(r.causalLoss).padStart(14)}       ${String(r.concurrentDrop).padStart(14)}    ${String(r.siblingReads).padStart(12)}    ${String(r.lost).padStart(14)}       ${r.converged ? 'হ্যাঁ' : 'না'}`
+			`   ${labels[strategy].padEnd(22)} ${String(r.writes).padStart(6)}   ${String(r.causalLoss).padStart(14)}       ${String(r.concurrentDrop).padStart(14)}    ${String(r.siblingReads).padStart(12)}    ${String(r.lost).padStart(14)}       ${r.converged ? 'yes' : 'no'}`
 		);
 	}
 	console.log('');

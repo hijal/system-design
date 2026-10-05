@@ -65,51 +65,51 @@ npm run redis
 "delete" করলে থাকা নামও হারায়:
 
 ```
-bit / নাম        k     মাপা false positive        তত্ত্ব      memory
+bits/name       k      measured FP rate    theory      memory
 8               6                2.163%    2.158%      977 KB
 10              7                0.832%    0.819%    1,221 KB
 16             11                0.047%    0.046%    1,953 KB
-   ঢোকানো 1,000,000টা নামের কয়টাকে "নেই" বলল (false negative): 0
+   inserted names called "absent" (false negatives), out of 1,000,000: 0
 
-ঢোকানো                 ধারণক্ষমতার     মাপা false positive   bit এর কত % ১
+inserted        of capacity      measured FP rate   % of bits set
 1,000,000                1x                 0.99%           51.8%
 2,000,000                2x                15.76%           76.8%
 
-পদ্ধতি                                 memory       থাকা নাম কে "নেই"       মোছা নাম কে "আছে"   নতুন false positive
-সাধারণ bloom, bit মুছে                1,170 KB            360,187               0.0%                0.36%
-counting bloom (৪-bit counter)     4,680 KB                  0               0.6%                0.60%
+approach                            memory        kept → "no"    deleted → "yes"   new false positive
+plain bloom, clear bits           1,170 KB            360,187               0.0%                0.36%
+counting bloom (4-bit)            4,680 KB                  0               0.6%                0.60%
 ```
 
 `npm run penetration` — negative cache DB এর চাপ **বাড়ায়**, Bloom filter অর্ধেক করে; আর filter নতুন link না জানলে
 সত্যিকারের link এ 404:
 
 ```
-পদ্ধতি                         DB query/s       তার মধ্যে "নেই"  আসল user এর hit  cache এ "নেই" entry     evict
-শুধু cache                         2,074            48.4%            73.2%                   0   164,145
+approach                    DB query/s  of which "none"   real user hits    negative entries     evict
+cache only                       2,074            48.4%            73.2%                   0   164,145
 + negative cache 30 s            2,320            43.2%            67.0%              18,647   414,036
 + bloom filter 1%                1,081             0.9%            73.2%                   0   164,145
 
-filter রাখার নিয়ম                       সত্যিকারের link এ 404  নতুন link এর request এর
-শুরুতে একবার বানানো                                   49,773                   99.7%
-প্রতি 60 s এ DB থেকে নতুন করে                         24,766                   49.6%
-তৈরির সাথে সাথে filter এ add                              0                    0.0%
+filter upkeep                      404 on a real link    of new-link requests
+built once at startup                          49,773                   99.7%
+rebuilt from the DB every 60 s                   24,766                   49.6%
+add to the filter on create                         0                    0.0%
 ```
 
 `npm run hll` — ১২ KB এ ১ কোটি পর্যন্ত ~১% এর মধ্যে; দিনের সংখ্যা যোগ করলে সপ্তাহ **+১৯৯%**, merge করলে −০.৮৪%;
 ছোট intersection এ ভুল কয়েকশো %:
 
 ```
-আলাদা user                অনুমান        ভুল     correction ছাড়া        ভুল      সঠিক গুনতে ≥
+real users              estimate    error  no correction        error  exact needs ≥
 10                        10    +0.03%            11,822  +118117.81%           80 B
 1,000,000            996,033    -0.40%           996,033       -0.40%       7,813 KB
 10,000,000         9,932,247    -0.68%         9,932,247       -0.68%      78,125 KB
 
-p       register     memory      তত্ত্ব (1.04/√m)       মাপা সাধারণ ভুল       সবচেয়ে খারাপ দিন
+p       register     memory  theory (1.04/√m)     measured RMS         worst day
 14        16,384   12,288 B             0.81%            0.78%             2.13%
 
-আসল (সব ID এর একটা Set)                     472,981      +0.00%
-৭টা দিনের সংখ্যা যোগ                             1,415,230    +199.21%
-৭টা HLL merge (register ধরে max)             469,026      -0.84%
+exact (a Set of every ID)                  472,981      +0.00%
+sum of the 7 daily counts                1,415,230    +199.21%
+merge 7 HLLs (max per register)            469,026      -0.84%
 
 0.1%                   1,000         4,381    +338.10%
 ```
@@ -118,20 +118,20 @@ p       register     memory      তত্ত্ব (1.04/√m)       মাপ�
 ফোলানো:
 
 ```
-width × depth       memory   top 10 ধরা      top 10 এ বাড়তি গোনা      ঠান্ডা board এ (≤5 বার)
-1024 × 4             16 KB        7/10              ≤ 2.53%             284.6x আসলের
-4096 × 4             64 KB       10/10              ≤ 0.31%              48.3x আসলের
+width × depth       memory  top 10 hit     top 10 overcount  cold boards (≤5 times)
+1024 × 4             16 KB        7/10              ≤ 2.53%           284.6x actual
+4096 × 4             64 KB       10/10              ≤ 0.31%            48.3x actual
 ```
 
 `npm run redis` — ১০ লাখ user: `SET` ৩৫.৫৫ MB, HyperLogLog ১৪ KB, Bloom ১.৩১ MB; আর `NONSCALING` filter ভরে
 গেলে **exception ছাড়াই** প্রায় ৫ লাখ নাম ঢোকে না:
 
 ```
-SET (SADD)                       35.55 MB               ঠিক 1,000,000, আর কারা
-HyperLogLog (PFADD)               14.0 KB        ~999,674 (-0.03% ভুল), কারা না
-Bloom (BF.RESERVE 0.01)           1.31 MB            "আছে কি?" — 0.51% ভুল "হ্যাঁ"
+SET (SADD)                       35.55 MB        exactly 1,000,000, and who
+HyperLogLog (PFADD)               14.0 KB    ~999,674 (-0.03% off), not who
+Bloom (BF.RESERVE 0.01)           1.31 MB  "is it there?" — 0.51% wrong "yes"
 
-filter             MEMORY USAGE    ভেতরের filter     মাপা false positive        ঢোকানো নামে "নেই"
+filter             MEMORY USAGE  inner filters      measured FP rate    inserted → "no"
 default                 1.07 MB              2                 0.74%                  0
 NONSCALING             292.6 KB              1                 1.00%            494,508
 ```

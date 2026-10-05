@@ -84,10 +84,10 @@ The simplest fix: **always send all of one user's reads to the same replica** (c
 The exercise's `npm run session` — 2000 times "create a task, then read five times" (at the redirect +5 ms, then +30 ms, +300 ms, +1 s, +3 s; the first two on the same device, half of the rest on the other device):
 
 ```
-                                              didn't see their own write     time went    reads on
-   strategy                                   same device    other device    backwards    primary
-   a. any replica (random)                    29.1%         0.9%         4.0%         0.0%
-   b. a fixed replica per device              29.6%         1.0%         0.6%         0.0%
+                                                  didn't see own write          time went     reads on primary
+   strategy                                       same device   other device    back
+   A. any replica (random)                        29.1%         0.9%         4.0%         0.0%
+   B. one fixed replica per device                29.6%         1.0%         0.6%         0.0%
 ```
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the numbers are identical.)
@@ -102,7 +102,7 @@ The sticky replica cut "time went backwards" from 4% to 0.6% — but not to zero
 In 5.7 you saw three fixes for read-your-writes. TaskFlow picked the most practical: send reads to the primary for a device that has just written. Measure its cost and limits:
 
 ```
-   c. cookie: primary if written within 5 s    0.0%         0.9%         0.3%        73.4%
+   C. cookie: primary if written within 5 s        0.0%         0.9%         0.3%        73.4%
 ```
 
 Perfect on your own device — but two problems. First, **the other-device column (0.9%) is as bad as random** — the laptop doesn't see the phone's cookie (ticket 2). Second, **73% of reads go to the primary.** In this workload every write is followed by 5 reads within 5 seconds — so almost every read is "right after a write". The cookie doesn't know whether a replica is **actually** behind; it only looks at the time, and to be careful sends almost everything to the primary. Almost the whole benefit of having replicas is gone.
@@ -123,8 +123,8 @@ One token gives two guarantees: the token contains your own write's LSN → **re
 Now the only question: where does the token live?
 
 ```
-   d. version token — on the device (cookie)   0.0%         0.8%         0.4%         3.4%
-   e. version token — per user (on the server) 0.0%         0.0%         0.0%         3.4%
+   D. version token — on the device (cookie)       0.0%         0.8%         0.4%         3.4%
+   E. version token — per user (on the server)     0.0%         0.0%         0.0%         3.4%
 ```
 
 The code of the two is almost identical, and so is the primary load (3.4% — compared to the cookie's 73.4%). The only difference: (d) keeps the token in the device's cookie, so the laptop doesn't know the phone's token. (e) keeps it **on the server, under the user's name** — say `rw-token:{userId}` in Redis — so every read from any device sees that token. All three columns are zero.
@@ -168,7 +168,7 @@ In a leaderless store, a write failing means `W` replicas didn't confirm it. But
 The exercise's `npm run quorum`: `N = 3, W = 2, R = 2`. The write v1 reached only A; B and C timed out — the client was told "failed". Then 100 users × 5 reads, each read from two random replicas:
 
 ```
-   read repair    saw the "failed" v1     v0 again after seeing v1     users who saw the value flip    final state
+   read repair    saw the "failed" v1      back to v0 after v1      users whose value flipped    final state
    off              325/500                 84                      58                A=v1 B=v0 C=v0
    on               500/500                  0                       0                A=v1 B=v1 C=v1
 ```

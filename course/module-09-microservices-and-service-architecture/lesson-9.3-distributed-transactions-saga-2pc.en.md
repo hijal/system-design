@@ -63,14 +63,18 @@ The heart of it is the word "prepare". A participant makes a promise: "I will be
 Postgres really does have this — the core of the exercise's coordinator:
 
 ```typescript
+// exercises/lesson-9.3-saga-2pc/src/twopc.ts — the coordinator (abridged)
 await Promise.all([a.query('BEGIN'), b.query('BEGIN')]);
-await a.query(insertTask, [op.workspaceId, op.title]);
-await b.query(bumpCounter, [op.workspaceId]);
+await a.query(insertTask, [op.workspaceId, op.title]); // tasks_svc — holds the locks, no commit
+await b.query(bumpCounter, [op.workspaceId]); // billing_svc — holds the locks, no commit
+// phase 1 — after this neither database can decide on its own anymore
 await Promise.all([
 	a.query(`PREPARE TRANSACTION '${gid}:tasks'`),
 	b.query(`PREPARE TRANSACTION '${gid}:billing'`)
 ]);
+// the decision — in the coordinator's own log
 await a.query('INSERT INTO twopc_log (gid, decision) VALUES ($1, $2)', [gid, 'commit']);
+// phase 2
 await Promise.all([
 	a.query(`COMMIT PREPARED '${gid}:tasks'`),
 	b.query(`COMMIT PREPARED '${gid}:billing'`)
@@ -83,10 +87,10 @@ The exercise's `npm run twopc`, part A — 9.1's same 3000 operations and same 8
 
 ```
 ── A. 3000 "create task", 100 workspaces, crash after the first write in 83 (3%), 8 concurrent ──
-   path                                     ok   failed  task rows  counter  mismatched ws   result                  ops/s      p50
-   monolith: one transaction (9.1)         2917       83       2917     2917              0   they match               2775   2.3 ms
-   services: two separate writes (9.1)     2917       83       3000     2917             57   83 tasks with no bill    1594   4.4 ms
-   services: 2PC                           2917       83       2917     2917              0   they match               1027   7.1 ms
+   path                                     ok failed    tasks  counter   bad ws   result                  ops/s      p50
+   monolith: one transaction (9.1)        2917     83     2917     2917        0   they match               2775   2.3 ms
+   services: two separate writes (9.1)    2917     83     3000     2917       57   83 tasks with no bill    1594   4.4 ms
+   services: 2PC                          2917     83     2917     2917        0   they match               1027   7.1 ms
 ```
 
 - **2PC has zero mismatches.** If the coordinator dies before PREPARE its connection drops, and the two databases roll back their halves on their own — just like the monolith. The DBA was right: 2PC really is atomic.
@@ -106,10 +110,10 @@ Part B: five workspaces' transactions left in doubt (out of 100), then 8 clients
 ── B. The coordinator died after PREPARE, before COMMIT — 5 workspaces' transactions "in doubt" ──
    left prepared: 5 in tasks_svc, 5 in billing_svc · "commit" in the coordinator's log: 2
    reading workspace 1's task_count (SELECT): 0 — 0.4 ms, not blocked (MVCC: the committed old value)
-   then 8 clients creating new tasks for 3 s (2PC, across 100 random workspaces):
-   billing's lock_timeout      ok   ops/s   lock failures       p99   clients stuck at the end   everyone stuck
-   none (Postgres default)     90      30               0   23.9 ms                    8 / 8   at 156.8 ms
-   200 ms                    1348     449              57  317.8 ms                    0 / 8   —
+   then 8 clients creating new tasks for 3 s (2PC, random among 100 workspaces):
+   billing's lock_timeout       ok   ops/s    lock fails       p99       stuck at end   all stuck at
+   none (Postgres default)      90      30             0   23.9 ms              8 / 8   at 156.8 ms
+   200 ms                     1348     449            57  317.8 ms              0 / 8   —
 ```
 
 - **Reads do not block** — Lesson 5.3/5.5's MVCC: a SELECT sees the committed old value. It is **writes** that block.
@@ -120,9 +124,9 @@ So why does billing not just decide for itself? Part C:
 
 ```
 ── C. What next: deciding the in-doubt transactions ──
-   who decided                                        tasks_svc              billing_svc            mismatched ws   result
-   the coordinator returned, by its log (absent → rollback)  commit 2 · rollback 3  commit 2 · rollback 3               0   they match
-   billing rolled back on its own, then the coordinator      commit 2 · rollback 3  commit 0 · rollback 5               2   2 tasks with no bill
+   who decided                                  tasks_svc              billing_svc            bad ws   result
+   coordinator, from its log (none → rollback)  commit 2 · rollback 3  commit 2 · rollback 3       0   they match
+   billing rolled back alone, then coordinator  commit 2 · rollback 3  commit 0 · rollback 5       2   2 tasks with no bill
 ```
 
 - **The coordinator returns and reads its log:** those with "commit" in the log (2) get committed; those without (3) get rolled back, because absence from the log means the commit decision was never made (this rule is called "presumed abort"). Zero mismatches.
@@ -188,12 +192,12 @@ Every step of a saga commits separately — so what if the orchestrator dies mid
 
 ```
 ── A. 3000 "create task" — crash after writing to billing in 83 (3%), 44 with an archived project, 8 concurrent ──
-   path                                    completed  archived  crash  unfinished  task rows  counter  mismatched ws   result                   ops/s      p50
-   two writes, no saga                          2873        44     83           —       2873     3000             58   127 bills, no task        1979   3.9 ms
-   saga (idempotent steps)                      2873        44     83          83       2873     2956             57   83 bills, no task          966   7.9 ms
-     … recovery: advance from the log (234.1 ms) 2955        45      —           0       2955     2955              0   they match                  —        —
-   saga, steps not idempotent                   2873        44     83          83       2873     2956             57   83 bills, no task          992   7.7 ms
-     … recovery: advance from the log (282.5 ms) 2955        45      —           0       2955     3038             57   83 bills, no task           —        —
+   path                                       done  archived  crash   pending    tasks  counter   bad ws   result                  ops/s      p50
+   two writes, no saga                        2873        44     83         —     2873     3000       58   127 bills with no task   1979   3.9 ms
+   saga (idempotent steps)                    2873        44     83        83     2873     2956       57   83 bills with no task     966   7.9 ms
+     … recovery from the log (234.1 ms)       2955        45      —         0     2955     2955        0   they match                  —        —
+   saga, steps not idempotent                 2873        44     83        83     2873     2956       57   83 bills with no task     992   7.7 ms
+     … recovery from the log (282.5 ms)       2955        45      —         0     2955     3038       57   83 bills with no task       —        —
 ```
 
 - **Without a saga:** 127 bills with no task — 83 from crashes and 44 from archived projects. The archived ones have no reverse action at all. Incident 2.
@@ -204,8 +208,9 @@ Every step of a saga commits separately — so what if the orchestrator dies mid
 The idempotent form uses billing's own ledger, keyed by the saga's id (Lesson 2.5's idempotency key, 7.4's idempotent consumer — now on every step of a saga and every reverse action):
 
 ```typescript
+// billing service — step 1 (abridged, inside one local transaction)
 const prev = await c.query('SELECT status FROM reservations WHERE saga_id = $1', [sagaId]);
-if (prev.rows[0] !== undefined) return previousAnswer(prev.rows[0]);
+if (prev.rows[0] !== undefined) return previousAnswer(prev.rows[0]); // already done — don't count it again
 const r = await c.query(
 	'UPDATE workspaces SET task_count = task_count + 1 WHERE id = $1 AND task_count < task_limit RETURNING id',
 	[workspaceId]
@@ -216,6 +221,10 @@ await c.query('INSERT INTO reservations (saga_id, workspace_id, status) VALUES (
 	workspaceId,
 	status
 ]);
+
+// the reverse action — only from 'reserved' to 'released'; called twice, it decreases once
+// WITH r AS (UPDATE reservations SET status = 'released' WHERE saga_id = $1 AND status = 'reserved' RETURNING workspace_id)
+// UPDATE workspaces w SET task_count = task_count - 1 FROM r WHERE w.id = r.workspace_id
 ```
 
 If the saga id is already in the ledger, it returns the previous answer instead of counting again. The reverse action moves only from `'reserved'` to `'released'`, so calling it twice still decrements once.
@@ -270,9 +279,9 @@ The **I** in Lesson 5.5's ACID — isolation: others do not see a transaction's 
 
 ```
 ── B. Near the limit: 50 workspaces, limit 10, 8 tasks already — 4 concurrent "create task" in each, 41 with an archived project ──
-   rule                                        created  returned  "limit reached"  ws over the limit  extra tasks  wrong "limit reached"
-   reserve first → task → release if needed (saga)   75        25              100                  0            0                    25
-   check first → task → increment usage at the end  159         —                0                 42           61                     0
+   rule                                      made  undone     refused  ws over limit       extra  false refusals
+   reserve → task → release (saga)             75      25         100              0           0              25
+   check → task → count usage at end          159       —           0             42          61               0
 ```
 
 - **Reserve first (our saga):** the limit is never exceeded — exactly 2 reservations per workspace, with the other 100 attempts told "limit reached". But 25 reservations were later released (archived) — and those who were told "no" for the sake of those slots were told no **wrongly**. The middle state (reserved, but the task not yet created) changed other people's decisions.

@@ -46,9 +46,9 @@ export type Policy = {
 	kind: 'fixed' | 'reactive' | 'scheduled' | 'spot';
 };
 export const POLICIES: Policy[] = [
-	{ name: 'স্থির: peak + ২৫%, ২৪/৭', kind: 'fixed' },
-	{ name: `reactive autoscale (লক্ষ্য ${Math.round(TARGET * 100)}%)`, kind: 'reactive' },
-	{ name: 'scheduled (জানা ছক) + reactive', kind: 'scheduled' },
+	{ name: 'fixed: peak + 25%, 24/7', kind: 'fixed' },
+	{ name: `reactive autoscale (target ${Math.round(TARGET * 100)}%)`, kind: 'reactive' },
+	{ name: 'scheduled (known pattern) + reactive', kind: 'scheduled' },
 	{ name: `reactive, ${Math.round(SPOT_FRACTION * 100)}% spot`, kind: 'spot' }
 ];
 

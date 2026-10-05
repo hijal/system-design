@@ -47,8 +47,8 @@ npm run unsafe
 **১. `npm run election`**
 
 ```
-   election timeout     leader পাওয়া গেছে    সময় p50 / p99          গড় term (১ = প্রথম চেষ্টাতেই)
-   150 ms (স্থির)        837/1000           4204 /  9761 ms         30.61
+   election timeout     leader found          time p50 / p99          avg terms (1 = first try)
+   150 ms (fixed)        837/1000           4204 /  9761 ms         30.61
    150–155 ms           1000/1000            315 /  1526 ms         2.94
    150–175 ms           1000/1000            161 /   331 ms         1.08
    150–300 ms           1000/1000            176 /   252 ms         1.00
@@ -57,35 +57,35 @@ npm run unsafe
 **২. `npm run partition`** (মাঝের অংশ বাদ দিয়ে)
 
 ```
-   ═══ 1200 ms: network কাটা — [n1] | [n2] | [n3 n4 n5] ═══
+   ═══ 1200 ms: network cut — [n1] | [n2] | [n3 n4 n5] ═══
 
     1250 ms  A       "x=2" → n1 (log index 2, term 1)
-    1329 ms  n3      ★ leader হলো (term 2)
-    2008 ms  B       ✓ "x=3" নিশ্চিত (8 ms)
-    2250 ms  A       ✗ "x=2" — 1000 ms এ কোনো নিশ্চয়তা আসেনি (timeout)
+    1329 ms  n3      ★ became leader (term 2)
+    2008 ms  B       ✓ "x=3" confirmed (8 ms)
+    2250 ms  A       ✗ "x=2" — no confirmation within 1000 ms (timeout)
 
-   ── partition চলছে — দুজন "leader"? ──
+   ── partition in progress — two "leaders"? ──
    n1  LEADER    term  1   log: x=1(t1) x=2(t1)                commit 1   x = 1
    n2  candidate term  5   log: x=1(t1)                        commit 1   x = 1
    n3  LEADER    term  2   log: x=1(t1) x=3(t2)                commit 2   x = 3
    ...
-    3628 ms  n3      n2 কে ভোট দিল না — ওর log আমার চেয়ে পুরনো (term 11)
-    3716 ms  n5      ★ leader হলো (term 12)
+    3628 ms  n3      did not vote for n2 — its log is older than mine (term 11)
+    3716 ms  n5      ★ became leader (term 12)
 
-   ── ফল ──
-   "x=3" client কে নিশ্চিত করা হয়েছিল: হ্যাঁ
-   "x=3" এখন কয়টা node এর log এ আছে: 5/5
-   "x=2" (কখনো নিশ্চিত হয়নি) কয়টা log এ আছে: 0/5
-   সব node এ x এর মান এক? হ্যাঁ
+   ── result ──
+   "x=3" was confirmed to the client: yes
+   how many nodes have "x=3" in their log now: 5/5
+   "x=2" (never confirmed) is in how many logs: 0/5
+   is x the same on every node? yes
 ```
 
 **৩. `npm run unsafe`**
 
 ```
-    3631 ms  n2      ★ leader হলো (term 11)
+    3631 ms  n2      ★ became leader (term 11)
    ...
-   "x=3" এখন কয়টা node এর log এ আছে: 0/5   ← নিশ্চিত করা লেখা হারিয়ে গেছে!
-   সব node এ x এর মান এক? না — n1=4 n2=4 n3=3 n4=3 n5=3   ← replica গুলো আলাদা হয়ে গেছে!
+   how many nodes have "x=3" in their log now: 0/5   ← a confirmed write has been lost!
+   is x the same on every node? no — n1=4 n2=4 n3=3 n4=3 n5=3   ← the replicas have diverged!
 ```
 
 ## কী দেখার জন্য এটা বানানো

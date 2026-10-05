@@ -2,14 +2,14 @@ import { mulberry32, percentile } from './random';
 import { RaftNode, type Message } from './raft';
 import { Network, Sim } from './sim';
 
-// Lesson 6.2 §১.৪ — কেন Raft এর election timeout random?
+// Lesson 6.2 §1.4 — why is Raft's election timeout random?
 //
-// ৫টা node একসাথে চালু হয়, কেউ leader না। প্রতিটা node নিজের election timeout পেরোলে candidate হয়।
-// Timeout এর range বদলে বদলে ১০০০ বার করে: কতক্ষণে leader পাওয়া যায়, আর কতগুলো term খরচ হয়
-// (প্রতিটা বাড়তি term মানে একটা ব্যর্থ election — split vote)।
+// 5 nodes start together, nobody is leader. Each node becomes candidate once its own election timeout passes.
+// 1000 runs for each timeout range: how long until there is a leader, and how many terms are spent
+// (every extra term means one failed election — a split vote).
 //
-// Network এর এক দিকের যাত্রা: ন্যূনতম 2 ms + গড়ে আরও 2 ms (একই region এর ভিন্ন data center এর মতো)।
-// প্রতিটা timer এ ±0.5 ms এর jitter — বাস্তবের timer কখনো একদম ঠিক সময়ে fire করে না।
+// One-way network trip: a minimum of 2 ms + 2 ms more on average (like different data centers in one region).
+// ±0.5 ms of jitter on every timer — real timers never fire at exactly the right time.
 
 const NODES = ['n1', 'n2', 'n3', 'n4', 'n5'];
 const TRIALS = 1000;
@@ -54,11 +54,11 @@ function trial(min: number, max: number, seed: number): Trial {
 
 function main(): void {
 	console.log(
-		`\n   ${NODES.length}টা node একসাথে চালু, কেউ leader না — প্রতিটা range এ ${TRIALS} বার`
+		`\n   ${NODES.length} nodes start together, nobody is leader — ${TRIALS} runs for each range`
 	);
-	console.log('   (seed দেওয়া simulation — প্রতিবার হুবহু একই ফল)\n');
+	console.log('   (seeded simulation — exactly the same result every time)\n');
 	console.log(
-		'   election timeout     leader পাওয়া গেছে    সময় p50 / p99          গড় term (১ = প্রথম চেষ্টাতেই)'
+		'   election timeout     leader found          time p50 / p99          avg terms (1 = first try)'
 	);
 	for (const [min, max] of RANGES) {
 		const results = Array.from({ length: TRIALS }, (_, i) => trial(min, max, 1000 + i));
@@ -69,7 +69,7 @@ function main(): void {
 		const avgTerms = elected.length
 			? (elected.reduce((sum, r) => sum + r.terms, 0) / elected.length).toFixed(2)
 			: '—';
-		const label = min === max ? `${min} ms (স্থির)` : `${min}–${max} ms`;
+		const label = min === max ? `${min} ms (fixed)` : `${min}–${max} ms`;
 		const timeCol = elected.length
 			? `${percentile(times, 50).toFixed(0).padStart(5)} / ${percentile(times, 99).toFixed(0).padStart(5)} ms`
 			: '        —         ';
@@ -78,7 +78,7 @@ function main(): void {
 		);
 	}
 	console.log(
-		`\n   "leader পাওয়া গেছে" = ${GIVE_UP_MS / 1000} সেকেন্ডের মধ্যে। না পেলে cluster পুরো সময় লেখা নিতে পারেনি।\n`
+		`\n   "leader found" = within ${GIVE_UP_MS / 1000} seconds. Without one, the cluster could not take writes for the whole time.\n`
 	);
 }
 

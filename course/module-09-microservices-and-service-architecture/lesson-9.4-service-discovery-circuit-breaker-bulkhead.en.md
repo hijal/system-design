@@ -75,7 +75,7 @@ From the exercise, `npm run discovery` — three instances, 300 "create task" ca
    static list                         0 ( 0%)    100 (33%)    100 (33%)
    registry + heartbeat/TTL            0 ( 0%)    100 (33%)      0 ( 0%)
 
-   time for the registry to drop the dead instance: 230.2 ms (heartbeat 100 ms + TTL 300 ms)
+   time for the dead instance to leave the registry: 230.2 ms (heartbeat 100 ms + TTL 300 ms)
 ```
 
 Two things to read here, and the second matters more:
@@ -169,8 +169,8 @@ The "exactly one" part matters. If every waiting call were released at once when
 
 ```
    time for the breaker to close again after billing recovered: 208.1 ms
-   (the rest of the open duration + one probe; at worst the full 500 ms)
-   half-open probes sent in that time: 1
+   (the rest of the open period + one probe; in the worst case the full 500 ms)
+   half-open probes sent during this time: 1
 ```
 
 So a breaker has a price of its own: **traffic does not return for a while even after billing has recovered** — at worst the entire open duration. A longer duration gives the dying service more rest but delays recovery; a shorter one does the opposite. 500 ms here; in production often a few seconds.
@@ -198,12 +198,12 @@ Because of **workers**. The work service can handle some fixed number of concurr
 From the exercise, `npm run isolation` — 600 requests, 40 clients, 16 slots, 70% "create task" and 30% "open board", billing 2 seconds slow:
 
 ```
-── A. "open board" — the work that has nothing to do with billing ──
+── a. "open board" — the work that has nothing to do with billing ──
    pool                              ok      failed        shed         p50         p99
    shared (16)                      171           0           0    305.0 ms    595.9 ms
    bulkhead (4 board)               171           0           0      2.1 ms      7.4 ms
 
-── B. "create task" — the work that really does depend on the slow billing ──
+── b. "create task" — the work that really depends on the slow billing ──
    pool                              ok      failed        shed         p50         p99
    shared (16)                        0         429           0    603.3 ms    901.1 ms
    bulkhead (12 create)               0         429           0    906.3 ms      1.21 s

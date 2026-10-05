@@ -77,15 +77,15 @@ User accounts?                              Assume they exist, but login is out 
 
 ```
 ── Part A — traffic: 100 million new links a month, read:write = 100:1, peak 3× the average ──
-                                         average          peak
+                                              average     peak
 new links (writes) / s                      38.6           116
 redirects (reads) / s                      3,858        11,574
 redirect bandwidth                      1.9 MB/s      5.8 MB/s
-click events / month                  10 billion        1.0 TB
+click events / month                    10 billion      1.0 TB
 
 ── Part B — storage: 10 years, 500 B per row ──
-one year                             1.2 billion        600 GB
-10 years                              12 billion        6.0 TB
+one year                               1.2 billion      600 GB
+10 years                                12 billion      6.0 TB
 ```
 
 These few numbers lead to four decisions, and some of them are a "no":
@@ -99,11 +99,11 @@ Now the keyspace. **Keyspace** — the number of all possible values for a code;
 
 ```
 ── Part C — keyspace: base62, 1.2 billion new codes a year ──
-length           total codes   years to fill   full in 10 years   random: needs retry   guess hits
-5                916 million        9 months             100.0%                  full         100%
-6                56.8 billion             47              21.1%                 21.1%        21.1%
-7              3.52 trillion           2,935             0.341%                0.341%       0.341%
-8            218.34 trillion         181,950             0.005%                0.005%       0.005%
+length         total codes   years to fill  full in 10 yrs       random: retry    guess hits
+5              916 million        9 months          100.0%                full          100%
+6             56.8 billion              47           21.1%               21.1%         21.1%
+7            3.52 trillion           2,935          0.341%              0.341%        0.341%
+8             218 trillion         181,950          0.005%              0.005%        0.005%
 ```
 
 5 characters run out in nine months. 6 characters last 47 years, so many people say "6 is enough". But look at the last two columns. 21% full in ten years means: (a) if you make random codes, one in every five is already taken, and (b) if someone makes up a random 6-character code and tries it, **one in five is someone's real link**. At 7 characters both are 0.34%. One extra character buys 62 times the space. Where that matters is in 1.5.
@@ -112,9 +112,9 @@ And one more list, the price of the tools at this size:
 
 ```
 ── Part D — the tools that come to mind, and their price at this size ──
-Bloom filter, all 12 billion codes, 1% error                      14.4 GB
-HyperLogLog (dense, 12 KB) per link                                147 TB
-Sharding: peak writes / one primary                                  2.3%
+Bloom filter, all 12 billion codes, 1% error               14.4 GB
+HyperLogLog (dense, 12 KB) per link                          147 TB
+Sharding: peak writes / one primary                           2.3%
 ```
 
 These three rows will come back in the later sections.
@@ -182,11 +182,11 @@ This is the real engineering question of this system, and 1.2's reflection named
 **Approach 1 — A random code, then check whether it is taken.** 7 random characters, `INSERT ... ON CONFLICT DO NOTHING`, and again if taken.
 
 ```
-full            avg attempts  needed retry   max attempts   when at 6 chars   when at 7 chars
-0.341%          1.0035        0.35%              2         1.9 months       10.0 years
-21.1%           1.2693       21.28%              8       10.0 years        619 years
-50.0%           2.0032       50.15%             18       23.7 years      1,467 years
-90.0%          10.0904       90.13%            120       42.6 years      2,641 years
+full        avg attempts  needed retry   max attempts  when at 6 chars  when at 7 chars
+0.341%          1.0035        0.35%              2     1.9 months     10.0 years
+21.1%           1.2693       21.28%              8     10.0 years      619 years
+50.0%           2.0032       50.15%             18     23.7 years    1,467 years
+90.0%          10.0904       90.13%            120     42.6 years    2,641 years
 ```
 
 The retry rate is exactly how full it is. At 7 characters, 0.35% in ten years: one extra round trip every 285 links. Negligible. At 6 characters, one in five in ten years, and it keeps growing with time. At 90%, 10 attempts on average, 120 at worst. The random approach has no coordination (every server makes its own), and codes cannot be guessed. The price: a "is it taken" question on every creation, which the database's unique constraint handles by itself.
@@ -196,10 +196,10 @@ Here comes the first thought of a Bloom filter: "check the Bloom filter for whet
 **Approach 2 — The URL's hash, first 7 characters.** Attractive, because the same URL always gets the same code, and it dedupes with no lookup. But the first 7 characters of the hashes of different URLs can match:
 
 ```
-full                links       collisions  % inserts     birthday estimate   avg attempts
-0.341%             50,388             97    0.193%               86      1.0019
-10.0%           1,477,634         73,894    5.001%           73,882      1.0536
-21.1%           3,117,807        329,366   10.564%          328,929      1.1234
+full              link     collisions  % insert  birthday estimate  avg attempts
+0.341%          50,388             97    0.193%               86      1.0019
+10.0%        1,477,634         73,894    5.001%           73,882      1.0536
+21.1%        3,117,807        329,366   10.564%          328,929      1.1234
 At 7 chars in 10 years (12,008,705,807 links): an estimated 20,474,843 links will hit a collision.
 ```
 
@@ -210,8 +210,8 @@ So how will you handle a collision? Add a salt to the URL and hash again. Now th
 **Approach 3 — Counter + base62.** An increasing number (a Postgres `SEQUENCE`), written in base62. No collisions, one trip per creation, and the shortest codes (only 6 characters at 12 billion). But:
 
 ```
-── Part C — finding by guessing: 0.341% full, 10,000 codes before your own and 10,000 random attempts ──
-strategy                                                          last 5 codes       hits before   hits random
+── Part C — finding by guessing: 0.341% full, the 10,000 codes before your own and 10,000 random attempts ──
+strategy                                                      last 5 codes      hits before    hits random
 counter → base62                                  0d6C 0d6D 0d6E 0d6F 0d6G          100.00%          0.34%
 random                                            DB0u rO8O ypzM aKdZ fKLX            0.32%          0.44%
 counter → secret permutation → base62             f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
@@ -233,8 +233,8 @@ Verified by running every id in a small domain: 238,328 ids, 238,328 distinct co
 **Sharing out the counter.** One counter means going to the counter on every creation, and the counter is a single point. **Range Allocation (Ticket Server)** — each app server takes a block from the counter at once (say 1,000 ids) and hands them out from its own memory; when they run out, another block. The name "ticket server" comes from a published Flickr design, where a separate small database's only job was handing out ids. Taking a block at a time is an old, common improvement on top of that (in the ORM world it is called hi/lo).
 
 ```
-── Part D — sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts once a day ──
-block      sequence calls / day   wasted ids / day   wasted / year, 7 chars   out of time order
+── Part D — sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts 1× a day ──
+block     sequence calls / day  wasted ids / day  wasted / year, 7 chars  out of time order
 1                   3,333,333               0                0.00000%              0.0%
 1,000                   3,354          10,161                0.00011%             47.5%
 10,000                    353          99,804                0.00103%             47.5%
@@ -264,12 +264,12 @@ Redirects happen ~11,600 times a second, and almost all are a primary key lookup
 **How much the cache gives.** `npm run redirect` part A: 2 million links, 6 million redirects, Zipf popularity (s = 1, a few links very popular, most opened by almost nobody), LRU (4.3):
 
 ```
-cache                                       entries   hit rate   DB reads/s (peak 11,574)   memory, at 1 billion links
-shared cache (Redis), 0.1% of links           2,000      43.1%                     6,591                  250 MB
-shared cache (Redis), 1% of links            20,000      60.4%                     4,578                  2.5 GB
-shared cache (Redis), 5% of links           100,000      73.2%                     3,100                 12.5 GB
-shared cache (Redis), 20% of links          400,000      84.8%                     1,757                 50.0 GB
-local 0.1% on each app server (10)            2,000      43.1%                     6,590             250 MB × 10
+cache                                          entry   hit rate  DB reads/s (peak 11,574)  memory, at 1 billion links
+shared cache (Redis), 0.1% of links            2,000      43.1%                     6,591                  250 MB
+shared cache (Redis), 1% of links             20,000      60.4%                     4,578                  2.5 GB
+shared cache (Redis), 5% of links            100,000      73.2%                     3,100                 12.5 GB
+shared cache (Redis), 20% of links           400,000      84.8%                     1,757                 50.0 GB
+local 0.1% on each app server (10)             2,000      43.1%                     6,590             250 MB × 10
 ```
 
 - **The first 0.1% of links get 43% of traffic.** After that every extra GB buys less: from 1% to 20%, 20 times the memory, hit rate from 60 to 85%. This is the long tail of popularity: most links are not opened even once a month, and keeping them in cache means keeping memory nobody will read.
@@ -284,10 +284,10 @@ local 0.1% on each app server (10)            2,000      43.1%                  
 **301 or 302.** **301 / 302 Redirect** — both send the browser to the address in the `Location` header. 301 means "moved permanently": the browser may cache it and next time go straight to the destination without asking the server. 302 means "for now": it asks the server every time (unless `Cache-Control` says otherwise). 301's temptation: less load on the server. Part B: 100,000 people click a link, come back twice more on average, 85% of browsers keep the cache, and on the seventh day the link is disabled as phishing:
 
 ```
-policy                                     clicks   server saw   missing from analytics   clicks after disable   still reached destination
-301 (permanent, browser remembers)        300,664        43.2%            56.8%          189,422             62.6%
-302 + Cache-Control: max-age=3600         300,664        97.7%             2.3%          189,422              2.3%
-302 + Cache-Control: private, no-store    300,664       100.0%             0.0%          189,422              0.0%
+policy                                   click   server saw  not in analytics  clicks after off  still reached dest
+301 (permanent, browser remembers)       300,664        43.2%            56.8%          189,422             62.6%
+302 + Cache-Control: max-age=3600      300,664        97.7%             2.3%          189,422              2.3%
+302 + Cache-Control: private, no-store      300,664       100.0%             0.0%          189,422              0.0%
 ```
 
 301 cuts the server's load by more than half. But it has two prices, and both are at the heart of this product:
@@ -304,11 +304,11 @@ The requirement: the owner sees clicks and unique visitors, a few minutes late. 
 The first thought for counting unique visitors: "one HyperLogLog per link, we learned it in 10.2." Part C, 10 billion clicks a month, Zipf over 1 billion links:
 
 ```
-method                                                       memory   note
-exact set per link (visitor hash, 16 B)                     96.0 GB   exact; big on popular links
-dense HLL (12 KB) per clicked link                           8.1 TB   660 million links clicked — most of them small
-set when small, HLL when big (Redis's sparse → dense)       40.2 GB   only 369,858 links have more than 768 unique
-collect click events and count in a nightly batch (7.6)       0 RAM   ~1.0 TB/month of raw events on disk; hours of delay
+method                                                    memory   note
+exact set per link (visitor hash, 16 B)                  96.0 GB   exact; big on popular links
+dense HLL (12 KB) per clicked link                        8.1 TB   656 million links clicked — most of them small
+set when small, HLL when big (Redis sparse → dense)       40.2 GB   only 369,858 links have more than 768 unique
+collect click events, count in a nightly batch (7.6)         0 RAM   ~1.0 TB/month of raw events on disk; hours of delay
 ```
 
 **A dense HLL per link is 85 times bigger than the exact sets.** Because an HLL's cost is fixed (12 KB) however small the count, and the middle links do not get even one click a month. An HLL only wins when one thing is very big and you want to keep the cost of measuring it fixed: here only ~370,000 links have more than 768 unique visitors. (Redis itself keeps small HLLs in a sparse form, for exactly this reason. But the thought "one HLL per link" often skips that maths.) **The third "no"**, at least not for every link.
@@ -327,7 +327,7 @@ An open shortener is a favourite tool of phishing and malware: it hides the real
 2   POST /api/links  (the same URL again)                 201     https://sho.rt/BnqHDLC
 3   GET /cOoEtMq                                          302     Location: https://example.com/blog/system-design?ref=newsletter
 5   POST /api/links  url: javascript:alert(1)             400     unsupported_scheme
-6   POST /api/links  url: https://sho.rt/abc (own domain) 400     self_redirect
+6   POST /api/links  url: https://sho.rt/abc (own domain)  400     self_redirect
 9   POST /api/links  alias: launch-2026 (again)           409     alias_taken
 10  POST /api/links  alias: abcDEF1 (7-char base62)       400     alias_reserved
 14  GET /yhc3OjR  (2 hours later)                         410     expired

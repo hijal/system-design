@@ -41,42 +41,42 @@ npm run lostupdate
 **১. `npm run anomalies`** — deterministic, তোমার মেশিনেও হুবহু এটাই আসবে:
 
 ```
-━━ ১. Lost update — read-modify-write
-   [READ COMMITTED]  openTaskCount শুরুতে 5; দুজনেই একটা করে task যোগ করছে
-     A: পড়ল 5
-     B: পড়ল 5
-     A: লিখল 6, COMMIT
-     B: লিখল 6, COMMIT
-       → শেষ মান 6 (হওয়া উচিত 7) — একটা update নীরবে হারিয়ে গেছে, কেউ কোনো error পায়নি
+━━ 1. Lost update — read-modify-write
+   [READ COMMITTED]  openTaskCount starts at 5; both are adding one task
+     A: read 5
+     B: read 5
+     A: wrote 6, COMMIT
+     B: wrote 6, COMMIT
+       → final value 6 (should be 7) — one update silently lost, nobody got an error
 
    [REPEATABLE READ]  …
-     B: লিখতে গেল → ERROR 40001 — could not serialize access (serialization failure), ROLLBACK
-       → শেষ মান 6 (হওয়া উচিত 7) — B এর কাজ হয়নি, কিন্তু B সেটা জানে; retry করলে 7 হবে। নীরবে হারায়নি
+     B: tried to write → ERROR 40001 — could not serialize access (serialization failure), ROLLBACK
+       → final value 6 (should be 7) — B's work didn't happen, but B knows it; a retry gives 7. Not silently lost
 
    [READ COMMITTED + SELECT ... FOR UPDATE]
-     A: পড়ল 5 (row lock নিল)
-     B: একই row FOR UPDATE পড়তে চাইল… ৩০০ ms পরেও অপেক্ষায়? হ্যাঁ
-     A: লিখল 6, COMMIT → lock ছাড়ল
-     B: এবার পড়তে পারল: 6 (A এর commit করা মান)
-     B: লিখল 7, COMMIT
-       → শেষ মান 7 (হওয়া উচিত 7)
+     A: read 5 (took the row lock)
+     B: wanted to read the same row FOR UPDATE… still waiting after 300 ms? yes
+     A: wrote 6, COMMIT → released the lock
+     B: could read now: 6 (the value A committed)
+     B: wrote 7, COMMIT
+       → final value 7 (should be 7)
 
-━━ ২. Non-repeatable read
-   [READ COMMITTED]   A: প্রথমবার "Website" … দ্বিতীয়বার "Website v2"
-   [REPEATABLE READ]  A: প্রথমবার "Website" … দ্বিতীয়বার "Website"
+━━ 2. Non-repeatable read
+   [READ COMMITTED]   A: first read: "Website" … second read: "Website v2"
+   [REPEATABLE READ]  A: first read: "Website" … second read: "Website"
 
-━━ ৩. Phantom read
-   [READ COMMITTED]   A: প্রথমবার 3টা task … দ্বিতীয়বার 4টা task
-   [REPEATABLE READ]  A: প্রথমবার 3টা task … দ্বিতীয়বার 3টা task
+━━ 3. Phantom read
+   [READ COMMITTED]   A: first count: 3 tasks … second count: 4 tasks
+   [REPEATABLE READ]  A: first count: 3 tasks … second count: 3 tasks
 
-━━ ৪. Write skew
+━━ 4. Write skew
    [REPEATABLE READ]  … A: COMMIT ✓   B: COMMIT ✓
-       → এখন admin: 0 জন — নিয়ম ভেঙে গেছে, অথচ দুজনেই নিয়ম যাচাই করেছিল!
+       → admins now: 0 — the rule is broken, even though both checked it!
    [SERIALIZABLE]     … A: COMMIT ✓   B: COMMIT → ERROR 40001
-       → এখন admin: 1 জন — নিয়ম টিকে আছে
+       → admins now: 1 — the rule holds
 
-━━ ৫. Dirty read
-   [B = READ UNCOMMITTED]  A "Draft name" লিখেছে, commit করেনি → B পড়ল: "Website"
+━━ 5. Dirty read
+   [B = READ UNCOMMITTED]  A wrote "Draft name", did not commit → B read: "Website"
 ```
 
 (উপরে ২–৫ সংক্ষেপে দেখানো; আসল output এ প্রতিটা ধাপ আলাদা লাইনে।)
@@ -88,14 +88,14 @@ npm run lostupdate
 **২. `npm run lostupdate`** — আমার মেশিনে, দুবার চালিয়ে (দ্বিতীয়টা):
 
 ```
-  কৌশল                                      শেষ মান      retry      সময়
-  ১. read-modify-write, transaction ছাড়া   ✗   1/100        0     145 ms
-  ২. একই, READ COMMITTED transaction এ      ✗  10/100        0     113 ms
-  ৩. SELECT ... FOR UPDATE                  ✓ 100/100        0     141 ms
-  ৪. atomic UPDATE … SET x = x + 1          ✓ 100/100        0     106 ms
-  ৫. REPEATABLE READ + retry                ✓ 100/100      348     371 ms
-  ৬. optimistic locking (version) + retry   ✓ 100/100     1206     801 ms
-  ৭. SERIALIZABLE + retry                   ✓ 100/100      339     347 ms
+  strategy                                final value  retries      time
+  1. read-modify-write, no transaction      ✗   1/100        0     145 ms
+  2. same, in a READ COMMITTED transaction  ✗  10/100        0     113 ms
+  3. SELECT ... FOR UPDATE                  ✓ 100/100        0     141 ms
+  4. atomic UPDATE … SET x = x + 1          ✓ 100/100        0     106 ms
+  5. REPEATABLE READ + retry                ✓ 100/100      348     371 ms
+  6. optimistic locking (version) + retry   ✓ 100/100     1206     801 ms
+  7. SERIALIZABLE + retry                   ✓ 100/100      339     347 ms
 ```
 
 ১ আর ২ এ কতগুলো টিকে থাকে সেটা বদলায় (প্রথমবার ২ এ ছিল ১৪), কিন্তু **কখনো ১০০ হয় না**।

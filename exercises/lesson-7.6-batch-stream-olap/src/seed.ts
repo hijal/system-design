@@ -2,12 +2,12 @@ import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { CHECKSUM_SQL, duck, DUCKDB_FILE, duckSeedSql, env, pgPool, pgSeedSql } from './data';
 
-// Lesson 7.6 — একই ROWS টা ঘটনা দুই জায়গায়: Postgres (row store, TaskFlow এর production database)
-// আর DuckDB (column store, analytics)। তারপর analytics এর প্রশ্নের ফল দুটোতে মিলিয়ে দেখা।
+// Lesson 7.6 — the same ROWS events in two places: Postgres (row store, TaskFlow's production database)
+// and DuckDB (column store, analytics). Then the analytics question's result is compared across both.
 
 async function main(): Promise<void> {
 	const rows = env.ROWS;
-	console.log(`   ${rows.toLocaleString('en-US')} টা task event তৈরি হচ্ছে…`);
+	console.log(`   generating ${rows.toLocaleString('en-US')} task events…`);
 
 	const pool = pgPool(2);
 	let t = Date.now();
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
 		        pg_size_pretty(pg_total_relation_size('task_events')) AS total`
 	);
 	console.log(
-		`   Postgres: ${((Date.now() - t) / 1000).toFixed(1)} s · table ${size.rows[0]?.table} (index সহ ${size.rows[0]?.total})`
+		`   Postgres: ${((Date.now() - t) / 1000).toFixed(1)} s · table ${size.rows[0]?.table} (with indexes ${size.rows[0]?.total})`
 	);
 
 	rmSync(DUCKDB_FILE, { force: true });
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
 	const same =
 		String(pgSum?.rows) === String(dSum?.['rows']) && String(pgSum?.ms) === String(dSum?.['ms']);
 	console.log(
-		`   checksum: Postgres ${pgSum?.rows} / ${pgSum?.ms} · DuckDB ${String(dSum?.['rows'])} / ${String(dSum?.['ms'])} → ${same ? 'মিলেছে ✓' : 'মেলেনি ✗'}`
+		`   checksum: Postgres ${pgSum?.rows} / ${pgSum?.ms} · DuckDB ${String(dSum?.['rows'])} / ${String(dSum?.['ms'])} → ${same ? 'match ✓' : 'mismatch ✗'}`
 	);
 	con.closeSync();
 	await pool.end();
@@ -49,6 +49,6 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
 	console.error(error instanceof Error ? error.message : error);
-	console.error('Postgres চালু আছে? `docker compose up -d --wait`');
+	console.error('Is Postgres running? `docker compose up -d --wait`');
 	process.exit(1);
 });

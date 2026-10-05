@@ -3,8 +3,8 @@ import { Transaction } from 'sequelize';
 import { Project, sequelize } from './db';
 import { withRetry, type RetryStats } from './retry';
 
-// Lesson 5.5 §১.৬ — Lesson 5.2 এর counter race, এবার সাতটা কৌশলে।
-// প্রতিটা কৌশলে ১০০টা "counter +1" একসাথে। শেষ মান ১০০ হলে সঠিক।
+// Lesson 5.5 §1.6 — Lesson 5.2's counter race, now with seven strategies.
+// Each strategy runs 100 "counter +1" at once. A final value of 100 means correct.
 
 const CONCURRENT = 100;
 const { READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE } = Transaction.ISOLATION_LEVELS;
@@ -16,10 +16,10 @@ type Strategy = {
 
 const strategies: Strategy[] = [
 	{
-		// Lesson 5.2 এর (ক) — কোনো transaction নেই
-		label: '১. read-modify-write, transaction ছাড়া',
-		// Static Project.update — instance এর save() দিলে `version: true` এর কারণে Sequelize
-		// নিজেই optimistic check করত (কৌশল ৬), তখন এটা আর "naive" থাকত না।
+		// Lesson 5.2's (a) — no transaction
+		label: '1. read-modify-write, no transaction',
+		// Static Project.update — with the instance's save() Sequelize would do an optimistic check itself
+		// because of `version: true` (strategy 6), and then this would no longer be "naive".
 		increment: async (projectId) => {
 			const p = await Project.findByPk(projectId);
 			if (!p) throw new Error('missing');
@@ -27,8 +27,8 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		// Lesson 5.2 এর experiment ৩ — "transaction দিলেই তো নিরাপদ?"
-		label: '২. একই, READ COMMITTED transaction এ',
+		// Lesson 5.2's experiment 3 — "surely a transaction makes it safe?"
+		label: '2. same, in a READ COMMITTED transaction',
 		increment: (projectId) =>
 			sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) => {
 				const p = await Project.findByPk(projectId, { transaction });
@@ -40,8 +40,8 @@ const strategies: Strategy[] = [
 			})
 	},
 	{
-		// Pessimistic — পড়ার সময়েই row lock (SELECT ... FOR UPDATE)
-		label: '৩. SELECT ... FOR UPDATE',
+		// Pessimistic — a row lock at read time (SELECT ... FOR UPDATE)
+		label: '3. SELECT ... FOR UPDATE',
 		increment: (projectId) =>
 			sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) => {
 				const p = await Project.findByPk(projectId, { transaction, lock: transaction.LOCK.UPDATE });
@@ -53,15 +53,15 @@ const strategies: Strategy[] = [
 			})
 	},
 	{
-		// হিসাবটা database কে দিয়ে দাও — SET x = x + 1 (Lesson 5.2 এর (খ))
-		label: '৪. atomic UPDATE … SET x = x + 1',
+		// hand the arithmetic to the database — SET x = x + 1 (Lesson 5.2's (b))
+		label: '4. atomic UPDATE … SET x = x + 1',
 		increment: async (projectId) => {
 			await Project.increment('openTaskCount', { by: 1, where: { id: projectId } });
 		}
 	},
 	{
-		// Snapshot isolation — সংঘাত হলে Postgres error দেয়, আমরা পুরোটা আবার চালাই
-		label: '৫. REPEATABLE READ + retry',
+		// Snapshot isolation — on a conflict Postgres raises an error, and we rerun the whole thing
+		label: '5. REPEATABLE READ + retry',
 		increment: (projectId, stats) =>
 			withRetry(
 				() =>
@@ -77,9 +77,9 @@ const strategies: Strategy[] = [
 			)
 	},
 	{
-		// Optimistic — lock নেই; লেখার সময় version মিলিয়ে দেখা (`version: true` model এ)
-		// Sequelize বানায়: UPDATE ... SET version = version + 1 WHERE id = ? AND version = ?
-		label: '৬. optimistic locking (version) + retry',
+		// Optimistic — no lock; the version is checked at write time (`version: true` on the model)
+		// Sequelize builds: UPDATE ... SET version = version + 1 WHERE id = ? AND version = ?
+		label: '6. optimistic locking (version) + retry',
 		increment: (projectId, stats) =>
 			withRetry(async () => {
 				const p = await Project.findByPk(projectId);
@@ -89,7 +89,7 @@ const strategies: Strategy[] = [
 			}, stats)
 	},
 	{
-		label: '৭. SERIALIZABLE + retry',
+		label: '7. SERIALIZABLE + retry',
 		increment: (projectId, stats) =>
 			withRetry(
 				() =>
@@ -108,8 +108,8 @@ const strategies: Strategy[] = [
 
 async function main(): Promise<void> {
 	await sequelize.sync({ force: true });
-	console.log(`\n  প্রতিটা কৌশলে ${CONCURRENT}টা "counter +1" একসাথে (pool: ১০ connection):\n`);
-	console.log(`  ${'কৌশল'.padEnd(40)}  শেষ মান      retry      সময়`);
+	console.log(`\n  ${CONCURRENT} "counter +1" at once for each strategy (pool: 10 connections):\n`);
+	console.log(`  ${'strategy'.padEnd(40)}final value  retries      time`);
 
 	for (const strategy of strategies) {
 		const project = await Project.create({ name: strategy.label });

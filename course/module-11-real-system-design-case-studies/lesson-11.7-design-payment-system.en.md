@@ -58,23 +58,23 @@ Left out                                   the fraud detection model, subscripti
 
 ```
 ── Part A — load: 10 million payments a day, $30 on average ──
-payments / s (average)                                            116
-payments / s (on a sale day, 10×)                               1,157   small for a Postgres
-money per day                                            $300 million
+payments / s (average)                                           116
+payments / s (on a sale day, 10×)                              1,157   small for a Postgres
+money per day                                           $300 million
 
 ── Part B — the price of mistakes ──
-mistakes on 0.1% of payments                                 $300,000        $109 million
-mistakes on 0.01% of payments                                 $30,000         $11 million
-mistakes on 0.001% of payments                                 $3,000        $1,095,000
+mistakes on 0.1% of payments                                $300,000      $110 million
+mistakes on 0.01% of payments                                $30,000     $10.9 million
+mistakes on 0.001% of payments                                $3,000        $1,095,000
 
 ── Part C — ledger: 6 entries per payment ──
-entries per day                                            60 million
-kept 7 years (legal)                                     153.3 billion   30.7 TB
+entries per day                                           60 million
+kept 7 years (legal)                                     153 billion   30.7 TB
 
 ── Part D — where the money of one $30 payment goes (fee 2.9% + $0.3, approximate) ──
-the customer paid                                              $30.00
+the customer paid                                             $30.00
 processing fee                                                 $1.17   3.9%
-the merchant gets                                              $28.83   a few days later, in the payout
+the merchant gets                                             $28.83   a few days later, in the payout
 ```
 
 The rest of this lesson explains this one table. **The load is small:** even on a sale day ~1,200 a second, easy for a good Postgres; sharding is not even a question (like 11.1). **The mistakes are big:** one mistake in ten thousand is $11 million a year. And mistakes usually come from tedious places, like a timeout, a crash, a race, a rounding, a time zone. So the design's job is not throughput but **correctness at every edge case.**
@@ -116,11 +116,11 @@ created ──PSP──► ├───────────── charged �
 `npm run timeout` part A: 1 million payments, 1% time out, and 60% of those were actually charged:
 
 ```
-policy                                                  charged twice   charged, no order     wait p99
-timeout = failed, let the user try again                         4,060           1,819            —
-resend it ourselves, a new request                               5,821               0            —
-resend it ourselves, the same idempotency key                        0               0            —
-keep "unknown": webhook, else ask for the status                     0               0         52 s
+policy                                                charged twice  charged, no order     wait p99
+timeout = failed, let the user try again                      4,060              1,819            —
+resend it ourselves, a new request                            5,821                  0            —
+resend it ourselves, the same idempotency key                     0                  0            —
+keep "unknown": webhook, else ask for the status                  0                  0         52 s
 ```
 
 - **Treating it as "failed":** showing the customer "payment failed, try again". Those who try again when the first one was actually charged get **charged twice** (4,060). And those who don't try again have money taken with no order (1,819): they don't know, and neither do we until reconciliation catches it. The second one is silent, and so worse. Experiment 1: when fewer people try again, double charges drop, but "charged, no order" grows to 4,248.
@@ -131,7 +131,7 @@ keep "unknown": webhook, else ask for the status                     0          
 **The spaced repetition answer, and part B:** in a dual write, a crash between the two systems can leave one without the other in any order; the outbox writes both in one transaction in one system (the DB), and sends to the other later. Here the second system is the PSP, which cannot be brought into our transaction. So the only safe order: **a durable record on our side first, then the external work.** A 0.1% crash at each step:
 
 ```
-order                                                               charged, we have no record      recovery finds
+order                                                         charged, we have no record      recovery finds
 charge at the PSP → then write the payment to the DB                                 970                   0
 intent in the DB (created) → PSP → the result in the DB                                0                 955
 ```
@@ -145,11 +145,11 @@ A security side of the **webhook** (10.5): a webhook is a public endpoint, where
 The first move's `merchant.balance += amount` has two problems. `npm run ledger`: 1,000 wallets, 200,000 transfers, 30% of them to one big merchant (like a sale day), a DB round trip of ~2 ms, 0.1% crashing midway:
 
 ```
-design                                                   change in total money   negative wallets   lost midway   provable?      wait on locks
-balance column: read, compute, write                        -5,139,292              0           158               no       0.00 ms
-balance column: each row atomic, two separate statements       -35,998              0           157               no       0.00 ms
-double-entry: one transaction, locks on both accounts                0              0             0      yes, Σ = 0       37.40 s
-double-entry: lock only the account paying out                       0              0             0      yes, Σ = 0       7.39 ms
+design                                                         total change  negative wallets   lost midway       provable?  wait on locks
+balance column: read, compute, write                             -5,139,292                 0           158              no        0.00 ms
+balance column: each row atomic, two separate statements            -35,998                 0           157              no        0.00 ms
+double-entry: one transaction, locks on both accounts                     0                 0             0      yes, Σ = 0        37.40 s
+double-entry: lock only the account paying out                            0                 0             0      yes, Σ = 0        7.39 ms
 ```
 
 - **Read, compute, write:** 5.5's lost update, this time with money. Two transfers to the hot merchant's balance read the same old value, and one's addition is lost. In 100 seconds **5.1 million cents** ($51,000) silently vanish. In the experiment, with a slow DB (10 ms), 8.4 million: the race window is bigger.
@@ -163,8 +163,8 @@ Smoke step 1: a $30 payment means three entries: `psp_receivable +$30.00`(the PS
 **Minor Units** — always keep money as an integer in its smallest unit (cents, paisa), never as a float. Part B:
 
 ```
-sum in float (dollars)                                504892524.099961
-sum in integers (cents) ÷ 100                         504892524.100000
+sum in float (dollars)                              504892524.099961
+sum in integers (cents) ÷ 100                       504892524.100000
 0.1 + 0.2 = 0.30000000000000004; 0.029 * 100 = 2.9000000000000004
 
 fee 2.9%: rounding each then summing 1,464,194,395 cents, rounding once on the total 1,464,188,320 cents — difference 6,075 cents
@@ -181,10 +181,10 @@ Even with unknown, recovery and the ledger, something slips through: a webhook i
 `npm run reconcile`: 1 million payments in one day, 372 real problems (of four kinds), and one real-world detail: the PSP's day is in UTC, ours in UTC+6 (Bangladesh):
 
 ```
-matching rule                                              alerts      real   false alerts    real, not caught
-same date, matching amounts only                           56,020         1       56,019      371 (100%)
-our payment id (in the PSP's reference), same date        500,514       318      500,196        54 (15%)
-payment id, a ±1 day window                                   372       372            0          0 (0%)
+matching rule                                              alert      real  false alerts  real, not caught
+same date, matching amounts only                          56,020         1        56,019        371 (100%)
+our payment id (in the PSP's reference), same date       500,514       318       500,196          54 (15%)
+payment id, a ±1 day window                                  372       372             0            0 (0%)
 ```
 
 - **Matching by amount:** many payments have the same amount, so the pairs are random, and a real problem almost always hides behind a wrong pair: **371 of the 372 are never caught,** plus 56,000 false alerts. Experiment 4: even in the same time zone, 98% hide. The matching key has to be unique, and that is why we give the PSP our payment id as the reference.
@@ -198,20 +198,20 @@ Smoke step 11: `pay_3` appears twice in the PSP's report (a duplicate charge on 
 `npm run smoke` runs every rule above: integer cents, intent first, idempotency keys, unknown, HMAC webhooks, the recovery job, refund limits, a double-entry ledger, reconciliation:
 
 ```
-#   step                                                     result
-1   a $30.00 payment                                         201 succeeded; psp_receivable $30.00, merchant:m_shop −$28.83, revenue:fees −$1.17
-2   the same idempotency key again (the client's retry)      200 pay_1 (earlier pay_1); PSP calls 1
-3   $42.00, card declined                                    402 failed; 3 entries in the ledger
-4   $55.00, PSP timeout (actually charged)                   202 unknown
-5   the PSP's webhook arrived (correct signature)            200 → succeeded
-6   a fake webhook (wrong secret)                            401; pay_1 still succeeded
-7   $77.00 timeout, webhook lost; recovery job 5 minutes later   1 fixed → succeeded
-8   refund $10.00 of the $30.00                              201 ok
-9   the same refund key again                                200 duplicate
-10  refund another $25.00 (over the total captured)          409 exceeds
-11  matching the PSP's report at the end of the day          pay_3: twice at the PSP
-12  the ledger's final state                                 psp_receivable $152.00, merchant:m_shop −$146.79, revenue:fees −$5.21
-13  the sum of all entries                                   0 cents (12 entries)
+#   step                                                        result
+1   a $30.00 payment                                            201 succeeded; psp_receivable $30.00, merchant:m_shop −$28.83, revenue:fees −$1.17
+2   the same idempotency key again (the client's retry)         200 pay_1 (earlier pay_1); PSP calls 1
+3   $42.00, card decline                                        402 failed; 3 entries in the ledger
+4   $55.00, PSP timeout (actually charged)                      202 unknown
+5   the PSP's webhook arrived (correct signature)               200 → succeeded
+6   a fake webhook (wrong secret)                               401; pay_1 still succeeded
+7   $77.00 timeout, webhook lost; recovery job 5 minutes later  1 fixed → succeeded
+8   refund $10.00 of the $30.00                                 201 ok
+9   the same refund key again                                   200 duplicate
+10  refund another $25.00 (over the total captured)             409 exceeds
+11  matching the PSP's report at the end of the day             pay_3: 2 times at the PSP
+12  the ledger's final state                                    psp_receivable $152.00, merchant:m_shop −$146.79, revenue:fees −$5.21
+13  the sum of all entries                                      0 cents (12 entries)
 ```
 
 - Step 2: the client (browser or checkout service) got a timeout and called again with the same key: the same payment, one call to the PSP. Idempotency at two levels: client → us (the key), us → PSP (the payment id).

@@ -5,13 +5,13 @@ import { createInterface } from 'node:readline';
 import { z } from 'zod';
 import { createServices, type ServiceEvent } from './services';
 
-// Lesson 6.1 §১.৫–১.৬ — দুটো আসল Node process (A আর B) reminder job এর leader হওয়ার জন্য লড়ে।
-// A প্রথমে leader হয়, তারপর batch 3 এ ২.৫ সেকেন্ডের জন্য থেমে যায়। Lease এর মেয়াদ ১ সেকেন্ড।
+// Lesson 6.1 §1.5–1.6 — two real Node processes (A and B) compete to be the reminder job's leader.
+// A becomes leader first, then stops for 2.5 seconds at batch 3. The lease lasts 1 second.
 //
-//   npm run split-brain  → storage token যাচাই করে না
-//   npm run fenced       → storage fencing token যাচাই করে
+//   npm run split-brain  → storage does not check the token
+//   npm run fenced       → storage checks the fencing token
 //
-// Experiment এর জন্য env দিয়ে বদলানো যায়: PAUSE_MS (A কতক্ষণ থামে), LEASE_MS (lease এর মেয়াদ)
+// Can be changed via env for experiments: PAUSE_MS (how long A stops), LEASE_MS (lease duration)
 
 const mode = z.enum(['unfenced', 'fenced']).parse(process.argv[2]);
 const RUN_MS = 4000;
@@ -32,19 +32,19 @@ function describe(event: ServiceEvent): Line {
 			return {
 				at: event.at,
 				node: 'email',
-				text: `batch ${event.batch} পাঠাল ${event.node}${event.duplicate ? '   ← আবার! duplicate' : ''}`
+				text: `batch ${event.batch} sent by ${event.node}${event.duplicate ? '   ← again! duplicate' : ''}`
 			};
 		case 'cursor-write':
 			return {
 				at: event.at,
 				node: 'store',
-				text: `cursor ${event.from} → ${event.to}  (${event.node}, token ${event.token})${event.to <= event.from ? '   ← পিছনে গেল!' : ''}`
+				text: `cursor ${event.from} → ${event.to}  (${event.node}, token ${event.token})${event.to <= event.from ? '   ← went backwards!' : ''}`
 			};
 		case 'cursor-rejected':
 			return {
 				at: event.at,
 				node: 'store',
-				text: `✗ ${event.node} এর লেখা প্রত্যাখ্যাত: token ${event.token} < ${event.highest}`
+				text: `✗ ${event.node}'s write rejected: token ${event.token} < ${event.highest}`
 			};
 	}
 }
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
 	const services = createServices(mode === 'fenced', start, leaseMs);
 	const server = services.app.listen(0);
 	await new Promise<void>((resolve) => server.once('listening', () => resolve()));
-	// listen(0) এর পরে address() সবসময় AddressInfo (pipe না) — তাই এই assertion নিরাপদ
+	// after listen(0), address() is always an AddressInfo (not a pipe) — so this assertion is safe
 	const { port } = server.address() as AddressInfo;
 	const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -95,8 +95,8 @@ async function main(): Promise<void> {
 	server.close();
 
 	console.log(
-		`\n   ${mode === 'fenced' ? 'FENCED — storage token যাচাই করে' : 'UNFENCED — storage token দেখে না'}` +
-			`   (lease ${leaseMs} ms, A থামে batch 3 এ, ${pauseMs} ms)\n`
+		`\n   ${mode === 'fenced' ? 'FENCED — storage checks the token' : 'UNFENCED — storage ignores the token'}` +
+			`   (lease ${leaseMs} ms, A stops at batch 3, ${pauseMs} ms)\n`
 	);
 	const all = [...services.events.map(describe), ...workerLines].sort((x, y) => x.at - y.at);
 	for (const line of all) {
@@ -106,18 +106,18 @@ async function main(): Promise<void> {
 	const duplicates = [...services.emailsSent.entries()].filter(([, senders]) => senders.length > 1);
 	const totalEmails = [...services.emailsSent.values()].reduce((sum, s) => sum + s.length, 0);
 	const rejected = services.events.filter((e) => e.kind === 'cursor-rejected').length;
-	console.log('\n   ── ফল ──');
+	console.log('\n   ── result ──');
 	console.log(
-		`   reminder batch পাঠানো হয়েছে: ${totalEmails} বার, আলাদা batch ${services.emailsSent.size} টা`
+		`   reminder batches sent: ${totalEmails} times, ${services.emailsSent.size} distinct batches`
 	);
 	console.log(
-		`   একাধিকবার গেছে: ${duplicates.length} টা batch` +
+		`   sent more than once: ${duplicates.length} batches` +
 			(duplicates.length
 				? `  (${duplicates.map(([batch, s]) => `${batch}: ${s.join('+')}`).join(', ')})`
 				: '')
 	);
-	console.log(`   storage এ প্রত্যাখ্যাত লেখা: ${rejected}`);
-	console.log(`   শেষ cursor: ${services.finalCursor()}\n`);
+	console.log(`   writes rejected by storage: ${rejected}`);
+	console.log(`   final cursor: ${services.finalCursor()}\n`);
 }
 
 void main();

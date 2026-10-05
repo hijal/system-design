@@ -4,12 +4,12 @@ import { sequelize } from './db';
 import { BadTask } from './models/bad';
 import { Project, Tag, Task, TaskTag, User } from './models/good';
 
-// Lesson 5.2 §১.২ — একই তিনটা কাজ দুটো schema তে করে দেখা:
-//   ১. Rahim নিজের নাম বদলাল        (update anomaly)
-//   ২. "bug" tag এর সব task খোঁজো   (1NF ভাঙা)
-//   ৩. একটা project এর শেষ task মুছলাম (delete anomaly)
+// Lesson 5.2 §1.2 — doing the same three things on two schemas:
+//   1. Rahim changed his name          (update anomaly)
+//   2. find every task with the "bug" tag   (1NF broken)
+//   3. deleted a project's last task   (delete anomaly)
 
-// Raw query এর ফলাফল runtime input — Zod দিয়ে parse করা হয় (main.md §৬)
+// The result of a raw query is runtime input — parsed with Zod (main.md §6)
 const nameRows = z.array(z.object({ assigneeName: z.string() }));
 const projectRows = z.array(z.object({ projectName: z.string() }));
 
@@ -18,18 +18,18 @@ function heading(text: string): void {
 }
 
 async function denormalized(): Promise<void> {
-	heading('Denormalized (bad_tasks) — সব এক table এ');
+	heading('Denormalized (bad_tasks) — everything in one table');
 
 	await BadTask.bulkCreate([
 		{
-			title: 'Login bug ঠিক করো',
+			title: 'Fix the login bug',
 			projectName: 'Website',
 			assigneeEmail: 'rahim@taskflow.app',
 			assigneeName: 'Rahim',
 			tags: 'bug,urgent'
 		},
 		{
-			title: 'Logging যোগ করো',
+			title: 'Add logging',
 			projectName: 'Website',
 			assigneeEmail: 'rahim@taskflow.app',
 			assigneeName: 'Rahim',
@@ -44,8 +44,8 @@ async function denormalized(): Promise<void> {
 		}
 	]);
 
-	// ১. Update anomaly — profile page এর code শুধু "এই task টা" update করল,
-	// কারণ নামটা যে আরও অনেক row এ কপি হয়ে আছে সেটা কেউ মনে রাখেনি।
+	// 1. Update anomaly — the profile page code updated only "this task",
+	// because nobody remembered the name is copied into many more rows.
 	await BadTask.update({ assigneeName: 'Rahim Uddin' }, { where: { id: 1 } });
 	const names = nameRows.parse(
 		await sequelize.query(
@@ -54,17 +54,17 @@ async function denormalized(): Promise<void> {
 		)
 	);
 	console.log(
-		`১. rahim@taskflow.app এর নাম কয়টা?    ${names.length} টা → ${names.map((n) => `"${n.assigneeName}"`).join(', ')}`
+		`1. How many names does rahim@taskflow.app have?  ${names.length} → ${names.map((n) => `"${n.assigneeName}"`).join(', ')}`
 	);
 
-	// ২. 1NF ভাঙা — "bug,urgent" একটা string, তাই খুঁজতে হয় LIKE দিয়ে।
-	// "debug" এর ভেতরেও "bug" আছে।
+	// 2. 1NF broken — "bug,urgent" is one string, so searching needs LIKE.
+	// "debug" contains "bug" too.
 	const bugTasks = await BadTask.findAll({ where: { tags: { [Op.like]: '%bug%' } } });
 	console.log(
-		`২. "bug" tag এর task কয়টা?           ${bugTasks.length} টা → ${bugTasks.map((t) => `"${t.title}"`).join(', ')}`
+		`2. How many tasks with the "bug" tag?            ${bugTasks.length} → ${bugTasks.map((t) => `"${t.title}"`).join(', ')}`
 	);
 
-	// ৩. Delete anomaly — Marketing project এর একমাত্র task মুছলাম।
+	// 3. Delete anomaly — deleted the Marketing project's only task.
 	await BadTask.destroy({ where: { projectName: 'Marketing' } });
 	const projects = projectRows.parse(
 		await sequelize.query(`SELECT DISTINCT "projectName" FROM bad_tasks ORDER BY 1`, {
@@ -72,7 +72,7 @@ async function denormalized(): Promise<void> {
 		})
 	);
 	console.log(
-		`৩. Task মোছার পর project কয়টা?       ${projects.length} টা → ${projects.map((p) => p.projectName).join(', ')}  (Marketing উধাও!)`
+		`3. How many projects after deleting the task?    ${projects.length} → ${projects.map((p) => p.projectName).join(', ')}  (Marketing is gone!)`
 	);
 }
 
@@ -98,12 +98,12 @@ async function normalized(): Promise<void> {
 	}
 
 	const login = await Task.create({
-		title: 'Login bug ঠিক করো',
+		title: 'Fix the login bug',
 		projectId: website.id,
 		assigneeId: rahim.id
 	});
 	const logging = await Task.create({
-		title: 'Logging যোগ করো',
+		title: 'Add logging',
 		projectId: website.id,
 		assigneeId: rahim.id
 	});
@@ -112,8 +112,8 @@ async function normalized(): Promise<void> {
 		projectId: marketing.id,
 		assigneeId: karim.id
 	});
-	// belongsToMany দিলে Sequelize runtime এ `task.addTag()` জাতীয় method যোগ করে,
-	// কিন্তু declare না করলে type এ দেখায় না — তাই junction table এ সরাসরি লেখা হচ্ছে।
+	// With belongsToMany Sequelize adds methods like `task.addTag()` at runtime,
+	// but without declare they don't show in the type — so the junction table is written directly.
 	await TaskTag.bulkCreate([
 		{ taskId: login.id, tagId: bug.id },
 		{ taskId: login.id, tagId: urgent.id },
@@ -121,7 +121,7 @@ async function normalized(): Promise<void> {
 		{ taskId: campaign.id, tagId: planning.id }
 	]);
 
-	// ১. নাম বদলানো — একটাই জায়গায়, একটাই row
+	// 1. changing the name — in one place, one row
 	await User.update({ name: 'Rahim Uddin' }, { where: { id: rahim.id } });
 	const rahimTasks = await Task.findAll({
 		where: { assigneeId: rahim.id },
@@ -129,22 +129,22 @@ async function normalized(): Promise<void> {
 	});
 	const seen = [...new Set(rahimTasks.map((t) => t.assignee?.name ?? '?'))];
 	console.log(
-		`১. rahim@taskflow.app এর নাম কয়টা?    ${seen.length} টা → ${seen.map((n) => `"${n}"`).join(', ')}`
+		`1. How many names does rahim@taskflow.app have?  ${seen.length} → ${seen.map((n) => `"${n}"`).join(', ')}`
 	);
 
-	// ২. Tag খোঁজা — junction table দিয়ে exact match, LIKE না
+	// 2. searching by tag — an exact match through the junction table, not LIKE
 	const bugTasks = await Task.findAll({
 		include: [{ model: Tag, where: { name: 'bug' } }]
 	});
 	console.log(
-		`২. "bug" tag এর task কয়টা?           ${bugTasks.length} টা → ${bugTasks.map((t) => `"${t.title}"`).join(', ')}`
+		`2. How many tasks with the "bug" tag?            ${bugTasks.length} → ${bugTasks.map((t) => `"${t.title}"`).join(', ')}`
 	);
 
-	// ৩. Marketing এর একমাত্র task মুছলাম — project নিজে আলাদা row, তাই টিকে থাকে
+	// 3. deleted Marketing's only task — the project itself is a separate row, so it survives
 	await Task.destroy({ where: { id: campaign.id } });
 	const allProjects = await Project.findAll({ order: [['name', 'ASC']] });
 	console.log(
-		`৩. Task মোছার পর project কয়টা?       ${allProjects.length} টা → ${allProjects.map((p) => p.name).join(', ')}`
+		`3. How many projects after deleting the task?    ${allProjects.length} → ${allProjects.map((p) => p.name).join(', ')}`
 	);
 }
 

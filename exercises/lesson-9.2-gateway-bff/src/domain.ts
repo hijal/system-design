@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-// Lesson 9.2 — TaskFlow এর তিনটা service এর data, memory তে, একটা নির্দিষ্ট সূত্রে।
-// প্রতিটা service তার **পুরো** object ফেরত দেয় — কারণ তার অনেক caller, আর সে জানে না কার কী লাগে।
-// (Settings, notification এর preference, checklist, custom field — board বা mobile app এর বেশিরভাগই লাগে না।)
+// Lesson 9.2 — the data of TaskFlow's three services, in memory, from a fixed formula.
+// Every service returns its **whole** object — because it has many callers, and it doesn't know who needs what.
+// (Settings, notification preferences, checklists, custom fields — the board or mobile app needs most of it not at all.)
 
 const words = [
 	'deploy',
@@ -143,7 +143,7 @@ export function commentsFor(taskId: number): Comment[] {
 	});
 }
 
-// Page এর আকৃতি — BFF যা ফেরত দেয়। Web বেশি দেখায়, mobile কম।
+// The page's shape — what the BFF returns. Web shows more, mobile less.
 export type PageComment = {
 	id: number;
 	body: string;

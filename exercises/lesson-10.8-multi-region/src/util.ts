@@ -44,12 +44,12 @@ const cells = (value: string): number => [...segmenter.segment(value)].length;
 
 export const padEnd = (value: string | number, width: number): string => {
 	const text = String(value);
-	return text + ' '.repeat(Math.max(1, width - cells(text)));
+	return text + ' '.repeat(Math.max(2, width - cells(text)));
 };
 
 export const padLeft = (value: string | number, width: number): string => {
 	const text = String(value);
-	return ' '.repeat(Math.max(1, width - cells(text))) + text;
+	return ' '.repeat(Math.max(2, width - cells(text))) + text;
 };
 
 export function row(columns: [string | number, number][]): string {
@@ -66,7 +66,7 @@ export const env = (name: string, fallback: number): number => {
 	const raw = process.env[name];
 	if (raw === undefined || raw.trim() === '') return fallback;
 	const value = Number(raw);
-	if (!Number.isFinite(value)) throw new Error(`${name} একটা সংখ্যা হতে হবে, পাওয়া গেল "${raw}"`);
+	if (!Number.isFinite(value)) throw new Error(`${name} must be a number, got "${raw}"`);
 	return value;
 };
 
@@ -79,9 +79,9 @@ export const ms = (value: number): string =>
 
 export const duration = (minutes: number): string => {
 	if (minutes < 1) return `${Math.round(minutes * 60)} s`;
-	if (minutes < 120) return `${Math.round(minutes)} মি`;
-	if (minutes < 48 * 60) return `${(minutes / 60).toFixed(1)} ঘ`;
-	return `${(minutes / 1_440).toFixed(1)} দিন`;
+	if (minutes < 120) return `${Math.round(minutes)} min`;
+	if (minutes < 48 * 60) return `${(minutes / 60).toFixed(1)} h`;
+	return `${(minutes / 1_440).toFixed(1)} days`;
 };
 
 export function weightedPercentile(values: readonly [number, number][], p: number): number {

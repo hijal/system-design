@@ -29,35 +29,35 @@ type Policy = {
 
 const POLICIES: Policy[] = [
 	{
-		name: 'সব Standard, পুরনো version চিরকাল',
+		name: 'all Standard, old versions forever',
 		expireNoncurrent: false,
 		ia: 'none',
 		glacierAfter: null,
 		exportEvent: false
 	},
 	{
-		name: '+ পুরনো version ৩০ দিনে মোছা',
+		name: '+ old versions deleted at 30 days',
 		expireNoncurrent: true,
 		ia: 'none',
 		glacierAfter: null,
 		exportEvent: false
 	},
 	{
-		name: '+ ৩০ দিনে সব IA (ছোট সহ)',
+		name: '+ everything to IA at 30 days (small ones too)',
 		expireNoncurrent: true,
 		ia: 'all',
 		glacierAfter: null,
 		exportEvent: false
 	},
 	{
-		name: '+ শুধু ≥১২৮ KB IA, ১৮০ দিনে Glacier IR',
+		name: '+ only ≥128 KB to IA, Glacier IR at 180 days',
 		expireNoncurrent: true,
 		ia: 'large',
 		glacierAfter: 6,
 		exportEvent: false
 	},
 	{
-		name: `একই, মাস ${EXPORT_MONTH} এ ${tb(EXPORT_GB)} পুরনো file export`,
+		name: `the same, exporting ${tb(EXPORT_GB)} of old files in month ${EXPORT_MONTH}`,
 		expireNoncurrent: true,
 		ia: 'large',
 		glacierAfter: 6,
@@ -115,17 +115,17 @@ function run(policy: Policy): { months: Month[]; finalGb: number; noncurrentGb: 
 }
 
 heading(
-	`অংশ ক — attachment এর ${MONTHS} মাস: শুরুতে ${tb(START_GB)} + ${tb(START_NONCURRENT_GB)} পুরনো version, মাসে ${tb(UPLOAD_GB)} নতুন (+${Math.round(GROWTH * 100)}%/মাস)`
+	`Part A — ${MONTHS} months of attachments: ${tb(START_GB)} + ${tb(START_NONCURRENT_GB)} of old versions at the start, ${tb(UPLOAD_GB)} new a month (+${Math.round(GROWTH * 100)}%/month)`
 );
 console.log(
-	`object: ${Math.round(SMALL_SHARE * 100)}% ছোট (~${SMALL_KB} KB, thumbnail/avatar), বাকি ~${LARGE_MB} MB; ছোটরা গুনতিতে ${Math.round(SMALL_SHARE * 100)}%, bytes এ ${(smallByteShare * 100).toFixed(1)}%\n`
+	`objects: ${Math.round(SMALL_SHARE * 100)}% small (~${SMALL_KB} KB, thumbnails/avatars), the rest ~${LARGE_MB} MB; the small ones are ${Math.round(SMALL_SHARE * 100)}% by count, ${(smallByteShare * 100).toFixed(1)}% by bytes\n`
 );
 console.log(
 	row([
-		['নীতি', 46],
-		['মাস ১', 10],
-		[`মাস ${MONTHS}`, 10],
-		[`${MONTHS} মাসে মোট`, 14],
+		['policy', 56],
+		['month 1', 10],
+		[`month ${MONTHS}`, 10],
+		[`total, ${MONTHS} months`, 18],
 		['transition fee', 15],
 		['retrieval fee', 15]
 	])
@@ -135,10 +135,10 @@ for (const policy of POLICIES) {
 	const sum = (pick: (m: Month) => number): number => r.months.reduce((s, m) => s + pick(m), 0);
 	console.log(
 		row([
-			[policy.name, 46],
+			[policy.name, 56],
 			[usd(r.months[0]?.total ?? 0), 10],
 			[usd(r.months[MONTHS - 1]?.total ?? 0), 10],
-			[usd(sum((m) => m.total)), 14],
+			[usd(sum((m) => m.total)), 18],
 			[usd(sum((m) => m.transitions)), 15],
 			[usd(sum((m) => m.retrieval)), 15]
 		])
@@ -154,10 +154,10 @@ const plain = run(
 	}
 );
 console.log(
-	`\n(মাস ${MONTHS} এ চালু data ${tb(plain.finalGb)}; version চিরকাল রাখলে পুরনো version ${tb(plain.noncurrentGb)})`
+	`\n(live data in month ${MONTHS}: ${tb(plain.finalGb)}; keeping versions forever, old versions ${tb(plain.noncurrentGb)})`
 );
 
-heading(`অংশ খ — ছোট object এর ফাঁদ: ১ TB শুধু ${SMALL_KB} KB এর object, এক বছর`);
+heading(`Part B — the small-object trap: 1 TB of only ${SMALL_KB} KB objects, one year`);
 const smallObjects = 1_000_000_000 / SMALL_KB;
 const standardYear = 1_000 * P.s3StandardGbMonth * 12;
 const iaYear =
@@ -167,15 +167,15 @@ const girYear =
 	(smallObjects / 1_000) * P.s3TransitionGirPer1k;
 console.log(
 	row([
-		['class', 22],
+		['class', 30],
 		['object', 14],
-		['বিলের আকার', 14],
-		['এক বছরে', 12]
+		['billed size', 14],
+		['in one year', 12]
 	])
 );
 console.log(
 	row([
-		['Standard', 22],
+		['Standard', 30],
 		[n(smallObjects), 14],
 		[tb(1_000), 14],
 		[usd(standardYear), 12]
@@ -183,7 +183,7 @@ console.log(
 );
 console.log(
 	row([
-		['IA (transition সহ)', 22],
+		['IA (with transition)', 30],
 		[n(smallObjects), 14],
 		[tb(1_000 * smallIaBillFactor), 14],
 		[usd(iaYear), 12]
@@ -191,34 +191,34 @@ console.log(
 );
 console.log(
 	row([
-		['Glacier IR (transition সহ)', 22],
+		['Glacier IR (with transition)', 30],
 		[n(smallObjects), 14],
 		[tb(1_000 * smallIaBillFactor), 14],
 		[usd(girYear), 12]
 	])
 );
 console.log(
-	`\n(IA আর Glacier IR প্রতিটা object কে অন্তত ${MIN_BILLABLE_KB} KB ধরে বিল করে, আর প্রতিটা transition একটা request)`
+	`\n(IA and Glacier IR bill every object as at least ${MIN_BILLABLE_KB} KB, and every transition is a request)`
 );
 
-heading('অংশ গ — log: কোথায় টাকা যায় — ঢোকানোয়, না রাখায়?');
+heading('Part C — logs: where does the money go — ingesting, or keeping?');
 const SCENARIOS: [string, number][] = [
-	['প্রতি request এ একটা লাইন (10.4)', 2.8],
-	['+ তিনটা service এ debug', 47.8],
-	['সফল request এর ১০% sample', 1.5]
+	['one line per request (10.4)', 2.8],
+	['+ debug in three services', 47.8],
+	['10% sample of successful requests', 1.5]
 ];
 const RETENTION: [string, number, number][] = [
-	['১৪ দিন', 14, 0],
-	['৯০ দিন', 90, 0],
-	['৩৬৫ দিন', 365, 0],
-	['১৪ দিন + ১ বছর S3 এ', 14, 365]
+	['14 days', 14, 0],
+	['90 days', 90, 0],
+	['365 days', 365, 0],
+	['14 days + 1 year in S3', 14, 365]
 ];
 console.log(
 	row([
-		['প্রতিদিন', 34],
-		['GB/দিন', 8],
-		['ঢোকানো / মাস', 14],
-		...RETENTION.map(([name]): [string, number] => [`রাখা: ${name}`, 22])
+		['per day', 36],
+		['GB/day', 8],
+		['ingest / month', 16],
+		...RETENTION.map(([name]): [string, number] => [`keep: ${name}`, 22])
 	])
 );
 for (const [name, gbDay] of SCENARIOS) {
@@ -228,22 +228,24 @@ for (const [name, gbDay] of SCENARIOS) {
 		const archiveCost = (gbDay / 8) * archive * P.s3IaGbMonth;
 		return [usd(hotCost + archiveCost), 22];
 	});
-	console.log(row([[name, 34], [gbDay.toFixed(1), 8], [usd(ingest), 14], ...cells]));
+	console.log(row([[name, 36], [gbDay.toFixed(1), 8], [usd(ingest), 16], ...cells]));
 }
-console.log('\n("রাখা" = মাসিক জমার খরচ, ঢোকানোর বাইরে; S3 এর archive ৮ গুণ সংকুচিত ধরে)');
+console.log(
+	'\n("keep" = the monthly storage cost, on top of ingest; the S3 archive assumed compressed 8×)'
+);
 
-heading('অংশ ঘ — activity table: সব Postgres এ, নাকি ৯০ দিনের পরে S3 এ (Parquet)');
+heading('Part D — the activity table: all in Postgres, or in S3 after 90 days (Parquet)');
 const ACTIVITY_START = env('ACTIVITY_GB', 1_100);
 const ACTIVITY_MONTHLY = env('ACTIVITY_MONTHLY_GB', 60);
 const COPIES = 4;
 const COMPRESSION = 6;
 console.log(
 	row([
-		['নকশা', 44],
-		['মাস ১', 10],
-		[`মাস ${MONTHS}`, 10],
-		[`${MONTHS} মাসে মোট`, 14],
-		[`মাস ${MONTHS} এ DB তে`, 16]
+		['design', 46],
+		['month 1', 10],
+		[`month ${MONTHS}`, 10],
+		[`total, ${MONTHS} months`, 18],
+		[`in DB, month ${MONTHS}`, 17]
 	])
 );
 for (const offload of [false, true]) {
@@ -263,11 +265,16 @@ for (const offload of [false, true]) {
 	}
 	console.log(
 		row([
-			[offload ? '৯০ দিন Postgres এ, বাকি S3 এ Parquet' : 'সব Postgres এ (৪ কপি + backup)', 44],
+			[
+				offload
+					? '90 days in Postgres, the rest in S3 Parquet'
+					: 'all in Postgres (4 copies + backup)',
+				46
+			],
 			[usd(first), 10],
 			[usd(last), 10],
-			[usd(sum), 14],
-			[tb(dbGb), 16]
+			[usd(sum), 18],
+			[tb(dbGb), 17]
 		])
 	);
 }

@@ -13,21 +13,21 @@ type Method = { name: string; on: (flag: string, user: number, percent: number) 
 
 function methods(random: () => number): Method[] {
 	return [
-		{ name: 'প্রতি request এ এলোমেলো', on: (_f, _u, p) => random() * 100 < p },
+		{ name: 'random per request', on: (_f, _u, p) => random() * 100 < p },
 		{ name: 'hash(user)', on: (_f, u, p) => hashUnit(`user:${u}`) * 100 < p },
 		{ name: 'hash(flag + user)', on: (f, u, p) => hashUnit(`${f}:${u}`) * 100 < p }
 	];
 }
 
 heading(
-	`অংশ ক — percentage rollout: ${n(USERS)} user, দিনে ${VIEWS}টা page, দুটো আলাদা flag, ১০% করে`
+	`Part A — percentage rollout: ${n(USERS)} users, ${VIEWS} pages a day, two separate flags, 10% each`
 );
 console.log(
 	row([
-		['কীভাবে ভাগ', 26],
-		['নতুনটা দেখেছে', 16],
-		['দুটোই দেখেছে (লাফ)', 20],
-		['দুই flag এই আছে', 18]
+		['how it splits', 26],
+		['saw the new', 16],
+		['saw both (flip)', 20],
+		['in both flags', 18]
 	])
 );
 for (const method of methods(mulberry32(SEED))) {
@@ -55,26 +55,26 @@ for (const method of methods(mulberry32(SEED))) {
 	);
 }
 console.log(
-	'\n("দুই flag এই আছে" — দুটো আলাদা ১০% experiment এ একই user; স্বাধীন হলে আশা ~১% = ৬০০ জন)'
+	'\n("in both flags" — the same user in two separate 10% experiments; if independent, expect ~1% = 600 people)'
 );
 
 type Switch = { name: string; delay: (instance: number, random: () => number) => number };
 const SWITCHES: Switch[] = [
-	{ name: 'flag, ৫ মিনিটে poll', delay: (_i, r) => r() * 300 },
-	{ name: `flag, ${POLL_SECONDS} s এ poll`, delay: (_i, r) => r() * POLL_SECONDS },
+	{ name: 'flag, poll every 5 minutes', delay: (_i, r) => r() * 300 },
+	{ name: `flag, poll every ${POLL_SECONDS} s`, delay: (_i, r) => r() * POLL_SECONDS },
 	{ name: 'flag, streaming push', delay: (_i, r) => 1 + r() * 2 },
-	{ name: 'flag নেই: rollback deploy', delay: (i) => 300 + 30 * (i + 1) }
+	{ name: 'no flag: rollback deploy', delay: (i) => 300 + 30 * (i + 1) }
 ];
 const INSTANCES = 12;
 heading(
-	`অংশ খ — kill switch: ${INSTANCES} instance, নতুন feature এ ${Math.round(FEATURE_SHARE * RPS)} req/s, তার ${Math.round(FEATURE_ERROR * 100)}% error; বন্ধ করার সিদ্ধান্তের পরে`
+	`Part B — kill switch: ${INSTANCES} instances, ${Math.round(FEATURE_SHARE * RPS)} req/s on the new feature, ${Math.round(FEATURE_ERROR * 100)}% of it errors; after the decision to turn it off`
 );
 console.log(
 	row([
-		['কীভাবে বন্ধ', 30],
-		['সব instance বন্ধ (গড়)', 22],
-		['সবচেয়ে খারাপ', 16],
-		['খারাপ request (গড়)', 20]
+		['how it turns off', 30],
+		['all off (avg)', 22],
+		['worst', 16],
+		['bad requests (avg)', 20]
 	])
 );
 for (const sw of SWITCHES) {
@@ -113,7 +113,7 @@ type Eval = {
 };
 const EVALS: Eval[] = [
 	{
-		name: 'দুজনেই hash(user), একই মুহূর্তে config',
+		name: 'both hash(user), config at the same moment',
 		bffPoll: false,
 		apiPoll: false,
 		apiKey: 'user',
@@ -127,14 +127,14 @@ const EVALS: Eval[] = [
 		header: false
 	},
 	{
-		name: `দুজনেই hash(user), প্রত্যেকে নিজে ${POLL_SECONDS} s poll`,
+		name: `both hash(user), each polls every ${POLL_SECONDS} s`,
 		bffPoll: true,
 		apiPoll: true,
 		apiKey: 'user',
 		header: false
 	},
 	{
-		name: 'BFF একবার ঠিক করে, header এ পাঠায়',
+		name: 'BFF decides once, sends it in a header',
 		bffPoll: true,
 		apiPoll: true,
 		apiKey: 'user',
@@ -145,13 +145,13 @@ const SERVICE_INSTANCES = 6;
 const WINDOW = 600;
 const RAMP_AT = 300;
 heading(
-	`অংশ গ — দুই service, একটা flag: BFF নতুন UI দেখায়, API নতুন আকারের উত্তর দেয়; ${WINDOW / 60} মিনিট, ${RAMP_AT / 60} মিনিটে ১০% → ৫০%`
+	`Part C — two services, one flag: the BFF shows the new UI, the API returns the new shape; ${WINDOW / 60} minutes, 10% → 50% at minute ${RAMP_AT / 60}`
 );
 console.log(
 	row([
-		['কে কীভাবে ঠিক করে', 48],
+		['who decides, how', 48],
 		['request', 12],
-		['UI আর API অমিল', 18]
+		['UI/API mismatch', 18]
 	])
 );
 for (const e of EVALS) {

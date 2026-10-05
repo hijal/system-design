@@ -10,14 +10,14 @@ const service = new VodService();
 let step = 0;
 const show = (what: string, result: string): void => {
 	step++;
-	console.log(padEnd(step, 4) + padEnd(what, 50) + result);
+	console.log(padEnd(step, 4) + padEnd(what, 54) + result);
 };
 
 async function main(): Promise<void> {
 	const server = createApp(service).listen(0);
 	await new Promise<void>((resolve) => server.once('listening', () => resolve()));
 	const address = server.address();
-	if (address === null || typeof address === 'string') throw new Error('port পাওয়া গেল না');
+	if (address === null || typeof address === 'string') throw new Error('could not get the port');
 	const base = `http://127.0.0.1:${address.port}`;
 	const get = async (
 		path: string
@@ -36,8 +36,8 @@ async function main(): Promise<void> {
 		return 'done' in s ? `${s.kind} (${String(s['done'])}/${String(s['total'])})` : s.kind;
 	};
 
-	heading('একটা VOD service: ১ মিনিটের video, ৪ s এর টুকরো, ৫টা resolution, HLS এর playlist');
-	console.log(padEnd('#', 4) + padEnd('ধাপ', 50) + 'ফল');
+	heading('one VOD service: a 1-minute video, 4 s pieces, 5 resolutions, HLS playlists');
+	console.log(padEnd('#', 4) + padEnd('step', 54) + 'result');
 
 	const res = await fetch(`${base}/videos`, {
 		method: 'POST',
@@ -46,16 +46,16 @@ async function main(): Promise<void> {
 	});
 	const { id } = Created.parse(await res.json());
 	show(
-		'upload শেষ, pipeline এ কাজ',
-		`id ${id}; queue এ ${service.queue.length}টা কাজ (১৫ টুকরো × ৫)`
+		'upload done, jobs in the pipeline',
+		`id ${id}; ${service.queue.length} jobs in the queue (15 pieces × 5)`
 	);
-	show('master playlist, কিছুই তৈরি হয়নি', `${(await get(`/videos/${id}/master.m3u8`)).status}`);
+	show('master playlist, nothing built yet', `${(await get(`/videos/${id}/master.m3u8`)).status}`);
 
 	service.work(30);
-	show('৩০টা কাজ (360p আর 240p আগে)', await status(id));
+	show('30 jobs (360p and 240p first)', await status(id));
 	const early = await get(`/videos/${id}/master.m3u8`);
 	show(
-		'master playlist এখন',
+		'the master playlist now',
 		`${early.body
 			.split('\n')
 			.filter((l) => l.endsWith('.m3u8'))
@@ -65,16 +65,16 @@ async function main(): Promise<void> {
 	service.failNext.add(`${id}/720p/3`);
 	service.work(1_000);
 	show(
-		'বাকি কাজ; 720p এর টুকরো ৩ এর worker মরল',
-		`${await status(id)}; ব্যর্থ ${service.stats.failures}, চালানো ${service.stats.jobsRun}`
+		'the remaining jobs; the worker on 720p piece 3 died',
+		`${await status(id)}; failed ${service.stats.failures}, ran ${service.stats.jobsRun}`
 	);
 
 	const master = await get(`/videos/${id}/master.m3u8`);
 	show('master playlist (ready)', `Cache-Control: ${master.cache}`);
-	for (const line of master.body.split('\n')) console.log(padEnd('', 54) + line);
+	for (const line of master.body.split('\n')) console.log(padEnd('', 58) + line);
 
 	const media = await get(`/videos/${id}/480p/index.m3u8`);
-	show('480p এর playlist (প্রথম ৫ লাইন)', media.body.split('\n').slice(0, 5).join(' | '));
+	show("480p's playlist (first 5 lines)", media.body.split('\n').slice(0, 5).join(' | '));
 
 	const parse = (body: string): { mbps: number; uri: string }[] => {
 		const lines = body.split('\n');
@@ -94,16 +94,16 @@ async function main(): Promise<void> {
 				.pop() ?? parse(master.body)[0];
 		const rendition = choice?.uri.split('/')[0] ?? '240p';
 		const seg = await get(`/videos/${id}/${rendition}/0.ts`);
-		show(`player, network ${bw} Mbps (৮০% নিয়ম)`, `${rendition}; প্রথম টুকরো ${seg.bytes} B`);
+		show(`player, network ${bw} Mbps (80% rule)`, `${rendition}; first piece ${seg.bytes} B`);
 	}
 	const seg = await get(`/videos/${id}/1080p/7.ts`);
-	show('একটা টুকরোর Cache-Control', seg.cache);
+	show("a piece's Cache-Control", seg.cache);
 
 	service.redeliver({ video: id, rendition: 2, segment: 5 });
 	service.work(10);
 	show(
-		'queue একই কাজ আবার দিল (at-least-once)',
-		`নতুন লেখা ${service.stats.writes}টা মোট, বাদ দেওয়া ${service.stats.skippedDuplicate}`
+		'the queue handed out the same job again (at-least-once)',
+		`${service.stats.writes} new writes in total, ${service.stats.skippedDuplicate} skipped`
 	);
 
 	server.close();

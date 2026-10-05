@@ -56,27 +56,27 @@ Deterministic — তোমার মেশিনেও হুবহু এই �
 **১. `npm run fanout`**
 
 ```
-   broker                            email পেল   search পেল   analytics পেল
-   queue — একটাই queue, সবাই মিলে         40%          40%             20%
-   queue — service প্রতি queue           100%         100%            100%
+   broker                           email got   search got   analytics got
+   queue — one shared queue               40%          40%             20%
+   queue — one queue per service         100%         100%            100%
    pub/sub                               100%         100%            100%
-   log — service প্রতি group             100%         100%            100%
+   log — one group per service           100%         100%            100%
 ```
 
 **২. `npm run crash`**
 
 ```
-   broker                          হারাল   দুবার প্রক্রিয়া   দেরি p99    দেরি max
+   broker                           lost  processed twice  delay p99  delay max
    pub/sub                           193                0      36 ms      43 ms
-   queue (ack প্রতি message)           0                0      9.6 s      9.8 s
-   log (commit প্রতি 5.0 s)            0              110     10.6 s     11.0 s
-   log (commit প্রতি 100 ms)           0                2      9.6 s      9.8 s
+   queue (ack per message)             0                0      9.6 s      9.8 s
+   log (commit every 5.0 s)            0              110     10.6 s     11.0 s
+   log (commit every 100 ms)           0                2      9.6 s      9.8 s
 ```
 
 **৩. `npm run slow`**
 
 ```
-   broker     analytics হারাল   জমা (সর্বোচ্চ)   analytics দেরি max   email দেরি p99
+   broker      analytics lost    backlog (max)  analytics delay max  email delay p99
    pubsub                 367              101                6.0 s           171 ms
    queue                    0              375               32.1 s           199 ms
    log                      0              334               27.7 s           271 ms
@@ -85,21 +85,21 @@ Deterministic — তোমার মেশিনেও হুবহু এই �
 **৪. `npm run replay`**
 
 ```
-   broker                   আগের ঘটনা পেল    পরের ঘটনা পেল
+   broker                  earlier events     later events
    pub/sub                       0 / 1069        551 / 551
    queue                         0 / 1069        551 / 551
-   log (retention 7 দিন)      1069 / 1069        551 / 551
+   log (retention 7 days)     1069 / 1069        551 / 551
    log (retention 30 s)        566 / 1069        551 / 551
 ```
 
 **৫. `npm run ordering`**
 
 ```
-   broker                           ক্রম ভাঙা task   দেরি p50   দেরি p99   দেরি max   কাজ পাওয়া consumer
+   broker                      tasks out of order  delay p50  delay p99  delay max   consumers with work
    queue, 4 worker                             11      76 ms      3.0 s      3.1 s   4
    log, key = task, 4 partition                 0      94 ms      4.8 s      7.0 s   4
    log, key = random, 4 partition              69      97 ms      4.2 s      4.7 s   4
-   log, key = task, 8 consumer                  0      94 ms      4.8 s      7.0 s   4 (4 জন বসে থাকে)
+   log, key = task, 8 consumer                  0      94 ms      4.8 s      7.0 s   4 (4 idle)
 ```
 
 ## কী দেখার জন্য এটা বানানো

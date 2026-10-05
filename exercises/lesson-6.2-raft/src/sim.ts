@@ -1,7 +1,7 @@
 import { latency } from './random';
 
-// একটা ছোট discrete-event simulator: সময় আসলে চলে না, শুধু পরের event এর সময়ে লাফায়।
-// তাই ১০ সেকেন্ডের cluster ১ ms এর কম সময়ে চলে, আর seed দেওয়া থাকায় প্রতিবার হুবহু একই।
+// A small discrete-event simulator: time doesn't really pass, it just jumps to the next event's time.
+// So 10 seconds of cluster runs in under 1 ms, and with a seed it is exactly the same every time.
 
 export interface Timer {
 	cancelled: boolean;
@@ -17,7 +17,7 @@ export class Sim {
 	schedule(delay: number, run: () => void): Timer {
 		const timer: Timer = { cancelled: false };
 		const item: Scheduled = { at: this.now + delay, seq: this.seq++, timer, run };
-		// sorted insert — queue ছোট থাকে (কয়েক ডজন event), তাই heap এর দরকার নেই
+		// sorted insert — the queue stays small (a few dozen events), so no heap is needed
 		let i = this.queue.length;
 		while (i > 0) {
 			const prev = this.queue[i - 1];
@@ -29,7 +29,7 @@ export class Sim {
 		return timer;
 	}
 
-	// until পর্যন্ত সব event চালাও; stop() true দিলে আগেই থামো
+	// run every event up to until; stop early if stop() returns true
 	runUntil(until: number, stop: () => boolean = () => false): void {
 		for (;;) {
 			const next = this.queue[0];
@@ -43,8 +43,8 @@ export class Sim {
 	}
 }
 
-// Network: প্রতিটা message এর যাত্রার সময় random (seed দেওয়া), আর যেকোনো দুটো node এর মধ্যের
-// link কাটা যায়। কাটা link এ message চুপচাপ হারায় — পাঠানো node কিছুই জানতে পারে না।
+// Network: every message's trip time is random (seeded), and the link between any two nodes
+// can be cut. On a cut link messages are silently lost — the sending node learns nothing.
 export class Network<M> {
 	private cut = new Set<string>();
 	private handlers = new Map<string, (message: M, from: string) => void>();
@@ -64,13 +64,13 @@ export class Network<M> {
 		if (this.cut.has(`${from}|${to}`)) return;
 		const delay = latency(this.random, this.baseMs, this.meanExtraMs);
 		this.sim.schedule(delay, () => {
-			// পৌঁছানোর মুহূর্তেও link কাটা থাকলে হারায়
+			// lost if the link is still cut at the moment of arrival
 			if (this.cut.has(`${from}|${to}`)) return;
 			this.handlers.get(to)?.(message, from);
 		});
 	}
 
-	// groups এর মধ্যে সব link কাটো — একই group এর ভেতরে কথা চলে
+	// cut every link between groups — talk within a group still works
 	partition(groups: string[][]): void {
 		this.cut.clear();
 		for (const a of groups)

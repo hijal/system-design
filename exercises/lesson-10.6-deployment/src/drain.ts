@@ -178,7 +178,7 @@ function load(port: number): { stop: () => Promise<Sample[]> } {
 	const fire = (): void => {
 		const method = random() < 0.8 ? 'GET' : 'POST';
 		const started = performance.now();
-		const body = method === 'POST' ? '{"title":"নতুন task"}' : '';
+		const body = method === 'POST' ? '{"title":"New task"}' : '';
 		pending++;
 		const done = (ok: boolean): void => {
 			pending--;
@@ -234,35 +234,35 @@ type Mode = {
 
 const MODES: Mode[] = [
 	{
-		name: 'health check নেই, হঠাৎ kill',
+		name: 'no health check, abrupt kill',
 		healthCheck: false,
 		retryGet: false,
 		stop: 'kill',
 		honestReadiness: false
 	},
 	{
-		name: 'health check, হঠাৎ kill',
+		name: 'health check, abrupt kill',
 		healthCheck: true,
 		retryGet: false,
 		stop: 'kill',
 		honestReadiness: false
 	},
 	{
-		name: 'health check, হঠাৎ kill, LB GET retry',
+		name: 'health check, abrupt kill, LB GET retry',
 		healthCheck: true,
 		retryGet: true,
 		stop: 'kill',
 		honestReadiness: false
 	},
 	{
-		name: 'health check, SIGTERM এ শুধু close()',
+		name: 'health check, only close() on SIGTERM',
 		healthCheck: true,
 		retryGet: false,
 		stop: 'close',
 		honestReadiness: false
 	},
 	{
-		name: 'graceful: readiness → অপেক্ষা → close',
+		name: 'graceful: readiness → wait → close',
 		healthCheck: true,
 		retryGet: false,
 		stop: 'graceful',
@@ -298,15 +298,15 @@ async function runMode(mode: Mode): Promise<Sample[]> {
 
 async function main(): Promise<void> {
 	heading(
-		`${INSTANCES}টা instance এর rolling restart, ${RATE} req/s (৮০% GET, ২০% POST); restart ${ms(RESTART_MS)}, warm-up ${ms(WARMUP_MS)}, health check ${ms(CHECK_MS)} × ${FAILS}`
+		`${INSTANCES} instances rolling restart, ${RATE} req/s (80% GET, 20% POST); restart ${ms(RESTART_MS)}, warm-up ${ms(WARMUP_MS)}, health check ${ms(CHECK_MS)} × ${FAILS}`
 	);
 	console.log(
 		row([
-			['নকশা', 42],
+			['design', 42],
 			['request', 10],
-			['GET ব্যর্থ', 12],
-			['POST ব্যর্থ', 12],
-			['ব্যর্থ মোট', 16],
+			['GET fails', 12],
+			['POST fails', 12],
+			['total failed', 16],
 			[`> ${SLOW_MS} ms`, 10],
 			['p99', 10]
 		])
@@ -333,7 +333,7 @@ async function main(): Promise<void> {
 		);
 	}
 	console.log(
-		`\n("> ${SLOW_MS} ms" = সফল কিন্তু ধীর — বেশিরভাগই warm-up না হওয়া instance এ পৌঁছানো request)`
+		`\n("> ${SLOW_MS} ms" = successful but slow — mostly requests that reached an instance that had not warmed up)`
 	);
 }
 

@@ -330,13 +330,13 @@ INSERT INTO tasks (title) SELECT 'Task ' || g FROM generate_series(1, 400000) g;
 
 SELECT pg_relation_size('tasks') / 8192 AS table_pages,
        pg_relation_size('tasks_pkey') / 8192 AS index_pages;
-SELECT level FROM bt_metap('tasks_pkey');          -- 2 মানে root, মাঝের স্তর, leaf — মোট ৩ স্তর
+SELECT level FROM bt_metap('tasks_pkey');          -- 2 means root, middle level, leaf — 3 levels in all
 
 EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM tasks WHERE id = 123456;   -- Buffers: shared hit=4
 
 SELECT ctid FROM tasks WHERE id = 7;               -- (0,7)
 UPDATE tasks SET status = 'done' WHERE id = 7;
-SELECT ctid FROM tasks WHERE id = 7;               -- নতুন জায়গা — MVCC
+SELECT ctid FROM tasks WHERE id = 7;               -- a new place — MVCC
 ```
 
 তারপর crash টা নিজে ঘটাও — `psql` থেকে বেরিয়ে:
@@ -344,7 +344,7 @@ SELECT ctid FROM tasks WHERE id = 7;               -- নতুন জায়�
 ```bash
 docker exec pg53 psql -U postgres -c \
   "INSERT INTO tasks (title) SELECT 'late ' || g FROM generate_series(1, 50000) g;"
-docker kill --signal=KILL pg53        # plug টানা
+docker kill --signal=KILL pg53        # pulling the plug
 docker start pg53 && sleep 3
 docker logs pg53 2>&1 | grep -E 'not properly|redo'
 docker exec pg53 psql -U postgres -c "SELECT count(*) FROM tasks WHERE title LIKE 'late %';"   -- 50000

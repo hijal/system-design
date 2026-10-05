@@ -24,8 +24,8 @@ type Design = {
 };
 
 const DESIGNS: Design[] = [
-	{ name: 'প্রতি request এ জিজ্ঞেস', perRequest: true, ttl: 0, snapshot: false },
-	{ name: `cache, TTL ${TTL / 60} মিনিট`, perRequest: false, ttl: TTL, snapshot: false },
+	{ name: 'ask on every request', perRequest: true, ttl: 0, snapshot: false },
+	{ name: `cache, TTL ${TTL / 60} minutes`, perRequest: false, ttl: TTL, snapshot: false },
 	{
 		name: 'last-known-good',
 		perRequest: false,
@@ -155,19 +155,19 @@ function simulate(design: Design, crashes: Map<number, number[]>): Result {
 
 const crashes = crashSchedule();
 heading(
-	`ক. Flags/config service (control plane) মিনিট ${OUTAGE_FROM / 60} থেকে ${OUTAGE_TO / 60} পর্যন্ত মরা; মিনিট ${PEAK_FROM / 60}–${PEAK_TO / 60} এ traffic ${BASE_RPS} → ${PEAK_RPS} req/s, autoscaler নতুন instance তোলে; instance মাঝে মাঝে crash করে restart নেয়`
+	`A. The flags/config service (control plane) dead from minute ${OUTAGE_FROM / 60} to ${OUTAGE_TO / 60}; traffic ${BASE_RPS} → ${PEAK_RPS} req/s in minutes ${PEAK_FROM / 60}–${PEAK_TO / 60}, the autoscaler brings up new instances; instances crash and restart now and then`
 );
 console.log(
-	`   শুরুতে ${INSTANCES}টা instance, প্রতিটা ${CAPACITY} req/s; boot ${BOOT} s; config ছাড়া boot ব্যর্থ হলে ${CRASH_RETRY} s পরে আবার; ${DURATION / 60} মিনিট simulate করা`
+	`   ${INSTANCES} instances at the start, ${CAPACITY} req/s each; boot ${BOOT} s; if boot fails without config, again after ${CRASH_RETRY} s; ${DURATION / 60} minutes simulated`
 );
 console.log(
 	row([
-		['নকশা', 28],
-		['ব্যর্থ request', 15],
-		['সবচেয়ে খারাপ মিনিট', 20],
-		['ঘাটতির মিনিট', 14],
-		['ব্যর্থ boot', 12],
-		['config এর বয়স (সর্বোচ্চ)', 25]
+		['design', 28],
+		['failed requests', 17],
+		['worst minute', 20],
+		['short minutes', 14],
+		['failed boots', 14],
+		['config age (max)', 25]
 	])
 );
 let summary: Result | undefined;
@@ -177,15 +177,15 @@ for (const design of DESIGNS) {
 	console.log(
 		row([
 			[design.name, 28],
-			[pct(result.failed, result.requests, 2), 15],
+			[pct(result.failed, result.requests, 2), 17],
 			[pct(result.worstMinute, 1), 20],
 			[result.minutesShort, 14],
-			[n(result.failedBootAttempts), 12],
-			[design.perRequest ? '—' : `${(result.maxStaleness / 60).toFixed(0)} মিনিট`, 25]
+			[n(result.failedBootAttempts), 14],
+			[design.perRequest ? '—' : `${(result.maxStaleness / 60).toFixed(0)} minutes`, 25]
 		])
 	);
 }
 if (summary)
 	console.log(
-		`   এই run এ: crash/restart ${summary.crashes}টা, autoscaler নতুন instance তুলেছে ${summary.launched}টা; ব্যর্থ request = পুরো ${DURATION / 60} মিনিটের মোটের %`
+		`   in this run: ${summary.crashes} crash/restarts, the autoscaler brought up ${summary.launched} new instances; failed requests = % of the total over all ${DURATION / 60} minutes`
 	);

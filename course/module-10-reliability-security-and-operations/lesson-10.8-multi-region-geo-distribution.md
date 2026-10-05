@@ -56,32 +56,41 @@ Data residency        নির্দিষ্ট data নির্দিষ্�
 `npm run latency` পাঁচটা শহরের user নিয়ে চলে (ঢাকা ৩৫%, দিল্লি ১০%, সিঙ্গাপুর ১৫%, লন্ডন ২৫%, নিউ ইয়র্ক ১৫%), আনুমানিক RTT আর তাতে ±১৫% এর ওঠানামা সহ। একটা board খোলা মানে একটা নতুন connection (TCP + TLS 1.3, দুটো round trip, 2.2), তারপর তিনটা API call একটার পরে একটা, প্রতিটায় database এ তিনটা query। ২০% workspace অন্য region এর মানুষের সাথে ভাগ করা। চারটা topology:
 
 ```
-সব সিঙ্গাপুরে
-শহর          user   board p50   board p95   task তৈরি p50   লেখার পরে পুরনো পড়া
-ঢাকা           35%      346 ms      386 ms           77 ms                 0.0%
-দিল্লি           10%      422 ms      472 ms           92 ms                 0.0%
-সিঙ্গাপুর         15%       94 ms       98 ms           27 ms                 0.0%
-লন্ডন          25%      925 ms      1.05 s          192 ms                 0.0%
-নিউ ইয়র্ক       15%      1.23 s      1.39 s          252 ms                 0.0%
-সবাই (ওজন সহ)          390 ms      1.27 s
+all in Singapore
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      346 ms      386 ms            77 ms                    0.0%
+Delhi              10%      422 ms      472 ms            92 ms                    0.0%
+Singapore          15%       94 ms       98 ms            27 ms                    0.0%
+London             25%      925 ms      1.05 s           192 ms                    0.0%
+New York           15%      1.23 s      1.39 s           252 ms                    0.0%
+all (weighted)                390 ms      1.27 s
 
-+ CDN edge এ TLS
-লন্ডন          25%      599 ms      678 ms          192 ms                 0.0%
-নিউ ইয়র্ক       15%      780 ms      887 ms          252 ms                 0.0%
-সবাই (ওজন সহ)          289 ms      807 ms
++ TLS at the CDN edge
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      266 ms      292 ms            77 ms                    0.0%
+Delhi              10%      301 ms      334 ms            92 ms                    0.0%
+Singapore          15%       94 ms       98 ms            27 ms                    0.0%
+London             25%      599 ms      678 ms           192 ms                    0.0%
+New York           15%      780 ms      887 ms           252 ms                    0.0%
+all (weighted)                289 ms      807 ms
 
-+ প্রতি region এ app + read replica (লেখা সিঙ্গাপুরের primary তে)
-ঢাকা           35%      236 ms      258 ms          185 ms                 0.2%
-দিল্লি           10%      180 ms      195 ms          170 ms                 9.6%
-লন্ডন          25%      131 ms      139 ms          355 ms                61.1%
-নিউ ইয়র্ক       15%      116 ms      122 ms          470 ms                66.8%
-সবাই (ওজন সহ)          135 ms      250 ms
++ app + read replica in every region
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      236 ms      258 ms           185 ms                    0.2%
+Delhi              10%      180 ms      195 ms           170 ms                    9.6%
+Singapore          15%       94 ms       98 ms            27 ms                    0.0%
+London             25%      131 ms      139 ms           355 ms                   61.1%
+New York           15%      116 ms      122 ms           470 ms                   66.8%
+all (weighted)                135 ms      250 ms
 
-workspace এর home region (cell)
-ঢাকা           35%      239 ms      758 ms           69 ms                 0.0%
-লন্ডন          25%      132 ms      567 ms           38 ms                 0.0%
-নিউ ইয়র্ক       15%      117 ms      755 ms           32 ms                 0.0%
-সবাই (ওজন সহ)          186 ms      698 ms
+the workspace's home region (cell)
+city              user   board p50   board p95  create task p50  stale read after write
+Dhaka              35%      239 ms      758 ms            69 ms                    0.0%
+Delhi              10%      183 ms      717 ms            54 ms                    0.0%
+Singapore          15%       95 ms      706 ms            27 ms                    0.0%
+London             25%      132 ms      567 ms            38 ms                    0.0%
+New York           15%      117 ms      755 ms            32 ms                    0.0%
+all (weighted)                186 ms      698 ms
 ```
 
 চারটা শিক্ষা, একটা একটা করে:
@@ -98,12 +107,12 @@ workspace এর home region (cell)
 পড়া কাছে আনা যায় (replica)। লেখা আনা কঠিন, কারণ লেখার একটা মালিক লাগে (5.7)। আর যদি লেখাকে একাধিক region এ টেকসই (durable) করতে চাও, যাতে একটা region মরলেও লেখা না হারায়, তাহলে লেখার commit কে অন্য region এর ack এর জন্য অপেক্ষা করতে হয়। `npm run latency` অংশ খ, Raft এর মতো majority এর commit (6.2):
 
 ```
-কোথায়                               node   majority   commit   কয়টা region হারানো সহ্য
-সিঙ্গাপুরের ৩টা AZ                       3          2     2 ms   ০ (region মরলে সব যায়)
-সিঙ্গাপুর + মুম্বাই + ফ্রাঙ্কফুর্ট            3          2    60 ms   1
-একই, leader মুম্বাইয়ে                     3          2    60 ms   1
-চার region, leader সিঙ্গাপুরে              4          3   160 ms   1
-চার region, leader ফ্রাঙ্কফুর্টে              4          3   110 ms   1
+where                             node   majority   commit  regions it can lose
+Singapore's 3 AZs                  3          2     2 ms  0 (lose the region, lose everything)
+Singapore + Mumbai + Frankfurt    3          2    60 ms   1
+the same, leader in Mumbai            3          2    60 ms   1
+four regions, leader in Singapore    4          3   160 ms   1
+four regions, leader in Frankfurt      4          3   110 ms   1
 ```
 
 Majority এর commit লাগে **দ্বিতীয় নিকটতম** node এর ack পর্যন্ত। তিনটা AZ এ ২ ms, কিন্তু region হারালে সব যায়। তিনটা region এ ৬০ ms: প্রতিটা লেখায় ৩০ গুণ বেশি, বিনিময়ে একটা পুরো region হারানো সহ্য করা যায়, **শূন্য data হারিয়ে** (RPO = ০)। চার region এ সহ্য করার ক্ষমতা বাড়ে না (চারটার majority তিনটা, তাই একটাই হারানো যায়), কিন্তু commit ১৬০ ms। নিয়ম: **বিজোড় সংখ্যা, আর leader লেখকদের কাছে।** Google Spanner বা CockroachDB এর মতো system এই দামটাই দেয়, আর তাদের নকশার অনেকটা হলো এই দাম লুকানো বা কমানো (leader কে লেখকের কাছে সরানো, পড়ার জন্য lease)। এটা 5.9 এর PACELC এর "else" অংশ: partition না থাকলেও, consistency এর দাম latency।
@@ -117,17 +126,17 @@ User এর মুখোমুখি বেশিরভাগ লেখা এ�
 `npm run failover` অংশ ক: সিঙ্গাপুর region ৪ ঘণ্টা বন্ধ, ৩০০ req/s, তার ১০% লেখা। পাঁচটা কৌশল। প্রতিটার RTO হলো ধাপগুলোর যোগফল (ধরে নেওয়া সময়), আর মাসিক বাড়তি খরচ 10.7 এর $৮,২৭৬ এর উপরে:
 
 ```
-কৌশল                                        RTO     RPO    হারানো লেখা   ব্যর্থ request   বাড়তি / মাস
-এক region, ফেরার অপেক্ষা                      4.0 ঘ      ০             0       4,320,000            $0
-backup & restore (রোজ snapshot অন্য region এ)   2.2 ঘ  12.0 ঘ     1,296,000       2,340,000          $359
-pilot light (DB replica চালু, app বন্ধ)           42 মি    5 s           150         756,000          $833
-warm standby (ছোট app চালু)                      27 মি    5 s           150         486,000        $1,259
-active-active (সব region এ চলছে)                  4 মি    5 s           150          72,000        $3,836
+strategy                                                   RTO       RPO  lost writes  failed requests  extra / month
+one region, wait for it to return                        4.0 h         0            0        4,320,000             $0
+backup & restore (daily snapshot to another region)      2.2 h    12.0 h    1,296,000        2,340,000           $359
+pilot light (DB replica running, app off)               42 min       5 s          150          756,000           $833
+warm standby (small app running)                        27 min       5 s          150          486,000         $1,259
+active-active (running in every region)                  4 min       5 s          150           72,000         $3,836
 
-backup:      ধরা 5 → সিদ্ধান্ত 15 → IaC দিয়ে infra 30 → DB restore (900 GB) 60 → যাচাই 15 → DNS 5
-pilot light: ধরা 5 → সিদ্ধান্ত 15 → app শূন্য থেকে চালু 15 → replica promote 2 → DNS 5
-warm:        ধরা 5 → সিদ্ধান্ত 10 → scale out 5 → replica promote 2 → DNS 5
-active:      ধরা 2 → স্বয়ংক্রিয় promote (witness সহ) 1 → global LB / anycast 1
+backup:      detect 5 → decide 15 → infra via IaC 30 → DB restore (900 GB) 60 → verify 15 → DNS 5
+pilot light: detect 5 → decide 15 → start app from zero 15 → replica promote 2 → DNS 5
+warm:        detect 5 → decide 10 → scale out 5 → replica promote 2 → DNS 5
+active:      detect 2 → automatic promote (with witness) 1 → global LB / anycast 1
 ```
 
 **Active-Passive / Active-Active** — Active-passive এ একটা region traffic নেয়, আরেকটা অপেক্ষা করে। কতটা প্রস্তুত হয়ে অপেক্ষা করে তার তিনটা পরিচিত ধাপ: **backup & restore** (শুধু data এর কপি), **pilot light** (data চলমান replica তে, compute বন্ধ), **warm standby** (ছোট মাপে সব চালু)। Active-active এ সব region traffic নেয়, তাই একটা মরলে বাকিরা শুধু তার ভাগ নেয়। প্রস্তুতি যত বেশি, RTO তত কম, মাসিক দাম তত বেশি।
@@ -148,11 +157,11 @@ RTO এর শেষ ধাপ: user দের traffic নতুন region এ �
 **Spaced repetition এর উত্তর:** migration এর আগে TTL কমানো হয় যাতে resolver গুলো পুরনো উত্তর বেশিক্ষণ cache না করে। কিন্তু সবাই TTL মানে না। `npm run failover` অংশ খ, ধরে নেওয়া client এর মিশ্রণ: ৭০% TTL মানে, ২০% এর resolver TTL কে অন্তত ৫ মিনিট ধরে, ১০% পুরনো IP ধরে থাকে এক ঘণ্টা পর্যন্ত (খোলা connection, app এর নিজের DNS cache)। DNS বদলানোর পরে কত % traffic এখনও মরা region এ:
 
 ```
-routing                              +1 মি   +5 মি   +15 মি   +30 মি   +60 মি   প্রথম ঘণ্টায় ব্যর্থ
-DNS, TTL ৬০ s                          26%      9%       8%       5%       0%               69,450
-DNS, TTL ৩০০ s                         82%      9%       8%       5%       0%               94,650
-DNS, TTL ৩,৬০০ s                       98%     92%      75%      50%       0%              540,150
-anycast / global LB (DNS বদলায় না)        0%      0%       0%       0%       0%                9,150
+routing                              +1 min  +5 min  +15 min  +30 min  +60 min  failed in hour 1
+DNS, TTL 60 s                          26%      9%       8%       5%       0%               69,450
+DNS, TTL 300 s                         82%      9%       8%       5%       0%               94,650
+DNS, TTL 3,600 s                       98%     92%      75%      50%       0%              540,150
+anycast / global LB (DNS doesn't change)  0%      0%       0%       0%       0%                9,150
 ```
 
 TTL ৬০ আর ৩০০ এর পার্থক্য শুধু প্রথম কয়েক মিনিটে। তারপর দুটোই একই লেজে আটকায়: সেই ১০% যারা TTL মানেই না। এটা TTL দিয়ে থামানো যায় না। আর TTL এক ঘণ্টা হলে failover এর প্রথম আধা ঘণ্টা প্রায় অর্থহীন। তাই DR এর পরিকল্পনায় DNS এর TTL সবসময় ছোট রাখা হয় (২.১ এর migration এর পরামর্শ, এবার স্থায়ী)। আর ছোট RTO এর জন্য anycast বা global load balancer, যেখানে client এর কিছুই বদলাতে হয় না। (Mobile app এ আরেকটা পথ: app নিজেই দুটো endpoint জানে আর ব্যর্থ হলে অন্যটায় যায়।)
@@ -160,10 +169,10 @@ TTL ৬০ আর ৩০০ এর পার্থক্য শুধু প্�
 **কে বলবে region মরেছে?** এখন সবচেয়ে বিপজ্জনক প্রশ্ন। Active-active বা স্বয়ংক্রিয় failover এ একটা যন্ত্র ঠিক করে "সিঙ্গাপুর মৃত, মুম্বাইকে primary বানাও।" কিন্তু 6.1 মনে করো: অন্য machine থেকে "মৃত" আর "পৌঁছানো যাচ্ছে না" দেখতে হুবহু এক। `npm run failover` অংশ গ: সিঙ্গাপুর মরেনি, শুধু ১০ মিনিট বাকিদের থেকে বিচ্ছিন্ন (partition), আর সিঙ্গাপুরের user রা তখনও তাকে পায় (লেখার ১৫%):
 
 ```
-নীতি                                       ব্যর্থ লেখা   দুই দিকে আলাদা লেখা   কে লিখতে পারল
-স্বয়ংক্রিয় failover নেই                         15,300                   0   শুধু সিঙ্গাপুর; বাকি সবার লেখা ব্যর্থ
-মুম্বাই ২ মিনিটে নিজেই promote করে                 3,060               2,160   দুই দিকেই — দুটো primary (split brain)
-witness সহ (majority + lease, fencing)           5,625                   0   মুম্বাই পক্ষ; সিঙ্গাপুর ৩০ s পরে নিজেকে থামায়
+policy                                   failed writes  divergent writes  who could write
+no automatic failover                      15,300                   0  Singapore only; everyone else's writes fail
+Mumbai promotes itself after 2 minutes    3,060               2,160  both sides — two primaries (split brain)
+with a witness (majority + lease, fencing)       5,625                   0  the Mumbai side; Singapore stops itself after 30 s
 ```
 
 - **Failover নেই:** কিছু হারায় না, কিন্তু ১০ মিনিট সিঙ্গাপুরের বাইরের সবার লেখা ব্যর্থ। CAP এর C।
@@ -177,11 +186,11 @@ witness সহ (majority + lease, fencing)           5,625                   0  
 `npm run conflicts` একটা দিন: ১০ লাখ edit, তার প্রায় ২ লাখ edit ২০,০০০টা যৌথ session এ (২–৪ জন একই task এ কয়েক মিনিট কাজ করছে, ৩০% session এ অন্য region এর মানুষ)। Region এর মধ্যে replication সাধারণত দূরত্বের অর্ধেক + ৫০ ms। কিন্তু দুপুর ২টা থেকে ৪টা link খারাপ, median ২০ সেকেন্ড। আর ফ্রাঙ্কফুর্টের ঘড়ি ২৫০ ms পিছিয়ে (6.4)। দুটো edit concurrent যদি একটা অন্যটার region এ পৌঁছানোর আগেই অন্যটা লেখা হয়:
 
 ```
-নিয়ম                          নীরবে হারানো edit   মোটের %   একসাথে (concurrent)   ঘড়ির জন্য উল্টো   ২ ঘণ্টার incident এ
-LWW, পুরো row, wall clock                2,068    0.207%                2,025               43                1,858
-LWW, field ধরে, wall clock                 642    0.064%                  633                9                  599
-LWW, field ধরে, HLC                        633    0.063%                  633                0                  599
-workspace এর home region এ লেখা              0        0%                    0                0                    0
+rule                         silently lost edits  % of total  concurrent          reversed by clock  in the 2 h incident
+LWW, whole row, wall clock             2,068    0.207%                2,025               43                1,858
+LWW, per field, wall clock                642    0.064%                  633                9                  599
+LWW, per field, HLC                       633    0.063%                  633                0                  599
+writes to the workspace's home region      0        0%                    0                0                    0
 ```
 
 - **দিনে ২,০৬৮টা edit নীরবে হারায়**, পুরো row এর LWW এ। ০.২% ছোট শোনায়, কিন্তু প্রতিটা একজন মানুষ যে কিছু লিখেছিল আর পরে দেখল নেই, কোনো error ছাড়া। Support এর স্তূপটা আসল।
@@ -204,22 +213,22 @@ workspace এর home region এ লেখা              0        0%          
 `npm run residency` এই customer এর (৩০০ workspace, ৬,০০০ user) data এর পথগুলো গোনে, তিনটা নকশায়:
 
 ```
-পথ                                    GB/মাস   ব্যক্তিগত data               সব সিঙ্গাপুরে   EU এ DB + app + S3   পুরো EU cell
-Postgres (primary + replica)              80   নাম, email, task               বাইরে ✗              EU তে              EU তে
-attachment (S3)                        3,000   file                          বাইরে ✗              EU তে              EU তে
-DR copy: backup আর replica             3,100   সব                            বাইরে ✗             বাইরে ✗             EU তে
-CDN edge cache                           600   file                          বাইরে ✗             বাইরে ✗             EU তে
-log (কেন্দ্রীয় log store)                    45   user id, IP                   বাইরে ✗             বাইরে ✗             EU তে
-trace                                     15   user id, workspace            বাইরে ✗             বাইরে ✗             EU তে
-metric                                     2   নেই (label পরিষ্কার)            বাইরে ✗             বাইরে ✗            বাইরে ✗
-search index (8.3)                        40   task এর লেখা                   বাইরে ✗             বাইরে ✗             EU তে
-analytics warehouse (7.6)                 60   event, user id                বাইরে ✗             বাইরে ✗             EU তে
-analytics: শুধু aggregate (user id নেই)     1   নেই                            বাইরে ✗             বাইরে ✗            বাইরে ✗
-identity: user এর email আর profile          1   email, নাম                     বাইরে ✗             বাইরে ✗             EU তে
-email provider                             5   email, নাম, task এর শিরোনাম     বাইরে ✗             বাইরে ✗             EU তে
-error tracker (request body সহ)            3   যা কিছু body তে                বাইরে ✗             বাইরে ✗             EU তে
-ব্যক্তিগত data বাইরে যায় এমন পথ                                                 11 / 11              9 / 11            0 / 11
-বাইরে যাওয়া ব্যক্তিগত data / মাস                                                  6.9 TB              3.9 TB              0 GB
+path                                          GB/month                           personal data    all in Singapore  DB + app + S3 in the EU      a full EU cell
+Postgres (primary + replica)                        80                      name, email, tasks           outside ✗           in the EU           in the EU
+attachment (S3)                                  3,000                                    file           outside ✗           in the EU           in the EU
+DR copy: backups and replicas                    3,100                              everything           outside ✗           outside ✗           in the EU
+CDN edge cache                                     600                                    file           outside ✗           outside ✗           in the EU
+logs (central log store)                            45                             user id, IP           outside ✗           outside ✗           in the EU
+trace                                               15                      user id, workspace           outside ✗           outside ✗           in the EU
+metric                                               2                     none (clean labels)           outside ✗           outside ✗           outside ✗
+search index (8.3)                                  40                               task text           outside ✗           outside ✗           in the EU
+analytics warehouse (7.6)                           60                          event, user id           outside ✗           outside ✗           in the EU
+analytics: aggregates only (no user id)              1    none (counts by day × plan × feature)           outside ✗           outside ✗           outside ✗
+identity: user email and profile                     1                             email, name           outside ✗           outside ✗           in the EU
+email provider                                       5                email, name, task titles           outside ✗           outside ✗           in the EU
+error tracker (with request bodies)                  3                 whatever is in the body           outside ✗           outside ✗           in the EU
+paths taking personal data outside                                                                        11 / 11              9 / 11              0 / 11
+personal data going outside / month                                                                        6.9 TB              3.9 TB                0 GB
 ```
 
 **Database আর S3 ফ্রাঙ্কফুর্টে সরালে ১১টা পথের মাত্র ২টা ঠিক হয়।** বাকি ৯টা এই course এর প্রায় প্রতিটা module এর একটা করে সিদ্ধান্ত। 10.3 এর DR কপি (সিঙ্গাপুরে, কারণ "অন্য region"), 4.5 এর CDN (private file সারা পৃথিবীর PoP এ cache), 10.4 এর কেন্দ্রীয় log আর trace (user id, IP — IP ও ব্যক্তিগত data), 8.3 এর search cluster, 7.6 এর analytics, 9.2 এর identity, আর বাইরের service (email, error tracker, যাদের request body তে কী আছে কেউ জানে না)। Residency একটা database এর setting না। এটা system এর প্রতিটা পথের একটা গুণ।
@@ -231,17 +240,17 @@ error tracker (request body সহ)            3   যা কিছু body ত�
 **দাম**, অংশ খ:
 
 ```
-app (min ৩, commit)                                $273
-Postgres Multi-AZ + ১ replica                    $1,444
+app (min 3, commit)                                $273
+Postgres Multi-AZ + 1 replica                    $1,444
 Redis (cache + queue)                              $190
-NAT ×৩ + LB + endpoint                             $221
-log/trace/metric stack (cell এর নিজের)               $450
-DR: দ্বিতীয় EU region এ pilot light                    $512
-search (cell এর নিজের)                               $280
-গড়ে মানুষের সময় (on-call, upgrade × ২ cell)          $1,500
-cell এর মোট / মাস                                  $4,870
-এই customer এর আয় (4,200 paid seat × $9)        $37,800
-cell এর দাম আয়ের %                                    13%
+NAT ×3 + LB + endpoint                             $221
+log/trace/metric stack (the cell's own)            $450
+DR: pilot light in a second EU region               $512
+search (the cell's own)                            $280
+average people time (on-call, upgrades × 2 cells)  $1,500
+cell total / month                               $4,870
+this customer's revenue (4,200 paid seats × $9)  $37,800
+the cell's cost as % of revenue                     13%
 ```
 
 একটা cell এর একটা **স্থির ভিত্তি খরচ** আছে, customer যত ছোটই হোক: database এর Multi-AZ, NAT, observability এর stack, আর সবচেয়ে বড় লাইন, মানুষ। দুটো cell মানে প্রতিটা deploy, প্রতিটা migration (10.6 এর expand/contract), প্রতিটা on-call এর ঘটনা দুই জায়গায়। এই customer এর আয়ের ১৩%, TaskFlow এর সাধারণ ৩% (10.7) এর চার গুণ। প্রথম EU customer এর জন্য cell একটা বিনিয়োগ। দ্বিতীয় আর তৃতীয় EU customer একই cell এ, আর ভিত্তি খরচ ভাগ হয়। তাই এটা একটা ব্যবসার সিদ্ধান্ত: "EU বাজারে আমরা কি আরও customer আশা করি?" আর সেটা cell এর নকশার আগে আসে।

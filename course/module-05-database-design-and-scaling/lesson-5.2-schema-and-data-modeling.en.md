@@ -163,9 +163,9 @@ Three common forms:
 Now TaskFlow's dashboard. The exercise's `npm run dashboard` creates 500 projects and 400,000 tasks and measures the same question several ways (on my machine, median of 30 runs):
 
 ```
-question                       counted (simple)   counted (LATERAL)   read counter
-page of 20 projects               39.18 ms            1.78 ms            0.42 ms
-10 busiest projects               39.34 ms               —               0.31 ms
+question                     counted (simple)   counted (LATERAL)   read counter
+page of 20 projects                  39.18 ms             1.78 ms        0.42 ms
+10 busiest projects                  39.34 ms                —           0.31 ms
 ```
 
 Look carefully at the first line — the most important lesson of this lesson is hiding there.

@@ -73,8 +73,8 @@ async function watchRemoval(registry: Registry, victimId: string): Promise<numbe
 async function main(): Promise<void> {
 	console.log(
 		`\n=== Lesson 9.4 — Service Discovery ===\n` +
-			`   billing এর ${PORTS.length} টা instance · প্রতি phase এ ${PHASE_REQUESTS} টা "task তৈরি" · ${CONCURRENCY} জন একসাথে\n` +
-			`   heartbeat প্রতি ${HEARTBEAT_MS} ms · registry এর TTL ${TTL_MS} ms · call এর timeout ${TIMEOUT_MS} ms\n`
+			`   ${PORTS.length} billing instances · ${PHASE_REQUESTS} "create task" per phase · ${CONCURRENCY} at once\n` +
+			`   heartbeat every ${HEARTBEAT_MS} ms · registry TTL ${TTL_MS} ms · call timeout ${TIMEOUT_MS} ms\n`
 	);
 
 	const instances: BillingInstance[] = [];
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
 	const registryResolver: Resolver = () =>
 		registry.alive(performance.now()).map((entry) => entry.url);
 
-	console.log(`── ক. একটা instance মারা গেল (process crash — connection refused) ──`);
+	console.log(`── a. One instance died (process crash — connection refused) ──`);
 	console.log(header('strategy', ['before', 'on death', 'after TTL']));
 
 	const staticBefore = await runPhase(PHASE_REQUESTS, staticResolver);
@@ -121,9 +121,9 @@ async function main(): Promise<void> {
 	console.log(row('registry + heartbeat/TTL', [registryBefore, registryDuring, registryAfter]));
 	console.log('');
 	console.log(
-		`   registry থেকে মরা instance সরতে লেগেছে: ${convergence < 0 ? 'সরেনি' : ms(convergence)} ` +
+		`   time for the dead instance to leave the registry: ${convergence < 0 ? 'never left' : ms(convergence)} ` +
 			`(heartbeat ${HEARTBEAT_MS} ms + TTL ${TTL_MS} ms)\n` +
-			`   static list এ বেঁচে থাকা instance: ${staticTargets.length} টার মধ্যে ${instances.length - 1} টা — তবু প্রতি ${PORTS.length} টার 1 টা call মরা ঠিকানায় গেছে\n`
+			`   live instances in the static list: ${instances.length - 1} of ${staticTargets.length} — yet 1 in every ${PORTS.length} calls still went to the dead address\n`
 	);
 
 	const alive = instances.filter((i) => i.id !== victim.id);
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
 	if (!sick) throw new Error('no instance left to sicken');
 
 	console.log(
-		`── খ. instance মরেনি, কিন্তু অসুস্থ — heartbeat পাঠাচ্ছে, অথচ প্রতিটা call এ 500 ──`
+		`── b. The instance didn't die, but it is sick — sending heartbeats, yet 500 on every call ──`
 	);
 	console.log(header('strategy', ['healthy', 'sick (500)']));
 
@@ -142,8 +142,8 @@ async function main(): Promise<void> {
 	console.log(row('registry + heartbeat/TTL', [healthyAgain, sickPhase]));
 	console.log('');
 	console.log(
-		`   heartbeat শুধু বলে "process বেঁচে আছে" — "কাজ করছে" না। registry ${sick.id} কে এখনো তালিকায় রাখছে,\n` +
-			`   তাই প্রতি ${alive.length} টার 1 টা call এখনো তার কাছেই যাচ্ছে। এর উত্তর পরের দুটো অংশে।\n`
+		`   a heartbeat only says "the process is alive" — not "it is working". The registry still keeps ${sick.id} listed,\n` +
+			`   so 1 in every ${alive.length} calls still goes to it. The answer is in the next two parts.\n`
 	);
 
 	beats.stopAll();

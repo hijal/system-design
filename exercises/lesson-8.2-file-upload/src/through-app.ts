@@ -5,12 +5,12 @@ import { z } from 'zod';
 import { messageSchema } from './app';
 import { emptyBucket, mb, ms, percentile, prepareBucket, sendPut } from './common';
 
-// Lesson 8.2 §১.১ — upload app এর ভেতর দিয়ে গেলে app এর কী হয়?
+// Lesson 8.2 §1.1 — what happens to the app when uploads go through it?
 //
-// UPLOADERS জন user একসাথে, প্রত্যেকে ROUNDS টা FILE_MB এর file, প্রতি সেকেন্ডে CLIENT_MBPS গতিতে (ভালো
-// broadband এর মতো)। একই সময়ে PINGERS জন board এর মতো একটা সস্তা route একটানা ডাকে। চার ধাপ:
-//   শুধু ping (তুলনার জন্য) · buffer (8.1 এর পথ) · stream · presigned (app শুধু URL দেয়)
-// App আলাদা process — তার memory, event loop এর দেরি, আর একসাথে খোলা upload এর সংখ্যা মাপা হয়।
+// UPLOADERS users at once, each sends ROUNDS files of FILE_MB, at CLIENT_MBPS per second (like good
+// broadband). At the same time PINGERS keep calling a cheap route, like the board. Four steps:
+//   ping only (for comparison) · buffer (8.1's path) · stream · presigned (the app only hands out a URL)
+// The app is a separate process — its memory, event loop delay, and the number of uploads open at once are measured.
 
 const cfg = z
 	.object({
@@ -72,14 +72,14 @@ async function run(name: string, mode: Mode, body: Buffer): Promise<Row> {
 				if (r.kind !== 'done' || r.status !== 201)
 					throw new Error(`upload failed: ${JSON.stringify(r)}`);
 			} else if (mode === 'presigned') {
-				// ১. app কে জিজ্ঞেস: "এই আকারের, এই ধরনের একটা file রাখতে চাই"
+				// 1. ask the app: "I want to store a file of this size and this type"
 				const res = await fetch(`${url}/uploads`, {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ size: body.length, contentType: 'application/pdf' })
 				});
 				const { url: signed } = z.object({ url: z.string().url() }).parse(await res.json());
-				// ২. সরাসরি object storage এ — app আর নেই
+				// 2. straight to object storage — the app is out of it
 				const r = await sendPut(signed, body, {
 					mbps: cfg.CLIENT_MBPS,
 					headers: { 'content-type': 'application/pdf' }
@@ -98,7 +98,7 @@ async function run(name: string, mode: Mode, body: Buffer): Promise<Row> {
 		return { name, stats: await stats(child), ping, uploadMs };
 	} finally {
 		running = false;
-		child.kill(); // ব্যর্থ হলেও app process যেন থেকে না যায়
+		child.kill(); // so the app process doesn't linger even on failure
 	}
 }
 
@@ -108,21 +108,21 @@ async function main(): Promise<void> {
 	const body = randomBytes(Math.round(cfg.FILE_MB * 1024 * 1024));
 	const total = cfg.UPLOADERS * cfg.ROUNDS * body.length;
 	console.log(
-		`\n   ${cfg.UPLOADERS} জন user × ${cfg.ROUNDS} টা file × ${mb(body.length)}, প্রত্যেকে ${cfg.CLIENT_MBPS} MB/s এ (মোট ${mb(total)}) · ${cfg.PINGERS} জন একটানা ping\n`
+		`\n   ${cfg.UPLOADERS} users × ${cfg.ROUNDS} files × ${mb(body.length)}, each at ${cfg.CLIENT_MBPS} MB/s (${mb(total)} in total) · ${cfg.PINGERS} pinging nonstop\n`
 	);
 	const rows = [
-		await run('শুধু ping', 'none', body),
-		await run('buffer (পুরো file memory তে)', 'buffer', body),
-		await run('stream (app এর ভেতর দিয়ে বয়ে যায়)', 'stream', body),
-		await run('presigned (সরাসরি object storage এ)', 'presigned', body)
+		await run('ping only', 'none', body),
+		await run('buffer (whole file in memory)', 'buffer', body),
+		await run('stream (flows through the app)', 'stream', body),
+		await run('presigned (straight to object storage)', 'presigned', body)
 	];
 	console.log(
-		'   পথ                                       app এর memory (শুরু → সর্বোচ্চ)   app এ একসাথে খোলা upload   app এর ভেতর দিয়ে   ping p50 / p99      event loop দেরি p99 / max   সব upload শেষ'
+		'   path                                      app memory start→peak     uploads open at once    through the app   ping p50 / p99          event loop p99 / max   uploads done'
 	);
 	for (const r of rows) {
 		const s = r.stats;
 		console.log(
-			`   ${r.name.padEnd(40)} ${`${s.baseRssMb.toFixed(0)} → ${s.peakRssMb.toFixed(0)} MB`.padStart(22)} ${String(s.maxOpenUploads).padStart(24)} ${mb(s.bytesThroughApp).padStart(18)}   ${`${ms(percentile(r.ping, 50))} / ${ms(percentile(r.ping, 99))}`.padEnd(19)} ${`${ms(s.loopDelayP99)} / ${ms(s.loopDelayMax)}`.padStart(24)} ${(r.name === 'শুধু ping' ? '—' : ms(r.uploadMs)).padStart(14)}`
+			`   ${r.name.padEnd(40)} ${`${s.baseRssMb.toFixed(0)} → ${s.peakRssMb.toFixed(0)} MB`.padStart(22)} ${String(s.maxOpenUploads).padStart(24)} ${mb(s.bytesThroughApp).padStart(18)}   ${`${ms(percentile(r.ping, 50))} / ${ms(percentile(r.ping, 99))}`.padEnd(19)} ${`${ms(s.loopDelayP99)} / ${ms(s.loopDelayMax)}`.padStart(24)} ${(r.name === 'ping only' ? '—' : ms(r.uploadMs)).padStart(14)}`
 		);
 	}
 	console.log();

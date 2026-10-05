@@ -2,9 +2,9 @@ import { performance } from 'node:perf_hooks';
 import { createSequelize } from './db';
 import { Task, initModels } from './models';
 
-// Lesson 5.6 §১.৬ — database থেকে data আসার পরের খরচ।
-// Sequelize প্রতিটা row কে একটা পূর্ণ Model instance এ রূপ দেয় (getter/setter, change
-// tracking, ইত্যাদি) — একে বলে hydration। অল্প row এ চোখে পড়ে না; অনেক row এ পড়ে।
+// Lesson 5.6 §1.6 — the cost after the data comes back from the database.
+// Sequelize turns every row into a full Model instance (getters/setters, change
+// tracking, and so on) — this is called hydration. With few rows it isn't noticeable; with many it is.
 
 const ROWS = 100_000;
 const ROUNDS = 5;
@@ -42,14 +42,14 @@ async function median(fn: () => Promise<number>): Promise<{ ms: number; count: n
 async function main(): Promise<void> {
 	await seed();
 	console.log(
-		`\nHydration: ${ROWS.toLocaleString('en-US')}টা task পড়া — একই query, ভিন্ন রূপে ফেরত`
+		`\nHydration: reading ${ROWS.toLocaleString('en-US')} tasks — the same query, returned in different shapes`
 	);
 
 	const variants: [string, () => Promise<number>][] = [
 		['Model instance (default)', async () => (await Task.findAll()).length],
 		['raw: true', async () => (await Task.findAll({ raw: true })).length],
 		[
-			'raw: true + শুধু দরকারি column',
+			'raw: true + only needed columns',
 			async () => (await Task.findAll({ attributes: ['id', 'title'], raw: true })).length
 		]
 	];
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
 		const { ms, count } = await median(fn);
 		base ??= ms;
 		console.log(
-			`   ${label.padEnd(34)} ${ms.toFixed(0).padStart(6)} ms   (${count.toLocaleString('en-US')} row, ${(base / ms).toFixed(1)}x)`
+			`   ${label.padEnd(34)} ${ms.toFixed(0).padStart(6)} ms   (${count.toLocaleString('en-US')} rows, ${(base / ms).toFixed(1)}x)`
 		);
 	}
 	console.log('');

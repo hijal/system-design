@@ -56,22 +56,22 @@ User এর নিয়ন্ত্রণ?                           ধরন 
 `npm run estimate`:
 
 ```
-── অংশ ক — চাপ: 30 কোটি DAU, user প্রতি দিনে 10টা notification ──
-সব notification                                       34,722         104,167
-একটা campaign: 10 কোটি জন, 1 ঘণ্টায়                         27,778         0.8× গড়
+── Part A — load: 300 million DAU, 10 notifications a day per user ──
+all notifications                                     34,722         104,167
+one campaign: 100 million people, in 1 h              27,778    0.8× the average
 
-── অংশ খ — channel আর মাসিক খরচ (আনুমানিক দাম) ──
-channel                 ভাগ              দিনে         প্রতিটা            মাসে     খরচের ভাগ
-push (APNs/FCM)        80%          240 কোটি          $0            $0        0.0%
-email                  17%         51.0 কোটি     $0.0001    $1,530,000       17.5%
-SMS                     1%            3 কোটি      $0.008    $7,200,000       82.5%
-in-app                  2%            6 কোটি          $0            $0        0.0%
+── Part B — channels and monthly cost (approximate prices) ──
+channel              share         per day        each       monthly  share of cost
+push (APNs/FCM)        80%     2.4 billion          $0            $0           0.0%
+email                  17%     510 million     $0.0001    $1,530,000          17.5%
+SMS                     1%      30 million      $0.008    $7,200,000          82.5%
+in-app                  2%      60 million          $0            $0           0.0%
 
-── অংশ গ — device token: 90 কোটি token, 30% মরা ──
-প্রতি user এর সব token এ পাঠালে দিনে 720 কোটি push, তার 216 কোটি মরা token এ
+── Part C — device tokens: 900 million tokens, 30% dead ──
+sending to every token of every user is 7.2 billion pushes a day, 2.16 billion of them to dead tokens
 
-── অংশ ঘ — প্রতিটা notification এর ইতিহাস (500 B, 90 দিন) ──
-দিনে 1.5 TB, 90 দিনে 135 TB
+── Part D — the history of every notification (500 B, 90 days) ──
+1.5 TB a day, 135 TB over 90 days
 ```
 
 1. **চাপ মাঝারি, কিন্তু ঢেউ বড়।** গড়ে সেকেন্ডে ৩৫,০০০, peak এ ১ লাখ। একটা campaign এক ঘণ্টায় আরও প্রায় ২৮,০০০/s যোগ করে, হঠাৎ। 11.4 এর celebrity এর মতো, কিন্তু এবার আমরা নিজেরাই বানাই।
@@ -113,11 +113,11 @@ in-app                  2%            6 কোটি          $0            $0  
 `npm run queue`: SMS provider এর সীমা ১০০/s, OTP আসে ২০/s, আর এক মিনিটে ৩ লাখ marketing SMS এর একটা campaign queue তে ঢোকে। OTP এর মেয়াদ ৫ মিনিট:
 
 ```
-নীতি                                                   OTP p50   OTP p99     সবচেয়ে খারাপ     মেয়াদ পার   campaign শেষ
-একটা FIFO queue, একটা provider account                120.00 s 2942.40 s    3000.00 s     67,500          50 মি
-FIFO, কিন্তু campaign ঢোকে ধীরে (সীমার 50%)                     100 ms    100 ms       100 ms          0         100 মি
-অগ্রাধিকার: OTP আগে, campaign বাকিটা                           100 ms    100 ms       100 ms          0          63 মি
-আলাদা account: OTP আর campaign এর আলাদা সীমা                100 ms    100 ms       100 ms          0          50 মি
+policy                                                       OTP p50   OTP p99        worst    expired  campaign done
+one FIFO queue, one provider account                        120.00 s  2942.40 s    3000.00 s     67,500        50 min
+FIFO, but the campaign enters slowly (50% of the limit)       100 ms    100 ms       100 ms          0       100 min
+priority: OTP first, the campaign gets the rest               100 ms    100 ms       100 ms          0        63 min
+separate accounts: separate limits for OTP and campaign       100 ms    100 ms       100 ms          0        50 min
 ```
 
 - **এক FIFO:** ৩ লাখ SMS ১০০/s এ ৫০ মিনিট। তার পেছনে প্রতিটা OTP। p50 দুই মিনিট, p99 ৪৯ মিনিট, আর **৬৭,৫০০টা OTP মেয়াদ পার হয়ে পৌঁছায়।** প্রতিটা একজন মানুষ যে login করতে পারল না, আর সম্ভবত আবার "কোড পাঠাও" চাপল, queue তে আরেকটা যোগ করে। 11.4 এর fan-out queue এর শিক্ষা, এবার সীমাটা আরও কঠিন, কারণ সেটা আমাদের না: বেশি worker দিয়ে provider এর সীমা বাড়ে না।
@@ -134,11 +134,11 @@ FIFO, কিন্তু campaign ঢোকে ধীরে (সীমার 50%
 আজ আমরা client। `npm run retry` অংশ ক: ১০ লাখ email, ১% স্পষ্ট ব্যর্থ (provider বলল পাঠায়নি), ২% timeout, আর timeout এর অর্ধেক আসলে পাঠানো হয়েছিল:
 
 ```
-নীতি                                                         পৌঁছায়নি       দুবার পৌঁছাল  provider call
-একবার, retry নেই                                            2.03%         0.00%          1.000
-ব্যর্থ বা timeout হলে আবার                                       0.00%         1.01%          1.031
-আবার, provider এ idempotency key সহ                        0.00%         0.00%          1.031
-timeout হলে দ্বিতীয় provider এ (key শেয়ার হয় না)                  0.00%         0.99%          1.031
+policy                                                      not delivered  delivered twice  provider call
+once, no retry                                                      2.03%            0.00%          1.000
+again on failure or timeout                                         0.00%            1.01%          1.031
+again, with an idempotency key at the provider                      0.00%            0.00%          1.031
+on timeout to a second provider (the key is not shared)             0.00%            0.99%          1.031
 ```
 
 - **Retry না করলে ২% হারায়,** যার মধ্যে অর্ধেক আসলে timeout (আমরা ভেবেছি গেছে কিনা জানি না)।
@@ -149,9 +149,9 @@ timeout হলে দ্বিতীয় provider এ (key শেয়ার 
 অংশ খ, প্রধান email provider দশ মিনিট বন্ধ, সেকেন্ডে ১,০০০ email:
 
 ```
-নীতি                                                       দেরি p50     দেরি p99         প্রধানে চেষ্টা
-একই provider এ exponential backoff (সর্বোচ্চ 5 মিনিট)         402.63 s   786.52 s      5,860,100
-breaker: 30 s ব্যর্থতার পরে দ্বিতীয় provider                       500 ms    39.98 s        167,550
+policy                                                      delay p50  delay p99  attempts on primary
+exponential backoff on the same provider (max 5 minutes)     402.63 s   786.52 s            5,860,100
+breaker: second provider after 30 s of failures                500 ms    39.98 s              167,550
 ```
 
 Backoff (7.4) মরা provider কে চাপ থেকে বাঁচায়, কিন্তু email গুলো বাঁচায় না: p50 **৬.৭ মিনিট**, p99 ১৩ মিনিট। আর একটা সূক্ষ্ম জিনিস: provider দশ মিনিটে ফিরে এলেও অনেক email তখন ৪-৫ মিনিটের backoff এর মাঝখানে, তাই তারা ফেরার পরেও মিনিট খানেক অপেক্ষা করে। Breaker (9.4) ৩০ সেকেন্ড ব্যর্থতা দেখে সব traffic দ্বিতীয় provider এ সরায়: p99 ৪০ s, আর প্রধানের উপর চাপ ৩৫ গুণ কম। Experiment ৪: breaker ১২০ s এ খুললে p99 ২০৪ s। Breaker এর সময় একটা trade-off: ছোট হলে একটা সাময়িক ঝাঁকুনিতেই failover (আর তার duplicate), বড় হলে outage এ দেরি।
@@ -163,11 +163,11 @@ Backoff (7.4) মরা provider কে চাপ থেকে বাঁচা�
 একজনের post viral, দশ মিনিটে ৫০০ like। `npm run aggregate`:
 
 ```
-নীতি                                                        push     প্রথমটা কখন        শেষ like জানানো হলো
-প্রতিটা like এ একটা push                                        500       115 ms                 সাথে সাথে
-প্রতি 5 মিনিটে সর্বোচ্চ একটা, বাকি ফেলে দাও                                   4       115 ms    না (শেষ 112.64 s বাদ)
-30 s এর জানালায় জমিয়ে "X আর আরও N জন" (collapse key)             26      30.12 s            30.00 s পরে
-প্রথমটা সাথে সাথে, তারপর জানালা দ্বিগুণ হয় (৩০ s, ১, ২… মি)                  6       115 ms           847.36 s পরে
+policy                                                            push  first one at          last like reported
+one push per like                                                  500       115 ms                 immediately
+at most one per 5 minutes, drop the rest                             4       115 ms  no (last 112.64 s dropped)
+batch in a 30 s window, "X and N others" (collapse key)             26      30.12 s               30.00 s later
+first one at once, then the window doubles (30 s, 1, 2… min)         6       115 ms              847.36 s later
 ```
 
 - **প্রতিটায় একটা:** ৫০০ বার ফোন বাজে। User এর প্রতিক্রিয়া প্রায় নিশ্চিত: notification বন্ধ, আর তখন পরের OTP ও push এ আসে না।
@@ -186,17 +186,17 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 `npm run smoke` উপরের সব নিয়ম একটা Express service এ চালায়: অগ্রাধিকারের তিনটা queue, type থেকে channel এর পরিকল্পনা, idempotency, aggregation এর জানালা, opt-out, quiet hours, মরা token মোছা, আর একই key তে retry। Provider একটা fake, যা মরা token আর "timeout কিন্তু আসলে পাঠানো" নকল করে:
 
 ```
-#   ধাপ                                                    ফল
-1   ১,০০০টা marketing queue তে, তারপর alice এর OTP; ১টা পাঠানো   push:a-phone ← কোড: 482913
-2   একই idempotency key তে OTP আবার                         id 1001 (আগেরটা 1001), duplicate: true
-3   bob এর post এ ৫০টা like; জানালা বন্ধের আগে                    push 0টা
-4   ৩০ s পরে জানালা বন্ধ                                        push:b-phone ← fan0 আর আরও 49 জন like করেছে; মেশানো 49
-5   carol marketing বন্ধ রেখেছে                                suppressed
-6   dave: রাত ১১টায় marketing, নীরবতা ২২–৭                    রাতে: deferred; সকাল ৭টায়: sent
-7   erin এর দুটো token, একটা মৃত; দুটো OTP                      provider call: 2, তারপর 1; মুছে ফেলা token 1
-8   frank এর কোনো device নেই, OTP                            sms:phone:frank ← কোড: 999999
-9   gina এর অর্ডার email: প্রথম call timeout (আসলে গিয়েছিল)        email: timeout → email: sent
-10  gina এর inbox এ                                       1টা email
+#   step                                                        result
+1   1,000 marketing in the queue, then alice's OTP; 1 sent      push:a-phone ← code: 482913
+2   OTP again with the same idempotency key                     id 1001 (earlier 1001), duplicate: true
+3   50 likes on bob's post; before the window closes            0 pushes
+4   window closes 30 s later                                    push:b-phone ← fan0 and 49 others liked this; merged 49
+5   carol has turned marketing off                              suppressed
+6   dave: marketing at 11 pm, quiet 22–7                        at night: deferred; at 7 am: sent
+7   erin has two tokens, one dead; two OTPs                     provider calls: 2, then 1; tokens deleted 1
+8   frank has no device, OTP                                    sms:phone:frank ← code: 999999
+9   gina's order email: first call timed out (actually sent)    email: timeout → email: sent
+10  in gina's inbox                                             1 email
 ```
 
 - ধাপ ১: ১,০০০টা marketing আগে queue তে, কিন্তু প্রথম যেটা যায় সেটা OTP।

@@ -140,9 +140,9 @@ lesson-3.3-nginx-reverse-proxy/
 **মূল কৌশল** যেটা Round Robin কে চোখে দেখায়: প্রতিটা backend environment variable থেকে একটা নাম পায় আর response এ সেটা ফেরত দেয়, তাই দেখা যায় কোন instance তোমাকে serve করল।
 
 ```typescript
-// Docker Compose থেকে environment variable দিয়ে প্রতিটা instance কে
-// একটা নাম দেওয়া হবে, যাতে আমরা দেখতে পারি Nginx কোন instance এ
-// request পাঠাচ্ছে (Round Robin verify করার জন্য এটাই key trick)
+// Docker Compose gives each instance a name via an environment variable,
+// so we can see which instance Nginx sent the request to.
+// This is the key trick for verifying Round Robin.
 const INSTANCE_ID: string = process.env.INSTANCE_ID ?? 'unknown-instance';
 
 app.get('/api/tasks', (_req: Request, res: Response<TaskListResponse>): void => {
@@ -154,13 +154,13 @@ app.get('/api/tasks', (_req: Request, res: Response<TaskListResponse>): void => 
 
 ```nginx
 upstream taskflow_backend {
-    # Default algorithm Round Robin (Lesson 3.2) — কিছু specify না করলে এটাই হয়
+    # Default algorithm Round Robin (Lesson 3.2) — this is what you get if nothing is specified
 
     server backend1:3000;
     server backend2:3000;
     server backend3:3000;
 
-    # Experiment এর জন্য — নিচের লাইনগুলো uncomment করে দেখো:
+    # For experiments — uncomment the lines below and see:
     # least_conn;   # Least Connections algorithm
     # ip_hash;      # Session Affinity (IP Hash)
 }
@@ -169,7 +169,7 @@ upstream taskflow_backend {
 **যাচাই করো (acceptance criteria):**
 
 ```bash
-curl http://localhost:8080/api/tasks   # কয়েকবার চালাও
+curl http://localhost:8080/api/tasks   # repeat several times
 ```
 
 Expected: `servedBy` ঘুরে ঘুরে আসবে — `backend-1`, `backend-2`, `backend-3`, `backend-1`, ... এটাই Round Robin এর প্রমাণ। আরও লক্ষ্য করো — তুমি কখনোই সরাসরি backend1/2/3 এর সাথে কথা বলছ না (তাদের কোনো port ই host এ expose করা হয়নি) — শুধু Nginx এর port 8080 এর সাথে। এটাই Reverse Proxy এর মূল কথা: backend topology client থেকে সম্পূর্ণ লুকানো।

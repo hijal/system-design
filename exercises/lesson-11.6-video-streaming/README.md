@@ -59,45 +59,45 @@ npm run smoke
 `npm run estimate` — দিনে ২৭০ PB egress, বিলের ৭৮%; transcoding ১%:
 
 ```
-দিনে বের হওয়া data (egress)                                   270 PB
-peak bandwidth (2.5×)                                    63 Tbps   কোনো একটা data center এর বাইরে
+data out per day (egress)                                       270 PB
+peak bandwidth (2.5×)                                          63 Tbps   beyond any single data center
 CDN egress ($0.01/GB)                                $81,000,000     78.2%
-transcoding ($0.02/CPU-ঘণ্টা)                            $1,036,800      1.0%
+transcoding ($0.02/CPU-hour)                                $1,036,800      1.0%
 ```
 
 `npm run transcode` — টুকরো করে parallel এ ঘণ্টা থেকে মিনিট, আর spot এর বাধায় প্রায় কিছু নষ্ট হয় না:
 
 ```
-একটা worker, পুরো video, একটার পর একটা resolution              4.0 ঘ     10.6 ঘ        27.3 মি    13.72%
-4 s এর টুকরো, 100টা worker                                   2.9 মি      3.0 মি          38 s     0.02%
+one worker, the whole video, one resolution after another          4.0 h     10.6 h        27.3 min      13.72%
+4 s pieces, 100 workers                                         2.9 min    3.0 min            38 s       0.02%
 ```
 
 `npm run abr` — সর্বোচ্চ quality তে এক-তৃতীয়াংশ সময় আটকে থাকে; মিশ্র নীতিতে প্রায় শূন্য:
 
 ```
-সবসময় 1080p                                             5.4 s     32.63%   5.00 Mbps         0.0
-throughput: শেষ ৩টার হারের 80% এর নিচে সর্বোচ্চ                    0.8 s      0.22%   2.35 Mbps        32.9
-মিশ্র: throughput, buffer কম হলে নামো, ধাপে ধাপে ওঠো               0.4 s      0.08%   2.32 Mbps        34.5
+always 1080p                                                                   5.4 s     32.63%   5.00 Mbps               0.0
+throughput: the highest under 80% of the last 3 rates                          0.8 s      0.22%   2.35 Mbps              32.9
+mixed: throughput, drop when the buffer is low, climb step by step             0.4 s      0.08%   2.32 Mbps              34.5
 ```
 
 `npm run cdn` — ০.১% video তে ৯২% দেখা; AV1 শুধু জনপ্রিয়গুলোতে:
 
 ```
 0.1%                                 103,359       92.4%                     80.6 TB
-যাদের মাসের দেখার egress খরচ তাদের transcode এর খরচের চেয়ে কম: 62.1%
-সব video                                   10 কোটি       $12,000,000       $24,300,000   $12,300,000
-মাসে 30 ঘণ্টার বেশি                           2,235,202          $268,224       $23,589,440   $23,321,215
+videos whose monthly watching egress costs less than their transcode: 62.1%
+all videos                           100 million         $12,000,000         $24,300,000   $12,300,000
+over 30 hours a month                  2,235,202            $268,224         $23,589,440   $23,321,215
 ```
 
 `npm run smoke` — ১২টা ধাপ:
 
 ```
-3   ৩০টা কাজ (360p আর 240p আগে)                          playable (30/75)
-4   master playlist এখন                               240p/index.m3u8, 360p/index.m3u8; Cache-Control: public, max-age=2
-5   বাকি কাজ; 720p এর টুকরো ৩ এর worker মরল                ready; ব্যর্থ 1, চালানো 76
-9   player, network 3 Mbps (৮০% নিয়ম)                  480p; প্রথম টুকরো 700 B
-11  একটা টুকরোর Cache-Control                            public, max-age=31536000, immutable
-12  queue একই কাজ আবার দিল (at-least-once)               নতুন লেখা 75টা মোট, বাদ দেওয়া 1
+3   30 jobs (360p and 240p first)                         playable (30/75)
+4   the master playlist now                               240p/index.m3u8, 360p/index.m3u8; Cache-Control: public, max-age=2
+5   the remaining jobs; the worker on 720p piece 3 died   ready; failed 1, ran 76
+9   player, network 3 Mbps (80% rule)                     480p; first piece 700 B
+11  a piece's Cache-Control                               public, max-age=31536000, immutable
+12  the queue handed out the same job again (at-least-once)  75 new writes in total, 1 skipped
 ```
 
 ## কী দেখার জন্য এটা বানানো

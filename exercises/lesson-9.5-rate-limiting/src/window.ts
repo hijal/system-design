@@ -95,12 +95,14 @@ function memory(make: () => RateLimiter): { bytesPerUser: number; entries: numbe
 function main(): void {
 	console.log(
 		`\n=== Lesson 9.5 — Window Algorithms ===\n` +
-			`   সীমা: ${LIMIT} request প্রতি ${WINDOW_MS} ms · একজন user\n`
+			`   limit: ${LIMIT} requests per ${WINDOW_MS} ms · one user\n`
 	);
 
-	console.log(`── ক. Window এর সীমানায় burst — ${LIMIT} টা ঠিক আগে, ${LIMIT} টা ঠিক পরে ──`);
 	console.log(
-		`   ${padEnd('algorithm', LABEL)}${padLeft('allowed', COL)}${padLeft('span', COL)}${padLeft('সীমার কত গুণ', COL + 4)}`
+		`── a. A burst at the window boundary — ${LIMIT} just before, ${LIMIT} just after ──`
+	);
+	console.log(
+		`   ${padEnd('algorithm', LABEL)}${padLeft('allowed', COL)}${padLeft('span', COL)}${padLeft('times the limit', COL + 4)}`
 	);
 	for (const limiter of build()) {
 		const result = boundaryBurst(limiter);
@@ -111,10 +113,10 @@ function main(): void {
 	}
 
 	console.log(
-		`\n── খ. একজন user সবচেয়ে বেশি কত পাঠাতে পারে — প্রতি ${STEP_MS} ms এ চেষ্টা, সব শুরুর সময় ধরে সবচেয়ে খারাপটা ──`
+		`\n── b. The most one user can send — an attempt every ${STEP_MS} ms, the worst over every start time ──`
 	);
 	console.log(
-		`   ${padEnd('algorithm', LABEL)}${padLeft(`worst / ${WINDOW_MS} ms`, COL + 4)}${padLeft('সীমার কত গুণ', COL + 4)}${padLeft('কোন phase এ', COL + 4)}`
+		`   ${padEnd('algorithm', LABEL)}${padLeft(`worst / ${WINDOW_MS} ms`, COL + 4)}${padLeft('times the limit', COL + 4)}${padLeft('at phase', COL + 4)}`
 	);
 	const phaseMakers: Array<[string, () => RateLimiter]> = [
 		['fixed window', () => new FixedWindowCounter(LIMIT, WINDOW_MS)],
@@ -130,9 +132,7 @@ function main(): void {
 		);
 	}
 
-	console.log(
-		`\n── গ. Memory — ${USERS.toLocaleString('en-US')} জন user, প্রত্যেকে ${LIMIT} টা request ──`
-	);
+	console.log(`\n── c. Memory — ${USERS.toLocaleString('en-US')} users, ${LIMIT} requests each ──`);
 	console.log(
 		`   ${padEnd('algorithm', LABEL)}${padLeft('entries', COL)}${padLeft('bytes/user', COL)}`
 	);

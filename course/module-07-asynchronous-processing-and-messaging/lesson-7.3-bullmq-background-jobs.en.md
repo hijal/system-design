@@ -23,7 +23,7 @@ Lesson 7.2's decision: TaskFlow's messages are of two kinds. "News" (a comment w
 Today we build it. And after building it, a test we've been waiting two lessons for. Remember Lesson 7.1's last experiment: an in-memory queue, a slow provider, and `SIGKILL` on the API process right in the middle. The result was:
 
 ```
-   told "succeeded", the email never went: 103
+   told "ok", email never sent: 103
 ```
 
 103 users saw "assigned"; their assignees never got an email; nobody even knows. Today, the same test, with BullMQ.
@@ -185,7 +185,7 @@ And the direct consequence: **the cache and the queue shouldn't be on the same R
 Now the test. The load is the same as Lesson 7.1: 20 assigns per second, 8 seconds normal → 8 seconds slow (the provider takes 2 seconds per email) → 8 seconds normal again. One worker process, concurrency 8. First, nobody dies — `npm run scenario`:
 
 ```
-   phase            API p50 / p99    API failed
+   phase            API p50 / p99     API failed
    normal             22 ms / 53 ms            0
    provider slow      30 ms / 53 ms            0
    after recovery     29 ms / 35 ms            0
@@ -202,7 +202,7 @@ Now the real test — `CRASH=api`, `SIGKILL` on the API process in the middle of
 ```
     12.0 s  API process SIGKILL — a new API is starting
 
-   phase            API p50 / p99    API failed
+   phase            API p50 / p99     API failed
    provider slow      32 ms / 53 ms            3
 
    "got 202, the email never went": 0

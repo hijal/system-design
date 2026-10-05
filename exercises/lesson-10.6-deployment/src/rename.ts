@@ -133,7 +133,7 @@ async function backfill(when: 'distinct' | 'null' = 'distinct'): Promise<string>
 		batches++;
 		await sleep(10);
 	}
-	return `backfill (${condition}): ${batches}টা batch, ${n(changed)}টা row বদলাল; এখন name ≠ title: ${n(await count(MISMATCH))}`;
+	return `backfill (${condition}): ${batches} batches, ${n(changed)} rows changed; name ≠ title now: ${n(await count(MISMATCH))}`;
 }
 
 async function count(sql: string): Promise<number> {
@@ -220,11 +220,11 @@ async function fresh(): Promise<void> {
 function header(): void {
 	console.log(
 		row([
-			['ধাপ', 44],
-			['চলছে', 14],
+			['step', 44],
+			['running', 14],
 			['op', 8],
 			['error', 8],
-			['ভুল পড়া', 10]
+			['misreads', 10]
 		])
 	);
 }
@@ -249,19 +249,19 @@ const EXPAND = 'ALTER TABLE boards ADD COLUMN name text, ALTER COLUMN title DROP
 
 async function main(): Promise<void> {
 	console.log(
-		`boards এ ${n(BOARDS)}টা row; ${INSTANCES}টা instance (প্রত্যেকে দুটো loop: ৬০% পড়া, ৩৫% লেখা, ৫% নতুন); rolling এ প্রতি ${STEP_SECONDS} s এ একটা instance`
+		`${n(BOARDS)} rows in boards; ${INSTANCES} instances (each with two loops: 60% reads, 35% writes, 5% new); rolling, one instance every ${STEP_SECONDS} s`
 	);
 	console.log(
-		'version: v1 = title পড়ে-লেখে · v1.5 = দুটোতে লেখে, title পড়ে · v2r = দুটোতে লেখে, name পড়ে · v2 = শুধু name'
+		'versions: v1 = reads and writes title · v1.5 = writes both, reads title · v2r = writes both, reads name · v2 = name only'
 	);
 
-	heading('অংশ ক — এক ধাপে rename: title → name');
+	heading('Part A — rename in one step: title → name');
 	header();
 	await fresh();
 	await play(
 		[
 			{
-				label: 'migration আগে, তারপর deploy',
+				label: 'migration first, then deploy',
 				running: 'v1 → v2',
 				seconds: 6,
 				versionAt: rolling('v1', 'v2', 2),
@@ -274,14 +274,14 @@ async function main(): Promise<void> {
 	await play(
 		[
 			{
-				label: 'deploy আগে, তারপর migration',
+				label: 'deploy first, then migration',
 				running: 'v1 → v2',
 				seconds: 6,
 				versionAt: rolling('v1', 'v2', 1),
 				actions: [{ at: 5, run: () => migrate('ALTER TABLE boards RENAME COLUMN title TO name') }]
 			},
 			{
-				label: 'তারপর rollback (migration ফেরানো হয়নি)',
+				label: 'then rollback (migration not reverted)',
 				running: 'v2 → v1',
 				seconds: 5,
 				versionAt: rolling('v2', 'v1', 1)
@@ -290,57 +290,57 @@ async function main(): Promise<void> {
 		20
 	);
 
-	heading('অংশ খ — expand / migrate / contract');
+	heading('Part B — expand / migrate / contract');
 	header();
 	await fresh();
 	await play(
 		[
 			{
-				label: '১. expand: name যোগ, title এর NOT NULL তোলা',
+				label: "1. expand: add name, drop title's NOT NULL",
 				running: 'v1',
 				seconds: 3,
 				versionAt: only('v1'),
 				actions: [{ at: 1, run: () => migrate(EXPAND) }]
 			},
 			{
-				label: '২. deploy: দুটোতে লেখা',
+				label: '2. deploy: write to both',
 				running: 'v1 → v1.5',
 				seconds: 6,
 				versionAt: rolling('v1', 'v1.5')
 			},
 			{
-				label: '৩. backfill: name = title, batch এ',
+				label: '3. backfill: name = title, in batches',
 				running: 'v1.5',
 				seconds: 4,
 				versionAt: only('v1.5'),
 				actions: [{ at: 0.5, run: () => backfill() }]
 			},
 			{
-				label: '৪. deploy: name থেকে পড়া',
+				label: '4. deploy: read from name',
 				running: 'v1.5 → v2r',
 				seconds: 6,
 				versionAt: rolling('v1.5', 'v2r')
 			},
 			{
-				label: '   rollback পরীক্ষা',
+				label: '   rollback test',
 				running: 'v2r → v1.5',
 				seconds: 6,
 				versionAt: rolling('v2r', 'v1.5')
 			},
 			{
-				label: '   আবার এগোনো',
+				label: '   forward again',
 				running: 'v1.5 → v2r',
 				seconds: 6,
 				versionAt: rolling('v1.5', 'v2r')
 			},
 			{
-				label: '৫. deploy: শুধু name এ লেখা',
+				label: '5. deploy: write only to name',
 				running: 'v2r → v2',
 				seconds: 6,
 				versionAt: rolling('v2r', 'v2')
 			},
 			{
-				label: '৬. contract: title মোছা',
+				label: '6. contract: drop title',
 				running: 'v2',
 				seconds: 3,
 				versionAt: only('v2'),
@@ -350,10 +350,10 @@ async function main(): Promise<void> {
 		30
 	);
 	console.log(
-		`   শেষে name ফাঁকা এমন row: ${n(await count('SELECT count(*) AS count FROM boards WHERE name IS NULL'))}`
+		`   rows with an empty name at the end: ${n(await count('SELECT count(*) AS count FROM boards WHERE name IS NULL'))}`
 	);
 
-	heading('অংশ গ — চারটা পরিচিত ভুল');
+	heading('Part C — four well-known mistakes');
 	header();
 	await fresh();
 	await migrate(EXPAND);
@@ -361,7 +361,7 @@ async function main(): Promise<void> {
 	await play(
 		[
 			{
-				label: 'dual-write বাদ: expand + backfill → সরাসরি v2',
+				label: 'no dual-write: expand + backfill → v2',
 				running: 'v1 → v2',
 				seconds: 6,
 				versionAt: rolling('v1', 'v2')
@@ -370,7 +370,7 @@ async function main(): Promise<void> {
 		50
 	);
 	console.log(
-		`   এখন name আর title আলাদা এমন row: ${n(await count('SELECT count(*) AS count FROM boards WHERE name IS DISTINCT FROM title'))}`
+		`   rows where name and title now differ: ${n(await count('SELECT count(*) AS count FROM boards WHERE name IS DISTINCT FROM title'))}`
 	);
 	await fresh();
 	await migrate(EXPAND);
@@ -378,7 +378,7 @@ async function main(): Promise<void> {
 	await play(
 		[
 			{
-				label: 'contract আগেভাগে: v1.5 এখনও চলছে',
+				label: 'contract too early: v1.5 still running',
 				running: 'v1.5 → v2',
 				seconds: 6,
 				versionAt: rolling('v1.5', 'v2'),
@@ -393,7 +393,7 @@ async function main(): Promise<void> {
 	await play(
 		[
 			{
-				label: 'expand এ title এর NOT NULL তোলা হয়নি',
+				label: "expand didn't drop title's NOT NULL",
 				running: 'v2r → v2',
 				seconds: 6,
 				versionAt: rolling('v2r', 'v2')
@@ -406,13 +406,13 @@ async function main(): Promise<void> {
 	await play(
 		[
 			{
-				label: 'backfill এর শর্ত name IS NULL',
+				label: 'backfill condition name IS NULL',
 				running: 'v1 → v1.5',
 				seconds: 6,
 				versionAt: rolling('v1', 'v1.5')
 			},
 			{
-				label: '   তারপর name থেকে পড়া',
+				label: '   then reading from name',
 				running: 'v1.5 → v2r',
 				seconds: 6,
 				versionAt: rolling('v1.5', 'v2r'),

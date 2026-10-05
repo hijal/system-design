@@ -63,12 +63,12 @@ data / queue  │ v1 এর লেখা event, v1 এর লেখা row  → 
 Exercise এর `npm run drain` localhost এ একটা আসল ছোট load balancer (round-robin, health check সহ) আর চারটা আসল `node:http` instance চালায়। ২০০ req/s (৮০% GET, ২০% POST) চলার সময় চারটা instance কে একটা একটা করে বদলায়। প্রতিটা নতুন instance চালু হতে ৮০০ ms লাগে, আর প্রথম ১.৫ সেকেন্ড "ঠান্ডা" থাকে (প্রতি request এ +৪০০ ms)। LB এর health check প্রতি ৫০০ ms এ, পরপর দুবার ব্যর্থ হলে instance বাদ। পাঁচ রকম নকশা:
 
 ```
-নকশা                                     request   GET ব্যর্থ   POST ব্যর্থ   ব্যর্থ মোট      > 300 ms     p99
-health check নেই, হঠাৎ kill                 3,090        130          35   165 (5.34%)        289   485 ms
-health check, হঠাৎ kill                     3,084         88          21   109 (3.53%)        250   482 ms
-health check, হঠাৎ kill, LB GET retry       3,132          0          20    20 (0.64%)        254   482 ms
-health check, SIGTERM এ শুধু close()        3,146        111          36   147 (4.67%)        264   484 ms
-graceful: readiness → অপেক্ষা → close       4,252          0           0     0 (0.00%)          3   157 ms
+design                                  request   GET fails  POST fails  total failed  > 300 ms     p99
+no health check, abrupt kill              3,090        130          35   165 (5.34%)        289   485 ms
+health check, abrupt kill                  3,084         88          21   109 (3.53%)        250   482 ms
+health check, abrupt kill, LB GET retry    3,132          0          20    20 (0.64%)        254   482 ms
+health check, only close() on SIGTERM     3,146        111          36   147 (4.67%)        264   484 ms
+graceful: readiness → wait → close       4,252          0           0     0 (0.00%)          3   157 ms
 ```
 
 (দ্বিতীয় run এ ব্যর্থ ১৬৭, ১০৭, ২০, ১৩৭, ০। আসল HTTP, তাই সংখ্যা একটু নড়ে, কিন্তু ক্রম আর শূন্যটা নড়ে না। Graceful এর run লম্বা, কারণ প্রতিটা instance বন্ধ হওয়ার আগে অপেক্ষা করে, তাই request বেশি।)
@@ -148,30 +148,30 @@ export function shutdownOnSigterm(
 `npm run rollout` এ ৩০০ req/s, ৬০,০০০ user, দুই ঘণ্টা দেখা হয়েছে। TaskFlow এর alert আছে (৫ মিনিটের error > ১% বা ধীর > ৫%), আর alert বাজার পরে মানুষের সিদ্ধান্ত নিতে ১০ মিনিট লাগে (ধরে নেওয়া)। Canary তে আছে z-test এর একটা gate (canary বনাম baseline, ১.৪ এ বিস্তারিত)। তিন রকম bug:
 
 ```
-সবার জন্য ২% error
-কৌশল                                       খারাপ request   ভুক্তভোগী user   ধরা পড়ল   কে ধরল          পুরো ফেরত
-big-bang (সব একসাথে)                               5,556      5,305 (9%)     1.0 মি   alert → মানুষ       16 মি
-rolling (২ মিনিটে ১টা)                              4,873      4,669 (8%)      12 মি   alert → মানুষ       27 মি
-blue-green                                         4,212      4,061 (7%)     1.0 মি   alert → মানুষ       11 মি
-canary, gate: error, request এলোমেলো                    4          4 (0%)     2.0 মি   gate, 1% এ         2.5 মি
-canary, gate: error, user ধরে sticky                    8          8 (0%)     1.0 মি   gate, 1% এ         1.5 মি
-canary, gate: error + latency + segment                 8          8 (0%)     1.0 মি   gate, 1% এ         1.5 মি
+2% errors for everyone
+strategy                                  bad requests  users hit    caught   caught by    reverted
+big-bang (all at once)                           5,556      5,305 (9%)     1.0 min  alert → human   16 min
+rolling (one per 2 minutes)                     4,873      4,669 (8%)      12 min  alert → human   27 min
+blue-green                                         4,212      4,061 (7%)     1.0 min  alert → human   11 min
+canary, gate: error, random per request              4          4 (0%)     2.0 min  gate, at 1%      2.5 min
+canary, gate: error, sticky per user                   8          8 (0%)     1.0 min  gate, at 1%      1.5 min
+canary, gate: error + latency + segment                 8          8 (0%)     1.0 min  gate, at 1%      1.5 min
 
-বড় business board এ ২০% error (traffic এর 1%)
-big-bang (সব একসাথে)                               4,164        582 (1%)      ধরেনি   —                    —
-rolling (২ মিনিটে ১টা)                              3,784        581 (1%)      ধরেনি   —                    —
-blue-green                                         4,174        582 (1%)      ধরেনি   —                    —
-canary, gate: error, request এলোমেলো                    8          7 (0%)      12 মি   gate, 5% এ          13 মি
-canary, gate: error, user ধরে sticky                    5          5 (0%)      11 মি   gate, 5% এ          12 মি
-canary, gate: error + latency + segment                 5          5 (0%)      11 মি   gate, 5% এ          12 মি
+20% errors on big business boards (1% of traffic)
+big-bang (all at once)                           4,164        582 (1%)      missed  —                    —
+rolling (one per 2 minutes)                     3,784        581 (1%)      missed  —                    —
+blue-green                                         4,174        582 (1%)      missed  —                    —
+canary, gate: error, random per request              8          7 (0%)      12 min  gate, at 5%       13 min
+canary, gate: error, sticky per user                   5          5 (0%)      11 min  gate, at 5%       12 min
+canary, gate: error + latency + segment                 5          5 (0%)      11 min  gate, at 5%       12 min
 
-১০% request ধীর (> ১ s), error নেই
-big-bang (সব একসাথে)                              27,589    22,021 (37%)     1.0 মি   alert → মানুষ       16 মি
-rolling (২ মিনিটে ১টা)                             29,220    23,126 (39%)      14 মি   alert → মানুষ       30 মি
-blue-green                                        20,440    17,207 (29%)     1.0 মি   alert → মানুষ       11 মি
-canary, gate: error, request এলোমেলো               28,134    22,501 (38%)      32 মি   alert → মানুষ       42 মি
-canary, gate: error, user ধরে sticky               28,010    21,751 (36%)      32 মি   alert → মানুষ       42 মি
-canary, gate: error + latency + segment               24         23 (0%)     1.0 মি   gate, 1% এ         1.5 মি
+10% of requests slow (> 1 s), no errors
+big-bang (all at once)                          27,589    22,021 (37%)     1.0 min  alert → human   16 min
+rolling (one per 2 minutes)                    29,220    23,126 (39%)      14 min  alert → human   30 min
+blue-green                                        20,440    17,207 (29%)     1.0 min  alert → human   11 min
+canary, gate: error, random per request         28,134    22,501 (38%)      32 min  alert → human   42 min
+canary, gate: error, sticky per user              28,010    21,751 (36%)      32 min  alert → human   42 min
+canary, gate: error + latency + segment               24         23 (0%)     1.0 min  gate, at 1%      1.5 min
 ```
 
 **প্রথম bug (সবার জন্য ২%)।** Big-bang আর blue-green এক মিনিটে ধরা পড়ে। Alert সঙ্গে সঙ্গে বাজে, কারণ সবাই নতুন version এ। কিন্তু "ধরা পড়া" আর "ক্ষতি থামা" আলাদা। ধরা পড়ার পরে মানুষের ১০ মিনিট, তারপর rollback। Blue-green এর rollback ৩০ সেকেন্ডে (switch ফেরানো), big-bang এর ৫ মিনিটে (আবার deploy), তাই ১১ বনাম ১৬ মিনিট। পুরো সময়টা **সবাই** নতুন version এ: ৪–৫ হাজার খারাপ request, ৭–৯% user। Rolling ধীরে ধরা পড়ে (১২ মিনিট), কারণ মোট error ১% পেরোয় শুধু যখন প্রায় অর্ধেক instance (১২টার ৬টা) নতুন version এ, আর alert এর ৫ মিনিটের window কে সেটা টের পেতে হয়। আর ফেরাতেও সময় লাগে। Canary এর ক্ষতি **চার থেকে আটটা request**, মানুষ জানার আগেই। এটাই canary এর মূল কথা: সে bug খুঁজে পাওয়া দ্রুত করে না, **bug কে ছোট রাখে যখন খুঁজে পাওয়া হচ্ছে।**
@@ -183,11 +183,11 @@ canary, gate: error + latency + segment               24         23 (0%)     1.0
 **ভালো version এর দাম।** একই কৌশল, কোনো bug ছাড়া:
 
 ```
-কৌশল                                        ১০০% এ পৌঁছায়   বাড়তি instance   ভুল rollback
-big-bang (সব একসাথে)                               1.0 মি               ০            না
-rolling (২ মিনিটে ১টা)                              22 মি              −১            না
-blue-green                                          0 s             +১২            না
-canary (তিনটাই)                                     30 মি              +৩            না
+strategy                                   reaches 100%  extra capacity  bad rollback
+big-bang (all at once)                           1.0 min             0           no
+rolling (one per 2 minutes)                     22 min            −1           no
+blue-green                                          0 s             +12           no
+canary (all three)                                  30 min              +3            no
 ```
 
 প্রতিটা কৌশল কিছু একটা দিয়ে নিরাপত্তা কেনে। Big-bang কিছুই দেয় না, তাই কিছুই পায় না। Rolling সময় দেয় (আর deploy এর সময়ে এক instance কম capacity)। Blue-green টাকা দেয় (দ্বিগুণ machine, অন্তত কিছুক্ষণ)। Canary সময় দেয় (৩০ মিনিট), কিছু বাড়তি instance, আর সবচেয়ে বড় কথা, **একটা ভালো gate বানানোর পরিশ্রম**। আর এগুলো একে অপরকে বাদ দেয় না। বাস্তবে প্রায়ই blue-green এর দুটো pool এর মাঝে canary এর মতো ধাপে traffic সরানো হয়, বা rolling এর প্রতিটা ধাপে একটা gate বসানো হয়।
@@ -197,16 +197,16 @@ canary (তিনটাই)                                     30 মি       
 Canary এর gate একটা পরিসংখ্যানের প্রশ্নের উত্তর দেয়: "canary এর error অনুপাত কি baseline এর চেয়ে বেশি, নাকি এটা ভাগ্য?" Exercise এর gate একটা two-proportion z-test (দুটো অনুপাতের পার্থক্যকে তার প্রত্যাশিত এলোমেলো ওঠানামা দিয়ে ভাগ করা)। z > ৩ হলে "আসল পার্থক্য"। `npm run rollout` এর অংশ গ তে baseline error ০.১%, প্রতিটা ঘর ৪০০বার চালানো:
 
 ```
-canary   সময়   canary request   +০.২% ধরে   +১% ধরে   ভুল alarm   প্রতি মিনিটে দেখলে   +১% এ ক্ষতি
-1%       5 মি             900        25%      100%        1.5%               2.8%             9
-1%      10 মি           1,800        41%      100%        1.3%               4.8%            18
-1%      30 মি           5,400        80%      100%        1.0%               5.5%            54
-5%       5 মি           4,500        72%      100%        0.0%               1.0%            45
-5%      10 মি           9,000        95%      100%        0.5%               2.8%            90
-5%      30 মি          27,000       100%      100%        0.5%               4.3%           270
-25%      5 মি          22,500       100%      100%        0.3%               0.5%           225
-25%     10 মি          45,000       100%      100%        0.0%               0.5%           450
-25%     30 মি         135,000       100%      100%        0.0%               1.8%         1,350
+canary   time  canary request   +0.2% hit  +1% hit  false pos.  checked per minute  +1% damage
+1%       5 min           900        25%      100%        1.5%               2.8%             9
+1%      10 min         1,800        41%      100%        1.3%               4.8%            18
+1%      30 min         5,400        80%      100%        1.0%               5.5%            54
+5%       5 min         4,500        72%      100%        0.0%               1.0%            45
+5%      10 min         9,000        95%      100%        0.5%               2.8%            90
+5%      30 min        27,000       100%      100%        0.5%               4.3%           270
+25%      5 min        22,500       100%      100%        0.3%               0.5%           225
+25%     10 min        45,000       100%      100%        0.0%               0.5%           450
+25%     30 min       135,000       100%      100%        0.0%               1.8%         1,350
 ```
 
 তিনটা শিক্ষা:
@@ -220,9 +220,9 @@ canary   সময়   canary request   +০.২% ধরে   +১% ধরে  
 **কাদের canary তে পাঠাবে।** `npm run rollout` এর অংশ ঘ তে canary ৫% এ এক ঘণ্টা থাকে:
 
 ```
-routing              নতুন version ছুঁয়েছে   দুই version এর মাঝে লাফিয়েছে
-request এলোমেলো           35,663 (59%)            35,663 (59%)
-user ধরে sticky            2,963 (5%)                  0 (0%)
+routing              saw the new version  switched between versions
+random per request     35,663 (59%)            35,663 (59%)
+sticky per user           2,963 (5%)                  0 (0%)
 ```
 
 Request এলোমেলো ভাগ করলে ৫% এর canary আসলে **৫৯% user** ছোঁয়। প্রত্যেক user ঘণ্টায় ~১৮টা request করে, তাদের কোনো একটা canary তে পড়লেই হলো। আর সেই ৫৯% দুই version এর মাঝে লাফায়: একবার নতুন UI, পরের click এ পুরনো। Bug থাকলে অভিযোগ আসে প্রায় সবার কাছ থেকে, আর debug করা কঠিন, কারণ একই user এর দুই রকম অভিজ্ঞতা। User (বা workspace) এর id এর hash ধরে canary বাছলে ৫% মানে সত্যিই ৫% মানুষ, প্রতিবার একই মানুষ। Blast radius (10.3) মাপা যায়, আর মানুষের কাছে আচরণ স্থির থাকে।
@@ -240,8 +240,8 @@ Flag দিয়ে deploy আর release আলাদা হয়ে যা�
 **(ক) কীভাবে ভাগ করবে।** ৬০,০০০ user, প্রত্যেকে দিনে ২০টা page, দুটো আলাদা flag ১০% করে:
 
 ```
-কীভাবে ভাগ                 নতুনটা দেখেছে   দুটোই দেখেছে (লাফ)   দুই flag এই আছে
-প্রতি request এ এলোমেলো      52,705 (88%)              52,705             46,134
+how it splits          saw the new  saw both (flip)  in both flags
+random per request      52,705 (88%)              52,705             46,134
 hash(user)                   5,869 (10%)                   0              5,869
 hash(flag + user)            6,041 (10%)                   0                616
 ```
@@ -266,11 +266,11 @@ export function isOn(flag: string, userId: string, percent: number): boolean {
 **(খ) Kill switch কত দ্রুত।** ১২টা instance, নতুন feature এ ১০০ req/s, তার ২০% ব্যর্থ। "বন্ধ করো" সিদ্ধান্তের পরে:
 
 ```
-কীভাবে বন্ধ                    সব instance বন্ধ (গড়)   সবচেয়ে খারাপ   খারাপ request (গড়)
-flag, ৫ মিনিটে poll                          4.6 মি          5.0 মি              2,998
-flag, 30 s এ poll                              28 s            30 s                300
+how it turns off           all off (avg)          worst    bad requests (avg)
+flag, poll every 5 minutes                4.6 min        5.0 min            2,998
+flag, poll every 30 s                          28 s            30 s                300
 flag, streaming push                            3 s             3 s                 40
-flag নেই: rollback deploy                     11 মি            11 মি              9,900
+no flag: rollback deploy                     11 min          11 min            9,900
 ```
 
 Flag না থাকলে বন্ধ করা মানে rollback deploy (pipeline ৫ মিনিট + rolling)। ৯,৯০০টা খারাপ request। Streaming push এ ৪০। মাঝের সারি দুটো দেখায় poll এর interval কোথায় দাম নেয়। আর 10.3 এর static stability মনে রাখো: flag service মরে গেলে instance শেষ জানা মান ধরে চলে। তাই kill switch এর জন্য একটা দ্বিতীয় পথ রাখা ভালো (ধরো deploy ছাড়া বদলানো যায় এমন environment এর config), যাতে ঠিক যে মুহূর্তে flag service ও মরা, তখনও feature বন্ধ করা যায়।
@@ -278,11 +278,11 @@ Flag না থাকলে বন্ধ করা মানে rollback deploy 
 **(গ) দুই service, একটা সিদ্ধান্ত।** BFF নতুন UI দেখায়, API নতুন আকারের উত্তর দেয়। ১০ মিনিট, ৫ মিনিটে flag ১০% থেকে ৫০%:
 
 ```
-কে কীভাবে ঠিক করে                               request   UI আর API অমিল
-দুজনেই hash(user), একই মুহূর্তে config          180,000        0 (0.00%)
+who decides, how                          request  UI/API mismatch
+both hash(user), config at the same moment  180,000        0 (0.00%)
 BFF hash(user), API hash(session)               180,000   61,331 (34.07%)
-দুজনেই hash(user), প্রত্যেকে নিজে 30 s poll      180,000    1,154 (0.64%)
-BFF একবার ঠিক করে, header এ পাঠায়               180,000        0 (0.00%)
+both hash(user), each polls every 30 s   180,000    1,154 (0.64%)
+BFF decides once, sends it in a header     180,000        0 (0.00%)
 ```
 
 শুক্রবারের দ্বিতীয় সারি: একজন session ধরে hash করছিল, আরেকজন user ধরে। **এক তৃতীয়াংশ request** এ UI আর API দুই version এ। আর একই hash হলেও (তৃতীয় সারি), দুই service আলাদা মুহূর্তে নতুন শতাংশ জানে, তাই ১০%→৫০% এর পরের কয়েক সেকেন্ডে অমিল হয়। Experiment ৩ এ poll ৫ মিনিট করলে ৬.৫৩%। উপায় শেষ সারিটা: **সিদ্ধান্ত একবার নাও, তারপর পাঠাও।** BFF (বা gateway) flag দেখে, আর নিচের service কে header এ বলে দেয় (`x-flags: task-api-v2`)। 10.4 এর trace id এর একই যুক্তি: যা পুরো request জুড়ে একই থাকতে হবে, সেটা একবার ঠিক হয় আর সাথে যায়। আর 10.5 এর শিক্ষা মনে রাখো: gateway client এর পাঠানো `x-flags` ফেলে দেয়, নইলে যে কেউ নিজের জন্য flag চালু করতে পারে।
@@ -322,13 +322,13 @@ app SELECT                             ⏳ ………………………………�
 `npm run locks` আসল Postgres 17 এ চলে, `tasks` table এ ১০ লাখ row, আর পাশে ৮টা worker সারাক্ষণ id ধরে `SELECT` আর `UPDATE` করছে (চলমান app)। প্রতিটা পরিবর্তনের সময় app কী অনুভব করল:
 
 ```
-পরিবর্তন                                      সময়    app op   read সর্বোচ্চ   write সর্বোচ্চ   > 500 ms
+change                                      time   app op   read max     write max     > 500 ms
 ADD COLUMN archived boolean DEFAULT false      10 ms       15          2 ms           3 ms          0
 ADD COLUMN score float DEFAULT random()       669 ms       38        646 ms         646 ms          8
-ADD COLUMN priority int, সামনে 6 s এর query   6.05 s      476        5.70 s         5.70 s          8
-   ALTER নিজে অপেক্ষা করল 5.71 s — আর তার পেছনে সবাই
-একই, lock_timeout 200 ms + retry              6.38 s    7,421        200 ms         202 ms          0
-   6বার চেষ্টা, প্রতিবার 200 ms পরে হাল ছেড়ে সরে দাঁড়াল
+ADD COLUMN priority int, behind a 6 s query  6.05 s      476        5.70 s         5.70 s          8
+   the ALTER itself waited 5.71 s — and everyone behind it
+the same, lock_timeout 200 ms + retry         6.38 s    7,421        200 ms         202 ms          0
+   6 attempts, each giving up and stepping aside after 200 ms
 ```
 
 - **ধ্রুবক default এর `ADD COLUMN`: ১০ ms।** Postgres 11 থেকে ধ্রুবক default শুধু catalog এ লেখা হয়, row ছোঁয়া হয় না।
@@ -339,11 +339,11 @@ ADD COLUMN priority int, সামনে 6 s এর query   6.05 s      476     
 **Index আর backfill:**
 
 ```
-পরিবর্তন                                      সময়    app op   read সর্বোচ্চ   write সর্বোচ্চ   > 500 ms
+change                                      time   app op   read max     write max     > 500 ms
 CREATE INDEX                                  209 ms       22          0 ms         198 ms          0
 CREATE INDEX CONCURRENTLY                     332 ms      455          1 ms           3 ms          0
-একটা UPDATE এ সব                              4.92 s      483          0 ms         4.83 s          8
-batch এ (10,000টা করে, মাঝে ২০ ms)            6.16 s    8,271          0 ms          36 ms          0
+all in one UPDATE                            4.92 s      483          0 ms         4.83 s          8
+in batches (10,000 each, 20 ms apart)     6.16 s    8,271          0 ms          36 ms          0
 ```
 
 - **`CREATE INDEX` লেখা আটকায়, পড়া না।** এটা SHARE lock নেয়: read চলে, write অপেক্ষা করে (সর্বোচ্চ ১৯৮ ms)। ১০ লাখ row এ ছোট শোনায়। ৫.৪ এ বলেছিলাম ১০ কোটিতে এটা মিনিট। `CONCURRENTLY` ধীর (৩৩২ ms), কিন্তু write এর সর্বোচ্চ ৩ ms। দুটো দাম আছে: এটা transaction এর ভেতরে চলে না, আর মাঝপথে ব্যর্থ হলে একটা `INVALID` index রেখে যায়, যাকে মুছে আবার চালাতে হয়।
@@ -353,9 +353,9 @@ batch এ (10,000টা করে, মাঝে ২০ ms)            6.16 s    
 **NOT NULL:**
 
 ```
-SET NOT NULL (সরাসরি)                         153 ms       23        140 ms         140 ms          0
+SET NOT NULL (directly)                     153 ms       23        140 ms         140 ms          0
 CHECK NOT VALID → VALIDATE → SET NOT NULL     111 ms      156          2 ms           4 ms          0
-   NOT VALID 5 ms, VALIDATE 78 ms (lock: SHARE UPDATE EXCLUSIVE), SET NOT NULL 5 ms (scan বাদ), DROP CHECK 5 ms
+   NOT VALID 5 ms, VALIDATE 78 ms (lock: SHARE UPDATE EXCLUSIVE), SET NOT NULL 5 ms (scan skipped), DROP CHECK 5 ms
 ```
 
 `SET NOT NULL` কে পুরো table পড়ে দেখতে হয় কোনো null আছে কিনা, আর সেটা করে ACCESS EXCLUSIVE ধরে। ১০ লাখ row এ ১৪০ ms সব আটকে। কৌশলটা: আগে একটা `CHECK (priority IS NOT NULL) NOT VALID` constraint যোগ করো। এটা মুহূর্তের, কারণ পুরনো row যাচাই হয় না, শুধু নতুন লেখা। তারপর `VALIDATE CONSTRAINT`। এটা পুরো table পড়ে, কিন্তু একটা হালকা lock (SHARE UPDATE EXCLUSIVE) দিয়ে, যা read বা write আটকায় না। তারপর `SET NOT NULL`। Postgres 12 থেকে একটা বৈধ CHECK constraint থাকলে সে scan বাদ দেয় (৫ ms)। শেষে CHECK টা মুছে ফেলো।
@@ -418,12 +418,12 @@ v2   = শুধু name পড়ে আর লেখে                       
 **এক ধাপে (বুধবার):**
 
 ```
-ধাপ                                          চলছে       op    error   ভুল পড়া
-migration আগে, তারপর deploy                  v1 → v2   9,544    4,223          0
+step                                        running   op    error  misreads
+migration first, then deploy               v1 → v2   9,544    4,223          0
    v1: column "title" of relation "boards" does not exist
-deploy আগে, তারপর migration                  v1 → v2   9,905    4,193          0
+deploy first, then migration               v1 → v2   9,905    4,193          0
    v2: column "name" of relation "boards" does not exist
-তারপর rollback (migration ফেরানো হয়নি)       v2 → v1   8,306    4,219          0
+then rollback (migration not reverted)  v2 → v1   8,306    4,219          0
    v1: column "title" does not exist
 ```
 
@@ -444,17 +444,17 @@ deploy আগে, তারপর migration                  v1 → v2   9,905  
 আর মাপা ফল:
 
 ```
-ধাপ                                          চলছে          op    error   ভুল পড়া
-১. expand: name যোগ, title এর NOT NULL তোলা   v1           4,946       0          0
-২. deploy: দুটোতে লেখা                        v1 → v1.5    9,883       0          0
-৩. backfill: name = title, batch এ            v1.5         6,607       0          0
-   backfill (name IS DISTINCT FROM title): 11টা batch, 18,287টা row বদলাল; এখন name ≠ title: 0
-৪. deploy: name থেকে পড়া                      v1.5 → v2r   9,929       0          0
-   rollback পরীক্ষা                           v2r → v1.5   9,916       0          0
-   আবার এগোনো                                v1.5 → v2r   9,951       0          0
-৫. deploy: শুধু name এ লেখা                   v2r → v2     9,885       0          0
-৬. contract: title মোছা                       v2           4,959       0          0
-   শেষে name ফাঁকা এমন row: 0
+step                                        running      op    error  misreads
+1. expand: add name, drop title's NOT NULL  v1           4,946       0          0
+2. deploy: write to both                 v1 → v1.5    9,883       0          0
+3. backfill: name = title, in batches         v1.5         6,607       0          0
+   backfill (name IS DISTINCT FROM title): 11 batches, 18,287 rows changed; name ≠ title now: 0
+4. deploy: read from name                  v1.5 → v2r   9,929       0          0
+   rollback test                           v2r → v1.5   9,916       0          0
+   forward again                          v1.5 → v2r   9,951       0          0
+5. deploy: write only to name             v2r → v2     9,885       0          0
+6. contract: drop title                     v2           4,959       0          0
+   rows with an empty name at the end: 0
 ```
 
 প্রতিটা ধাপে শূন্য error, শূন্য ভুল পড়া। আর মাঝখানে একটা rollback, সেটাও শূন্য। দাম হলো একটা পরিবর্তনের জন্য **চারটা deploy আর দুটো migration**, কয়েক দিন বা সপ্তাহ জুড়ে। এটাই zero-downtime এর আসল দাম: সময় আর ধৈর্য, কোনো যন্ত্র না।
@@ -464,16 +464,16 @@ deploy আগে, তারপর migration                  v1 → v2   9,905  
 **চারটা পরিচিত ভুল**, প্রতিটা মাপা:
 
 ```
-ধাপ                                          চলছে          op    error   ভুল পড়া
-dual-write বাদ: expand + backfill → সরাসরি v2  v1 → v2      9,942       0        278
-   এখন name আর title আলাদা এমন row: 3,711
-contract আগেভাগে: v1.5 এখনও চলছে              v1.5 → v2    9,944     880          1
+step                                        running      op    error  misreads
+no dual-write: expand + backfill → v2       v1 → v2      9,942       0        278
+   rows where name and title now differ: 3,711
+contract too early: v1.5 still running    v1.5 → v2    9,944     880          1
    v1.5: column "title" of relation "boards" does not exist
-expand এ title এর NOT NULL তোলা হয়নি          v2r → v2     9,961     321          0
+expand didn't drop title's NOT NULL        v2r → v2     9,961     321          0
    v2: null value in column "title" of relation "boards" violates not-null constraint
-backfill এর শর্ত name IS NULL                 v1 → v1.5    9,897       0          0
-   তারপর name থেকে পড়া                       v1.5 → v2r   9,858       0          3
-   backfill (name IS NULL): 11টা batch, 18,276টা row বদলাল; এখন name ≠ title: 6
+backfill condition name IS NULL              v1 → v1.5    9,897       0          0
+   then reading from name                v1.5 → v2r   9,858       0          3
+   backfill (name IS NULL): 11 batches, 18,276 rows changed; name ≠ title now: 6
 ```
 
 1. **Dual-write বাদ দিলে কোনো error নেই, আর সেটাই বিপদ।** Backfill এর পরে সরাসরি v2। Rolling এর সময় v1 instance গুলো `title` এ লেখে, v2 গুলো `name` এ। ছয় সেকেন্ডে ২৭৮টা ভুল পড়া, আর ৩,৭১১টা row এর দুই column এ দুই রকম মান। কোনো alert বাজত না। User দেখত তার সদ্য বদলানো board এর নাম আগের মতো। আর contract এর পরে `title` এর পরিবর্তনগুলো চিরতরে হারাত।
@@ -575,7 +575,7 @@ Deployment দুইভাবে আসে। সরাসরি: "how would you
 (ক) ধাপগুলো:
 
 ```
-ধাপ  schema / data                                         code                         rollback
+step  schema / data                                         code                         rollback
 ১    ADD COLUMN project_id bigint NULL,                     v1                           হ্যাঁ
      ADD COLUMN role text NOT NULL DEFAULT 'member'
      (দুটোই মুহূর্তের: null আর ধ্রুবক default; lock_timeout + retry)

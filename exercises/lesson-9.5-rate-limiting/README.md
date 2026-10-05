@@ -62,12 +62,12 @@ npm run distributed
 সাধারণ পরীক্ষায় ভালো দেখালেও সব phase ধরে প্রায় fixed window এর মতোই খারাপ:
 
 ```
-── ক. Window এর সীমানায় burst — 10 টা ঠিক আগে, 10 টা ঠিক পরে ──
+── a. A burst at the window boundary — 10 just before, 10 just after ──
    fixed window                    20         24 ms              2.0x
    sliding log                     10          9 ms              1.0x
    sliding counter                 11         16 ms              1.1x
 
-── খ. একজন user সবচেয়ে বেশি কত পাঠাতে পারে — সব শুরুর সময় ধরে সবচেয়ে খারাপটা ──
+── b. The most one user can send — the worst over every start time ──
    fixed window                        20              2.0x            100 ms
    sliding log                         10              1.0x              0 ms
    sliding counter                     19              1.9x            820 ms
@@ -79,7 +79,7 @@ Memory তে `sliding log` এর দাম সবচেয়ে বেশি 
 **leaky bucket 3**; আর capacity বাড়ালে burst এ পাশ করা সংখ্যা ঠিক capacity এর সমান (1 → 1, 5 → 5, 10 → 10):
 
 ```
-   capacity                     passed       burst এ পাশ         চাপ/250ms
+   capacity                     passed  passed in burst       load/250ms
    1                                16                1                2
    10                               25               10               11
    50                               45               30               31
@@ -88,9 +88,9 @@ Memory তে `sliding log` এর দাম সবচেয়ে বেশি 
 `npm run distributed` — সবচেয়ে জরুরি সংখ্যা: **৩ টা instance মানে সীমার ৩ গুণ**।
 
 ```
-   গোনা কোথায়                          200      429     আসল সীমা    store call
-   প্রতি instance এর নিজের গোনা          30       30         3.0x             0
-   ভাগ করা store (RTT 1 ms)             10       50         1.0x            60
+   where counted                   200      429     real limit  store call
+   each instance counts its own    30       30         3.0x             0
+   shared store (RTT 1 ms)            10       50         1.0x            60
 ```
 
 আর 429 এর উত্তরে `x-ratelimit-remaining: 0` আর `retry-after: 1s` থাকবে।

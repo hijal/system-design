@@ -97,10 +97,10 @@ SELECT id, title, status FROM tasks WHERE "assigneeId" = 42 AND status <> 'done'
 Lab এর ধাপ ১ (আমার মেশিনে, সব page memory তে গরম, ৫ বারের median):
 
 ```
-index                                সময়      pages   plan
-index নেই                        25.76 ms    8,399   Gather → Seq Scan
-(assigneeId)                      0.15 ms      203   Bitmap Heap Scan → Bitmap Index Scan   (index: 6728 kB)
-(assigneeId) WHERE status <> done 0.07 ms       70   Bitmap Heap Scan → Bitmap Index Scan   (index: 2072 kB)
+index                                 time   pages   plan
+no index                          25.76 ms   8,399   Gather → Seq Scan
+(assigneeId)                       0.15 ms     203   Bitmap Heap Scan → Bitmap Index Scan   (index: 6728 kB)
+(assigneeId) WHERE status <> done  0.07 ms      70   Bitmap Heap Scan → Bitmap Index Scan   (index: 2072 kB)
 ```
 
 Index ছাড়া পুরো table (৮,৩৯৯টা page) পড়া। একটা সাধারণ index দিলে ~১৭০ গুণ দ্রুত।
@@ -138,11 +138,11 @@ WHERE "projectId" = 7 ORDER BY "createdAt" DESC LIMIT 20
 Lab এর ধাপ ২ — একই দুটো column, ভিন্ন ক্রম:
 
 ```
-index                           সময়      pages   plan
-index নেই                    20.46 ms    8,473   Limit → Gather Merge → Sort → Seq Scan
-(projectId)                   0.42 ms      504   Limit → Sort → Bitmap Heap Scan → Bitmap Index Scan
-(createdAt, projectId) উল্টো   0.47 ms      188   Limit → Index Scan Backward
-(projectId, createdAt)        0.04 ms       23   Limit → Index Scan Backward
+index                               time   pages   plan
+no index                        20.46 ms   8,473   Limit → Gather Merge → Sort → Seq Scan
+(projectId)                      0.42 ms     504   Limit → Sort → Bitmap Heap Scan → Bitmap Index Scan
+(createdAt, projectId) reversed  0.47 ms     188   Limit → Index Scan Backward
+(projectId, createdAt)           0.04 ms      23   Limit → Index Scan Backward
 ```
 
 `(projectId, createdAt)` এ index এর ভেতরে project 7 এর সব entry পাশাপাশি, আর **ইতিমধ্যেই `createdAt` অনুযায়ী সাজানো**। Postgres শুধু project 7 এর অংশের শেষ মাথায় গিয়ে পেছনের দিকে (`Backward`) ২০টা পড়ে থেমে যায়। কোনো Sort node নেই, ৫০০টা row আনা নেই — ২৩টা page। শুধু `(projectId)` এর চেয়ে ১০ গুণ দ্রুত।
@@ -180,9 +180,9 @@ SELECT count(*) FROM tasks WHERE "createdAt" >= '2026-09-24'
 Lab এর ধাপ ৩:
 
 ```
-index                     সময়      pages   plan
-(projectId, createdAt) 25.11 ms    8,399   Aggregate → Gather → Aggregate → Seq Scan
-(createdAt)             0.15 ms        8   Aggregate → Index Only Scan
+index                       time   pages   plan
+(projectId, createdAt)  25.11 ms   8,399   Aggregate → Gather → Aggregate → Seq Scan
+(createdAt)              0.15 ms       8   Aggregate → Index Only Scan
 ```
 
 `(projectId, createdAt)` index এ `createdAt` আছে — তবু Postgres পুরো table পড়ল। টেলিফোন ডিরেক্টরি দিয়ে "সব করিম" খোঁজার মতো: `createdAt` এর মান index এ ২০০০টা আলাদা জায়গায় ছড়ানো (প্রতিটা project এর ভেতরে একটা করে)।
@@ -196,9 +196,9 @@ index                     সময়      pages   plan
 **Column এর উপর function।** "১ সেপ্টেম্বরে তৈরি task" — স্বাভাবিকভাবে লেখা:
 
 ```sql
-WHERE "createdAt"::date = '2026-09-01'          -- ৩৩.৫৪ ms, ৮,৩৯৯ pages, Seq Scan
+WHERE "createdAt"::date = '2026-09-01'          -- 33.54 ms, 8,399 pages, Seq Scan
 WHERE "createdAt" >= '2026-09-01'
-  AND "createdAt" <  '2026-09-02'               --  ০.১৬ ms,     ৮ pages, Index Only Scan
+  AND "createdAt" <  '2026-09-02'               --  0.16 ms,     8 pages, Index Only Scan
 ```
 
 একই প্রশ্ন, একই `(createdAt)` index — ২০০ গুণ পার্থক্য। কারণ index টা `createdAt` এর মান দিয়ে sorted, `createdAt::date` এর মান দিয়ে না। Column এর উপর কোনো function বা cast বসালে Postgres কে **প্রতিটা row এ** সেটা হিসাব করে দেখতে হয় — index এর sorted ক্রম আর কাজে আসে না। সমাধান সাধারণত query টা এমনভাবে লেখা যাতে column একা থাকে, আর হিসাবটা অন্য দিকে যায় (এখানে range)।
@@ -217,7 +217,7 @@ WHERE "createdAt" >= '2026-09-01'
 ```
 (title) + LIKE '%bug%'                28.25 ms   8,399 pages   Seq Scan
 (title) + LIKE 'Fix bug #1234%'       23.52 ms   8,399 pages   Seq Scan
-(title text_pattern_ops) + একই LIKE    0.03 ms       5 pages   Index Only Scan
+(title text_pattern_ops) + same LIKE   0.03 ms       5 pages   Index Only Scan
 ```
 
 - `'%bug%'` — শুরুতে `%` মানে "মাঝখানে যেকোনো জায়গায়"। Sorted ক্রম দিয়ে এটা খোঁজা অসম্ভব — B-tree এখানে কখনোই কাজে আসবে না। এর জন্য আলাদা ধরনের index লাগে (Lesson 8.3 এর inverted index, বা Postgres এর `pg_trgm`)।
@@ -269,10 +269,10 @@ CREATE INDEX tasks_project_created_cover ON tasks ("projectId", "createdAt") INC
 Exercise এর `npm run writecost` — ২ লাখ row insert, primary key এর বাইরে ০, ৩ আর ৬টা index:
 
 ```
-index (primary key বাদে)   সময়               WAL        index এর মোট আকার
- 0টা                        418 ms (1.0x)     31.7 MB      4.3 MB
- 3টা                       1218 ms (2.9x)     77.9 MB     21.5 MB
- 6টা                       1999 ms (4.8x)    126.9 MB     43.4 MB
+indexes (besides the PK)   time               WAL        total index size
+ 0                          418 ms (1.0x)     31.7 MB      4.3 MB
+ 3                         1218 ms (2.9x)     77.9 MB     21.5 MB
+ 6                         1999 ms (4.8x)    126.9 MB     43.4 MB
 ```
 
 ছয়টা index মানে insert প্রায় **৫ গুণ ধীর**, আর WAL **৪ গুণ** — Lesson 5.3 এর write amplification, সরাসরি মাপা। আর মনে রাখো, WAL বেশি মানে replica তে পাঠানোর data ও বেশি (Lesson 5.7)।

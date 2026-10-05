@@ -15,13 +15,13 @@ import {
 } from './db';
 import { mulberry32, ms, pad, percentile, sleep } from './random';
 
-// Lesson 9.3 §১.২–১.৩ — Two-phase commit (2PC), Postgres এর আসল PREPARE TRANSACTION দিয়ে।
+// Lesson 9.3 §1.2–1.3 — two-phase commit (2PC), with Postgres's real PREPARE TRANSACTION.
 //
-// "Task তৈরি" = tasks_svc এ task এর row + billing_svc এ workspace এর task_count + 1 — Lesson 9.1 এর একই
-// operation, একই seed, একই ৮৩টা crash। এবার দুটো database কে 2PC দিয়ে এক সিদ্ধান্তে বাঁধা:
-//   ক. crash হলে কী হয়, আর দাম কত (ops/s, p50) — এক transaction আর দুটো আলাদা লেখার পাশে
-//   খ. coordinator PREPARE এর পরে মারা গেলে: in-doubt transaction আর তাদের lock — বাকিদের কী হয়
-//   গ. coordinator ফিরে এসে log পড়ে সিদ্ধান্ত দিলে, বনাম একটা participant অপেক্ষা না করে নিজে সিদ্ধান্ত নিলে
+// "Create task" = a task row in tasks_svc + the workspace's task_count + 1 in billing_svc — the same operation as
+// Lesson 9.1, the same seed, the same 83 crashes. This time the two databases are bound to one decision with 2PC:
+//   a. what happens on a crash, and the price (ops/s, p50) — next to one transaction and two separate writes
+//   b. when the coordinator dies after PREPARE: in-doubt transactions and their locks — what happens to everyone else
+//   c. the coordinator coming back and deciding from its log, vs a participant deciding on its own without waiting
 
 const cfg = z
 	.object({
@@ -51,7 +51,7 @@ async function reset(): Promise<void> {
 		CREATE TABLE tasks (id bigserial PRIMARY KEY, workspace_id int NOT NULL REFERENCES workspaces, title text NOT NULL);`);
 	await mono.end();
 	const tasks = pool('tasks_svc', 1);
-	// twopc_log — coordinator এর সিদ্ধান্তের খাতা। Coordinator এখানে work service, তাই তার নিজের database এ।
+	// twopc_log — the coordinator's ledger of decisions. Here the coordinator is the work service, so it's in its own database.
 	await tasks.query(`
 		DROP TABLE IF EXISTS tasks; DROP TABLE IF EXISTS twopc_log;
 		CREATE TABLE tasks (id bigserial PRIMARY KEY, workspace_id int NOT NULL, title text NOT NULL);
@@ -74,10 +74,10 @@ const closeAll = async (ps: Participants): Promise<void> => {
 	await ps.billing.end();
 };
 
-// কোথায় থামবে: 'none' — পুরো protocol; বাকিগুলো coordinator এর মৃত্যুর তিনটা মুহূর্ত
+// where it stops: 'none' — the whole protocol; the rest are three moments of the coordinator's death
 type Stop = 'none' | 'crash-before-prepare' | 'die-after-prepare' | 'die-after-decision';
 
-// Coordinator — এখানে work service নিজেই (সে-ই "task তৈরি" শুরু করে)
+// The coordinator — here the work service itself (it is the one starting "create task")
 async function twoPhase(
 	ps: Participants,
 	op: Op,
@@ -90,30 +90,30 @@ async function twoPhase(
 	let destroy = false;
 	try {
 		await Promise.all([a.query('BEGIN'), b.query('BEGIN')]);
-		// lock_timeout: row এর lock এর জন্য সর্বোচ্চ কত ms অপেক্ষা; 0 মানে চিরকাল (Postgres এর default)
+		// lock_timeout: the longest to wait for a row lock, in ms; 0 means forever (Postgres's default)
 		await b.query(`SET LOCAL lock_timeout = ${lockTimeoutMs}`);
-		// কাজ: প্রতিটা participant নিজের অংশ লেখে — এখনো commit না, row এর lock ধরা
+		// the work: each participant writes its own part — not committed yet, holding the row locks
 		await a.query(insertTask, [op.workspaceId, op.title]);
 		if (stop === 'crash-before-prepare') throw new Crash();
 		await b.query(bumpCounter, [op.workspaceId]);
-		// Phase 1 — prepare: "commit করতে পারবে?" প্রতিটা participant নিজের অংশ disk এ লিখে "হ্যাঁ" বলে।
-		// এরপর সে আর নিজে থেকে commit বা rollback করতে পারে না — lock ধরে coordinator এর অপেক্ষা।
+		// Phase 1 — prepare: "can you commit?" Each participant writes its part to disk and says "yes".
+		// After this it can no longer commit or roll back on its own — it holds the locks and waits for the coordinator.
 		await Promise.all([
 			a.query(`PREPARE TRANSACTION '${gid}:tasks'`),
 			b.query(`PREPARE TRANSACTION '${gid}:billing'`)
 		]);
 		prepared = true;
-		if (stop === 'die-after-prepare') return; // coordinator মারা গেল — সিদ্ধান্ত কোথাও লেখা নেই
-		// সিদ্ধান্ত coordinator এর নিজের log এ। এই লেখাটা commit হওয়াই পুরো transaction এর commit এর মুহূর্ত।
+		if (stop === 'die-after-prepare') return; // the coordinator died — the decision isn't written anywhere
+		// The decision goes in the coordinator's own log. This write committing is the moment the whole transaction commits.
 		await a.query('INSERT INTO twopc_log (gid, decision) VALUES ($1, $2)', [gid, 'commit']);
-		if (stop === 'die-after-decision') return; // সিদ্ধান্ত লেখা হলো, কিন্তু কাউকে জানানো হলো না
-		// Phase 2 — commit: সিদ্ধান্ত সবাইকে
+		if (stop === 'die-after-decision') return; // the decision is written, but nobody was told
+		// Phase 2 — commit: the decision to everyone
 		await Promise.all([
 			a.query(`COMMIT PREPARED '${gid}:tasks'`),
 			b.query(`COMMIT PREPARED '${gid}:billing'`)
 		]);
 	} catch (error: unknown) {
-		// Crash এ connection কেটে যায় — prepare না হওয়া transaction Postgres নিজেই ROLLBACK করে
+		// a crash drops the connection — Postgres itself ROLLs BACK a transaction that was not prepared
 		if (error instanceof Crash) destroy = true;
 		else if (!prepared) await Promise.all([a.query('ROLLBACK'), b.query('ROLLBACK')]);
 		throw error;
@@ -123,7 +123,7 @@ async function twoPhase(
 	}
 }
 
-// ── ক. crash আর দাম ──
+// ── a. crash and the price ──
 
 type Path = {
 	name: string;
@@ -135,7 +135,7 @@ type Path = {
 function monolithPath(): Path {
 	const db = pool('taskflow', cfg.CONCURRENCY);
 	return {
-		name: 'monolith: একটা transaction (9.1)',
+		name: 'monolith: one transaction (9.1)',
 		async run(op) {
 			const client = await db.connect();
 			try {
@@ -164,9 +164,9 @@ function monolithPath(): Path {
 function twoWritesPath(): Path {
 	const ps = participants();
 	return {
-		name: 'services: দুটো আলাদা লেখা (9.1)',
+		name: 'services: two separate writes (9.1)',
 		async run(op) {
-			await ps.tasks.query(insertTask, [op.workspaceId, op.title]); // নিজে commit — ফেরানো যায় না
+			await ps.tasks.query(insertTask, [op.workspaceId, op.title]); // commits on its own — can't be undone
 			if (op.crash) throw new Crash();
 			await ps.billing.query(bumpCounter, [op.workspaceId]);
 		},
@@ -215,17 +215,17 @@ async function runPath(path: Path, ops: Op[]): Promise<void> {
 	const elapsed = performance.now() - began;
 	const t = await path.count();
 	console.log(
-		`   ${path.name.padEnd(36)} ${pad(succeeded, 6)} ${pad(failed, 6)} ${pad(t.taskRows, 8)} ${pad(t.counterSum, 8)} ${pad(t.mismatched, 8)}   ${verdict(t).padEnd(20)} ${pad(((ops.length / elapsed) * 1000).toFixed(0), 6)} ${pad(ms(percentile(latencies, 50)), 8)}`
+		`   ${path.name.padEnd(36)} ${pad(succeeded, 6)} ${pad(failed, 6)} ${pad(t.taskRows, 8)} ${pad(t.counterSum, 8)} ${pad(t.mismatched, 8)}   ${verdict(t).padEnd(22)} ${pad(((ops.length / elapsed) * 1000).toFixed(0), 6)} ${pad(ms(percentile(latencies, 50)), 8)}`
 	);
 	await path.close();
 }
 
-// ── খ. in doubt ──
+// ── b. in doubt ──
 
 async function makeInDoubt(ps: Participants): Promise<void> {
 	for (let w = 1; w <= cfg.IN_DOUBT; w++) {
 		const op: Op = { i: -w, workspaceId: w, title: `in-doubt ${w}`, crash: false };
-		// প্রথম LOGGED টার সিদ্ধান্ত log এ লেখা হয়েছিল (তারপর মৃত্যু); বাকিগুলোর PREPARE এর পরেই মৃত্যু
+		// the first LOGGED ones had their decision written to the log (then death); the rest died right after PREPARE
 		await twoPhase(
 			ps,
 			op,
@@ -256,7 +256,7 @@ async function loadWhileInDoubt(label: string, lockTimeoutMs: number): Promise<v
 	let ok = 0;
 	let lockFailed = 0;
 	const latencies: number[] = [];
-	// প্রতিটা client এর চলতি operation কখন শুরু হয়েছিল (null = এই মুহূর্তে কিছু করছে না)
+	// when each client's current operation started (null = doing nothing right now)
 	const busySince: (number | null)[] = Array.from({ length: cfg.CONCURRENCY }, () => null);
 	const began = performance.now();
 	const deadline = began + cfg.DURATION_MS;
@@ -280,7 +280,7 @@ async function loadWhileInDoubt(label: string, lockTimeoutMs: number): Promise<v
 			}
 			const end = performance.now();
 			busySince[id] = null;
-			if (end > deadline) break; // সময় শেষ হওয়ার পরে যা শেষ হলো, সেটা গোনা হয় না
+			if (end > deadline) break; // whatever finishes after time is up isn't counted
 			if (lockError) lockFailed++;
 			else ok++;
 			latencies.push(end - t);
@@ -289,11 +289,11 @@ async function loadWhileInDoubt(label: string, lockTimeoutMs: number): Promise<v
 	const running = Promise.all(Array.from({ length: cfg.CONCURRENCY }, (_, id) => client(id)));
 	await sleep(cfg.DURATION_MS);
 
-	// "আটকে থাকা" = চলতি operation ১ s এর বেশি ধরে চলছে (স্বাভাবিক operation কয়েক ms)
+	// "stuck" = the current operation has been running more than 1 s (a normal operation takes a few ms)
 	const stuckSince = busySince.filter((s): s is number => s !== null && deadline - s > 1000);
 	const allStuckAt =
-		stuckSince.length === cfg.CONCURRENCY ? `${ms(Math.max(...stuckSince) - began)} এ` : '—';
-	// Coordinator ফিরে এসে সিদ্ধান্ত দেয় — lock ছাড়ে, আটকে থাকা client গুলো এগোয়
+		stuckSince.length === cfg.CONCURRENCY ? `at ${ms(Math.max(...stuckSince) - began)}` : '—';
+	// the coordinator comes back and decides — releases the locks, the stuck clients move on
 	await recover();
 	await running;
 	await closeAll(ps);
@@ -302,15 +302,15 @@ async function loadWhileInDoubt(label: string, lockTimeoutMs: number): Promise<v
 	);
 }
 
-// ── গ. recovery ──
+// ── c. recovery ──
 
 type Outcome = { commit: number; rollback: number };
 
 const logRow = z.object({ gid: z.string() });
 const gidRow = z.object({ gid: z.string() });
 
-// Coordinator আবার চালু হলো: নিজের log পড়ে প্রতিটা in-doubt transaction এর সিদ্ধান্ত পাঠায়।
-// Log এ "commit" নেই মানে commit এর সিদ্ধান্ত কখনো হয়নি — তাই rollback ("presumed abort")।
+// The coordinator came back: it reads its own log and sends the decision for each in-doubt transaction.
+// No "commit" in the log means a commit decision was never made — so rollback ("presumed abort").
 async function recover(): Promise<{ tasks: Outcome; billing: Outcome }> {
 	const tasks = pool('tasks_svc', 1);
 	const billing = pool('billing_svc', 1);
@@ -343,8 +343,8 @@ async function recover(): Promise<{ tasks: Outcome; billing: Outcome }> {
 	return result;
 }
 
-// Billing এর একজন operator অপেক্ষা করতে করতে বিরক্ত — নিজের দিকের prepared transaction নিজে ROLLBACK করল
-// (বাণিজ্যিক database এ এর নাম "heuristic decision")
+// A billing operator got tired of waiting — rolled back their side's prepared transactions themselves
+// (commercial databases call this a "heuristic decision")
 async function billingGivesUp(): Promise<number> {
 	const billing = pool('billing_svc', 1);
 	const r = await billing.query(
@@ -386,15 +386,15 @@ async function main(): Promise<void> {
 	const crashes = ops.filter((o) => o.crash).length;
 
 	console.log(
-		`\n── ক. ${cfg.OPS} টা "task তৈরি", ${cfg.WORKSPACES} টা workspace, ${crashes} টায় প্রথম লেখার পরে crash (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${cfg.CONCURRENCY} টা একসাথে ──`
+		`\n── A. ${cfg.OPS} "create task", ${cfg.WORKSPACES} workspaces, crash after the first write in ${crashes} (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${cfg.CONCURRENCY} concurrent ──`
 	);
 	console.log(
-		`   ${'পথ'.padEnd(36)}  সফল   ব্যর্থ  task row  counter  অমিল ws   ফল                    ops/s      p50`
+		'   path                                     ok failed    tasks  counter   bad ws   result                  ops/s      p50'
 	);
 	for (const path of [monolithPath(), twoWritesPath(), twoPhasePath()]) await runPath(path, ops);
 
 	console.log(
-		`\n── খ. Coordinator মারা গেল PREPARE এর পরে, COMMIT এর আগে — ${cfg.IN_DOUBT} টা workspace এর transaction "in doubt" ──`
+		`\n── B. The coordinator died after PREPARE, before COMMIT — ${cfg.IN_DOUBT} workspaces' transactions "in doubt" ──`
 	);
 	await reset();
 	const ps = participants();
@@ -404,31 +404,31 @@ async function main(): Promise<void> {
 	const readMs = performance.now() - t0;
 	const readValue = z.object({ task_count: z.number() }).parse(read.rows[0]).task_count;
 	console.log(
-		`   prepared হয়ে পড়ে আছে: tasks_svc এ ${await preparedCount(ps.tasks)} টা, billing_svc এ ${await preparedCount(ps.billing)} টা · coordinator এর log এ "commit": ${cfg.LOGGED} টা`
+		`   left prepared: ${await preparedCount(ps.tasks)} in tasks_svc, ${await preparedCount(ps.billing)} in billing_svc · "commit" in the coordinator's log: ${cfg.LOGGED}`
 	);
 	console.log(
-		`   workspace 1 এর task_count পড়া (SELECT): ${readValue} — ${ms(readMs)}, আটকায়নি (MVCC: commit হওয়া পুরনো মান)`
+		`   reading workspace 1's task_count (SELECT): ${readValue} — ${ms(readMs)}, not blocked (MVCC: the committed old value)`
 	);
 	await closeAll(ps);
 	await recover();
 	console.log(
-		`   তারপর ${cfg.DURATION_MS / 1000} s ধরে ${cfg.CONCURRENCY} জন client নতুন task বানাচ্ছে (2PC, ${cfg.WORKSPACES} টা workspace এ random):`
+		`   then ${cfg.CONCURRENCY} clients creating new tasks for ${cfg.DURATION_MS / 1000} s (2PC, random among ${cfg.WORKSPACES} workspaces):`
 	);
 	console.log(
-		`   ${'billing এর lock_timeout'.padEnd(24)}   সফল   ops/s   lock এ ব্যর্থ       p99   শেষে আটকে থাকা client   সবাই আটকে গেল`
+		"   billing's lock_timeout       ok   ops/s    lock fails       p99       stuck at end   all stuck at"
 	);
-	await loadWhileInDoubt('নেই (Postgres default)', 0);
+	await loadWhileInDoubt('none (Postgres default)', 0);
 	await loadWhileInDoubt(`${cfg.LOCK_TIMEOUT_MS} ms`, cfg.LOCK_TIMEOUT_MS);
 
-	console.log(`\n── গ. তারপর: in-doubt transaction গুলোর সিদ্ধান্ত ──`);
+	console.log(`\n── C. What next: deciding the in-doubt transactions ──`);
 	console.log(
-		`   ${'কে সিদ্ধান্ত নিল'.padEnd(44)} ${'tasks_svc'.padEnd(22)} ${'billing_svc'.padEnd(22)} অমিল ws   ফল`
+		`   ${'who decided'.padEnd(44)} ${'tasks_svc'.padEnd(22)} ${'billing_svc'.padEnd(22)} bad ws   result`
 	);
-	await recoveryRow('coordinator ফিরে এসে, log ধরে (নেই → rollback)', false);
-	await recoveryRow('billing অপেক্ষা না করে নিজে ROLLBACK, তারপর coordinator', true);
+	await recoveryRow('coordinator, from its log (none → rollback)', false);
+	await recoveryRow('billing rolled back alone, then coordinator', true);
 	await clearPrepared();
 	console.log(
-		'\n   (2PC এ crash মানে কিছুই না ঘটা — যতক্ষণ coordinator PREPARE এর আগে মরে। পরে মরলে, সে ফেরা পর্যন্ত lock ধরা।)\n'
+		'\n   (in 2PC a crash means nothing happens — as long as the coordinator dies before PREPARE. If it dies later, the locks are held until it comes back.)\n'
 	);
 }
 

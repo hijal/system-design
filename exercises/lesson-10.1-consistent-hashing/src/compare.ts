@@ -27,7 +27,7 @@ function lookupCost(router: Router): string {
 			router.route(key);
 			steps += router.lastSteps;
 		}
-		return `1 hash + ${(steps / 10_000).toFixed(1)} তুলনা`;
+		return `1 hash + ${(steps / 10_000).toFixed(1)} comparisons`;
 	}
 	if (router instanceof JumpRouter) {
 		let jumps = 0;
@@ -35,7 +35,7 @@ function lookupCost(router: Router): string {
 			router.route(key);
 			jumps += router.lastJumps;
 		}
-		return `1 hash + ${(jumps / 10_000).toFixed(1)} লাফ`;
+		return `1 hash + ${(jumps / 10_000).toFixed(1)} jumps`;
 	}
 	return `${NODES} hash`;
 }
@@ -50,15 +50,15 @@ function algorithms(): void {
 		(list) => new RendezvousRouter(list),
 		(list) => new JumpRouter(list)
 	];
-	heading(`ক. ${NODES}টা node, ${KEYS.toLocaleString('en-US')}টা key — তিনটা পদ্ধতি পাশাপাশি`);
+	heading(`A. ${NODES} nodes, ${KEYS.toLocaleString('en-US')} keys — three methods side by side`);
 	console.log(
 		row([
-			['পদ্ধতি', 20],
-			['সবচেয়ে ভারী', 13],
-			['node যোগ', 11],
-			[`${middle} বাদ`, 13],
-			['lookup এর কাজ', 24],
-			['বাড়তি memory', 16]
+			['method', 20],
+			['heaviest', 13],
+			['node added', 12],
+			[`${middle} removed`, 13],
+			['lookup work', 24],
+			['extra memory', 16]
 		])
 	);
 	for (const make of build) {
@@ -67,12 +67,14 @@ function algorithms(): void {
 		const added = movedKeys(router, make(grown), keys).length;
 		const removed = movedKeys(router, make(shrunk), keys).length;
 		const memory =
-			router instanceof HashRing ? `${router.points.length.toLocaleString('en-US')} বিন্দু` : 'নেই';
+			router instanceof HashRing
+				? `${router.points.length.toLocaleString('en-US')} points`
+				: 'none';
 		console.log(
 			row([
 				[router.label, 20],
 				[ratio(max), 13],
-				[pct(added, KEYS), 11],
+				[pct(added, KEYS), 12],
 				[pct(removed, KEYS), 13],
 				[lookupCost(router), 24],
 				[memory, 16]
@@ -80,7 +82,7 @@ function algorithms(): void {
 		);
 	}
 	console.log(
-		`   আদর্শ: যোগে ১/${NODES + 1} = ${pct(1, NODES + 1)}, মাঝের একটা বাদে ১/${NODES} = ${pct(1, NODES)}`
+		`   ideal: on add 1/${NODES + 1} = ${pct(1, NODES + 1)}, removing a middle one 1/${NODES} = ${pct(1, NODES)}`
 	);
 }
 
@@ -128,14 +130,14 @@ function hotKeys(): void {
 		hottestShare += Math.max(...counts.values()) / BATCH;
 	}
 	heading(
-		`খ. Hot key: Zipf ${ZIPF}, একসাথে ${BATCH.toLocaleString('en-US')}টা request, ${BATCHES} বার — সবচেয়ে গরম key একাই ~${pct(hottestShare, BATCHES)} traffic`
+		`B. Hot key: Zipf ${ZIPF}, ${BATCH.toLocaleString('en-US')} requests at once, ${BATCHES} times — the hottest key alone is ~${pct(hottestShare, BATCHES)} of traffic`
 	);
 	console.log(
 		row([
-			['পদ্ধতি', 30],
-			['ভারী (গড়)', 12],
-			['ভারী (সবচেয়ে খারাপ)', 22],
-			['নিজের node এর বাইরে', 22]
+			['method', 30],
+			['heavy (avg)', 12],
+			['heavy (worst)', 22],
+			['off its own node', 22]
 		])
 	);
 	console.log(
@@ -155,7 +157,7 @@ function hotKeys(): void {
 		])
 	);
 	console.log(
-		`   (প্রতি node এর সীমা = ceil(${FACTOR} × ${BATCH} / ${NODES}) = ${capacity}; ভরা থাকলে ring এ পরের node)`
+		`   (each node's limit = ceil(${FACTOR} × ${BATCH} / ${NODES}) = ${capacity}; when full, the next node on the ring)`
 	);
 }
 

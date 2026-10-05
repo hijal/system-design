@@ -1,13 +1,13 @@
-// Single-flight: একই key এর জন্য একসাথে অনেকগুলো load চললে, আসলে
-// একটাই চলবে — বাকিরা সেই একই promise এর জন্য অপেক্ষা করবে।
-// এটাই cache stampede এর সবচেয়ে সরাসরি ওষুধ (Lesson 4.6)।
+// Single-flight: when many loads for the same key run at once, only one
+// actually runs — the rest wait for that same promise.
+// This is the most direct cure for a cache stampede (Lesson 4.6).
 const inFlight = new Map<string, Promise<unknown>>();
 
 export async function single<T>(key: string, load: () => Promise<T>): Promise<T> {
 	const running = inFlight.get(key);
 	if (running !== undefined) {
-		// অন্য কেউ ইতিমধ্যে এই key টা load করছে — নতুন DB query না করে
-		// তার ফলাফলের জন্যই অপেক্ষা করো
+		// someone else is already loading this key — instead of a new DB query,
+		// wait for their result
 		return (await running) as T;
 	}
 

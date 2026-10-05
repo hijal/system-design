@@ -2,15 +2,15 @@ import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
 import { mulberry32, ms, pad, percentile } from './random';
 
-// Lesson 9.1 §১.৪ — একটা transaction যখন দুটো service এ ভাগ হয়ে যায়।
+// Lesson 9.1 §1.4 — when one transaction is split across two services.
 //
-// "Task তৈরি" মানে দুটো জিনিস: tasks table এ row, আর billing এর workspace এ task_count + 1 (plan এর
-// সীমা আর বিল এই সংখ্যা থেকে)। দুটো সবসময় মিলতে হবে।
-//   monolith  — একই database, একটা transaction (BEGIN … COMMIT)
-//   services  — tasks_svc আর billing_svc, দুটো আলাদা database (database per service); কোনো transaction
-//               দুটোকে একসাথে ছোঁয় না, তাই দুটো আলাদা লেখা — কোনটা আগে, সেটা বাছতে হয়
-// প্রতিটা operation এ CRASH_RATE সম্ভাবনায় process প্রথম লেখার পরে মারা যায় (deploy, OOM, timeout)।
-// কোন operation crash করবে সেটা seed দেওয়া — চারটা পথে হুবহু একই operation গুলো।
+// "Create task" means two things: a row in the tasks table, and task_count + 1 in billing's workspace (the plan's
+// limit and the bill come from this number). The two must always match.
+//   monolith  — the same database, one transaction (BEGIN … COMMIT)
+//   services  — tasks_svc and billing_svc, two separate databases (database per service); no transaction
+//               touches both, so they are two separate writes — which goes first has to be chosen
+// On each operation, with probability CRASH_RATE the process dies after the first write (deploy, OOM, timeout).
+// Which operations crash is seeded — exactly the same operations on all four paths.
 
 const cfg = z
 	.object({
@@ -35,7 +35,7 @@ async function setup(): Promise<void> {
 	try {
 		await admin.query('SELECT 1');
 	} catch {
-		console.error('Postgres পাওয়া যাচ্ছে না — আগে `docker compose up -d --wait`।');
+		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	for (const db of ['tasks_svc', 'billing_svc']) {
@@ -55,7 +55,7 @@ async function reset(): Promise<void> {
 		${seed};`);
 	await mono.end();
 	const tasks = pool('tasks_svc');
-	// workspace এর FOREIGN KEY দেওয়া যায় না — workspaces অন্য database এ
+	// no FOREIGN KEY to the workspace is possible — workspaces are in another database
 	await tasks.query(`
 		DROP TABLE IF EXISTS tasks;
 		CREATE TABLE tasks (id bigserial PRIMARY KEY, workspace_id int NOT NULL, title text NOT NULL);`);
@@ -71,7 +71,7 @@ async function reset(): Promise<void> {
 type Op = { i: number; workspaceId: number; title: string; crash: boolean };
 type Path = {
 	name: string;
-	retry: boolean; // crash এর পরে user আবার চেষ্টা করে (এবার crash ছাড়া)
+	retry: boolean; // after a crash the user tries again (without a crash this time)
 	run: (op: Op, crashNow: boolean) => Promise<void>;
 	close: () => Promise<void>;
 	count: () => Promise<{ tasks: Map<number, number>; counters: Map<number, number> }>;
@@ -96,7 +96,7 @@ async function countersIn(p: Pool): Promise<Map<number, number>> {
 function monolithPath(): Path {
 	const db = pool('taskflow');
 	return {
-		name: 'monolith: একটা transaction',
+		name: 'monolith: one transaction',
 		retry: false,
 		async run(op, crashNow) {
 			const client: PoolClient = await db.connect();
@@ -107,7 +107,7 @@ function monolithPath(): Path {
 				await client.query(bumpCounter, [op.workspaceId]);
 				await client.query('COMMIT');
 			} catch (error: unknown) {
-				// আসল crash এ connection কেটে যায় আর Postgres নিজেই ROLLBACK করে — এখানে হাতে
+				// in a real crash the connection drops and Postgres itself ROLLs BACK — done by hand here
 				await client.query('ROLLBACK');
 				throw error;
 			} finally {
@@ -128,13 +128,13 @@ function servicesPath(order: 'task-first' | 'counter-first', retry: boolean): Pa
 		order === 'task-first' ? [writeTask, writeCounter] : [writeCounter, writeTask];
 	return {
 		name: retry
-			? 'services: task আগে + user আবার চেষ্টা'
+			? 'services: task first + the user retried'
 			: order === 'task-first'
-				? 'services: task আগে, তারপর billing'
-				: 'services: billing আগে, তারপর task',
+				? 'services: task first, then billing'
+				: 'services: billing first, then task',
 		retry,
 		async run(op, crashNow) {
-			await first(op); // এই লেখা নিজে commit — আর ফেরানো যায় না
+			await first(op); // this write commits on its own — and can't be undone
 			if (crashNow) throw new Crash();
 			await second(op);
 		},
@@ -162,7 +162,7 @@ async function runPath(path: Path, ops: Op[]): Promise<void> {
 			} catch (error: unknown) {
 				if (!(error instanceof Crash)) throw error;
 				if (path.retry) {
-					await path.run(op, false); // user "আবার চেষ্টা" চাপল — প্রথম চেষ্টার কী হয়েছিল সে জানে না
+					await path.run(op, false); // the user pressed "try again" — they don't know what happened to the first attempt
 					succeeded++;
 				} else failed++;
 			}
@@ -186,10 +186,10 @@ async function runPath(path: Path, ops: Op[]): Promise<void> {
 	const diff = counterSum - taskRows;
 	const verdict =
 		diff === 0 && mismatched === 0
-			? 'মেলে'
+			? 'they match'
 			: diff < 0
-				? `${-diff} টা task বিনা বিলে`
-				: `${diff} টা task এর বিল, task নেই`;
+				? `${-diff} tasks with no bill`
+				: `${diff} bills with no task`;
 	console.log(
 		`   ${path.name.padEnd(46)} ${pad(succeeded, 6)} ${pad(failed, 6)} ${pad(taskRows, 8)} ${pad(counterSum, 8)} ${pad(mismatched, 9)}   ${verdict.padEnd(22)} ${pad(((ops.length / elapsed) * 1000).toFixed(0), 6)} ${pad(ms(percentile(latencies, 50)), 8)}`
 	);
@@ -206,10 +206,10 @@ async function main(): Promise<void> {
 	}));
 	const crashes = ops.filter((o) => o.crash).length;
 	console.log(
-		`\n── ${cfg.OPS} টা "task তৈরি", ${cfg.WORKSPACES} টা workspace, ${crashes} টায় প্রথম লেখার পরে crash (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${cfg.CONCURRENCY} টা একসাথে ──`
+		`\n── ${cfg.OPS} "create task", ${cfg.WORKSPACES} workspaces, crash after the first write in ${crashes} of them (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${cfg.CONCURRENCY} concurrent ──`
 	);
 	console.log(
-		`   ${'পথ'.padEnd(46)}  সফল   ব্যর্থ  task row  counter  অমিল ws   ফল                     ops/s      p50`
+		'   path                                               ok failed    tasks  counter    bad ws   result                  ops/s      p50'
 	);
 	for (const path of [
 		monolithPath(),
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
 	])
 		await runPath(path, ops);
 	console.log(
-		'\n   (monolith এ crash মানে পুরো transaction বাতিল — user error দেখে, কিন্তু কিছু অর্ধেক থাকে না।)\n'
+		'\n   (in the monolith a crash cancels the whole transaction — the user sees an error, but nothing is left half-done.)\n'
 	);
 }
 

@@ -59,11 +59,11 @@ const requests = simulate();
 const all = sorted(requests.map((request) => request.latency));
 
 heading(
-	`ক. এক ঘণ্টার board খোলা — ${n(requests.length)} request, ${INSTANCES}টা instance, ${REPLICAS}টা replica; r${REPLICAS} এর disk ঘণ্টায় ${STALLS.length}বার ${STALL_SECONDS} s আটকে যায়`
+	`A. One hour of board opens — ${n(requests.length)} requests, ${INSTANCES} instances, ${REPLICAS} replicas; r${REPLICAS}'s disk stalls ${STALLS.length} times an hour for ${STALL_SECONDS} s`
 );
 console.log(
 	row([
-		['গড়', 10],
+		['average', 10],
 		['p50', 10],
 		['p90', 10],
 		['p99', 10],
@@ -84,52 +84,52 @@ console.log(
 	])
 );
 
-heading('খ. Dashboard এর rollup — প্রতি মিনিটের p99 থেকে ঘণ্টার সংখ্যা বানালে');
+heading("B. The dashboard rollup — building the hour's number from each minute's p99");
 const perMinute: number[][] = Array.from({ length: MINUTES }, () => []);
 for (const request of requests) perMinute[Math.floor(request.at / 60)]?.push(request.latency);
 const minuteP99 = perMinute.map((values) => percentile(sorted(values), 99));
 const minuteAvg = perMinute.map((values) => mean(values));
 console.log(
 	row([
-		['ঘণ্টার সংখ্যা', 34],
-		['মান', 12]
+		["the hour's number", 38],
+		['value', 12]
 	])
 );
 console.log(
 	row([
-		['আসল p99 (সব request একসাথে)', 34],
+		['true p99 (all requests together)', 38],
 		[ms(percentile(all, 99)), 12]
 	])
 );
 console.log(
 	row([
-		['৬০টা মিনিটের p99 এর গড়', 34],
+		["average of the 60 minutes' p99", 38],
 		[ms(mean(minuteP99)), 12]
 	])
 );
 console.log(
 	row([
-		['৬০টা মিনিটের p99 এর median', 34],
+		["median of the 60 minutes' p99", 38],
 		[ms(percentile(sorted(minuteP99), 50)), 12]
 	])
 );
 console.log(
 	row([
-		['৬০টা মিনিটের p99 এর max', 34],
+		["max of the 60 minutes' p99", 38],
 		[ms(Math.max(...minuteP99)), 12]
 	])
 );
 console.log(
 	row([
-		['৬০টা মিনিটের গড়ের গড়', 34],
+		["average of the 60 minutes' averages", 38],
 		[ms(mean(minuteAvg)), 12]
 	])
 );
 console.log('');
 console.log(
 	row([
-		['মিনিট', 8],
-		['গড়', 10],
+		['minute', 8],
+		['average', 10],
 		['p99', 10],
 		['> 1 s', 10]
 	])
@@ -146,15 +146,15 @@ for (const minute of [10, 11, 12, 13, 14, 30, 31, 32]) {
 	);
 }
 
-heading('গ. Histogram থেকে percentile — bucket এর সীমা কোথায়, তার উপর অনুমান');
+heading('C. Percentiles from a histogram — the estimate depends on where the bucket bounds are');
 console.log(
 	row([
 		['percentile', 12],
-		['আসল', 10],
+		['true', 10],
 		['default bucket', 16],
-		['ভুল', 9],
-		['নিজের bucket', 14],
-		['ভুল', 9]
+		['error', 9],
+		['own buckets', 14],
+		['error', 9]
 	])
 );
 for (const q of [50, 90, 99, 99.9]) {
@@ -175,17 +175,17 @@ for (const q of [50, 90, 99, 99.9]) {
 	);
 }
 console.log(`   default bucket (ms): ${DEFAULT_BUCKETS.join(', ')}`);
-console.log(`   নিজের bucket   (ms): ${TUNED_BUCKETS.join(', ')}`);
+console.log(`   own buckets    (ms): ${TUNED_BUCKETS.join(', ')}`);
 console.log(
-	'   bucket এর গণনা যোগ করা যায় — ৬টা instance এর histogram যোগ করলে ঠিক এক histogram; percentile যোগ বা গড় করা যায় না'
+	"   bucket counts can be added — adding 6 instances' histograms gives exactly one histogram; percentiles cannot be added or averaged"
 );
 
-heading('ঘ. একই request, আলাদা মাত্রায় ভাগ করে দেখা');
+heading('D. The same requests, split along different dimensions');
 console.log(
 	row([
-		['মাত্রা', 14],
+		['dimension', 14],
 		['request', 10],
-		['গড়', 10],
+		['average', 10],
 		['p50', 10],
 		['p99', 10],
 		['> 1 s', 10]

@@ -96,34 +96,34 @@ function summarize(radius: number, method: Method, bugHits: number): Summary | n
 	};
 }
 
-const radiusLabel = (radius: number): string => (radius === 1 ? '100% (সবাই)' : `${radius * 100}%`);
+const radiusLabel = (radius: number): string => (radius === 1 ? '100% (all)' : `${radius * 100}%`);
 
 const duration = (seconds: number): string =>
-	seconds >= 60 ? `${(seconds / 60).toFixed(1)} মি` : `${seconds} s`;
+	seconds >= 60 ? `${(seconds / 60).toFixed(1)} min` : `${seconds} s`;
 
 function detectionTable(title: string, bugHits: number): void {
 	heading(title);
 	console.log(
 		row([
 			['blast radius', 14],
-			['global: ধরল', 13],
-			['কখন', 10],
-			['ক্ষতি', 9],
-			['control: ধরল', 14],
-			['কখন', 10],
-			['ক্ষতি', 9]
+			['global: caught', 17],
+			['when', 10],
+			['harm', 9],
+			['control: caught', 17],
+			['when', 10],
+			['harm', 9]
 		])
 	);
 	for (const radius of RADII) {
 		const cells = (summary: Summary | null): [string, number][] =>
 			summary
 				? [
-						[pct(summary.detectedShare, 1, 0), 13],
+						[pct(summary.detectedShare, 1, 0), 17],
 						[summary.detectedShare > 0 ? duration(summary.medianTime) : '—', 10],
 						[n(summary.medianHarmed), 9]
 					]
 				: [
-						['—', 13],
+						['—', 17],
 						['—', 10],
 						['—', 9]
 					];
@@ -138,23 +138,23 @@ function detectionTable(title: string, bugHits: number): void {
 }
 
 console.log(
-	`Board এ billing এর ২ s দেরি ঢোকানো হচ্ছে; ${RPS} req/s, স্বাভাবিক ভুল ${BASE_ERROR * 100}%, সর্বোচ্চ ${MAX_MINUTES} মিনিট। global alarm: শেষ ৬০ s এ মোট ভুল > ${SLO_ALARM * 100}% হলে থামাও। control group: সমান আকারের না-ছোঁয়া দল, ভুলের পার্থক্য z > ${Z} হলে থামাও। প্রতি ${CHECK_EVERY} s এ দেখা, ${RUNS}টা run এর median। "ক্ষতি" = থামার আগে fault এর কারণে ব্যর্থ user request (না ধরলে পুরো ${MAX_MINUTES} মিনিটের)`
+	`Injecting a 2 s billing delay into the board; ${RPS} req/s, normal error rate ${BASE_ERROR * 100}%, at most ${MAX_MINUTES} minutes. Global alarm: stop if total errors in the last 60 s > ${SLO_ALARM * 100}%. Control group: an untouched group of equal size, stop if the error difference has z > ${Z}. Checked every ${CHECK_EVERY} s, median of ${RUNS} runs. "harm" = user requests failed by the fault before stopping (all ${MAX_MINUTES} minutes if never caught)`
 );
 detectionTable(
-	`ক. জোরালো bug — ঢোকানো request এর ${LOUD * 100}% ব্যর্থ (সব paid board এ plan badge, timeout নেই)`,
+	`A. A loud bug — ${LOUD * 100}% of injected requests fail (plan badge on every paid board, no timeout)`,
 	LOUD
 );
 detectionTable(
-	`খ. সূক্ষ্ম bug — ঢোকানো request এর ${SUBTLE * 100}% ব্যর্থ (শুধু ৫০০+ task এর board এ)`,
+	`B. A subtle bug — ${SUBTLE * 100}% of injected requests fail (only on boards with 500+ tasks)`,
 	SUBTLE
 );
 
-heading(`গ. Code ঠিক আছে, fault নিরীহ — তবু ভুল করে থামানো, কত % run এ`);
+heading(`C. The code is fine, the fault harmless — yet stopped by mistake, in what % of runs`);
 console.log(
 	row([
 		['blast radius', 14],
-		['global: ভুল থামা', 18],
-		['control: ভুল থামা', 19]
+		['global: false stop', 20],
+		['control: false stop', 21]
 	])
 );
 for (const radius of RADII) {
@@ -163,8 +163,8 @@ for (const radius of RADII) {
 	console.log(
 		row([
 			[radiusLabel(radius), 14],
-			[global ? pct(global.detectedShare, 1, 1) : '—', 18],
-			[control ? pct(control.detectedShare, 1, 1) : '—', 19]
+			[global ? pct(global.detectedShare, 1, 1) : '—', 20],
+			[control ? pct(control.detectedShare, 1, 1) : '—', 21]
 		])
 	);
 }

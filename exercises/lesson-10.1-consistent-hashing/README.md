@@ -61,12 +61,12 @@ npm run compare
 ring এ virtual node সহ ২০% নড়ে, আর **সবটা** নতুন node এ যায়:
 
 ```
-routing                          সরল    নতুন node এ         পুরনোদের মধ্যে
+routing                        moved  to the new node    among the old
 hash % N                       79.9%         25.2%            74.8%
 ring (vnode 1)                 30.7%        100.0%             0.0%
 ring (vnode 160)               20.1%        100.0%             0.0%
 
-routing                      cache-1   cache-2   cache-4   cache-5       সবচেয়ে ভারী
+routing                      cache-1   cache-2   cache-4   cache-5      heaviest
 ring (vnode 1)                    0%      100%        0%        0%         1.45x
 ring (vnode 160)                 29%       19%       25%       27%         1.04x
 ```
@@ -75,40 +75,40 @@ ring (vnode 160)                 29%       19%       25%       27%         1.04x
 "পরের ৩টা বিন্দু" নিলে **৪৫%** key এর দুটো copy একই node এ:
 
 ```
-vnode / node           সবচেয়ে ভারী       সবচেয়ে হালকা      ring এ বিন্দু    lookup এ ধাপ
+vnode / node          heaviest       lightest  points on ring   lookup steps
 1                        3.06x          0.02x             10            3.4
 160                      1.13x          0.90x          1,600           10.7
 1000                     1.04x          0.97x         10,000           13.3
 
-নিয়ম                                  ৩টা আলাদা node না       ৩টা আলাদা AZ না      এক AZ গেলেই সব copy শেষ
-পরের ৩টা বিন্দু                                    45.3%             76.8%                     11.2%
-পরের ৩টা আলাদা node                               0.0%             59.1%                      0.0%
-পরের ৩টা আলাদা AZ                                 0.0%              0.0%                      0.0%
+rule                            not 3 distinct nodes  not 3 distinct AZs  one AZ loss kills all copies
+the next 3 points                              45.3%               76.8%                         11.2%
+the next 3 distinct nodes                       0.0%               59.1%                          0.0%
+the next 3 distinct AZs                         0.0%                0.0%                          0.0%
 ```
 
 `npm run cache` — node যোগের প্রথম সেকেন্ডে `hash % N` এ DB তে **২,১৬২**টা query, ring এ **৭৩৭**; আর
 একটা node flush ছাড়া ফিরলে ১০ সেকেন্ডে **৬,৪২৯**টা stale read:
 
 ```
-routing                    প্রথম 1 s hit     প্রথম 1 s এ DB     প্রথম 10 s hit    মোট DB query
+routing                  first 1 s hit  DB in first 1 s   first 10 s hit  total DB queries
 hash % N                         56.8%            2,162            75.4%         26,370
 ring (vnode 160)                 85.3%              737            91.6%          9,066
 
-ফিরে আসার সময়                    stale read (10 s)    আলাদা stale key  miss (10 s)
-কিছু না করে ring এ ফেরানো                        6,429              320          197
-আগে flush, তারপর ফেরানো                            0                0        4,278
+on return                     stale read (10 s)  distinct stale keys  miss (10 s)
+put back on the ring as is                6,429                 320          197
+flush first, then put back                    0                   0        4,278
 ```
 
 `npm run compare` — jump hash মাঝের একটা node বাদ দিলে **৪৮.৫%** key নড়ে; hot key এ সাধারণ ring এর সবচেয়ে
 ভারী node ন্যায্য ভাগের ~২ গুণ, bounded load এ ঠিক ১.২৫x — বিনিময়ে ১১.৩% request নিজের node এর বাইরে:
 
 ```
-পদ্ধতি                       সবচেয়ে ভারী    node যোগ   cache-6 বাদ            lookup এর কাজ      বাড়তি memory
-ring (vnode 160)            1.12x       8.8%        10.0%       1 hash + 10.7 তুলনা        1,600 বিন্দু
-rendezvous (HRW)            1.02x       9.3%         9.9%                 10 hash              নেই
-jump hash                   1.02x       9.0%        48.5%         1 hash + 2.9 লাফ              নেই
+method                   heaviest  node added  cache-6 removed             lookup work    extra memory
+ring (vnode 160)            1.12x        8.8%        10.0%  1 hash + 10.7 comparisons    1,600 points
+rendezvous (HRW)            1.02x        9.3%         9.9%                 10 hash            none
+jump hash                   1.02x        9.0%        48.5%      1 hash + 2.9 jumps            none
 
-পদ্ধতি                                ভারী (গড়)         ভারী (সবচেয়ে খারাপ)       নিজের node এর বাইরে
+method                          heavy (avg)         heavy (worst)      off its own node
 ring (vnode 160)                     2.06x                 2.39x                  0.0%
 bounded load, c = 1.25               1.25x                 1.25x                 11.3%
 ```

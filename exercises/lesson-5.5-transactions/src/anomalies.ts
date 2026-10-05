@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { Member, Project, Task, sequelize, sleep } from './db';
 import { pgErrorCode } from './retry';
 
-// Lesson 5.5 — দুটো transaction (A আর B) এর ধাপগুলো **নির্দিষ্ট ক্রমে** চালিয়ে প্রতিটা
-// anomaly চোখে দেখা। Race এর উপর ভরসা না — interleaving টা হাতে সাজানো, তাই প্রতিবার
-// একই ফল। প্রতিটা transaction এর নিজের connection (Sequelize unmanaged transaction)।
+// Lesson 5.5 — running the steps of two transactions (A and B) **in a fixed order** to see each
+// anomaly with your own eyes. No reliance on a race — the interleaving is arranged by hand, so the result
+// is the same every time. Each transaction has its own connection (a Sequelize unmanaged transaction).
 
 const { READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE } =
 	Transaction.ISOLATION_LEVELS;
@@ -51,7 +51,7 @@ function heading(text: string): void {
 	console.log(`\n━━ ${text} ${'━'.repeat(Math.max(0, 66 - text.length))}`);
 }
 
-// ব্যর্থ transaction থেকে Postgres এর error code বের করে এক লাইনে বলা
+// pull Postgres's error code out of a failed transaction and describe it in one line
 function describeFailure(error: unknown): string {
 	const code = pgErrorCode(error);
 	if (code === '40001') return 'ERROR 40001 — could not serialize access (serialization failure)';
@@ -73,42 +73,42 @@ async function reset(): Promise<void> {
 	]);
 }
 
-// ── ১. Lost update ───────────────────────────────────────────────────────────
-// দুজনেই counter পড়ে, JS এ +1 করে, লিখে দেয় (Lesson 5.2 এর naive কৌশল)।
+// ── 1. Lost update ──────────────────────────────────────────────────────────
+// both read the counter, +1 in JS, and write it back (Lesson 5.2's naive strategy).
 async function lostUpdate(level: Level): Promise<void> {
 	await reset();
-	console.log(`\n   [${short[level]}]  openTaskCount শুরুতে 5; দুজনেই একটা করে task যোগ করছে`);
+	console.log(`\n   [${short[level]}]  openTaskCount starts at 5; both are adding one task`);
 	const a = await begin(level);
 	const b = await begin(level);
 	const readSql = 'SELECT "openTaskCount" AS v FROM projects WHERE id = 1';
 
 	const aSaw = await readInt(readSql, a);
-	log('A', `পড়ল ${aSaw}`);
+	log('A', `read ${aSaw}`);
 	const bSaw = await readInt(readSql, b);
-	log('B', `পড়ল ${bSaw}`);
+	log('B', `read ${bSaw}`);
 	await exec(`UPDATE projects SET "openTaskCount" = ${aSaw + 1} WHERE id = 1`, a);
-	log('A', `লিখল ${aSaw + 1}, COMMIT`);
+	log('A', `wrote ${aSaw + 1}, COMMIT`);
 	await a.commit();
 	let bFailed = false;
 	try {
 		await exec(`UPDATE projects SET "openTaskCount" = ${bSaw + 1} WHERE id = 1`, b);
 		await b.commit();
-		log('B', `লিখল ${bSaw + 1}, COMMIT`);
+		log('B', `wrote ${bSaw + 1}, COMMIT`);
 	} catch (error: unknown) {
 		bFailed = true;
 		await b.rollback();
-		log('B', `লিখতে গেল → ${describeFailure(error)}, ROLLBACK`);
+		log('B', `tried to write → ${describeFailure(error)}, ROLLBACK`);
 	}
 	const final = (await Project.findByPk(1))?.openTaskCount;
 	const verdict = bFailed
-		? ' — B এর কাজ হয়নি, কিন্তু B সেটা জানে; retry করলে 7 হবে। নীরবে হারায়নি'
+		? " — B's work didn't happen, but B knows it; a retry gives 7. Not silently lost"
 		: final === 6
-			? ' — একটা update নীরবে হারিয়ে গেছে, কেউ কোনো error পায়নি'
+			? ' — one update silently lost, nobody got an error'
 			: '';
-	log('→', `শেষ মান ${final} (হওয়া উচিত 7)${verdict}`);
+	log('→', `final value ${final} (should be 7)${verdict}`);
 }
 
-// ── ১খ. SELECT ... FOR UPDATE — pessimistic lock ─────────────────────────────
+// ── 1b. SELECT ... FOR UPDATE — pessimistic lock ────────────────────────────
 async function lostUpdateForUpdate(): Promise<void> {
 	await reset();
 	console.log('\n   [READ COMMITTED + SELECT ... FOR UPDATE]');
@@ -117,7 +117,7 @@ async function lostUpdateForUpdate(): Promise<void> {
 	const lockSql = 'SELECT "openTaskCount" AS v FROM projects WHERE id = 1 FOR UPDATE';
 
 	const aSaw = await readInt(lockSql, a);
-	log('A', `পড়ল ${aSaw} (row lock নিল)`);
+	log('A', `read ${aSaw} (took the row lock)`);
 
 	let bDone = false;
 	const bRead = readInt(lockSql, b).then((v) => {
@@ -125,71 +125,76 @@ async function lostUpdateForUpdate(): Promise<void> {
 		return v;
 	});
 	await sleep(300);
-	log('B', `একই row FOR UPDATE পড়তে চাইল… ৩০০ ms পরেও অপেক্ষায়? ${bDone ? 'না' : 'হ্যাঁ'}`);
+	log(
+		'B',
+		`wanted to read the same row FOR UPDATE… still waiting after 300 ms? ${bDone ? 'no' : 'yes'}`
+	);
 
 	await exec(`UPDATE projects SET "openTaskCount" = ${aSaw + 1} WHERE id = 1`, a);
 	await a.commit();
-	log('A', `লিখল ${aSaw + 1}, COMMIT → lock ছাড়ল`);
+	log('A', `wrote ${aSaw + 1}, COMMIT → released the lock`);
 
 	const bSaw = await bRead;
-	log('B', `এবার পড়তে পারল: ${bSaw} (A এর commit করা মান)`);
+	log('B', `could read now: ${bSaw} (the value A committed)`);
 	await exec(`UPDATE projects SET "openTaskCount" = ${bSaw + 1} WHERE id = 1`, b);
 	await b.commit();
-	log('B', `লিখল ${bSaw + 1}, COMMIT`);
-	log('→', `শেষ মান ${(await Project.findByPk(1))?.openTaskCount} (হওয়া উচিত 7)`);
+	log('B', `wrote ${bSaw + 1}, COMMIT`);
+	log('→', `final value ${(await Project.findByPk(1))?.openTaskCount} (should be 7)`);
 }
 
-// ── ২. Non-repeatable read ───────────────────────────────────────────────────
+// ── 2. Non-repeatable read ──────────────────────────────────────────────────
 async function nonRepeatableRead(level: Level): Promise<void> {
 	await reset();
-	console.log(`\n   [${short[level]}]  A একই row দুবার পড়ছে, মাঝখানে B নাম বদলাল`);
+	console.log(`\n   [${short[level]}]  A reads the same row twice, B changes the name in between`);
 	const a = await begin(level);
 	const sql = 'SELECT name AS v FROM projects WHERE id = 1';
-	log('A', `প্রথমবার পড়ল: "${await readText(sql, a)}"`);
+	log('A', `first read: "${await readText(sql, a)}"`);
 	const b = await begin(level);
 	await exec(`UPDATE projects SET name = 'Website v2' WHERE id = 1`, b);
 	await b.commit();
-	log('B', `নাম বদলে "Website v2", COMMIT`);
-	log('A', `দ্বিতীয়বার পড়ল: "${await readText(sql, a)}"`);
+	log('B', `renamed to "Website v2", COMMIT`);
+	log('A', `second read: "${await readText(sql, a)}"`);
 	await a.commit();
 }
 
-// ── ৩. Phantom read ──────────────────────────────────────────────────────────
+// ── 3. Phantom read ─────────────────────────────────────────────────────────
 async function phantomRead(level: Level): Promise<void> {
 	await reset();
-	console.log(`\n   [${short[level]}]  A একটা শর্তে row গুনছে দুবার, মাঝখানে B নতুন row যোগ করল`);
+	console.log(
+		`\n   [${short[level]}]  A counts the rows matching a condition twice, B adds a new row in between`
+	);
 	const a = await begin(level);
 	const sql = 'SELECT count(*) AS v FROM tasks WHERE "projectId" = 1';
-	log('A', `প্রথমবার গুনল: ${await readInt(sql, a)}টা task`);
+	log('A', `first count: ${await readInt(sql, a)} tasks`);
 	const b = await begin(level);
 	await exec(`INSERT INTO tasks ("projectId", title) VALUES (1, 'New task')`, b);
 	await b.commit();
-	log('B', 'নতুন task যোগ করল, COMMIT');
-	log('A', `দ্বিতীয়বার গুনল: ${await readInt(sql, a)}টা task`);
+	log('B', 'added a new task, COMMIT');
+	log('A', `second count: ${await readInt(sql, a)} tasks`);
 	await a.commit();
 }
 
-// ── ৪. Write skew ────────────────────────────────────────────────────────────
-// নিয়ম: "প্রতিটা project এ অন্তত একজন admin থাকতেই হবে।"
-// Rahim আর Karim একই মুহূর্তে নিজেকে admin থেকে সরাচ্ছে। দুজনেই আগে যাচাই করে।
+// ── 4. Write skew ───────────────────────────────────────────────────────────
+// The rule: "every project must have at least one admin."
+// Rahim and Karim remove themselves as admin at the same moment. Both check first.
 async function writeSkew(level: Level): Promise<void> {
 	await reset();
 	console.log(
-		`\n   [${short[level]}]  নিয়ম: অন্তত ১ জন admin থাকবেই। Rahim আর Karim একসাথে নিজেকে সরাচ্ছে`
+		`\n   [${short[level]}]  rule: there must always be at least 1 admin. Rahim and Karim remove themselves at once`
 	);
 	const a = await begin(level);
 	const b = await begin(level);
 	const countSql = `SELECT count(*) AS v FROM members WHERE "projectId" = 1 AND role = 'admin'`;
 
 	const aCount = await readInt(countSql, a);
-	log('A', `Rahim যাচাই করল: admin ${aCount} জন → "আমি সরলেও একজন থাকবে" ✓`);
+	log('A', `Rahim checked: ${aCount} admins → "one will remain if I leave" ✓`);
 	const bCount = await readInt(countSql, b);
-	log('B', `Karim যাচাই করল: admin ${bCount} জন → "আমি সরলেও একজন থাকবে" ✓`);
+	log('B', `Karim checked: ${bCount} admins → "one will remain if I leave" ✓`);
 
 	await exec(`UPDATE members SET role = 'member' WHERE name = 'Rahim'`, a);
 	await exec(`UPDATE members SET role = 'member' WHERE name = 'Karim'`, b);
-	log('A', 'Rahim নিজেকে member করল');
-	log('B', 'Karim নিজেকে member করল');
+	log('A', 'Rahim made himself a member');
+	log('B', 'Karim made himself a member');
 
 	for (const [who, t] of [
 		['A', a],
@@ -205,44 +210,44 @@ async function writeSkew(level: Level): Promise<void> {
 	const admins = await Member.count({ where: { projectId: 1, role: 'admin' } });
 	log(
 		'→',
-		`এখন admin: ${admins} জন${admins === 0 ? ' — নিয়ম ভেঙে গেছে, অথচ দুজনেই নিয়ম যাচাই করেছিল!' : ' — নিয়ম টিকে আছে'}`
+		`admins now: ${admins}${admins === 0 ? ' — the rule is broken, even though both checked it!' : ' — the rule holds'}`
 	);
 }
 
-// ── ৫. Dirty read — Postgres কখনো হতে দেয় না ───────────────────────────────
+// ── 5. Dirty read — Postgres never allows it ────────────────────────────────
 async function dirtyRead(): Promise<void> {
 	await reset();
-	console.log('\n   [B = READ UNCOMMITTED]  A নাম বদলাল কিন্তু COMMIT করেনি');
+	console.log('\n   [B = READ UNCOMMITTED]  A renamed it but did not COMMIT');
 	const a = await begin(READ_COMMITTED);
 	await exec(`UPDATE projects SET name = 'Draft name' WHERE id = 1`, a);
-	log('A', `নাম বদলে "Draft name" — এখনো COMMIT করেনি`);
+	log('A', `renamed to "Draft name" — not committed yet`);
 	const b = await begin(READ_UNCOMMITTED);
-	log('B', `পড়ল: "${await readText('SELECT name AS v FROM projects WHERE id = 1', b)}"`);
+	log('B', `read: "${await readText('SELECT name AS v FROM projects WHERE id = 1', b)}"`);
 	await b.commit();
 	await a.rollback();
-	log('A', 'ROLLBACK — "Draft name" কখনো সত্যি ছিল না');
-	log('→', 'Postgres এ READ UNCOMMITTED আসলে READ COMMITTED এর মতো আচরণ করে');
+	log('A', 'ROLLBACK — "Draft name" was never true');
+	log('→', 'in Postgres READ UNCOMMITTED actually behaves like READ COMMITTED');
 }
 
 async function main(): Promise<void> {
-	heading('১. Lost update — read-modify-write');
+	heading('1. Lost update — read-modify-write');
 	await lostUpdate(READ_COMMITTED);
 	await lostUpdate(REPEATABLE_READ);
 	await lostUpdateForUpdate();
 
-	heading('২. Non-repeatable read');
+	heading('2. Non-repeatable read');
 	await nonRepeatableRead(READ_COMMITTED);
 	await nonRepeatableRead(REPEATABLE_READ);
 
-	heading('৩. Phantom read');
+	heading('3. Phantom read');
 	await phantomRead(READ_COMMITTED);
 	await phantomRead(REPEATABLE_READ);
 
-	heading('৪. Write skew');
+	heading('4. Write skew');
 	await writeSkew(REPEATABLE_READ);
 	await writeSkew(SERIALIZABLE);
 
-	heading('৫. Dirty read');
+	heading('5. Dirty read');
 	await dirtyRead();
 
 	console.log('');

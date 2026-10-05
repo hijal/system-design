@@ -76,16 +76,16 @@ User account?                               আছে বলে ধরি, ক�
 `npm run estimate`:
 
 ```
-── অংশ ক — traffic: মাসে 10 কোটি নতুন link, পড়া:লেখা = 100:1, peak গড়ের 3 গুণ ──
-                                              গড়          peak
-নতুন link (লেখা) / s                           38.6           116
-redirect (পড়া) / s                          3,858        11,574
-redirect এর bandwidth                   1.9 MB/s      5.8 MB/s
-click event / মাস                        1,000 কোটি        1.0 TB
+── Part A — traffic: 100 million new links a month, read:write = 100:1, peak 3× the average ──
+                                              average     peak
+new links (writes) / s                      38.6           116
+redirects (reads) / s                      3,858        11,574
+redirect bandwidth                      1.9 MB/s      5.8 MB/s
+click events / month                    10 billion      1.0 TB
 
-── অংশ খ — storage: 10 বছর, প্রতি row 500 B ──
-এক বছর                                      120 কোটি      600 GB
-10 বছর                                    1,200 কোটি      6.0 TB
+── Part B — storage: 10 years, 500 B per row ──
+one year                               1.2 billion      600 GB
+10 years                                12 billion      6.0 TB
 ```
 
 এই কয়েকটা সংখ্যা থেকে চারটা সিদ্ধান্ত আসে, আর তার কয়েকটা "না":
@@ -98,12 +98,12 @@ click event / মাস                        1,000 কোটি        1.0 TB
 এবার keyspace। **Keyspace** — code এর জন্য সম্ভাব্য সব মানের সংখ্যা; ৬২টা অক্ষর আর L দৈর্ঘ্য হলে ৬২^L। আর **Base62 Encoding** — একটা সংখ্যাকে ৬২টা অক্ষরে (`0-9`, `a-z`, `A-Z`) লেখা, ঠিক যেমন দশমিকে ১০টা অক্ষরে লিখি। URL এ বিশেষ অর্থ আছে এমন কোনো অক্ষর (`/`, `+`, `=`) নেই, তাই base64 এর চেয়ে নিরাপদ।
 
 ```
-── অংশ গ — keyspace: base62, বছরে 120 কোটি নতুন code ──
-দৈর্ঘ্য                 মোট code    ভরতে কত বছর     10 বছরে ভরা    random: retry লাগে       অনুমানে মেলে
-5                  91.6 কোটি          9 মাস        100.0%               ভরে গেছে          100%
-6                 5,680 কোটি            47         21.1%               21.1%         21.1%
-7               3.52 লাখ কোটি         2,935        0.341%              0.341%        0.341%
-8             218.34 লাখ কোটি       181,950        0.005%              0.005%        0.005%
+── Part C — keyspace: base62, 1.2 billion new codes a year ──
+length         total codes   years to fill  full in 10 yrs       random: retry    guess hits
+5              916 million        9 months          100.0%                full          100%
+6             56.8 billion              47           21.1%               21.1%         21.1%
+7            3.52 trillion           2,935          0.341%              0.341%        0.341%
+8             218 trillion         181,950          0.005%              0.005%        0.005%
 ```
 
 ৫ অক্ষর নয় মাসে শেষ। ৬ অক্ষর ৪৭ বছর চলে, তাই অনেকে বলে "৬ যথেষ্ট"। কিন্তু শেষ দুটো কলাম দেখো। দশ বছরে ২১% ভরা মানে: (ক) random code বানালে প্রতি পাঁচটায় একটা আগে থেকে নেওয়া, আর (খ) কেউ একটা random ৬ অক্ষরের code বানিয়ে চেষ্টা করলে **প্রতি পাঁচটায় একটা কারো আসল link**। ৭ অক্ষরে দুটোই ০.৩৪%। একটা বাড়তি অক্ষর ৬২ গুণ জায়গা কেনে। কোথায় কাজে লাগে, সেটা ১.৫ এ।
@@ -111,10 +111,10 @@ click event / মাস                        1,000 কোটি        1.0 TB
 আর একটা তালিকা, যন্ত্রগুলোর দাম এই মাপে:
 
 ```
-── অংশ ঘ — যে যন্ত্রগুলোর কথা মনে আসে, তাদের দাম এই মাপে ──
-Bloom filter, সব 1,200 কোটি code, ১% ভুল                      14.4 GB
-HyperLogLog (dense, 12 KB) প্রতি link এ                        147 TB
-Sharding: peak লেখা / একটা primary                               2.3%
+── Part D — the tools that come to mind, and their price at this size ──
+Bloom filter, all 12 billion codes, 1% error               14.4 GB
+HyperLogLog (dense, 12 KB) per link                          147 TB
+Sharding: peak writes / one primary                           2.3%
 ```
 
 এই তিনটা সারি পরের অংশগুলোতে ফিরে আসবে।
@@ -182,11 +182,11 @@ Redirect এর পথে একটাই query: `code` দিয়ে primary 
 **পথ ১ — Random code, তারপর "নেওয়া কিনা" দেখা।** ৭টা random অক্ষর, `INSERT ... ON CONFLICT DO NOTHING`, নেওয়া হলে আবার।
 
 ```
-ভরা               গড় চেষ্টা    retry লাগল         সর্বোচ্চ চেষ্টা       ৬ অক্ষরে কবে       ৭ অক্ষরে কবে
-0.341%          1.0035        0.35%              2         1.9 মাস       10.0 বছর
-21.1%           1.2693       21.28%              8       10.0 বছর        619 বছর
-50.0%           2.0032       50.15%             18       23.7 বছর      1,467 বছর
-90.0%          10.0904       90.13%            120       42.6 বছর      2,641 বছর
+full        avg attempts  needed retry   max attempts  when at 6 chars  when at 7 chars
+0.341%          1.0035        0.35%              2     1.9 months     10.0 years
+21.1%           1.2693       21.28%              8     10.0 years      619 years
+50.0%           2.0032       50.15%             18     23.7 years    1,467 years
+90.0%          10.0904       90.13%            120     42.6 years    2,641 years
 ```
 
 Retry এর হার ঠিক যতটা ভরা, তত। ৭ অক্ষরে দশ বছরে ০.৩৫%: প্রতি ২৮৫টা link এ একটা বাড়তি round trip। নগণ্য। ৬ অক্ষরে দশ বছরে প্রতি পাঁচটায় একটা, আর সময়ের সাথে বাড়তেই থাকে। ৯০% এ গড়ে ১০টা চেষ্টা, সবচেয়ে খারাপ ১২০টা। Random এর পথে কোনো coordination নেই (প্রতিটা server নিজে বানায়), আর code অনুমান করা যায় না। দাম: প্রতিটা তৈরিতে "নেওয়া কিনা" এর একটা প্রশ্ন, যেটা database এর unique constraint নিজেই সামলায়।
@@ -196,11 +196,11 @@ Retry এর হার ঠিক যতটা ভরা, তত। ৭ অক্
 **পথ ২ — URL এর hash, প্রথম ৭ অক্ষর।** আকর্ষণীয়, কারণ একই URL সবসময় একই code পায়, আর কোনো lookup ছাড়া dedupe হয়। কিন্তু আলাদা URL এর hash এর প্রথম ৭ অক্ষর মিলতে পারে:
 
 ```
-ভরা                link   collision হলো  % insert     birthday আন্দাজ       গড় চেষ্টা
+full              link     collisions  % insert  birthday estimate  avg attempts
 0.341%          50,388             97    0.193%               86      1.0019
 10.0%        1,477,634         73,894    5.001%           73,882      1.0536
 21.1%        3,117,807        329,366   10.564%          328,929      1.1234
-৭ অক্ষরে ১০ বছরে (12,008,705,807 link): আন্দাজে 20,474,843টা link এর collision সামলাতে হবে।
+At 7 chars in 10 years (12,008,705,807 links): an estimated 20,474,843 links will hit a collision.
 ```
 
 **Birthday Bound** — N টা জিনিস এলোমেলো ভাবে K টা ঘরে ফেললে মোটামুটি N²/2K জোড়া একই ঘরে পড়ে। নামটা আসে "২৩ জনের একটা ঘরে দুজনের জন্মদিন এক হওয়ার সম্ভাবনা ৫০% এর বেশি" থেকে। ভাবনার চেয়ে অনেক আগে collision শুরু হয়। মাপা সংখ্যা আন্দাজের সাথে প্রায় হুবহু মেলে (৩,২৯,৩৬৬ বনাম ৩,২৮,৯২৯)। ৭ অক্ষরে দশ বছরে **~২ কোটি** link এ collision।
@@ -210,11 +210,11 @@ Retry এর হার ঠিক যতটা ভরা, তত। ৭ অক্
 **পথ ৩ — Counter + base62।** একটা বাড়তে থাকা সংখ্যা (Postgres এর `SEQUENCE`), base62 এ লেখা। কোনো collision নেই, প্রতিটা তৈরিতে একবারই, আর code সবচেয়ে ছোট (১,২০০ কোটিতে মাত্র ৬ অক্ষর)। কিন্তু:
 
 ```
-── অংশ গ — অনুমান করে খোঁজা: 0.341% ভরা, নিজের code এর আগের ১০,০০০টা আর ১০,০০০টা random চেষ্টা ──
-কৌশল                                                             শেষ ৫টা code       আগেরগুলোয় মিলল   random এ মিলল
+── Part C — finding by guessing: 0.341% full, the 10,000 codes before your own and 10,000 random attempts ──
+strategy                                                      last 5 codes      hits before    hits random
 counter → base62                                  0d6C 0d6D 0d6E 0d6F 0d6G          100.00%          0.34%
 random                                            DB0u rO8O ypzM aKdZ fKLX            0.32%          0.44%
-counter → গোপন permutation → base62                f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
+counter → secret permutation → base62             f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
 ```
 
 **Link Enumeration** — code গুনে গুনে বা অনুমান করে অন্যদের link খুঁজে বের করা। Counter এ নিজের একটা link বানাও, পেছনে গোনো: **১০০%** আসল link, অন্যদের সদ্য বানানো private document সহ। এটা তাত্ত্বিক না: ২০১৬ এর একটা গবেষণা ("Gone in Six Characters: Short URLs Considered Harmful for Cloud Services") জনপ্রিয় shortener এর ছোট code এর জায়গা scan করে cloud storage এর share link আর map এর ঠিকানা সহ ব্যক্তিগত তথ্য খুঁজে পেয়েছিল, কারণ তখনকার code ছিল মাত্র ৫-৬ অক্ষরের। Counter আরেকটা জিনিসও ফাঁস করে: তোমার ব্যবসার আকার। দুটো code এর পার্থক্য দেখে যে কেউ বলতে পারে তুমি দিনে কতগুলো link বানাও।
@@ -224,8 +224,8 @@ counter → গোপন permutation → base62                f6sF 5OVy JR1Y iG
 **Format-Preserving Permutation** — একটা নির্দিষ্ট পরিসরের ভেতরে এক-এক, key দেওয়া রূপান্তর, যাতে output ইনপুটের মতোই একই পরিসরে থাকে (এখানে ৭ অক্ষরের base62)। Exercise এ এটা একটা ছোট **Feistel network** দিয়ে বানানো: সংখ্যাকে দুই ভাগ করে কয়েকটা round এ একটা ভাগকে অন্য ভাগের keyed hash দিয়ে XOR করা। Feistel এর গঠনই এটাকে এক-এক রাখে, hash function যাই হোক। ৬২^৭ দুইয়ের ঘাত না, তাই ফল পরিসরের বাইরে গেলে আবার চালানো হয় (**cycle walking**), যতক্ষণ না ভেতরে আসে:
 
 ```
-৩ অক্ষরের পুরো domain (238,328টা id): আলাদা output 238,328টা — কোনো collision নেই; বাড়তি round: 23,816 (10.0%)
-৭ অক্ষরে id ১–৫:  0000001 → cOoEtMq   0000002 → BnqHDLC   0000003 → yhc3OjR   0000004 → NJcTAiA   0000005 → l3tBYTa
+whole 3-char domain (238,328 ids): 238,328 distinct outputs — no collisions; extra rounds: 23,816 (10.0%)
+7 chars, ids 1–5:  0000001 → cOoEtMq   0000002 → BnqHDLC   0000003 → yhc3OjR   0000004 → NJcTAiA   0000005 → l3tBYTa
 ```
 
 ছোট domain এ প্রতিটা id চালিয়ে যাচাই করা: ২,৩৮,৩২৮টা id, ২,৩৮,৩২৮টা আলাদা code। আর অনুমানের পরীক্ষায় random এর মতো (০.৪৩%, ভরার হারের কাছে)। একটা সৎ সতর্কতা: এটা **গোপনতা না, শুধু অনুমান কঠিন করা।** ৪ round এর এই Feistel একটা প্রমাণিত cipher না, আর key ফাঁস হলে পুরো ক্রম উল্টানো যায়। সত্যিকারের private link এর উত্তর authentication (10.5), code এর আড়াল না। Production এ এই কাজের জন্য প্রমাণিত format-preserving encryption (যেমন NIST এর FF1) বা অন্তত একটা ভালো block cipher এর উপর cycle walking ব্যবহার করা উচিত।
@@ -233,8 +233,8 @@ counter → গোপন permutation → base62                f6sF 5OVy JR1Y iG
 **Counter কে ভাগ করা।** একটা counter মানে প্রতিটা তৈরিতে counter এর কাছে যাওয়া, আর counter একটা single point। **Range Allocation (Ticket Server)** — প্রতিটা app server counter থেকে একবারে একটা block নেয় (ধরো ১,০০০টা id), তারপর সেগুলো নিজের memory থেকে দেয়; শেষ হলে আরেকটা block। "Ticket server" নামটা Flickr এর একটা প্রকাশিত নকশা থেকে, যেখানে একটা আলাদা ছোট database এর একমাত্র কাজ ছিল id দেওয়া। একবারে একটা block নেওয়া তার উপরে একটা পুরনো, প্রচলিত উন্নতি (ORM এর জগতে এর নাম hi/lo)।
 
 ```
-── অংশ ঘ — counter কে ভাগ করা: 20টা app server, দিনে 3,333,333 link, প্রতিটা server দিনে 1 বার restart ──
-block      sequence call / দিন      নষ্ট id / দিন        নষ্ট / বছর, ৭ অক্ষরের        সময়ের উল্টো ক্রম
+── Part D — sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts 1× a day ──
+block     sequence calls / day  wasted ids / day  wasted / year, 7 chars  out of time order
 1                   3,333,333               0                0.00000%              0.0%
 1,000                   3,354          10,161                0.00011%             47.5%
 10,000                    353          99,804                0.00103%             47.5%
@@ -264,12 +264,12 @@ Redirect প্রতি সেকেন্ডে ~১১,৬০০ বার, �
 **Cache কতটা দেয়।** `npm run redirect` অংশ ক: ২০ লাখ link, ৬০ লাখ redirect, জনপ্রিয়তা Zipf (s = ১, কয়েকটা link খুব জনপ্রিয়, বেশিরভাগ প্রায় কেউ খোলে না), LRU (4.3):
 
 ```
-cache                                          entry   hit rate     DB পড়া/s (peak 11,574)   memory, 100 কোটি link এ
-শেয়ার করা cache (Redis), link এর 0.1%             2,000      43.1%                     6,591                  250 MB
-শেয়ার করা cache (Redis), link এর 1%              20,000      60.4%                     4,578                  2.5 GB
-শেয়ার করা cache (Redis), link এর 5%             100,000      73.2%                     3,100                 12.5 GB
-শেয়ার করা cache (Redis), link এর 20%            400,000      84.8%                     1,757                 50.0 GB
-প্রতি app server এ local 0.1% (10টা)               2,000      43.1%                     6,590             250 MB × 10
+cache                                          entry   hit rate  DB reads/s (peak 11,574)  memory, at 1 billion links
+shared cache (Redis), 0.1% of links            2,000      43.1%                     6,591                  250 MB
+shared cache (Redis), 1% of links             20,000      60.4%                     4,578                  2.5 GB
+shared cache (Redis), 5% of links            100,000      73.2%                     3,100                 12.5 GB
+shared cache (Redis), 20% of links           400,000      84.8%                     1,757                 50.0 GB
+local 0.1% on each app server (10)             2,000      43.1%                     6,590             250 MB × 10
 ```
 
 - **প্রথম ০.১% link এ ৪৩% traffic।** তারপর প্রতিটা বাড়তি GB কম কেনে: ১% থেকে ২০% এ, ২০ গুণ memory, hit rate ৬০ থেকে ৮৫%। এটা জনপ্রিয়তার লম্বা লেজ: বেশিরভাগ link মাসে একবারও খোলে না, আর তাদের cache এ রাখা মানে memory তে রাখা যা কেউ পড়বে না।
@@ -284,8 +284,8 @@ cache                                          entry   hit rate     DB পড়
 **301 না 302।** **301 / 302 Redirect** — দুটোই browser কে `Location` header এর ঠিকানায় পাঠায়। 301 মানে "স্থায়ীভাবে সরে গেছে": browser এটা cache করতে পারে আর পরের বার server কে জিজ্ঞেস না করেই সরাসরি গন্তব্যে যায়। 302 মানে "আপাতত": প্রতিবার server কে জিজ্ঞেস করে (যদি না `Cache-Control` অন্য কিছু বলে)। 301 এর লোভ: server এর load কমে। অংশ খ: ১ লাখ মানুষ একটা link এ click করে, গড়ে আরও দুবার ফেরে, ৮৫% browser cache রাখে, আর সপ্তম দিনে link টা phishing বলে বন্ধ করা হলো:
 
 ```
-নীতি                                       click   server দেখল   analytics এ নেই     বন্ধের পরে click        তবুও গন্তব্যে গেল
-301 (স্থায়ী, browser মনে রাখে)                300,664        43.2%            56.8%          189,422             62.6%
+policy                                   click   server saw  not in analytics  clicks after off  still reached dest
+301 (permanent, browser remembers)       300,664        43.2%            56.8%          189,422             62.6%
 302 + Cache-Control: max-age=3600      300,664        97.7%             2.3%          189,422              2.3%
 302 + Cache-Control: private, no-store      300,664       100.0%             0.0%          189,422              0.0%
 ```
@@ -304,11 +304,11 @@ Requirement: মালিক click আর unique visitor দেখবে, কয
 Unique visitor গোনার প্রথম চিন্তা: "প্রতি link এ একটা HyperLogLog, 10.2 তে শিখেছি।" অংশ গ, মাসে ১,০০০ কোটি click, ১০০ কোটি link এ Zipf:
 
 ```
-পদ্ধতি                                                       memory   মন্তব্য
-প্রতি link এ exact set (visitor hash, 16 B)                 96.0 GB   নির্ভুল; জনপ্রিয় link এ বড়
-প্রতি click করা link এ dense HLL (12 KB)                      8.1 TB   66 কোটি link এ click — বেশিরভাগ ছোট
-ছোট হলে set, বড় হলে HLL (Redis এর sparse → dense)           40.2 GB   মাত্র 369,858টা link এ 768 এর বেশি unique
-click event জমিয়ে রাতে batch এ গোনা (7.6)                        0 RAM   disk এ ~1.0 TB/মাস raw event; দেরি কয়েক ঘণ্টা
+method                                                    memory   note
+exact set per link (visitor hash, 16 B)                  96.0 GB   exact; big on popular links
+dense HLL (12 KB) per clicked link                        8.1 TB   656 million links clicked — most of them small
+set when small, HLL when big (Redis sparse → dense)       40.2 GB   only 369,858 links have more than 768 unique
+collect click events, count in a nightly batch (7.6)         0 RAM   ~1.0 TB/month of raw events on disk; hours of delay
 ```
 
 **প্রতি link এ dense HLL exact set এর চেয়ে ৮৫ গুণ বড়।** কারণ HLL এর দাম স্থির (১২ KB), গোনা যতই ছোট হোক, আর মাঝের link এ মাসে একটা click ও হয় না। HLL তখনই জেতে যখন একটা জিনিস অনেক বড় আর মাপের দাম স্থির রাখতে চাও: এখানে মাত্র ~৩.৭ লাখ link এ ৭৬৮ এর বেশি unique visitor। (Redis নিজেই ছোট HLL কে একটা sparse রূপে রাখে, ঠিক এই কারণে। কিন্তু "প্রতি link এ একটা HLL" এর চিন্তায় সেই হিসাবটা প্রায়ই বাদ পড়ে।) **তৃতীয় "না"**, অন্তত সব link এর জন্য না।
@@ -322,15 +322,15 @@ Exercise এর app এ এটা ছোট করে আছে: redirect `Click
 একটা খোলা shortener phishing আর malware এর প্রিয় যন্ত্র: আসল ঠিকানা লুকায়, আর বিশ্বস্ত domain এর পেছনে বসে। তাই লেখার পথের validation নকশার অংশ, পরে যোগ করার জিনিস না। `npm run smoke` একটা আসল Express server চালায়:
 
 ```
-#   request                                               status  ফল
+#   request                                               status  result
 1   POST /api/links  https://example.com/blog/syste…      201     https://sho.rt/cOoEtMq
-2   POST /api/links  (একই URL আবার)                        201     https://sho.rt/BnqHDLC
+2   POST /api/links  (the same URL again)                 201     https://sho.rt/BnqHDLC
 3   GET /cOoEtMq                                          302     Location: https://example.com/blog/system-design?ref=newsletter
 5   POST /api/links  url: javascript:alert(1)             400     unsupported_scheme
-6   POST /api/links  url: https://sho.rt/abc (নিজের domain) 400     self_redirect
-9   POST /api/links  alias: launch-2026 (আবার)             409     alias_taken
-10  POST /api/links  alias: abcDEF1 (৭ অক্ষর base62)        400     alias_reserved
-14  GET /yhc3OjR  (২ ঘণ্টা পরে)                               410     expired
+6   POST /api/links  url: https://sho.rt/abc (own domain)  400     self_redirect
+9   POST /api/links  alias: launch-2026 (again)           409     alias_taken
+10  POST /api/links  alias: abcDEF1 (7-char base62)       400     alias_reserved
+14  GET /yhc3OjR  (2 hours later)                         410     expired
 16  GET /cOoEtMq                                          410     disabled
 ```
 

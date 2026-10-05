@@ -19,9 +19,9 @@ const FLOWS: Flow[] = [
 	{
 		name: 'Postgres (primary + replica)',
 		gbPerMonth: 80,
-		personal: 'নাম, email, task',
+		personal: 'name, email, tasks',
 		where: { single: 'out', partial: 'eu', cell: 'eu' },
-		fix: 'EU cell এর নিজের DB'
+		fix: "the EU cell's own DB"
 	},
 	{
 		name: 'attachment (S3)',
@@ -31,117 +31,120 @@ const FLOWS: Flow[] = [
 		fix: 'EU bucket'
 	},
 	{
-		name: 'DR copy: backup আর replica',
+		name: 'DR copy: backups and replicas',
 		gbPerMonth: 3_100,
-		personal: 'সব',
+		personal: 'everything',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'দ্বিতীয় EU region এ DR'
+		fix: 'DR in a second EU region'
 	},
 	{
 		name: 'CDN edge cache',
 		gbPerMonth: 600,
 		personal: 'file',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'private file cache না / EU edge'
+		fix: 'no private file cache / EU edge'
 	},
 	{
-		name: 'log (কেন্দ্রীয় log store)',
+		name: 'logs (central log store)',
 		gbPerMonth: 45,
 		personal: 'user id, IP',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'cell এর নিজের log store'
+		fix: "the cell's own log store"
 	},
 	{
 		name: 'trace',
 		gbPerMonth: 15,
 		personal: 'user id, workspace',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'cell এর নিজের collector'
+		fix: "the cell's own collector"
 	},
 	{
 		name: 'metric',
 		gbPerMonth: 2,
-		personal: 'নেই (label পরিষ্কার)',
+		personal: 'none (clean labels)',
 		where: { single: 'out', partial: 'out', cell: 'out' },
-		fix: 'ব্যক্তিগত data নেই — বাইরে ঠিক আছে'
+		fix: 'no personal data — fine outside'
 	},
 	{
 		name: 'search index (8.3)',
 		gbPerMonth: 40,
-		personal: 'task এর লেখা',
+		personal: 'task text',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'cell ধরে index'
+		fix: 'an index per cell'
 	},
 	{
 		name: 'analytics warehouse (7.6)',
 		gbPerMonth: 60,
 		personal: 'event, user id',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'user স্তরের event cell এ; বাইরে শুধু aggregate'
+		fix: 'user-level events in the cell; only aggregates outside'
 	},
 	{
-		name: 'analytics: শুধু aggregate (user id নেই)',
+		name: 'analytics: aggregates only (no user id)',
 		gbPerMonth: 1,
-		personal: 'নেই (দিন × plan × feature এর গণনা)',
+		personal: 'none (counts by day × plan × feature)',
 		where: { single: 'out', partial: 'out', cell: 'out' },
-		fix: 'ব্যক্তিগত data নেই — বাইরে ঠিক আছে'
+		fix: 'no personal data — fine outside'
 	},
 	{
-		name: 'identity: user এর email আর profile',
+		name: 'identity: user email and profile',
 		gbPerMonth: 1,
-		personal: 'email, নাম',
+		personal: 'email, name',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'profile EU তে; global এ শুধু hash → region'
+		fix: 'profile in the EU; only hash → region globally'
 	},
 	{
 		name: 'email provider',
 		gbPerMonth: 5,
-		personal: 'email, নাম, task এর শিরোনাম',
+		personal: 'email, name, task titles',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
-		fix: 'provider এর EU processing'
+		fix: "the provider's EU processing"
 	},
 	{
-		name: 'error tracker (request body সহ)',
+		name: 'error tracker (with request bodies)',
 		gbPerMonth: 3,
-		personal: 'যা কিছু body তে',
+		personal: 'whatever is in the body',
 		where: { single: 'out', partial: 'out', cell: 'eu' },
 		fix: 'EU instance + scrubbing'
 	}
 ];
 
 const DESIGNS: [Design, string][] = [
-	['single', 'সব সিঙ্গাপুরে'],
-	['partial', 'EU এ DB + app + S3'],
-	['cell', 'পুরো EU cell']
+	['single', 'all in Singapore'],
+	['partial', 'DB + app + S3 in the EU'],
+	['cell', 'a full EU cell']
 ];
 
 heading(
-	`অংশ ক — একজন EU customer এর ${n(EU_WORKSPACES)} workspace, ${n(EU_SEATS)} user: তাদের data কোথায় কোথায় যায়`
+	`Part A — one EU customer's ${n(EU_WORKSPACES)} workspaces, ${n(EU_SEATS)} users: where their data goes`
 );
 console.log(
 	row([
-		['পথ', 36],
-		['GB/মাস', 9],
-		['ব্যক্তিগত data', 26],
+		['path', 44],
+		['GB/month', 10],
+		['personal data', 40],
 		...DESIGNS.map(([, name]): [string, number] => [name, 20])
 	])
 );
 for (const f of FLOWS) {
 	console.log(
 		row([
-			[f.name, 36],
-			[n(f.gbPerMonth), 9],
-			[`  ${f.personal}`, 26],
-			...DESIGNS.map(([d]): [string, number] => [f.where[d] === 'eu' ? 'EU তে' : 'বাইরে ✗', 20])
+			[f.name, 44],
+			[n(f.gbPerMonth), 10],
+			[`  ${f.personal}`, 40],
+			...DESIGNS.map(([d]): [string, number] => [
+				f.where[d] === 'eu' ? 'in the EU' : 'outside ✗',
+				20
+			])
 		])
 	);
 }
-const personalFlows = FLOWS.filter((f) => !f.personal.startsWith('নেই'));
+const personalFlows = FLOWS.filter((f) => !f.personal.startsWith('none'));
 console.log(
 	row([
-		['ব্যক্তিগত data বাইরে যায় এমন পথ', 36],
+		['paths taking personal data outside', 44],
 		['', 9],
-		['', 26],
+		['', 40],
 		...DESIGNS.map(([d]): [string, number] => [
 			`${personalFlows.filter((f) => f.where[d] === 'out').length} / ${personalFlows.length}`,
 			20
@@ -150,37 +153,37 @@ console.log(
 );
 console.log(
 	row([
-		['বাইরে যাওয়া ব্যক্তিগত data / মাস', 36],
+		['personal data going outside / month', 44],
 		['', 9],
-		['', 26],
+		['', 40],
 		...DESIGNS.map(([d]): [string, number] => [
 			tb(personalFlows.filter((f) => f.where[d] === 'out').reduce((s, f) => s + f.gbPerMonth, 0)),
 			20
 		])
 	])
 );
-console.log('\n"partial" এ যা থেকে যায়, তার ঠিক করার পথ:');
+console.log('\nhow to fix what remains with "partial":');
 for (const f of personalFlows.filter((x) => x.where.partial === 'out'))
 	console.log(`  ${f.name} → ${f.fix}`);
 
-heading('অংশ খ — একটা cell এর দাম বনাম এই customer এর আয়');
+heading("Part B — the cost of one cell vs this customer's revenue");
 const H = 730;
 const CELL: [string, number][] = [
-	['app (min ৩, commit)', 3 * 0.192 * H * 0.65],
-	['Postgres Multi-AZ + ১ replica', 3 * 1.0 * H * 0.65 + 900 * 0.115 * 0.2],
+	['app (min 3, commit)', 3 * 0.192 * H * 0.65],
+	['Postgres Multi-AZ + 1 replica', 3 * 1.0 * H * 0.65 + 900 * 0.115 * 0.2],
 	['Redis (cache + queue)', 2 * 0.2 * H * 0.65],
-	['NAT ×৩ + LB + endpoint', 3 * 0.045 * H + 100 + 22],
-	['log/trace/metric stack (cell এর নিজের)', 450],
-	['DR: দ্বিতীয় EU region এ pilot light', 0.65 * 1.0 * H + 3_000 * 0.0125],
-	['search (cell এর নিজের)', 2 * 0.192 * H],
-	['গড়ে মানুষের সময় (on-call, upgrade × ২ cell)', 1_500]
+	['NAT ×3 + LB + endpoint', 3 * 0.045 * H + 100 + 22],
+	["log/trace/metric stack (the cell's own)", 450],
+	['DR: pilot light in a second EU region', 0.65 * 1.0 * H + 3_000 * 0.0125],
+	["search (the cell's own)", 2 * 0.192 * H],
+	['average people time (on-call, upgrades × 2 cells)', 1_500]
 ];
 let cellTotal = 0;
 for (const [name, cost] of CELL) {
 	cellTotal += cost;
 	console.log(
 		row([
-			[name, 46],
+			[name, 54],
 			[usd(cost), 12]
 		])
 	);
@@ -188,22 +191,22 @@ for (const [name, cost] of CELL) {
 const revenue = EU_PAID_SEATS * SEAT_PRICE;
 console.log(
 	row([
-		['cell এর মোট / মাস', 46],
+		['cell total / month', 54],
 		[usd(cellTotal), 12]
 	])
 );
 console.log(
 	row([
-		[`এই customer এর আয় (${n(EU_PAID_SEATS)} paid seat × $${SEAT_PRICE})`, 46],
+		[`this customer's revenue (${n(EU_PAID_SEATS)} paid seats × $${SEAT_PRICE})`, 54],
 		[usd(revenue), 12]
 	])
 );
 console.log(
 	row([
-		['cell এর দাম আয়ের %', 46],
+		["the cell's cost as % of revenue", 54],
 		[`${((cellTotal / revenue) * 100).toFixed(0)}%`, 12]
 	])
 );
 console.log(
-	'\n(cell এর একটা স্থির ভিত্তি খরচ আছে, user এর সংখ্যা যা-ই হোক; দ্বিতীয়, তৃতীয় EU customer এ ভাগ হয়ে যায়)'
+	'\n(a cell has a fixed base cost whatever the number of users; it gets shared with the second and third EU customers)'
 );

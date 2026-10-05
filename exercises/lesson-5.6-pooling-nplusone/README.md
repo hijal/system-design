@@ -33,7 +33,7 @@ npm install
 ## Run
 
 ```bash
-npm run pool        # ~১ মিনিট
+npm run pool        # ~1 minute
 npm run nplusone
 npm run hydration
 ```
@@ -46,11 +46,11 @@ npm run hydration
 **১. `npm run pool`**
 
 ```
-১. একটা একটা করে 200টা "SELECT 1"
-   প্রতিবার নতুন connection      5.78 ms / query
-   pool থেকে                      0.13 ms / query   (~44x দ্রুত)
+1. 200 "SELECT 1" one at a time
+   new connection every time      5.78 ms / query
+   from the pool                  0.13 ms / query   (~44x faster)
 
-২. Pool size — 64টা request একসাথে, মোট 320টা query (database: ২টা CPU core)
+2. Pool size — 64 requests at once, 320 queries in total (database: 2 CPU cores)
    pool max │   CPU query: q/s    p50 ms    p99 ms │  WAIT query: q/s    p50 ms    p99 ms
           1 │       26      2492      2518        │       48      1329      1334
           2 │       50      1269      1298        │       97       662       665
@@ -60,12 +60,12 @@ npm run hydration
          32 │       26      2460      3561        │     1535        41        45
          64 │       26      2397      5500        │     1914        20        85
 
-৩. 5টা app instance × pool max 25 = 125 connection চাই (Postgres max_connections = 100)
-   সফল: 75টা
-   ব্যর্থ: 50টা → "sorry, too many clients already"
+3. 5 app instances × pool max 25 = 125 connections wanted (Postgres max_connections = 100)
+   succeeded: 75
+   failed: 50 → "sorry, too many clients already"
 
-   একটা instance এর pool নিজেই ফুরিয়ে গেলে (max 2, acquire timeout 1s, ১০টা ০.৮s এর query):
-   সফল: 4টা, ConnectionAcquireTimeoutError: 6টা
+   when one instance's own pool runs out (max 2, acquire timeout 1s, 10 queries of 0.8s):
+   succeeded: 4, ConnectionAcquireTimeoutError: 6
 ```
 
 ধাপ ২ কয়েকবার চালিয়ে প্রায় হুবহু একই সংখ্যা এসেছে। ধাপ ৩ এ কতগুলো ব্যর্থ হয় সেটা প্রতিবার
@@ -75,15 +75,15 @@ npm run hydration
 **২. `npm run nplusone`**
 
 ```
-১. Dashboard: 50টা project → 1000টা task → assignee এর নাম   (তিনটার ফল এক? true)
-   পদ্ধতি                          query     rows   মাপা সময়   +1ms RTT হলে*
-   ক. N+1 (loop এ findByPk)         1051    2,050     210.0 ms      1261 ms
-   খ. include (একটা JOIN)              1    1,000       7.2 ms         8 ms
-   গ. batching (IN দিয়ে ৩টা)          3    1,250       3.7 ms         7 ms
+1. Dashboard: 50 projects → 1000 tasks → assignee names   (same result for all three? true)
+   approach                      queries     rows     measured   +1 ms RTT*
+   a. N+1 (findByPk in a loop)      1051    2,050     210.0 ms      1261 ms
+   b. include (one JOIN)               1    1,000       7.2 ms         8 ms
+   c. batching (3 with IN)             3    1,250       3.7 ms         7 ms
 
-২. দুটো hasMany একসাথে: project → tasks (20টা) + members (10টা)
-   পদ্ধতি                          query     rows   মাপা সময়   +1ms RTT হলে*
-   include, একটা JOIN                  1   10,000      28.2 ms        29 ms
+2. Two hasMany at once: project → tasks (20) + members (10)
+   approach                      queries     rows     measured   +1 ms RTT*
+   include, one JOIN                   1   10,000      28.2 ms        29 ms
    include, separate: true             3    1,550       8.7 ms        12 ms
 ```
 
@@ -92,10 +92,10 @@ npm run hydration
 **৩. `npm run hydration`**
 
 ```
-Hydration: 100,000টা task পড়া — একই query, ভিন্ন রূপে ফেরত
-   Model instance (default)              200 ms   (100,000 row, 1.0x)
-   raw: true                              96 ms   (100,000 row, 2.1x)
-   raw: true + শুধু দরকারি column         68 ms   (100,000 row, 2.9x)
+Hydration: reading 100,000 tasks — the same query, returned in different shapes
+   Model instance (default)              200 ms   (100,000 rows, 1.0x)
+   raw: true                              96 ms   (100,000 rows, 2.1x)
+   raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 ```
 
 ## কী দেখার জন্য এটা বানানো

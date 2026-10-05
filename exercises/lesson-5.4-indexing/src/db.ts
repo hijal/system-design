@@ -5,8 +5,8 @@ const DATABASE_URL: string =
 
 export const sequelize = new Sequelize(DATABASE_URL, { logging: false });
 
-// Lab এর প্রতিটা ধাপ শুরু হয় একদম খালি অবস্থা থেকে — primary key ছাড়া কোনো index নেই।
-// তাই আগের ধাপের index পরের ধাপের ফলাফল ঘোলা করে না।
+// Every step of the lab starts from a completely clean state — no index except the primary key.
+// So an earlier step's index doesn't muddy a later step's result.
 export async function dropSecondaryIndexes(): Promise<void> {
 	await sequelize.query(`
 		DO $$

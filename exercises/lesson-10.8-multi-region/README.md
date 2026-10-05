@@ -56,48 +56,48 @@ npm run residency
 দ্রুত, কিন্তু অন্য region এর workspace এ p95 বাড়ে:
 
 ```
-সব সিঙ্গাপুরে
-লন্ডন                25%      925 ms      1.05 s         192 ms                  0.0%
-+ প্রতি region এ app + read replica
-লন্ডন                25%      131 ms      139 ms         355 ms                 61.1%
-workspace এর home region (cell)
-লন্ডন                25%      132 ms      567 ms          38 ms                  0.0%
-সবাই (ওজন সহ)                186 ms      698 ms
+all in Singapore
+London             25%      925 ms      1.05 s           192 ms                    0.0%
++ app + read replica in every region
+London             25%      131 ms      139 ms           355 ms                   61.1%
+the workspace's home region (cell)
+London             25%      132 ms      567 ms            38 ms                    0.0%
+all (weighted)                186 ms      698 ms
 
-চার region, leader সিঙ্গাপুরে                   4         3    160 ms                         1
+four regions, leader in Singapore        4         3    160 ms                                     1
 ```
 
 `npm run failover` — RTO আর মাসিক দাম উল্টো দিকে চলে; DNS এর লেজ TTL এ থামে না; witness ছাড়া স্বয়ংক্রিয় failover split brain
 আনে:
 
 ```
-backup & restore (রোজ snapshot অন্য region এ)       2.2 ঘ    12.0 ঘ    1,296,000      2,340,000         $359
-pilot light (DB replica চালু, app বন্ধ)               42 মি       5 s          150        756,000         $833
-active-active (সব region এ চলছে)                    4 মি       5 s          150         72,000       $3,836
+backup & restore (daily snapshot to another region)  2.2 h    12.0 h    1,296,000      2,340,000         $359
+pilot light (DB replica running, app off)          42 min     5 s          150        756,000         $833
+active-active (running in every region)            4 min     5 s          150         72,000       $3,836
 
-DNS, TTL ৬০ s                            26%        9%        8%        5%        0%              69,450
-anycast / global LB (DNS বদলায় না)          0%        0%        0%        0%        0%               9,150
+DNS, TTL 60 s                                      26%        9%        8%        5%        0%              69,450
+anycast / global LB (DNS doesn't change)            0%        0%        0%        0%        0%               9,150
 
-মুম্বাই ২ মিনিটে নিজেই promote করে                          3,060                 2,160       দুই দিকেই — দুটো primary (split brain)
-witness সহ (majority + lease, fencing)            5,625                     0            মুম্বাই পক্ষ; সিঙ্গাপুর ৩০ s পরে নিজেকে থামায়
+Mumbai promotes itself after 2 minutes                  3,060                 2,160    both sides — two primaries (split brain)
+with a witness (majority + lease, fencing)              5,625                     0    the Mumbai side; Singapore stops itself after 30 s
 ```
 
 `npm run conflicts` — হারানো edit এর বেশিরভাগ link খারাপ থাকা দুই ঘণ্টায়; HLC ঘড়ির ভুল সরায়, concurrent না:
 
 ```
-LWW, পুরো row, wall clock                    2,068    0.207%               2,025                43               1,858
-LWW, field ধরে, wall clock                    642    0.064%                 633                 9                 599
-LWW, field ধরে, HLC                           633    0.063%                 633                 0                 599
-workspace এর home region এ লেখা                  0        0%                   0                 0                   0
-তাদের বাড়তি latency p50                               119 ms
+LWW, whole row, wall clock                             2,068     0.207%               2,025                 43               1,858
+LWW, per field, wall clock                               642     0.064%                 633                  9                 599
+LWW, per field, HLC                                      633     0.063%                 633                  0                 599
+writes to the workspace's home region                    0        0%                   0                 0                   0
+their extra latency p50                               119 ms
 ```
 
 `npm run residency` — DB আর S3 EU তে সরালেও ১১টার ৯টা পথ বাইরে:
 
 ```
-ব্যক্তিগত data বাইরে যায় এমন পথ                                                             11 / 11              9 / 11              0 / 11
-বাইরে যাওয়া ব্যক্তিগত data / মাস                                                               6.9 TB              3.9 TB                0 GB
-cell এর দাম আয়ের %                                       13%
+paths taking personal data outside                                                                        11 / 11              9 / 11              0 / 11
+personal data going outside / month                                                                        6.9 TB              3.9 TB                0 GB
+the cell's cost as % of revenue                                13%
 ```
 
 ## কী দেখার জন্য এটা বানানো

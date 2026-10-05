@@ -82,9 +82,9 @@ const delay = (a: Edit, b: Edit): number => {
 
 type Policy = { name: string; scope: 'row' | 'field'; clock: 'wall' | 'hlc' };
 const POLICIES: Policy[] = [
-	{ name: 'LWW, পুরো row, wall clock', scope: 'row', clock: 'wall' },
-	{ name: 'LWW, field ধরে, wall clock', scope: 'field', clock: 'wall' },
-	{ name: 'LWW, field ধরে, HLC', scope: 'field', clock: 'hlc' }
+	{ name: 'LWW, whole row, wall clock', scope: 'row', clock: 'wall' },
+	{ name: 'LWW, per field, wall clock', scope: 'field', clock: 'wall' },
+	{ name: 'LWW, per field, HLC', scope: 'field', clock: 'hlc' }
 ];
 
 const byTask = new Map<number, Edit[]>();
@@ -96,19 +96,19 @@ for (const e of edits) {
 for (const list of byTask.values()) list.sort((a, b) => a.at - b.at);
 
 heading(
-	`অংশ ক — এক দিন: ${n(totalEdits)} edit (${n(edits.length)}টা ${n(SESSIONS)}টা যৌথ session এ, ${Math.round(CROSS_REGION * 100)}% session এ অন্য region এর মানুষ); প্রতিটা region এ লেখা নেওয়া হয়`
+	`Part A — one day: ${n(totalEdits)} edits (${n(edits.length)} in ${n(SESSIONS)} shared sessions, ${Math.round(CROSS_REGION * 100)}% of sessions with people from another region); writes accepted in every region`
 );
 console.log(
-	`replication: সাধারণত region এর দূরত্বের অর্ধেক + ৫০ ms; ১৪:০০–১৬:০০ link খারাপ, median ${INCIDENT_LAG_S} s; ফ্রাঙ্কফুর্টের ঘড়ি ${FRANKFURT_SKEW_MS} ms\n`
+	`replication: normally half the region distance + 50 ms; the link is bad 14:00–16:00, median ${INCIDENT_LAG_S} s; Frankfurt's clock ${FRANKFURT_SKEW_MS} ms\n`
 );
 console.log(
 	row([
-		['নিয়ম', 30],
-		['নীরবে হারানো edit', 18],
-		['মোটের %', 10],
-		['একসাথে (concurrent)', 20],
-		['ঘড়ির জন্য উল্টো', 18],
-		['২ ঘণ্টার incident এ', 20]
+		['rule', 40],
+		['silently lost edits', 20],
+		['% of total', 11],
+		['concurrent', 20],
+		['reversed by clock', 19],
+		['in the 2 h incident', 20]
 	])
 );
 for (const policy of POLICIES) {
@@ -141,18 +141,18 @@ for (const policy of POLICIES) {
 	}
 	console.log(
 		row([
-			[policy.name, 30],
-			[n(lost.size), 18],
-			[pct(lost.size, totalEdits, 3), 10],
+			[policy.name, 40],
+			[n(lost.size), 20],
+			[pct(lost.size, totalEdits, 3), 11],
 			[n(concurrentLost), 20],
-			[n(skewLost), 18],
+			[n(skewLost), 19],
 			[n(incidentLost), 20]
 		])
 	);
 }
 console.log(
 	row([
-		['workspace এর home region এ লেখা', 30],
+		["writes to the workspace's home region", 40],
 		['0', 18],
 		['0%', 10],
 		['0', 20],
@@ -161,7 +161,7 @@ console.log(
 	])
 );
 
-heading('অংশ খ — home region এর দাম: অন্য region থেকে আসা edit কে home এ যেতে হয়');
+heading('Part B — the price of home regions: edits from another region have to travel home');
 const extra: number[] = [];
 let away = 0;
 for (const e of edits) {
@@ -172,25 +172,25 @@ for (const e of edits) {
 extra.sort((a, b) => a - b);
 console.log(
 	row([
-		['session এর edit অন্য region থেকে', 36],
+		['session edits from another region', 40],
 		[`${n(away)} (${pct(away, edits.length, 1)})`, 20]
 	])
 );
 console.log(
 	row([
-		['তাদের বাড়তি latency p50', 36],
+		['their extra latency p50', 40],
 		[ms(percentile(extra, 50)), 20]
 	])
 );
 console.log(
 	row([
-		['তাদের বাড়তি latency p95', 36],
+		['their extra latency p95', 40],
 		[ms(percentile(extra, 95)), 20]
 	])
 );
 console.log(
 	row([
-		['সব edit এর মধ্যে বাড়তি পায়', 36],
+		['share of all edits paying extra', 40],
 		[pct(away, totalEdits, 2), 20]
 	])
 );

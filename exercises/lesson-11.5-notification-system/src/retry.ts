@@ -15,11 +15,16 @@ type Outcome = 'ok' | 'fail' | 'timeout';
 type Policy = { name: string; retry: boolean; key: boolean; failover: boolean };
 
 const policies: Policy[] = [
-	{ name: 'একবার, retry নেই', retry: false, key: false, failover: false },
-	{ name: 'ব্যর্থ বা timeout হলে আবার', retry: true, key: false, failover: false },
-	{ name: 'আবার, provider এ idempotency key সহ', retry: true, key: true, failover: false },
+	{ name: 'once, no retry', retry: false, key: false, failover: false },
+	{ name: 'again on failure or timeout', retry: true, key: false, failover: false },
 	{
-		name: 'timeout হলে দ্বিতীয় provider এ (key শেয়ার হয় না)',
+		name: 'again, with an idempotency key at the provider',
+		retry: true,
+		key: true,
+		failover: false
+	},
+	{
+		name: 'on timeout to a second provider (the key is not shared)',
 		retry: true,
 		key: true,
 		failover: true
@@ -27,13 +32,13 @@ const policies: Policy[] = [
 ];
 
 heading(
-	`অংশ ক — ${n(MESSAGES)}টা email: ${FAIL * 100}% স্পষ্ট ব্যর্থ (পাঠায়নি), ${TIMEOUT * 100}% timeout (তার ${SENT_ON_TIMEOUT * 100}% আসলে পাঠিয়েছিল)`
+	`Part A — ${n(MESSAGES)} emails: ${FAIL * 100}% clearly failed (not sent), ${TIMEOUT * 100}% timed out (${SENT_ON_TIMEOUT * 100}% of those were actually sent)`
 );
 console.log(
 	row([
-		['নীতি', 52],
-		['পৌঁছায়নি', 11],
-		['দুবার পৌঁছাল', 14],
+		['policy', 58],
+		['not delivered', 15],
+		['delivered twice', 17],
 		['provider call', 15]
 	])
 );
@@ -67,26 +72,28 @@ for (const policy of policies) {
 	}
 	console.log(
 		row([
-			[policy.name, 52],
-			[pct(missing, MESSAGES, 2), 11],
-			[pct(twice, MESSAGES, 2), 14],
+			[policy.name, 58],
+			[pct(missing, MESSAGES, 2), 15],
+			[pct(twice, MESSAGES, 2), 17],
 			[(calls / MESSAGES).toFixed(3), 15]
 		])
 	);
 }
 
-heading(`অংশ খ — প্রধান email provider ${OUTAGE_S / 60} মিনিট বন্ধ, ${n(RATE)} email/s`);
+heading(
+	`Part B — the primary email provider down for ${OUTAGE_S / 60} minutes, ${n(RATE)} emails/s`
+);
 console.log(
 	row([
-		['নীতি', 52],
-		['দেরি p50', 11],
-		['দেরি p99', 11],
-		['প্রধানে চেষ্টা', 15]
+		['policy', 58],
+		['delay p50', 11],
+		['delay p99', 11],
+		['attempts on primary', 21]
 	])
 );
 const outagePolicies: [string, 'backoff' | 'breaker'][] = [
-	[`একই provider এ exponential backoff (সর্বোচ্চ ${CAP_S / 60} মিনিট)`, 'backoff'],
-	[`breaker: ${BREAKER_S} s ব্যর্থতার পরে দ্বিতীয় provider`, 'breaker']
+	[`exponential backoff on the same provider (max ${CAP_S / 60} minutes)`, 'backoff'],
+	[`breaker: second provider after ${BREAKER_S} s of failures`, 'breaker']
 ];
 for (const [name, mode] of outagePolicies) {
 	const random = mulberry32(SEED + 1);
@@ -113,11 +120,11 @@ for (const [name, mode] of outagePolicies) {
 	delays.sort((a, b) => a - b);
 	console.log(
 		row([
-			[name, 52],
+			[name, 58],
 			[ms(percentile(delays, 50) * 1_000), 11],
 			[ms(percentile(delays, 99) * 1_000), 11],
-			[n(primaryAttempts), 15]
+			[n(primaryAttempts), 21]
 		])
 	);
 }
-console.log('\nদেরি = email তৈরি থেকে পাঠানো পর্যন্ত। Backoff এ jitter আছে (৫০–১০০%)।');
+console.log('\ndelay = from creating the email to sending it. Backoff has jitter (50–100%).');

@@ -29,21 +29,21 @@ function table(title: string, options: Option[]): void {
 	heading(title);
 	console.log(
 		row([
-			['নকশা', 46],
-			['GB / মাস', 12],
-			['খরচ / মাস', 12],
+			['design', 52],
+			['GB / month', 12],
+			['cost / month', 14],
 			['', 2],
-			['নোট', 40]
+			['note', 52]
 		])
 	);
 	for (const o of options)
 		console.log(
 			row([
-				[o.name, 46],
+				[o.name, 52],
 				[tb(o.gb), 12],
-				[usd(o.cost), 12],
+				[usd(o.cost), 14],
 				['', 2],
-				[`  ${o.note}`, 40]
+				[`  ${o.note}`, 52]
 			])
 		);
 }
@@ -51,43 +51,43 @@ function table(title: string, options: Option[]): void {
 const apiGb = REQUESTS * API_KB * KB;
 const cdnRequestsFee = (ATTACHMENT_GETS / 10_000) * P.cdnPer10kRequests;
 table(
-	`অংশ ক — বাইরে যাওয়া (egress): মাসে ${n(REQUESTS / 1e6)} M API request, ${tb(ATTACHMENT_GB)} attachment`,
+	`Part A — going out (egress): ${n(REQUESTS / 1e6)} M API requests a month, ${tb(ATTACHMENT_GB)} of attachments`,
 	[
 		{
-			name: 'API JSON, compression নেই',
+			name: 'API JSON, no compression',
 			gb: apiGb,
 			cost: apiGb * P.internetEgressGb,
-			note: `গড় ${API_KB} KB`
+			note: `${API_KB} KB on average`
 		},
 		{
-			name: `API JSON, gzip/br (~${COMPRESSION} গুণ)`,
+			name: `API JSON, gzip/br (~${COMPRESSION}×)`,
 			gb: apiGb / COMPRESSION,
 			cost: (apiGb / COMPRESSION) * P.internetEgressGb,
-			note: 'CPU এর দাম সামান্য'
+			note: 'the CPU cost is tiny'
 		},
 		{
-			name: 'attachment সরাসরি S3 থেকে',
+			name: 'attachments straight from S3',
 			gb: ATTACHMENT_GB,
 			cost: ATTACHMENT_GB * P.internetEgressGb + (ATTACHMENT_GETS / 1_000) * P.s3GetPer1k,
 			note: 'S3 egress + GET'
 		},
 		{
-			name: `attachment CDN দিয়ে (hit ${Math.round(CDN_HIT * 100)}%)`,
+			name: `attachments through a CDN (hit ${Math.round(CDN_HIT * 100)}%)`,
 			gb: ATTACHMENT_GB,
 			cost:
 				ATTACHMENT_GB * P.cdnEgressGb +
 				cdnRequestsFee +
 				((ATTACHMENT_GETS * (1 - CDN_HIT)) / 1_000) * P.s3GetPer1k,
-			note: 'S3 → CDN একই provider এ ধরা বিনা মূল্যে'
+			note: 'S3 → CDN assumed free within one provider'
 		},
 		{
-			name: 'CDN + board এ ছোট preview (৪০% bytes)',
+			name: 'CDN + small previews on the board (40% bytes)',
 			gb: ATTACHMENT_GB * 0.4,
 			cost:
 				ATTACHMENT_GB * 0.4 * P.cdnEgressGb +
 				cdnRequestsFee +
 				((ATTACHMENT_GETS * (1 - CDN_HIT)) / 1_000) * P.s3GetPer1k,
-			note: 'resize একবার, upload এর সময় (8.2)'
+			note: 'resize once, at upload time (8.2)'
 		}
 	]
 );
@@ -97,45 +97,45 @@ const natFlows = S3_WORKER_GB + imageGb + LOG_SHIP_GB;
 const natHours = (gateways: number): number => gateways * P.natGatewayHour * H;
 const endpointHours = AZS * P.interfaceEndpointHour * H;
 table(
-	`অংশ খ — private subnet থেকে বাইরে: S3 ${tb(S3_WORKER_GB)}, image pull ${tb(imageGb)} (দিনে ${DEPLOYS_PER_DAY} deploy × ${INSTANCES} instance × ${IMAGE_GB * 1_000} MB), log ${tb(LOG_SHIP_GB)}`,
+	`Part B — out of the private subnet: S3 ${tb(S3_WORKER_GB)}, image pulls ${tb(imageGb)} (${DEPLOYS_PER_DAY} deploys a day × ${INSTANCES} instances × ${IMAGE_GB * 1_000} MB), logs ${tb(LOG_SHIP_GB)}`,
 	[
 		{
-			name: 'সব NAT দিয়ে, প্রতি AZ এ একটা NAT',
+			name: 'everything through NAT, one NAT per AZ',
 			gb: natFlows,
 			cost: natHours(AZS) + natFlows * P.natPerGb,
-			note: 'আজকের TaskFlow'
+			note: "today's TaskFlow"
 		},
 		{
 			name: '+ S3 gateway endpoint',
 			gb: natFlows - S3_WORKER_GB,
 			cost: natHours(AZS) + (imageGb + LOG_SHIP_GB) * P.natPerGb,
-			note: 'gateway endpoint বিনা মূল্যে'
+			note: 'the gateway endpoint is free'
 		},
 		{
-			name: '+ image এর জন্য interface endpoint',
+			name: '+ an interface endpoint for images',
 			gb: LOG_SHIP_GB,
 			cost:
 				natHours(AZS) + LOG_SHIP_GB * P.natPerGb + endpointHours + imageGb * P.interfaceEndpointGb,
-			note: 'ঘণ্টা + প্রতি GB, NAT এর চেয়ে কম'
+			note: 'hourly + per GB, less than NAT'
 		},
 		{
-			name: '+ image ছোট করা (৫০০ → ১৫০ MB)',
+			name: '+ smaller images (500 → 150 MB)',
 			gb: LOG_SHIP_GB,
 			cost:
 				natHours(AZS) +
 				LOG_SHIP_GB * P.natPerGb +
 				endpointHours +
 				imageGb * 0.3 * P.interfaceEndpointGb,
-			note: 'multi-stage build, শুধু runtime'
+			note: 'multi-stage build, runtime only'
 		},
 		{
-			name: 'সব NAT দিয়ে, কিন্তু তিন AZ এ একটাই NAT',
+			name: 'everything through NAT, but one NAT for three AZs',
 			gb: natFlows,
 			cost: natHours(1) + natFlows * P.natPerGb + natFlows * remote * crossAz,
-			note: 'NAT এর ঘণ্টা কম, cross-AZ বেশি, এক AZ এ SPOF'
+			note: 'fewer NAT hours, more cross-AZ, a SPOF in one AZ'
 		},
 		{
-			name: 'endpoint সহ, তিন AZ এ একটাই NAT',
+			name: 'with endpoints, one NAT for three AZs',
 			gb: LOG_SHIP_GB,
 			cost:
 				natHours(1) +
@@ -143,7 +143,7 @@ table(
 				LOG_SHIP_GB * remote * crossAz +
 				endpointHours +
 				imageGb * P.interfaceEndpointGb,
-			note: 'সস্তা — কিন্তু সেই AZ মরলে বাইরে যাওয়া বন্ধ'
+			note: 'cheap — but if that AZ dies, nothing gets out'
 		}
 	]
 );
@@ -152,34 +152,34 @@ const callGb = REQUESTS * CALLS_PER_REQUEST * CALL_KB * KB;
 const dbGb = REQUESTS * DB_KB * KB;
 const dbWrites = dbGb * (1 - READ_SHARE);
 table(
-	`অংশ গ — AZ জুড়ে: প্রতি request এ ${CALLS_PER_REQUEST}টা ভেতরের call × ${CALL_KB} KB, DB তে ${DB_KB} KB (${Math.round(READ_SHARE * 100)}% পড়া), ${AZS}টা AZ`,
+	`Part C — across AZs: ${CALLS_PER_REQUEST} internal calls per request × ${CALL_KB} KB, ${DB_KB} KB to the DB (${Math.round(READ_SHARE * 100)}% reads), ${AZS} AZs`,
 	[
 		{
-			name: 'monolith: ভেতরের call function এ',
+			name: 'monolith: internal calls are function calls',
 			gb: dbGb * remote,
 			cost: dbGb * remote * crossAz,
-			note: 'শুধু app → primary'
+			note: 'only app → primary'
 		},
 		{
-			name: 'service, যেকোনো AZ এ পাঠানো',
+			name: 'services, sent to any AZ',
 			gb: callGb * remote + dbGb * remote,
 			cost: (callGb * remote + dbGb * remote) * crossAz,
-			note: `ভেতরের call এর ${Math.round(remote * 100)}% অন্য AZ এ`
+			note: `${Math.round(remote * 100)}% of internal calls to another AZ`
 		},
 		{
-			name: 'service, একই AZ আগে (AZ-aware)',
+			name: 'services, same AZ first (AZ-aware)',
 			gb: callGb * 0.1 + dbGb * remote,
 			cost: (callGb * 0.1 + dbGb * remote) * crossAz,
-			note: '১০% অন্য AZ এ (fallback)'
+			note: '10% to another AZ (fallback)'
 		},
 		{
-			name: '+ প্রতি AZ এ একটা read replica',
+			name: '+ a read replica in every AZ',
 			gb: callGb * 0.1 + dbWrites * remote,
 			cost: (callGb * 0.1 + dbWrites * remote) * crossAz,
-			note: 'পড়া নিজের AZ এ, লেখা primary তে'
+			note: 'reads in their own AZ, writes to the primary'
 		}
 	]
 );
 console.log(
-	`\n(cross-AZ এর দাম দুই দিকেই — পাঠানো আর পাওয়া — প্রতি GB ${usd(P.crossAzGbEachWay)} করে ধরা; replica তৈরির replication traffic এখানে ধরা না)`
+	`\n(cross-AZ is charged both ways — sending and receiving — at ${usd(P.crossAzGbEachWay)} per GB each; replication traffic for building replicas is not counted here)`
 );

@@ -3,14 +3,14 @@ import { monolith, microservices, stop, stopAll, type Topology } from './cluster
 import { boardLoad, type LoadResult } from './load';
 import { ms, pad } from './random';
 
-// Lesson 9.1 §১.৩ — একটা অংশ ভাঙলে বাকিটার কী হয়?
+// Lesson 9.1 §1.3 — when one part breaks, what happens to the rest?
 //
-// ক. ভারী প্রতিবেশী: কেউ "সব comment এর export" চালাচ্ছে — CPU এর কাজ, প্রতিটা EXPORT_MS ধরে event loop
-//    আটকায়, পরপর। একই সময়ে board খোলা হচ্ছে। Monolith এ export আর board একই process এ; microservices এ
-//    export comments service এ — board tasks service এ, কিন্তু board এর comments এর সংখ্যা লাগে।
-// খ. Crash: export এর একটা bug process মেরে ফেলল (OOM এর মতো)। Monolith এ সেই process টাই সব;
-//    microservices এ শুধু comments service।
-// গ. হিসাব: request এর পথে যত service, availability তত গুণ হয়।
+// a. A heavy neighbour: someone is running "export every comment" — CPU work, each blocking the event loop for EXPORT_MS,
+//    back to back. Boards are being opened at the same time. In the monolith the export and the board share a process; in microservices
+//    the export is in the comments service — the board in the tasks service, but the board needs the comment counts.
+// b. Crash: a bug in the export killed the process (like an OOM). In the monolith that process is everything;
+//    in microservices only the comments service.
+// c. Arithmetic: the more services on the request path, the more availabilities multiply.
 
 const cfg = z
 	.object({
@@ -24,15 +24,15 @@ const cfg = z
 const pct = (n: number, total: number): string =>
 	`${total === 0 ? '0' : ((n / total) * 100).toFixed(0)}%`;
 
-// board/s = সফল board (পুরো বা comments ছাড়া) প্রতি সেকেন্ডে — দ্রুত error গোনা হয় না
+// boards/s = successful boards (full or without comments) per second — fast errors aren't counted
 function line(name: string, r: LoadResult): void {
 	const served = r.requests === 0 ? 0 : (r.perSecond * (r.ok + r.degraded)) / r.requests;
 	console.log(
-		`   ${name.padEnd(44)} ${pad(served.toFixed(0), 7)} ${pad(ms(r.p50), 10)} ${pad(ms(r.p99), 10)} ${pad(pct(r.ok, r.requests), 8)} ${pad(pct(r.degraded, r.requests), 12)} ${pad(pct(r.errors, r.requests), 7)}`
+		`   ${name.padEnd(44)} ${pad(served.toFixed(0), 11)} ${pad(ms(r.p50), 10)} ${pad(ms(r.p99), 10)} ${pad(pct(r.ok, r.requests), 8)} ${pad(pct(r.degraded, r.requests), 12)} ${pad(pct(r.errors, r.requests), 7)}`
 	);
 }
 
-// export বারবার, একটার পর একটা, যতক্ষণ board এর load চলে
+// the export again and again, one after another, as long as the board load runs
 async function exportLoop(url: string, until: number): Promise<number> {
 	let done = 0;
 	while (performance.now() < until) {
@@ -59,7 +59,7 @@ async function withExport(topology: Topology, exportUrl: string): Promise<LoadRe
 
 const header = (): void =>
 	console.log(
-		`   ${'পথ'.padEnd(44)} সফল board/s     p50        p99    পুরো   comments ছাড়া   error`
+		'   path                                         boards/s ok        p50        p99     full  no comments   error'
 	);
 
 async function main(): Promise<void> {
@@ -68,22 +68,22 @@ async function main(): Promise<void> {
 	const withTimeout = { CALLS: 'batched', TIMEOUT_MS: String(cfg.TIMEOUT_MS) };
 
 	console.log(
-		`\n── ক. ভারী প্রতিবেশী: board খোলা (${cfg.CONCURRENCY} client) আর একই সময়ে export (প্রতিটা ~${cfg.EXPORT_MS} ms CPU, পরপর) ──`
+		`\n── A. Heavy neighbour: opening the board (${cfg.CONCURRENCY} clients) while an export runs (~${cfg.EXPORT_MS} ms CPU each, back to back) ──`
 	);
 	header();
 	{
 		const t = await monolith(exportEnv);
 		await boardLoad(t.entry.url, cfg.CONCURRENCY, 500);
 		line(
-			'monolith, export ছাড়া (তুলনার জন্য)',
+			'monolith, no export (for comparison)',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
 		);
-		line('monolith, export একই process এ', await withExport(t, t.entry.url));
+		line('monolith, export in the same process', await withExport(t, t.entry.url));
 		await stopAll(t);
 	}
 	{
 		const t = await microservices(noTimeout, exportEnv);
-		line('microservices, timeout ছাড়া', await withExport(t, t.comments.url));
+		line('microservices, no timeout', await withExport(t, t.comments.url));
 		await stopAll(t);
 	}
 	{
@@ -96,15 +96,15 @@ async function main(): Promise<void> {
 	}
 
 	console.log(
-		`\n── খ. Crash: export এর bug এ process মারা গেল — তারপর ${(cfg.DURATION_MS / 1000).toFixed(0)} s board খোলা ──`
+		`\n── B. Crash: a bug in the export killed the process — then ${(cfg.DURATION_MS / 1000).toFixed(0)} s of opening boards ──`
 	);
 	header();
 	{
 		const t = await monolith(exportEnv);
 		await boardLoad(t.entry.url, cfg.CONCURRENCY, 500);
-		await stop(t.entry); // পুরো app — board ও এই process এ ছিল
+		await stop(t.entry); // the whole app — the board was in this process too
 		line(
-			'monolith (একমাত্র process মারা গেল)',
+			'monolith (the only process died)',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
 		);
 		await stopAll(t);
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
 		await boardLoad(t.entry.url, cfg.CONCURRENCY, 500);
 		await stop(t.comments);
 		line(
-			'microservices, comments মারা গেল, timeout ছাড়া',
+			'microservices, comments died, no timeout',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
 		);
 		await stopAll(t);
@@ -124,27 +124,29 @@ async function main(): Promise<void> {
 		await boardLoad(t.entry.url, cfg.CONCURRENCY, 500);
 		await stop(t.comments);
 		line(
-			'microservices, comments মারা গেল, + fallback',
+			'microservices, comments died, + fallback',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
 		);
-		await stop(t.users); // এবার users — এর কোনো fallback নেই (assignee ছাড়া card দেখানোর নিয়ম বানানো হয়নি)
+		await stop(t.users); // users this time — it has no fallback (no rule was made for showing a card without an assignee)
 		line(
-			'   … তারপর users ও মারা গেল (তার fallback নেই)',
+			'   … then users died (no fallback)',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
 		);
 		await stopAll(t);
 	}
 
-	console.log('\n── গ. হিসাব: board এর পথে k টা service, প্রতিটা আলাদাভাবে 99.9% available ──');
-	console.log('   k   পুরো পথের availability   মাসে বন্ধ (৩০ দিন)');
+	console.log(
+		"\n── C. Arithmetic: k services on the board's path, each independently 99.9% available ──"
+	);
+	console.log('   k        path availability   downtime per 30 days');
 	for (const k of [1, 3, 5, 10, 20]) {
 		const a = 0.999 ** k;
 		console.log(
-			`  ${pad(k, 2)}   ${pad(`${(a * 100).toFixed(2)}%`, 22)}   ${pad(((1 - a) * 30 * 24 * 60).toFixed(0), 6)} মিনিট`
+			`  ${pad(k, 2)}   ${pad(`${(a * 100).toFixed(2)}%`, 22)}   ${pad(((1 - a) * 30 * 24 * 60).toFixed(0), 6)} minutes`
 		);
 	}
 	console.log(
-		'   (ধরে নেওয়া: ব্যর্থতা স্বাধীন আর প্রতিটা service এর নিজের 99.9%; fallback থাকলে সেই service পথ থেকে বাদ যায়)\n'
+		'   (assumed: failures are independent and each service has its own 99.9%; with a fallback that service drops off the path)\n'
 	);
 }
 

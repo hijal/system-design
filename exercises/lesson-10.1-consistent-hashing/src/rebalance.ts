@@ -18,14 +18,14 @@ function addNode(): void {
 	const after = nodeList('cache', 5);
 	const newcomer = after[4]?.id ?? '';
 	heading(
-		`ক. ৪টা cache node থেকে ৫টা — ${KEYS.toLocaleString('en-US')}টা key এর কতগুলো জায়গা বদলায়, আর কোথায় যায়`
+		`A. 4 cache nodes to 5 — how many of ${KEYS.toLocaleString('en-US')} keys move, and where they go`
 	);
 	console.log(
 		row([
 			['routing', 26],
-			['সরল', 10],
-			['নতুন node এ', 14],
-			['পুরনোদের মধ্যে', 17]
+			['moved', 10],
+			['to the new node', 17],
+			['among the old', 17]
 		])
 	);
 	const pairs: [Router, Router][] = [
@@ -40,24 +40,24 @@ function addNode(): void {
 			row([
 				[old.label, 26],
 				[pct(moved.length, KEYS), 10],
-				[pct(toNewcomer, moved.length), 14],
+				[pct(toNewcomer, moved.length), 17],
 				[pct(moved.length - toNewcomer, moved.length), 17]
 			])
 		);
 	}
-	console.log(`   আদর্শ: শুধু নতুন node এর ভাগ = ১/৫ = 20.0%, আর সবটা নতুন node এ`);
+	console.log(`   ideal: only the new node's share = 1/5 = 20.0%, and all of it to the new node`);
 }
 
 function removeNode(): void {
 	const before = nodeList('cache', 5);
 	const lost = before[2]?.id ?? '';
 	const after = before.filter((spec) => spec.id !== lost);
-	heading(`খ. ${lost} মরে গেল — তার key গুলো কে নিল, আর সবচেয়ে ভারী node এর উপর কত চাপ`);
+	heading(`B. ${lost} died — who took its keys, and how much load is on the heaviest node`);
 	console.log(
 		row([
 			['routing', 26],
 			...after.map((spec): [string, number] => [spec.id, 10]),
-			['সবচেয়ে ভারী', 14]
+			['heaviest', 14]
 		])
 	);
 	for (const vnodes of [1, VNODES]) {
@@ -78,7 +78,7 @@ function removeNode(): void {
 		);
 	}
 	console.log(
-		'   (কলামগুলো = মরা node এর key এর কত ভাগ কে নিল; "সবচেয়ে ভারী" = ন্যায্য ভাগের কত গুণ)'
+		'   (columns = what share of the dead node\'s keys each one took; "heaviest" = how many times its fair share)'
 	);
 }
 

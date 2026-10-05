@@ -16,22 +16,22 @@ export const sequelize = new Sequelize(DATABASE_URL, {
 });
 
 export class Comment extends Model<InferAttributes<Comment>, InferCreationAttributes<Comment>> {
-	declare id: number; // writer নিজে দেয় — যাতে crash এর পরেও কোন comment এর কী হলো মেলানো যায়
+	declare id: number; // the writer provides it — so that even after a crash we can match what happened to which comment
 	declare taskId: number;
 	declare body: string;
 	declare createdAt: CreationOptional<Date>;
 }
 
-// Transactional outbox: "এই event টা পাঠাতে হবে" — comment এর সাথে একই transaction এ লেখা।
-// relay পরে এখান থেকে পড়ে broker এ পাঠায়, তারপর publishedAt বসায়।
+// Transactional outbox: "this event has to be sent" — written in the same transaction as the comment.
+// The relay later reads from here and sends it to the broker, then sets publishedAt.
 export class OutboxEvent extends Model<
 	InferAttributes<OutboxEvent>,
 	InferCreationAttributes<OutboxEvent>
 > {
-	declare id: CreationOptional<number>; // ক্রমিক — relay এই ক্রমে পাঠায়
+	declare id: CreationOptional<number>; // sequential — the relay sends in this order
 	declare eventId: string;
 	declare type: string;
-	declare aggregateId: number; // কোন task এর ঘটনা — partition/ক্রমের key (Lesson 7.2)
+	declare aggregateId: number; // which task the event is about — the partition/order key (Lesson 7.2)
 	declare payload: object;
 	declare createdAt: CreationOptional<Date>;
 	declare publishedAt: Date | null;
@@ -61,7 +61,7 @@ OutboxEvent.init(
 		sequelize,
 		tableName: 'outbox_events',
 		updatedAt: false,
-		// relay শুধু না-পাঠানো গুলো খোঁজে — partial index সেই খোঁজকে ছোট রাখে, table যত বড়ই হোক
+		// the relay only looks for unsent rows — a partial index keeps that search small, however big the table gets
 		indexes: [{ fields: ['id'], where: { publishedAt: null }, name: 'outbox_unpublished' }]
 	}
 );

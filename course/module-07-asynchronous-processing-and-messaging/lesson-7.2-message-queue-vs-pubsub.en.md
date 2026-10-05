@@ -82,11 +82,11 @@ This is **news**: "a comment was created." News goes to everyone who wants to he
 The exercise's `npm run fanout` shows what happens if you pick the wrong answer. 1069 events; email, search and analytics all need every one of them:
 
 ```
-   broker                                 email got   search got   analytics got
-   queue — one queue, shared by all            40%          40%             20%
-   queue — one queue per service              100%         100%            100%
-   pub/sub                                    100%         100%            100%
-   log — one group per service                100%         100%            100%
+   broker                           email got   search got   analytics got
+   queue — one shared queue               40%          40%             20%
+   queue — one queue per service         100%         100%            100%
+   pub/sub                               100%         100%            100%
+   log — one group per service           100%         100%            100%
 ```
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the numbers are identical.)
@@ -113,11 +113,11 @@ In Kafka both levels live in a single idea — the consumer group, in 1.4. And a
 Tuesday's incident question. `npm run crash` — the search service is down from 20 to 30 seconds (a deploy), the others are running:
 
 ```
-   broker                          lost   processed twice   delay p99    delay max
-   pub/sub                          193                0      36 ms      43 ms
-   queue (ack per message)            0                0      9.6 s      9.8 s
-   log (commit every 5.0 s)           0              110     10.6 s     11.0 s
-   log (commit every 100 ms)          0                2      9.6 s      9.8 s
+   broker                           lost  processed twice  delay p99  delay max
+   pub/sub                           193                0      36 ms      43 ms
+   queue (ack per message)             0                0      9.6 s      9.8 s
+   log (commit every 5.0 s)            0              110     10.6 s     11.0 s
+   log (commit every 100 ms)           0                2      9.6 s      9.8 s
 ```
 
 **The pub/sub row:** 193 comments never reached search — and its delay is just 36 ms! Both for the same reason: Redis Pub/Sub **doesn't store** messages. The subscriber connected at the moment of publish gets it; for one that isn't, the message exists nowhere — ever. The delay is low because the ones that could have arrived late never arrived at all. This isn't a defect, it's the design: Redis Pub/Sub is a tool for "tell whoever is listening right now" — **at most once (at-most-once)**.
@@ -145,10 +145,10 @@ You have to pick one of the two situations, because "doing the work" and "tellin
 **Now the slow consumer** — Thursday's incident. `npm run slow` — one analytics worker takes 60–100 ms per event (≈12.5/s), and events arrive at ≈17.8/s. In Lesson 7.1's language: the consumer is slower than the arrivals, so the backlog will grow. The question is **where** the backlog lives:
 
 ```
-   broker     analytics lost   stored (max)   analytics delay max   email delay p99
-   pubsub                367            101                6.0 s            171 ms
-   queue                   0            375               32.1 s            199 ms
-   log                     0            334               27.7 s            271 ms
+   broker      analytics lost    backlog (max)  analytics delay max  email delay p99
+   pubsub                 367              101                6.0 s           171 ms
+   queue                    0              375               32.1 s           199 ms
+   log                      0              334               27.7 s           271 ms
 ```
 
 Look at the last column first: **email is untouched in all three.** The slow analytics doesn't drag anyone else down — because each service has its own copy, its own line. The exact opposite of 7.1's cascading failure; the broker keeps the slow consumer isolated.
@@ -189,11 +189,11 @@ Search is a group, analytics is a group — each reads everything at its own spe
 `npm run replay` — a new `search-v2` service joins at 60 seconds, and wants all the earlier events too:
 
 ```
-   broker                   earlier events got   later events got
-   pub/sub                        0 / 1069            551 / 551
-   queue                          0 / 1069            551 / 551
-   log (retention 7 days)      1069 / 1069            551 / 551
-   log (retention 30 s)         566 / 1069            551 / 551
+   broker                  earlier events     later events
+   pub/sub                       0 / 1069        551 / 551
+   queue                         0 / 1069        551 / 551
+   log (retention 7 days)     1069 / 1069        551 / 551
+   log (retention 30 s)        566 / 1069        551 / 551
 ```
 
 For the queue and pub/sub there's no such thing as history — messages from before the new queue was created never went there. The log gives the whole history — **up to the retention limit**. Kafka's default retention is 7 days (`log.retention.hours=168`, changeable per topic); with 30 seconds of retention, only the 566 from the last 30 seconds. (There's another kind — **log compaction**: instead of deleting by time, it keeps only the latest value for each key; for data like "the current state of each task".)
@@ -216,11 +216,11 @@ So with key = `taskId`, all of one task's events are in one consumer's hands, in
 `npm run ordering` — a notifier service, 20–120 ms per event, but 3 seconds for 1% of events (a slow moment at the provider):
 
 ```
-   broker                           tasks out of order   delay p50   delay p99   delay max   consumers with work
-   queue, 4 workers                             11          76 ms      3.0 s      3.1 s   4
-   log, key = task, 4 partitions                 0          94 ms      4.8 s      7.0 s   4
-   log, key = random, 4 partitions              69          97 ms      4.2 s      4.7 s   4
-   log, key = task, 8 consumers                  0          94 ms      4.8 s      7.0 s   4 (4 sit idle)
+   broker                      tasks out of order  delay p50  delay p99  delay max   consumers with work
+   queue, 4 worker                             11      76 ms      3.0 s      3.1 s   4
+   log, key = task, 4 partition                 0      94 ms      4.8 s      7.0 s   4
+   log, key = random, 4 partition              69      97 ms      4.2 s      4.7 s   4
+   log, key = task, 8 consumer                  0      94 ms      4.8 s      7.0 s   4 (4 idle)
 ```
 
 Four lessons, one per row:

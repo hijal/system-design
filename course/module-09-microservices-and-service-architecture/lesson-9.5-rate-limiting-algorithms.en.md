@@ -62,7 +62,7 @@ The problem is that "10 per second" does **not** mean "10 in any one second" —
 From the exercise, `npm run window`, part A — 10 attempts at the end of a window, 10 right at the start of the next:
 
 ```
-   algorithm                  allowed          span      multiple of limit
+   algorithm                  allowed          span   times the limit
    fixed window                    20         24 ms              2.0x
    sliding log                     10          9 ms              1.0x
    sliding counter                 11         16 ms              1.1x
@@ -79,7 +79,7 @@ This is exact by definition: it answers precisely the question "how many in the 
 It costs two things, and the second matters more:
 
 ```
-   ── C. Memory — 50,000 users, 10 requests each ──
+── c. Memory — 50,000 users, 10 requests each ──
    algorithm                  entries    bytes/user
    fixed window                 50000           109
    sliding log                  50000           253
@@ -100,8 +100,8 @@ The idea is elegant — as cheap as a fixed window (~117 bytes/user, two numbers
 But this is where something surfaced while writing the exercise, and it is the most useful part of this lesson. Part A looks at **one specific** burst. The real question is different: **how much can one user get through at most?** Answering that means searching over every possible start time for the worst case:
 
 ```
-   ── B. The most one user can send — worst case over all start offsets ──
-   algorithm              worst / 1000 ms      multiple of limit        at offset
+   ── b. The most one user can send — the worst over every start time ──
+   algorithm              worst / 1000 ms   times the limit          at phase
    fixed window                        20              2.0x            100 ms
    sliding log                         10              1.0x              0 ms
    sliding counter                     19              1.9x            820 ms
@@ -125,12 +125,12 @@ The three algorithms above answer one question: "has the limit been exceeded?" T
 The key difference is not in the acceptance rate — it is in the **shape of the output**. From the exercise, `npm run bucket`, the same arrivals (a burst of 30 at t=0, then 5/s), rate 10/s, capacity 10:
 
 ```
-   token bucket — the burst goes straight through:
+   token bucket — the burst goes out at once:
          0 ms   11  ███████████
        250 ms    1  █
        500 ms    1  █
        750 ms    1  █
-   leaky bucket — same arrivals, leaves at an even pace:
+   leaky bucket — the same arrivals, going out at an even pace:
          0 ms    3  ███
        250 ms    2  ██
        500 ms    3  ███
@@ -144,7 +144,7 @@ The average rate is ~10/s for both. But what the downstream feels is not the ave
 And capacity means exactly what it says:
 
 ```
-   capacity                     passed      in the burst       load/250ms
+   capacity                     passed  passed in burst       load/250ms
    1                                16                1                2
    5                                20                5                6
    10                               25               10               11
@@ -164,9 +164,9 @@ Now the most expensive part, and it is not a question about algorithms at all.
 From the exercise, `npm run distributed` — three real Express instances, limit 10, one user sending 60 requests round-robin:
 
 ```
-   where the counting lives            200      429   actual limit    store calls
-   per-instance count                   30       30         3.0x              0
-   shared store (RTT 1 ms)              10       50         1.0x             60
+   where counted                   200      429     real limit  store call
+   each instance counts its own    30       30         3.0x             0
+   shared store (RTT 1 ms)            10       50         1.0x            60
 ```
 
 **The actual limit = your written limit × the instance count.** Three instances give 3.0x, six give 6x. And the most dangerous part: under autoscaling your limit rises **by itself**, with no deploy and no alert. The config still says "100 per minute" while reality is 600 — and nobody notices until the downstream falls over.

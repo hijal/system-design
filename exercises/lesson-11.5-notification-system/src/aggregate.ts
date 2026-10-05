@@ -15,13 +15,13 @@ const times: number[] = [];
 for (let i = 0; i < LIKES; i++) times.push(exponential(random, DECAY_S));
 times.sort((a, b) => a - b);
 
-heading(`অংশ ক — একজনের post viral: ${n(LIKES)}টা like, বেশিরভাগ প্রথম কয়েক মিনিটে`);
+heading(`Part A — someone's post went viral: ${n(LIKES)} likes, most in the first few minutes`);
 console.log(
 	row([
-		['নীতি', 54],
+		['policy', 62],
 		['push', 8],
-		['প্রথমটা কখন', 13],
-		['শেষ like জানানো হলো', 22]
+		['first one at', 13],
+		['last like reported', 28]
 	])
 );
 
@@ -30,10 +30,10 @@ const firstLike = times[0] ?? 0;
 const lastLike = times[times.length - 1] ?? 0;
 console.log(
 	row([
-		['প্রতিটা like এ একটা push', 54],
+		['one push per like', 62],
 		[n(each), 8],
 		[ms(firstLike * 1_000), 13],
-		['সাথে সাথে', 22]
+		['immediately', 28]
 	])
 );
 
@@ -48,10 +48,10 @@ for (const t of times)
 	}
 console.log(
 	row([
-		[`প্রতি ${CAP_WINDOW_S / 60} মিনিটে সর্বোচ্চ একটা, বাকি ফেলে দাও`, 54],
+		[`at most one per ${CAP_WINDOW_S / 60} minutes, drop the rest`, 62],
 		[n(capped), 8],
 		[ms(firstLike * 1_000), 13],
-		[`না (শেষ ${ms((lastLike - lastCapped) * 1_000)} বাদ)`, 22]
+		[`no (last ${ms((lastLike - lastCapped) * 1_000)} dropped)`, 28]
 	])
 );
 
@@ -69,10 +69,10 @@ for (const t of times) {
 }
 console.log(
 	row([
-		[`${BATCH_S} s এর জানালায় জমিয়ে "X আর আরও N জন" (collapse key)`, 54],
+		[`batch in a ${BATCH_S} s window, "X and N others" (collapse key)`, 62],
 		[n(batched), 8],
 		[ms(firstSent * 1_000), 13],
-		[`${ms((lastSent - lastLike) * 1_000)} পরে`, 22]
+		[`${ms((lastSent - lastLike) * 1_000)} later`, 28]
 	])
 );
 
@@ -91,40 +91,40 @@ for (const t of times) {
 }
 console.log(
 	row([
-		['প্রথমটা সাথে সাথে, তারপর জানালা দ্বিগুণ হয় (৩০ s, ১, ২… মি)', 54],
+		['first one at once, then the window doubles (30 s, 1, 2… min)', 62],
 		[n(adaptive), 8],
 		[ms(firstAdaptive * 1_000), 13],
-		[`${ms((gate - lastLike) * 1_000)} পরে`, 22]
+		[`${ms((gate - lastLike) * 1_000)} later`, 28]
 	])
 );
 console.log(
-	'"collapse key" = device এ একই key এর পুরনো notification নতুনটা দিয়ে বদলে যায়, স্তূপ হয় না।'
+	'"collapse key" = on the device, the old notification with the same key is replaced by the new one instead of piling up.'
 );
 
 heading(
-	`অংশ খ — রাতের নীরবতা (রাত ১০টা–সকাল ৭টা): ${n(USERS)} user × দিনে ${PER_USER_DAY}টা, ${pct(CRITICAL_SHARE, 1, 0)} জরুরি (OTP, নিরাপত্তা)`
+	`Part B — night-time quiet (10 pm–7 am): ${n(USERS)} users × ${PER_USER_DAY} a day, ${pct(CRITICAL_SHARE, 1, 0)} urgent (OTP, security)`
 );
 const total = USERS * PER_USER_DAY;
 const night = total * NIGHT_SHARE;
 const deferred = night * (1 - CRITICAL_SHARE);
 console.log(
 	row([
-		['রাতে তৈরি', 30],
+		['created at night', 34],
 		[n(night), 14]
 	])
 );
 console.log(
 	row([
-		['সকাল ৭টা পর্যন্ত ধরে রাখা', 30],
+		['held until 7 am', 34],
 		[n(deferred), 14]
 	])
 );
 console.log(
 	row([
-		['গড় দেরি (সমান ভাবে ছড়ানো ধরে)', 30],
-		['4.5 ঘ', 14]
+		['average delay (if evenly spread)', 34],
+		['4.5 h', 14]
 	])
 );
 console.log(
-	`সকাল ৭টায় একসাথে ${n(deferred)}টা — প্রতিটা time zone এর ৭টায় একটা ঢেউ। ছড়িয়ে দাও (৭:০০–৭:৩০ এ এলোমেলো), নইলে এটাই নিজের campaign।`
+	`${n(deferred)} at once at 7 am — a wave at 7 in every time zone. Spread them (random within 7:00–7:30), or this becomes a campaign of its own.`
 );

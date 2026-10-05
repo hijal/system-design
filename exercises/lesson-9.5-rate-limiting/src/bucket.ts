@@ -64,8 +64,8 @@ function bar(count: number): string {
 function main(): void {
 	const input = arrivals();
 	console.log(
-		`\n=== Lesson 9.5 — Token Bucket বনাম Leaky Bucket ===\n` +
-			`   হার ${RATE_PER_SEC}/s · capacity ${CAPACITY} · আগমন: t=0 এ ${BURST} টার burst, তারপর ${TAIL_RATE}/s ${TAIL_MS} ms ধরে (মোট ${input.length})\n`
+		`\n=== Lesson 9.5 — Token Bucket vs Leaky Bucket ===\n` +
+			`   rate ${RATE_PER_SEC}/s · capacity ${CAPACITY} · arrivals: a burst of ${BURST} at t=0, then ${TAIL_RATE}/s for ${TAIL_MS} ms (${input.length} in total)\n`
 	);
 
 	const token = new TokenBucket(CAPACITY, RATE_PER_SEC);
@@ -88,12 +88,12 @@ function main(): void {
 		} else leakyDenied += 1;
 	}
 
-	console.log(`── ক. কে কতটা নিল, কে কী পেল ──`);
+	console.log(`── a. Who took how much, who got what ──`);
 	console.log(
-		`   ${padEnd('algorithm', LABEL)}${padLeft('passed', COL)}${padLeft('rejected', COL)}${padLeft('সবচেয়ে বেশি অপেক্ষা', COL + 8)}`
+		`   ${padEnd('algorithm', LABEL)}${padLeft('passed', COL)}${padLeft('rejected', COL)}${padLeft('longest wait', COL + 8)}`
 	);
 	console.log(
-		`   ${padEnd('token bucket', LABEL)}${padLeft(tokenPassed.length, COL)}${padLeft(tokenDenied, COL)}${padLeft('0 ms (অপেক্ষা নেই)', COL + 8)}`
+		`   ${padEnd('token bucket', LABEL)}${padLeft(tokenPassed.length, COL)}${padLeft(tokenDenied, COL)}${padLeft('0 ms (no wait)', COL + 8)}`
 	);
 	const worstWait = leakyWaits.length > 0 ? Math.max(...leakyWaits) : 0;
 	console.log(
@@ -101,28 +101,28 @@ function main(): void {
 	);
 
 	const span = TAIL_MS + 1500;
-	console.log(`\n── খ. বেরোনোর আকার — প্রতি ${SLOT_MS} ms এ কতটা downstream এ গেল ──`);
+	console.log(`\n── b. The shape of the output — how much went downstream every ${SLOT_MS} ms ──`);
 	const tokenHist = histogram(tokenPassed, SLOT_MS, span);
 	const leakyHist = histogram(leakyPassed, SLOT_MS, span);
-	console.log(`   token bucket — burst টা সাথে সাথে বেরিয়ে যায়:`);
+	console.log(`   token bucket — the burst goes out at once:`);
 	for (const [index, count] of tokenHist.entries())
 		if (index < 8)
 			console.log(
 				`     ${padLeft(`${index * SLOT_MS} ms`, 8)}  ${padLeft(count, 3)}  ${bar(count)}`
 			);
-	console.log(`   leaky bucket — একই আগমন, সমান গতিতে বেরোয়:`);
+	console.log(`   leaky bucket — the same arrivals, going out at an even pace:`);
 	for (const [index, count] of leakyHist.entries())
 		if (index < 8)
 			console.log(
 				`     ${padLeft(`${index * SLOT_MS} ms`, 8)}  ${padLeft(count, 3)}  ${bar(count)}`
 			);
 	console.log(
-		`\n   downstream এ সর্বোচ্চ তাৎক্ষণিক চাপ (${SLOT_MS} ms এ): token bucket ${Math.max(...tokenHist)} · leaky bucket ${Math.max(...leakyHist)}\n`
+		`\n   peak instantaneous load downstream (per ${SLOT_MS} ms): token bucket ${Math.max(...tokenHist)} · leaky bucket ${Math.max(...leakyHist)}\n`
 	);
 
-	console.log(`── গ. Token bucket এর capacity — burst সহনশীলতা বনাম downstream এর চাপ ──`);
+	console.log(`── c. Token bucket capacity — burst tolerance vs load on the downstream ──`);
 	console.log(
-		`   ${padEnd('capacity', LABEL)}${padLeft('passed', COL)}${padLeft('burst এ পাশ', COL + 4)}${padLeft(`চাপ/${SLOT_MS}ms`, COL + 4)}`
+		`   ${padEnd('capacity', LABEL)}${padLeft('passed', COL)}${padLeft('passed in burst', COL + 4)}${padLeft(`load/${SLOT_MS}ms`, COL + 4)}`
 	);
 	for (const capacity of [1, 5, CAPACITY, 50]) {
 		const limiter = new TokenBucket(capacity, RATE_PER_SEC);

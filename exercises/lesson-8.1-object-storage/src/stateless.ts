@@ -7,17 +7,17 @@ import { z } from 'zod';
 import { checkServices, emptyBucket, env, getObject, pgPool, putObject } from './storage';
 import { mulberry32 } from './random';
 
-// Lesson 8.1 §১.৩ — attachment app server এর নিজের disk এ রাখলে কী হয়?
+// Lesson 8.1 §1.3 — what happens if attachments are kept on the app server's own disk?
 //
-// দুটো Express instance (A আর B) একটা load balancer এর পেছনে — আসল TaskFlow এ ৬টা (Module 3)। একই
-// route, শুধু file রাখার জায়গা আলাদা:
-//   local  — প্রতিটা instance নিজের disk এর folder এ (data/instance-a, data/instance-b)
-//   object — দুজনেই একই bucket এ
-// Load balancer দুইভাবে: round robin, আর sticky (user ধরে একই instance — Lesson 3.4)।
+// Two Express instances (A and B) behind a load balancer — 6 in the real TaskFlow (Module 3). The same
+// route, only the place files are kept differs:
+//   local  — each instance in a folder on its own disk (data/instance-a, data/instance-b)
+//   object — both in the same bucket
+// The load balancer two ways: round robin, and sticky (the same instance per user — Lesson 3.4).
 //
-// USERS জন user, প্রত্যেকে FILES_PER_USER টা file upload করে; তারপর (১) uploader নিজে আবার খোলে,
-// (২) একজন teammate খোলে, (৩) instance A বদলানো হয় (deploy/scale-in — নতুন container, খালি disk), আবার খোলা।
-// Seed দেওয়া — প্রতিবার হুবহু একই সংখ্যা।
+// USERS users, each uploads FILES_PER_USER files; then (1) the uploader opens them again,
+// (2) a teammate opens them, (3) instance A is replaced (deploy/scale-in — a new container, an empty disk), and they are opened again.
+// Seeded — exactly the same numbers every time.
 
 const cfg = z
 	.object({
@@ -30,7 +30,7 @@ const cfg = z
 interface AttachmentStore {
 	put(id: string, body: Buffer): Promise<void>;
 	get(id: string): Promise<Buffer | null>;
-	replaceInstance(): Promise<void>; // instance বদলালে তার নিজের storage এর কী হয়
+	replaceInstance(): Promise<void>; // what happens to its own storage when an instance is replaced
 }
 
 class LocalDiskStore implements AttachmentStore {
@@ -48,7 +48,7 @@ class LocalDiskStore implements AttachmentStore {
 		}
 	}
 	async replaceInstance(): Promise<void> {
-		// নতুন container এর disk খালি — পুরনোটার সাথে disk ও গেছে
+		// a new container's disk is empty — the disk went with the old one
 		await rm(this.dir, { recursive: true, force: true });
 	}
 }
@@ -61,13 +61,13 @@ class ObjectStore implements AttachmentStore {
 		return getObject(env.BUCKET, `stateless/${id}`);
 	}
 	async replaceInstance(): Promise<void> {
-		// নতুন instance একই bucket এ কথা বলে — হারানোর কিছু নেই
+		// the new instance talks to the same bucket — nothing to lose
 	}
 }
 
 const idSchema = z.string().regex(/^[a-z0-9-]+$/);
 
-// Express 4 async handler এর rejection নিজে ধরে না — ধরে next() এ দেওয়া, নইলে process crash
+// Express 4 doesn't catch an async handler's rejection itself — catch it and pass it to next(), otherwise the process crashes
 type Handler<P> = (req: Request<P>, res: Response) => Promise<void>;
 const handle =
 	<P>(fn: Handler<P>) =>
@@ -75,7 +75,7 @@ const handle =
 		fn(req, res).catch(next);
 	};
 
-// seed দেওয়া shuffle — অনেক user একসাথে, তাই request গুলো ব্যবহারকারী ধরে সাজানো ক্রমে আসে না
+// a seeded shuffle — many users at once, so the requests don't arrive grouped by user
 function shuffled<T>(items: T[], random: () => number): T[] {
 	const out = [...items];
 	for (let i = out.length - 1; i > 0; i--) {
@@ -89,7 +89,7 @@ function shuffled<T>(items: T[], random: () => number): T[] {
 	return out;
 }
 
-// একটা TaskFlow API instance — শুধু attachment এর দুটো route
+// one TaskFlow API instance — only the two attachment routes
 function startInstance(store: AttachmentStore): Promise<{ url: string; server: Server }> {
 	const app = express();
 	app.put(
@@ -97,7 +97,7 @@ function startInstance(store: AttachmentStore): Promise<{ url: string; server: S
 		express.raw({ type: '*/*', limit: '20mb' }),
 		handle<{ id: string }>(async (req, res) => {
 			const id = idSchema.parse(req.params.id);
-			// express.raw এর body Buffer, কিন্তু type এ unknown — যাচাই করে নেওয়া
+			// express.raw's body is a Buffer, but unknown in the type — validate it
 			const body = z.instanceof(Buffer).parse(req.body);
 			await store.put(id, body);
 			res.status(201).json({ id });
@@ -116,7 +116,7 @@ function startInstance(store: AttachmentStore): Promise<{ url: string; server: S
 	);
 	return new Promise((resolve) => {
 		const server = app.listen(0, () => {
-			const { port } = server.address() as AddressInfo; // listen(0) এর পরে address() সবসময় AddressInfo
+			const { port } = server.address() as AddressInfo; // after listen(0), address() is always an AddressInfo
 			resolve({ url: `http://127.0.0.1:${port}`, server });
 		});
 	});
@@ -134,11 +134,11 @@ async function run(name: string, kind: 'local' | 'object', balancer: Balancer): 
 					new LocalDiskStore(path.join(dataDir, 'instance-b'))
 				]
 			: [new ObjectStore(), new ObjectStore()];
-	for (const s of stores) await s.replaceInstance(); // পরিষ্কার শুরু
+	for (const s of stores) await s.replaceInstance(); // a clean start
 	const instances = await Promise.all(stores.map(startInstance));
 
-	// Load balancer: কোন request কোন instance এ। Sticky = user এর id এর hash থেকে (cookie তে লেখা
-	// instance এর মতো) — একই user সবসময় একই instance এ
+	// Load balancer: which request goes to which instance. Sticky = from a hash of the user's id (like an instance
+	// written in a cookie) — the same user always on the same instance
 	let turn = 0;
 	const pick = (userId: number): string => {
 		const hash = Math.imul(userId + 1, 2654435761) >>> 0;
@@ -149,7 +149,7 @@ async function run(name: string, kind: 'local' | 'object', balancer: Balancer): 
 	const random = mulberry32(cfg.SEED);
 	const planned = Array.from({ length: cfg.USERS * cfg.FILES_PER_USER }, (_, i) => {
 		const owner = Math.floor(i / cfg.FILES_PER_USER);
-		// teammate: owner ছাড়া অন্য যেকোনো একজন — তার নিজের sticky instance আলাদা হতে পারে
+		// teammate: anyone other than the owner — their own sticky instance may be different
 		const teammate = (owner + 1 + Math.floor(random() * (cfg.USERS - 1))) % cfg.USERS;
 		return {
 			id: `u${owner}-f${i % cfg.FILES_PER_USER}`,
@@ -182,31 +182,31 @@ async function run(name: string, kind: 'local' | 'object', balancer: Balancer): 
 	const ownMiss = await missing('owner');
 	const teamMiss = await missing('teammate');
 
-	await stores[0]?.replaceInstance(); // instance A বদলাল: deploy, crash, বা autoscaling এর scale-in
+	await stores[0]?.replaceInstance(); // instance A replaced: a deploy, a crash, or an autoscaling scale-in
 	const lost = await missing('owner');
 
 	await Promise.all(instances.map((i) => new Promise((resolve) => i.server.close(resolve))));
-	await rm(dataDir, { recursive: true, force: true }); // local disk এর folder গুলো পরিষ্কার
+	await rm(dataDir, { recursive: true, force: true }); // clean up the local disk folders
 	return { name, ownMiss, teamMiss, lost, total: planned.length };
 }
 
 async function main(): Promise<void> {
 	const pool = pgPool(1);
-	await checkServices(pool); // S3 এর bucket নিশ্চিত করা
+	await checkServices(pool); // make sure the S3 bucket exists
 	await pool.end();
 	await emptyBucket(env.BUCKET);
 
 	const rows = [
 		await run('local disk, round robin', 'local', 'round-robin'),
-		await run('local disk, sticky (user ধরে)', 'local', 'sticky'),
+		await run('local disk, sticky (per user)', 'local', 'sticky'),
 		await run('object storage, round robin', 'object', 'round-robin')
 	];
 	const pct = (n: number, total: number): string => `${Math.round((100 * n) / total)}%`;
 	console.log(
-		`\n   ২টা instance · ${cfg.USERS} জন user × ${cfg.FILES_PER_USER} টা file = ${rows[0]?.total ?? 0} টা upload\n`
+		`\n   2 instances · ${cfg.USERS} users × ${cfg.FILES_PER_USER} files = ${rows[0]?.total ?? 0} uploads\n`
 	);
 	console.log(
-		'   file কোথায় · load balancer          নিজে আবার খুলল: 404   teammate খুলল: 404   instance A বদলানোর পরে: নেই'
+		'   where files live · load balancer   own reopen 404    teammate open 404     lost after replacing A'
 	);
 	for (const r of rows) {
 		console.log(

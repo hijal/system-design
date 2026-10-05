@@ -63,10 +63,10 @@ You first heard it in Lesson 5.9 — the "C" in CAP. Now the full definition:
 From the client's point of view: the system is like **a single copy**, and from the moment a write finishes, **everyone** sees it. The first three cases in the exercise's `npm run models`:
 
 ```
-   case                                    lesson   linear.  sequential  causal  RYW  mono.read  eventual
-   one primary, all normal                 5.x      ✓        ✓           ✓       ✓    ✓          ✓
-   a read during a write got the new value 6.2      ✓        ✓           ✓       ✓    ✓          ✓
-   reading from an old leader              6.2      ✗        ✓           ✓       ✓    ✓          ✓
+   incident                               lesson   linear.  sequential  causal  RYW  mono.read  eventual
+   one primary, all normal                5.x      ✓        ✓           ✓       ✓    ✓          ✓
+   read during a write got the new value  6.2      ✓        ✓           ✓       ✓    ✓          ✓
+   read from the old leader               6.2      ✗        ✓           ✓       ✓    ✓          ✓
 ```
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the results are identical.)
@@ -95,7 +95,7 @@ In the database world sequential consistency is rarely sold on its own — but i
 Meaning: if Karim answered after **seeing** Rahim's question, anyone who sees the answer also sees the question. But if two people post two separate comments without knowing about each other, some will see Rahim's first, some Karim's — both valid.
 
 ```
-   the answer is there, the question isn't 6.3      ✗        ✗           ✗       ✓    ✓          ✓
+   answer present, question missing       6.3      ✗        ✗           ✗       ✓    ✓          ✓
 ```
 
 This row is one of the most important rows in this lesson. Nothing in P3's **own** view broke a rule — it wrote nothing itself (read-your-writes ✓), its view never went backwards (monotonic ✓). What broke is the causality between **two other people**: the question → Karim read it → the answer. Session guarantees (6.3) look at one client's own history; causal looks at the whole web of causality.
@@ -107,8 +107,8 @@ Causal has a special importance: research has shown that among models that **can
 6.3's session guarantees are really pieces of causal, from one client's point of view:
 
 ```
-   replica lag: own write missing          5.7      ✗        ✗           ✗       ✗    ✓          ✓
-   task vanished on refresh                6.3      ✗        ✗           ✗       ✓    ✗          ✓
+   replica lag: own write missing         5.7      ✗        ✗           ✗       ✗    ✓          ✓
+   task vanishes on refresh               6.3      ✗        ✗           ✗       ✓    ✗          ✓
 ```
 
 Each is separate and independent: in the first, read-your-writes breaks but monotonic is fine; in the second, the reverse. So writing "session consistency" in a design doc isn't enough — **which** guarantees, by name.
@@ -118,7 +118,7 @@ And at the very bottom of the ladder:
 **Eventual consistency** (5.9) — once new writes stop, all replicas will eventually reach the same value. That's all.
 
 ```
-   LWW: clock error lost the bot's edit    6.4      ✗        ✗           ✗       ✗    ✓          ✓
+   LWW: bot's edit lost to a clock error  6.4      ✗        ✗           ✗       ✗    ✓          ✓
 ```
 
 A ✓ in the last column — all replicas eventually reached the same value (having lost the bot's edit). And almost everything else ✗. Eventual consistency doesn't say **when** they'll agree, doesn't say what can be seen in between, and doesn't say **which** value they'll agree on — they can even agree after losing a write that was reported "saved". When a vendor only says "eventually consistent", ask: "and what else?"

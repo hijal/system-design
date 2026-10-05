@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { invalidate, keys, redis } from './cache';
 
-// এই script টা cache এর আসল লাভটা মেপে দেখায় — দাবি না করে, মেপে।
-// প্রতিটা "cold" মাপের আগে key টা মুছে দেওয়া হয়, নাহলে আগের run এর
-// গরম cache ই মাপা হবে আর সংখ্যাটা মিথ্যা হবে।
+// This script measures the cache's real benefit — measured, not claimed.
+// The key is deleted before every "cold" measurement, otherwise the warm cache from
+// the previous run would be measured and the number would be a lie.
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 const USER_ID = 7;
 const ROUNDS = 20;
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 	const url = `${BASE}/api/tasks?userId=${USER_ID}`;
 	const key = keys.tasksByUser(USER_ID);
 
-	// ---- MISS: প্রতিবার key মুছে, তাই প্রতিটাই সত্যিকারের DB hit ----
+	// ---- MISS: the key is deleted every time, so each one is a real DB hit ----
 	const cold: number[] = [];
 	let count = 0;
 	for (let i = 0; i < ROUNDS; i++) {
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
 		count = sample.count;
 	}
 
-	// ---- HIT: key এখন গরম, তাই সব cache থেকে ----
+	// ---- HIT: the key is warm now, so everything comes from the cache ----
 	const warm: number[] = [];
 	let hits = 0;
 	for (let i = 0; i < ROUNDS; i++) {

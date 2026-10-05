@@ -1,16 +1,16 @@
 import express, { type Request, type Response } from 'express';
 import { z } from 'zod';
 
-// Lesson 7.1 §০ — একটা নকল email provider (SendGrid/SES এর জায়গায়), আলাদা Node process এ।
+// Lesson 7.1 §0 — a fake email provider (in place of SendGrid/SES), in a separate Node process.
 //
-//   POST /send         — একটা email "পাঠায়": `latencyMs` অপেক্ষা করে তারপর 200 (সীমা ছাড়ালে 429)
-//   POST /admin/mode   — latency বদলানো (scenario এটা দিয়ে provider কে ধীর করে, আবার সারায়)
-//   GET  /admin/stats  — কোন কোন task এর email পৌঁছেছে
+//   POST /send         — "sends" an email: waits `latencyMs`, then 200 (429 over the limit)
+//   POST /admin/mode   — change the latency (the scenario uses this to slow the provider down and fix it again)
+//   GET  /admin/stats  — which tasks' emails were delivered
 //
-// Provider নিজে ভাঙে না, শুধু ধীর হয় — কারণ বাস্তবের বেশিরভাগ বড় incident "ধীর" থেকে আসে,
-// "মৃত" থেকে না (Lesson 6.1 এর gray failure)। তবে বাস্তবের provider এর মতো এর একটা সীমা আছে:
-// একসাথে MAX_CONCURRENT এর বেশি email এলে বাড়তিগুলো সাথে সাথে 429 (rate limited)।
-// (আসল provider এর সীমা সাধারণত "প্রতি সেকেন্ডে কয়টা" — এখানে সরলতার জন্য "একসাথে কয়টা"।)
+// The provider itself never breaks, it only gets slow — because most big real-world incidents come from "slow",
+// not "dead" (the gray failure of Lesson 6.1). But like a real provider it has a limit:
+// with more than MAX_CONCURRENT emails at once, the extras get an immediate 429 (rate limited).
+// (A real provider's limit is usually "how many per second" — here it is "how many at once", for simplicity.)
 
 const env = z
 	.object({

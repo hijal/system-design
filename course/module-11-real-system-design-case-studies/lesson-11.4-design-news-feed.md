@@ -60,18 +60,18 @@ Non-functional: feed খোলা দ্রুত (p99 ~১০০ ms server এ)
 দুটোর খরচ নির্ভর করে একটা সংখ্যার উপর: একটা post এ কতজন follower। আর সেই সংখ্যা সমান না। Social network এ follower এর সংখ্যা মোটামুটি power law মানে: বেশিরভাগ মানুষের অল্প, অল্প কয়েকজনের বিশাল। `npm run estimate` একটা power law (α = ১.২) কে গড় ২০০ তে মিলিয়ে নেয়:
 
 ```
-── অংশ ক — follower এর বণ্টন: 50 কোটি account, গড়ে 200 জনকে follow, power law (α = 1.2), সর্বোচ্চ 15 কোটি ──
-মাঝের account (p50)                                         62
+── Part A — the follower distribution: 500 million accounts, following 200 on average, power law (α = 1.2), max 150 million ──
+median account (p50)                                      62
 p99                                                    1,613
 p99.99                                                74,850
-সবচেয়ে বড় account                                  150,000,000
-উপরের 0.01% account (50,000টা) এর কাছে সব follow এর 18.2%
-উপরের 1% account (5,000,000টা) এর কাছে সব follow এর 44.3%
+biggest account                                  150,000,000
+the top 0.01% of accounts (50,000) hold 18.2% of all follows
+the top 1% of accounts (5,000,000) hold 44.3% of all follows
 
-── অংশ খ — traffic ──
-                                                      গড়/s        peak/s
-feed পড়া                                             34,722       104,167
-নতুন post                                               579         1,736
+── Part B — traffic ──
+                                                 average/s        peak/s
+feed reads                                          34,722       104,167
+new posts                                              579         1,736
 ```
 
 গড় ২০০, কিন্তু মাঝের account এর ৬২। আর ৫০,০০০টা account (০.০১%) এর কাছে সব follow এর ১৮%। "একটা post এ গড়ে ২০০টা লেখা" বললে তুমি ঠিক সেই post গুলো ভুলে যাচ্ছ যেগুলো system কে ফেলে দেয়। তাই estimation এ সবসময় জিজ্ঞেস করো: **বণ্টনটা কেমন, আর লেজে কী আছে?**
@@ -103,15 +103,15 @@ home_timeline: user → [post id, …] (সর্বোচ্চ ৮০০)     
 ### ১.৪ Step 3 — Push, pull, hybrid: সংখ্যায়
 
 ```
-── অংশ গ — তিনটা পথ (follower এর 40% সক্রিয়; timeline এ 800টা id × 16 B) ──
-পথ                                          timeline লেখা/s    সবচেয়ে বড় post   পড়ায় fetch  fetch/s (peak)     cache
-fan-out on write (সবাইকে push)                      115,741     150,000,000         1.0         104,167    3.8 TB
-push, শুধু সক্রিয় follower                              46,296      60,000,000         1.0         104,167    3.8 TB
-fan-out on read (সবার থেকে pull)                           0               0       200.0      20,833,333         —
-hybrid: 1,000,000 এর বেশি → pull                     42,091         400,000        19.2       1,996,773    3.8 TB
-hybrid: 100,000 এর বেশি → pull                       38,446          40,000        34.9       3,636,764    3.8 TB
-hybrid: 10,000 এর বেশি → pull                        32,660           4,000        59.9       6,240,577    3.8 TB
-1,000,000 এর বেশি follower: 2,178টা account, সব follow এর 9.1%
+── Part C — three paths (40% of followers active; 800 ids × 16 B in a timeline) ──
+path                                      timeline writes/s    biggest post  fetch per read  fetch/s (peak)     cache
+fan-out on write (push to everyone)                 115,741     150,000,000             1.0         104,167    3.8 TB
+push, active followers only                          46,296      60,000,000             1.0         104,167    3.8 TB
+fan-out on read (pull from everyone)                      0               0           200.0      20,833,333         —
+hybrid: over 1,000,000 → pull                        42,091         400,000            19.2       1,996,773    3.8 TB
+hybrid: over 100,000 → pull                          38,446          40,000            34.9       3,636,764    3.8 TB
+hybrid: over 10,000 → pull                           32,660           4,000            59.9       6,240,577    3.8 TB
+over 1,000,000 followers: 2,178 accounts, 9.1% of all follows
 ```
 
 - **Push:** পড়া একটা fetch, কিন্তু লেখা সেকেন্ডে ১.১৬ লাখ, আর একটা post এ ১৫ কোটি। শুধু সক্রিয় follower দের (গত মাসে এসেছে এমন, ৪০%) push করলে আড়াই গুণ কম; বাকিরা ফিরলে একবার pull। এটা প্রায় বিনা মূল্যের প্রথম উন্নতি।
@@ -127,10 +127,10 @@ Hybrid এর সারি গুলোয় একটা অপ্রত্য
 Push এ post তৈরি দ্রুত (একটা লেখা), তারপর fan-out একটা queue তে (7.2), worker রা follower দের timeline এ বসায়। ধরো fan-out এর মোট ক্ষমতা সেকেন্ডে ২০ লাখ লেখা, আর স্বাভাবিক চাপ তার ~৭%। `npm run fanout`: peak এ ১,৭৩৬ post/s, এক মিনিটে সবচেয়ে বড় account post করে, ২০০ সেকেন্ডে পরের পাঁচটা একসাথে (একটা খেলার শেষে, ধরো):
 
 ```
-নীতি                                                     সাধারণ post p50       p99     সবচেয়ে খারাপ   > ৫ s দেরি   বড় post শেষ
-একটা FIFO queue, সবাইকে push                                     100 ms  142.10 s     147.70 s    311,955     147.80 s
-দুটো queue: বড় job (> 100,000) আলাদা, ক্ষমতার 25%                    100 ms    100 ms     156.60 s          8     157.40 s
-hybrid: 1,000,000 এর বেশি follower push হয় না                    100 ms    100 ms       300 ms          0       pull এ
+policy                                                        ordinary post p50       p99        worst  > 5 s late  big post done
+one FIFO queue, push to everyone                                         100 ms  142.10 s     147.70 s     311,955       147.80 s
+two queues: big jobs (> 100,000) separate, 25% of capacity               100 ms    100 ms     156.60 s           8       157.40 s
+hybrid: over 1,000,000 followers are not pushed                          100 ms    100 ms       300 ms           0        by pull
 ```
 
 - **একটা FIFO queue:** celebrity এর ৬ কোটি লেখা queue এর মাথায় বসে, আর তার পেছনে প্রতিটা সাধারণ post অপেক্ষা করে। **৩ লাখের বেশি** সাধারণ post ৫ সেকেন্ডের বেশি দেরিতে পৌঁছায়, p99 ১৪২ সেকেন্ড। কেউ একজন একটা বড় খেলার পরে tweet করল, আর বাকি দুনিয়ার feed আড়াই মিনিট থেমে থাকল। এটা 9.4 এর bulkhead এর সমস্যা, queue এর ভেতরে: **বড় আর ছোট কাজ এক লাইনে রাখলে ছোটরা বড়র পেছনে মরে।**
@@ -144,12 +144,12 @@ hybrid: 1,000,000 এর বেশি follower push হয় না            
 Pull এর খরচ শুধু fetch এর সংখ্যা না। একটা feed পড়া শেষ হয় **সবচেয়ে ধীর fetch টা** এলে। 10.4 এ দেখেছিলাম গড় লেজ লুকায়; এখানে লেজ গুণ হয়। `npm run read` অংশ ক: প্রতিটা fetch median ২ ms, কিন্তু ১% সময় ৫০ ms (GC, একটা ব্যস্ত shard, network):
 
 ```
-পথ                                                 K       p50       p99      অন্তত একটা ধীর
-push: শুধু নিজের timeline                              1   2.01 ms   6.69 ms            0.9%
-hybrid: timeline + ~১৯টা celebrity                 20   4.40 ms     53 ms           18.2%
-hybrid, ধীরগুলো hedge (১০ ms এ দ্বিতীয় চেষ্টা)               20   4.40 ms     14 ms           18.1%
-pull: ২০০ জনের সবার post                           200     52 ms     54 ms           86.7%
-pull, hedge সহ                                   200     12 ms     52 ms           86.8%
+path                                                     K       p50       p99  at least one slow
+push: your own timeline only                             1   2.01 ms   6.69 ms               0.9%
+hybrid: timeline + ~19 celebrities                      20   4.40 ms     53 ms              18.2%
+hybrid, slow ones hedged (second try at 10 ms)          20   4.40 ms     14 ms              18.1%
+pull: posts from all 200                               200     52 ms     54 ms              86.7%
+pull, with hedging                                     200     12 ms     52 ms              86.8%
 ```
 
 **Tail Amplification** — একটা request যদি K টা অংশের উপর নির্ভর করে আর প্রতিটার ধীর হওয়ার সম্ভাবনা p, তাহলে অন্তত একটা ধীর হওয়ার সম্ভাবনা 1 − (1 − p)^K। K = ২০০ আর p = ১% এ **৮৭%**: pull এর **মাঝের** feed পড়াই (p50) ৫২ ms, কারণ প্রায় প্রতিটা পড়ায় কোনো একটা অংশ ধীর। একটা অংশের "বিরল" লেজ পুরো system এর "সাধারণ" অবস্থা হয়ে যায়। (Google এর "The Tail at Scale" লেখার মূল কথা এটাই।) Experiment ৩: ধীর মাত্র ০.১% হলেও pull এ ১৮% পড়ায় একটা ধীর, p99 তখনও ৫৩ ms।
@@ -163,9 +163,9 @@ pull, hedge সহ                                   200     12 ms     52 ms    
 **Spaced repetition এর উত্তর:** offset ধীর কারণ database কে আগের সব row পড়ে ফেলে দিতে হয়; cursor "এর পরের" থেকে শুরু করে, index দিয়ে সোজা সেখানে যায়। এটা গতির কথা ছিল। Feed এ আরেকটা সমস্যা: user প্রথম page পড়তে পড়তে উপরে নতুন post জমে। অংশ খ, মিনিটে ২টা নতুন post, page পড়তে গড়ে ৩০ s, প্রথম page এর ২% মুছে যায়:
 
 ```
-page কীভাবে                                        দ্বিতীয় page এ আগে দেখা      একটা বাদ পড়ল
-?offset=20 (প্রথম ২০টা বাদ দাও)                                     40.6%           18.4%
-?cursor=<শেষ দেখা id> (id < cursor)                            0.0%            0.0%
+how the page works                        already seen on page 2     one skipped
+?offset=20 (skip the first 20)                                  40.6%           18.4%
+?cursor=<last seen id> (id < cursor)                        0.0%            0.0%
 ```
 
 Offset ২০ মানে "এখনকার তালিকার প্রথম ২০টা বাদ দাও"। কিন্তু এখনকার তালিকার উপরে দুটো নতুন post এসেছে, তাই প্রথম page এর শেষ দুটো আবার দ্বিতীয় page এ: **৪১%** session এ পুনরাবৃত্তি। আর প্রথম page থেকে একটা post মুছলে সব এক ঘর উপরে ওঠে, আর একটা post কেউ দেখে না: **১৮%** এ। Experiment ৪: মিনিটে ১০টা নতুন post এ পুনরাবৃত্তি ৭৮%। Cursor ("যে id দেখেছি তার চেয়ে পুরনো দাও") এ দুটোই শূন্য, কারণ সেটা একটা নির্দিষ্ট post কে নোঙর ধরে, তালিকার অবস্থান না। আর উপরের নতুন post গুলো? সেগুলো আলাদা প্রশ্ন: "এই id এর চেয়ে নতুন কী আছে" (pull-to-refresh, বা "১২টা নতুন post" এর বোতাম)।
@@ -185,17 +185,17 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 `npm run smoke` একটা Express feed service চালায়: celebrity এর সীমা ৩ জন follower (ছোট করে, দেখানোর জন্য), star এর ৪ জন follower (pull), alice এর ২ জন (push), আর fan-out এর queue যা হাতে `drain()` করা হয়:
 
 ```
-#   ধাপ                                                  ফল
-1   alice post করল a1; fan-out এর queue এখনও চলেনি        bob: (খালি); queue এ 2টা
-2   fan-out worker চলল                                  bob: a1[push]; timeline লেখা 2
-3   star post করল s1 (৪ follower → push হয় না)           queue এ 0টা; amy: s1[pull]
-4   bob এর feed: push আর pull মিশিয়ে, id এর ক্রমে             s1[pull] a1[push]
-5   cat, প্রথম page (limit 3)                             a7[push] a6[push] a5[push]
-6   এর মধ্যে a8, a9 এলো; দ্বিতীয় page ?offset=3                 a6[push] a5[push] a4[push]
-7   দ্বিতীয় page ?cursor=6                                  a4[push] a3[push] a2[push]
-8   bob alice কে unfollow (timeline এ id গুলো রয়ে গেছে)       bob: s1[pull]
-9   s1 মুছে ফেলা হলো                                         amy: (খালি)
-10  হিসাব                                                 timeline লেখা 18 (সবাইকে push হলে 22), pull এ পড়া 9
+#   step                                                        result
+1   alice posted a1; the fan-out queue hasn't run yet           bob: (empty); 2 in the queue
+2   the fan-out worker ran                                      bob: a1[push]; 2 timeline writes
+3   star posted s1 (4 followers → not pushed)                   0 in the queue; amy: s1[pull]
+4   bob's feed: push and pull merged, in id order               s1[pull] a1[push]
+5   cat, first page (limit 3)                                   a7[push] a6[push] a5[push]
+6   meanwhile a8, a9 arrived; second page ?offset=3             a6[push] a5[push] a4[push]
+7   second page ?cursor=6                                       a4[push] a3[push] a2[push]
+8   bob unfollows alice (the ids remain in his timeline)        bob: s1[pull]
+9   s1 deleted                                                  amy: (empty)
+10  the counts                                                  18 timeline writes (22 if everyone were pushed), 9 pull reads
 ```
 
 - ধাপ ১-২: push এ eventual consistency চোখে দেখা যায়: post তৈরি হয়েছে, কিন্তু bob এর timeline এ আসে fan-out worker চলার পরে। এই exercise এ লেখক নিজেও fan-out এর পরেই দেখে। Read-your-writes এর জন্য পড়ার সময় নিজের author list থেকেও মেশানো দরকার, আর সেটা practical exercise এর ৪ নম্বর কাজ।

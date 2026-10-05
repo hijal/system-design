@@ -39,11 +39,11 @@ Lesson 8.1 এ attachment এর bytes database থেকে বেরিয়�
 Exercise এর `npm run through-app`: TaskFlow এর API একটা আলাদা process এ, আর ৮ জন user একসাথে ২টা করে ৬৪ MB এর file upload করে — প্রত্যেকে প্রতি সেকেন্ডে ১৬ MB গতিতে (ভালো broadband)। তিনটা পথ:
 
 ```
-   পথ                                       app এর memory (শুরু → সর্বোচ্চ)   app এ একসাথে খোলা upload   app এর ভেতর দিয়ে   ping p50 / p99      event loop দেরি p99 / max   সব upload শেষ
-   শুধু ping                                            81 → 99 MB                        0             0.0 MB   0.5 ms / 2.1 ms              1.5 ms / 6.2 ms              —
-   buffer (পুরো file memory তে)                       79 → 1159 MB                        8          1024.0 MB   0.4 ms / 2.2 ms            1.8 ms / 434.6 ms        13.71 s
-   stream (app এর ভেতর দিয়ে বয়ে যায়)                80 → 111 MB                        8          1024.0 MB   0.5 ms / 1.3 ms             1.6 ms / 19.5 ms         8.19 s
-   presigned (সরাসরি object storage এ)                  79 → 99 MB                        0             0.0 MB   0.5 ms / 1.2 ms             1.6 ms / 16.7 ms         8.19 s
+   path                                      app memory start→peak     uploads open at once    through the app   ping p50 / p99          event loop p99 / max   uploads done
+   ping only                                            81 → 99 MB                        0             0.0 MB   0.5 ms / 2.1 ms              1.5 ms / 6.2 ms              —
+   buffer (whole file in memory)                      79 → 1159 MB                        8          1024.0 MB   0.4 ms / 2.2 ms            1.8 ms / 434.6 ms        13.71 s
+   stream (flows through the app)                      80 → 111 MB                        8          1024.0 MB   0.5 ms / 1.3 ms             1.6 ms / 19.5 ms         8.19 s
+   presigned (straight to object storage)               79 → 99 MB                        0             0.0 MB   0.5 ms / 1.2 ms             1.6 ms / 16.7 ms         8.19 s
 ```
 
 - **Buffer (8.1 এর পথ):** ৮টা ৬৪ MB এর file একসাথে = app এর memory ৭৯ MB থেকে **১১৫৯ MB**। প্রতিটা upload এ file এর প্রায় দ্বিগুণ (Buffer জোড়া, SDK এর copy)। আর event loop একবার ৪৩৫ ms আটকানো। Experiment ১: ৪ জনে ৬২৪ MB — রৈখিক। ৫০ জন একসাথে ২ GB এর video মানে প্রায় ২০০ GB memory — সোমবারের OOM-kill এর হিসাব।
@@ -83,15 +83,15 @@ Signature টা কীভাবে কাজ করে, এক প্যার�
 তাহলে এই URL হাতে পেলে কেউ কী পারে? Exercise এর `npm run presign`, আসল request দিয়ে:
 
 ```
-── Upload এর presigned URL (PUT) ──
-    1. ঠিক file, ঠিক content-type                                     → 200
-    2. একই URL দিয়ে আবার (মেয়াদের মধ্যে)                            → 200
-    3. একই URL, content-type বদলে (text/html)                         → 403
-    4. URL এর key বদলে অন্য object এ লেখার চেষ্টা                     → 403
-    5. বড় file, একই URL (আকার sign করা)                              → 403
-    6. মেয়াদ ২ s, ৩.৫ s পরে ব্যবহার                                  → 403
-    7. আকার sign না করা URL এ ৫০ গুণ বড় file                         → 200
-    8. SDK এর default checksum সহ sign করা URL                        → 400 BadDigest
+── Presigned URL for upload (PUT) ──
+    1. correct file, correct content-type                             → 200
+    2. the same URL again (before expiry)                             → 200
+    3. the same URL, content-type changed (text/html)                 → 403
+    4. changing the URL's key to write to another object              → 403
+    5. a bigger file, the same URL (size signed)                      → 403
+    6. expiry 2 s, used after 3.5 s                                   → 403
+    7. a file 50 times bigger on a URL without the size signed        → 200
+    8. URL signed with the SDK's default checksum                     → 400 BadDigest
 ```
 
 তিনটা শিক্ষা:
@@ -107,7 +107,7 @@ Signature টা কীভাবে কাজ করে, এক প্যার�
 ```
 ── CORS … (preflight) ──
        https://app.taskflow.test                → 200 · allow-origin: https://app.taskflow.test
-       https://evil.example                     → 403 · allow-origin: (নেই)
+       https://evil.example                     → 403 · allow-origin: (none)
 ```
 
 তাই bucket এ একটা CORS নিয়ম লাগে: শুধু TaskFlow এর origin, শুধু `PUT` আর `GET`, আর `ETag` header কে "expose" করা — multipart এ browser কে প্রতিটা part এর ETag পড়তে হয় (১.৩)। (সতর্কতা: CORS শুধু browser এর নিয়ম। `curl` দিয়ে যে কেউ presigned URL ব্যবহার করতে পারে — নিরাপত্তা আসে signature থেকে, CORS থেকে না।)
@@ -135,25 +135,25 @@ S3 এর নিয়ম (documentation থেকে): শেষেরটা �
 Exercise এর `npm run resume`: ২০০ MB এর file, এমন network এ যেটা গড়ে প্রতি ৬০ MB পাঠানোর পরে ছিঁড়ে যায়। Upload গুলো আসল — presigned URL, আর connection আসলেই মাঝপথে কাটা; "সময়" একটা হিসাব: ২.৫ MB/s (≈২০ Mbps) আর প্রতি request এ ১৫০ ms:
 
 ```
-   পদ্ধতি                               শেষ হলো?   পাঠানো      file এর কত গুণ   request   ছিঁড়েছে   আনুমানিক সময়   MD5 মিলেছে   ETag
-   একটা PUT, network ঠিক থাকলে             হ্যাঁ    200.0 MB           1.00         1         0      1.3 মিনিট       হ্যাঁ   "…"
-   একটা PUT, ভাঙা network                     না    819.3 MB           4.10        15        15      5.5 মিনিট           —
-   multipart, 5 MB part                    হ্যাঁ    208.0 MB           1.04        44         4      1.5 মিনিট       হ্যাঁ   "…-40"
-   multipart, 16 MB part                   হ্যাঁ    238.0 MB           1.19        17         4      1.6 মিনিট       হ্যাঁ   "…-13"
-   multipart, 64 MB part                   হ্যাঁ    758.7 MB           3.79        18        14      5.1 মিনিট       হ্যাঁ   "…-4"
-   multipart, 16 MB, মাঝপথে tab বন্ধ       হ্যাঁ    238.0 MB           1.19        17         4      1.6 মিনিট       হ্যাঁ   "…-13"
-                                        13 টা part, 4 টা আবার · tab বন্ধের পরে 6 টা আগে থেকেই ছিল
+   method                                  done?        sent    × file size  requests      torn      est. time   MD5 match   ETag
+   one PUT, network fine                     yes    200.0 MB           1.00         1         0        1.3 min         yes   "…"
+   one PUT, broken network                    no    819.3 MB           4.10        15        15        5.5 min           —
+   multipart, 5 MB part                      yes    208.0 MB           1.04        44         4        1.5 min         yes   "…-40"
+   multipart, 16 MB part                     yes    238.0 MB           1.19        17         4        1.6 min         yes   "…-13"
+   multipart, 64 MB part                     yes    758.7 MB           3.79        18        14        5.1 min         yes   "…-4"
+   multipart, 16 MB, tab closed midway       yes    238.0 MB           1.19        17         4        1.6 min         yes   "…-13"
+                                        13 parts, 4 resent · after closing the tab 6 were already there
 ```
 
 একটা run একটা ভাগ্য — তাই script শেষে একই network এর একটা model চালায়, ১০০০টা আলাদা seed এ:
 
 ```
-── Model: একই network, 1000 টা আলাদা seed (IO ছাড়া, শুধু byte এর হিসাব) ──
-   পদ্ধতি                    শেষ হলো    পাঠানো (গড়, file এর গুণ)   সময় গড়      সময় p95      request গড়
-   একটা PUT                      43%                       2.61    3.5 মিনিট    6.5 মিনিট            7
-   multipart, 5 MB part         100%                       1.04    1.5 মিনিট    1.6 মিনিট           43
-   multipart, 16 MB part        100%                       1.14    1.6 মিনিট    1.8 মিনিট           17
-   multipart, 64 MB part        100%                       1.76    2.4 মিনিট    3.7 মিনিট           10
+── Model: the same network, 1000 different seeds (no IO, just byte accounting) ──
+   method                       done    sent (avg, × file size)     time avg     time p95     requests
+   one PUT                       43%                       2.61      3.5 min      6.5 min            7
+   multipart, 5 MB part         100%                       1.04      1.5 min      1.6 min           43
+   multipart, 16 MB part        100%                       1.14      1.6 min      1.8 min           17
+   multipart, 64 MB part        100%                       1.76      2.4 min      3.7 min           10
 ```
 
 - **একটা PUT:** ২০০ MB একবারে পার হওয়ার সম্ভাবনা e^(−২০০/৬০) ≈ ৩.৬%। প্রতিটা চেষ্টা গড়ে কিছুদূর গিয়ে ছেঁড়ে, আর সেই byte গুলো নষ্ট। আসল run এ ১৫ বার চেষ্টা, ৮১৯ MB পাঠানো (file এর চার গুণ) — আর তবু শেষ হয়নি। Model এ ১৫ বারের মধ্যে শেষ হয় মাত্র ৪৩% ক্ষেত্রে। বৃহস্পতিবারের designer।
@@ -166,9 +166,9 @@ Exercise এর `npm run resume`: ২০০ MB এর file, এমন network �
 **অসমাপ্ত upload এর দাম:**
 
 ```
-── অসমাপ্ত upload (৩টা part পাঠিয়ে user চলে গেল) ──
-   LIST objects এ দেখা যায়: 0 টা · অসমাপ্ত multipart upload: 1 টা, part গুলোর জায়গা 24.0 MB
-   AbortMultipartUpload এর পরে অসমাপ্ত upload: 0 টা
+── Unfinished upload (3 parts sent, then the user left) ──
+   visible in LIST objects: 0 · unfinished multipart uploads: 1, space used by parts 24.0 MB
+   unfinished uploads after AbortMultipartUpload: 0
 ```
 
 User চলে গেলে তার পাঠানো part গুলো object storage এ থেকে যায় — কোনো object হিসেবে দেখা যায় না (`LIST` এ ০টা), কিন্তু জায়গা নেয় আর বিল হয়। হাজার হাজার ব্যর্থ বড় upload মানে নীরবে জমা হওয়া terabyte। সমাধান: bucket এর lifecycle এ "অসমাপ্ত multipart upload ৭ দিন পরে abort" (S3 এর `AbortIncompleteMultipartUpload` rule) — প্রায় প্রতিটা bucket এ রাখার মতো একটা নিয়ম।
@@ -199,10 +199,10 @@ type Attachment =
 Confirm ধাপে app browser কে বিশ্বাস করে না — object storage কে জিজ্ঞেস করে:
 
 ```
-── Confirm: browser বলল "শেষ", app যাচাই করে ──
-       ঠিকঠাক upload                            → ready (ETag "…")
-       URL নিয়েছে, upload করেনি                → rejected: object নেই — upload হয়নি
-       আকার sign ছিল না, বড় file এসেছে         → rejected: আকার 1500 (বলা ছিল 30) — object মুছে ফেলা হলো
+── Confirm: the browser said "done", the app verifies ──
+       correct upload                           → ready (ETag "…")
+       took the URL, never uploaded             → rejected: no object — not uploaded
+       size not signed, a bigger file arrived   → rejected: size 1500 (declared 30) — object deleted
 ```
 
 পুরো flow, ব্যর্থতার জায়গা সহ:
@@ -221,7 +221,7 @@ Confirm ধাপে app browser কে বিশ্বাস করে না �
 TaskFlow এর SvelteKit এর দিকে এর চেহারা (উদাহরণ — exercise এ browser নেই, তাই এই অংশ চালানো হয়নি; একই HTTP ধাপ গুলো exercise এ Node থেকে যাচাই করা):
 
 ```typescript
-// src/routes/api/attachments/uploads/+server.ts — SvelteKit এর server route (BFF, Lesson 9.2)
+// src/routes/api/attachments/uploads/+server.ts — a SvelteKit server route (BFF, Lesson 9.2)
 import { json, error } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { RequestHandler } from './$types';
@@ -235,15 +235,15 @@ const bodySchema = z.object({
 		.number()
 		.int()
 		.positive()
-		.max(20 * 1024 ** 3) // ২০ GB — ব্যবসার সীমা, এখানেই
+		.max(20 * 1024 ** 3) // 20 GB — the business limit, right here
 });
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	// locals.user — hooks.server.ts এ session থেকে বসানো, app.d.ts এ App.Locals এর type augmentation
-	if (!locals.user) error(401, 'login লাগবে');
+	// locals.user — set from the session in hooks.server.ts, typed via App.Locals augmentation in app.d.ts
+	if (!locals.user) error(401, 'login required');
 	const input = bodySchema.parse(await request.json());
-	// startUpload: task এ permission যাচাই, key বানানো, pending row, আর
-	// ছোট file এ একটা presigned PUT, বড় file এ multipart শুরু + প্রতিটা part এর presigned URL
+	// startUpload: checks permission on the task, builds the key, the pending row, and
+	// for a small file one presigned PUT, for a big file starts multipart + a presigned URL per part
 	return json(await startUpload(locals.user.id, input), { status: 201 });
 };
 ```
@@ -261,7 +261,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		| { state: 'failed'; message: string };
 	let phase = $state<Phase>({ state: 'idle' });
 
-	// fetch এ upload এর progress এর event নেই (সব browser এ এখনো না) — তাই XMLHttpRequest
+	// fetch has no upload progress events (not in every browser yet) — hence XMLHttpRequest
 	function put(
 		url: string,
 		body: Blob,
@@ -271,14 +271,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return new Promise((resolve, reject) => {
 			const xhr = new XMLHttpRequest();
 			xhr.open('PUT', url);
-			if (contentType) xhr.setRequestHeader('content-type', contentType); // sign করা ধরনই পাঠাতে হবে
+			if (contentType) xhr.setRequestHeader('content-type', contentType); // must send exactly the signed type
 			xhr.upload.onprogress = (e) => onProgress(e.loaded);
 			xhr.onload = () =>
 				xhr.status === 200
 					? resolve(xhr.getResponseHeader('ETag') ?? '')
 					: reject(new Error(`PUT ${xhr.status}`));
 			xhr.onerror = () => reject(new Error('network'));
-			xhr.send(body); // Content-Length browser নিজে বসায় — Blob এর আকার, যেটা sign করা
+			xhr.send(body); // the browser sets Content-Length itself — the Blob's size, which was signed
 		});
 	}
 
@@ -305,10 +305,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			})
 		});
 		if (!res.ok) {
-			phase = { state: 'failed', message: `শুরু করা গেল না (${res.status})` };
+			phase = { state: 'failed', message: `Could not start (${res.status})` };
 			return;
 		}
-		const plan: UploadPlan = await res.json(); // server এর নিজের type — তাই এখানে বিশ্বাস; বাইরের কিছু হলে Zod
+		const plan: UploadPlan = await res.json(); // our own server's type — so trusted here; anything external would get Zod
 		const done = new Array<number>(plan.kind === 'multipart' ? plan.partUrls.length : 1).fill(0);
 		const progress = (i: number) => (n: number) => {
 			done[i] = n;
@@ -320,18 +320,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					put(plan.url, file, file.type || 'application/octet-stream', progress(0))
 				);
 			} else {
-				// শুধু দেখানো সহজ রাখতে একটা একটা করে; বাস্তবে ৩–৪টা একসাথে
+				// one at a time only to keep the example simple; in practice 3–4 at once
 				for (const [i, url] of plan.partUrls.entries()) {
 					const part = file.slice(i * plan.partSize, (i + 1) * plan.partSize);
 					await retry(() => put(url, part, null, progress(i)));
 				}
 			}
-			// server নিজে ListParts/HEAD দিয়ে যাচাই করে — browser এর পাঠানো ETag বিশ্বাস করে না
+			// the server verifies with ListParts/HEAD itself — it doesn't trust ETags sent by the browser
 			const ok = await fetch(`/api/attachments/${plan.attachmentId}/complete`, { method: 'POST' });
 			if (!ok.ok) throw new Error(`complete ${ok.status}`);
 			onDone(plan.attachmentId);
 		} catch (e: unknown) {
-			phase = { state: 'failed', message: e instanceof Error ? e.message : 'অজানা সমস্যা' };
+			phase = { state: 'failed', message: e instanceof Error ? e.message : 'Unknown error' };
 		}
 	}
 </script>
@@ -357,12 +357,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 শুক্রবারের webinar: ৩০০ জন একই PDF খুলছে। File টা private — তাই প্রত্যেকে app থেকে নিজের presigned GET পায়। "সামনে একটা CDN বসাই" (Lesson 4.5) — সহজ মনে হয়। Exercise এর `npm run cdn`: ৩০০ জন viewer, প্রত্যেকে জনপ্রিয় ৫ MB এর PDF আর ৪টা অন্য file:
 
 ```
-   পথ                                          download   cache hit   object storage এ request   object storage থেকে বেরোল
-   CDN নেই — সরাসরি presigned GET                  1500          0%                       1500                  1851.6 MB
-   CDN + প্রত্যেকের নিজের presigned URL            1500          0%                       1500                  1851.6 MB
-   CDN + CDN এর signed token (path এ cache)        1500         87%                        200                    63.3 MB
+   path                                          downloads   cache hit   requests to object storage   out of object storage
+   no CDN — presigned GET directly                 1500          0%                       1500                  1851.6 MB
+   CDN + each person's own presigned URL            1500          0%                       1500                  1851.6 MB
+   CDN + the CDN's signed token (cached by path)    1500         87%                        200                    63.3 MB
 
-   token এক file এর, চাওয়া অন্য workspace এর file: 403 · মেয়াদ পেরোনো token: 403
+   token for one file, asking for another workspace's file: 403 · expired token: 403
 ```
 
 মাঝের সারিটা এই lesson এর সবচেয়ে সহজে ভুল হওয়া জিনিস: CDN বসানো হলো, আর **একটাও** cache hit না।

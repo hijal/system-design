@@ -75,7 +75,7 @@ Exercise এর `npm run discovery` — তিনটা instance, প্রত�
    static list                         0 ( 0%)    100 (33%)    100 (33%)
    registry + heartbeat/TTL            0 ( 0%)    100 (33%)      0 ( 0%)
 
-   registry থেকে মরা instance সরতে লেগেছে: 230.2 ms (heartbeat 100 ms + TTL 300 ms)
+   time for the dead instance to leave the registry: 230.2 ms (heartbeat 100 ms + TTL 300 ms)
 ```
 
 দুটো জিনিস পড়ার আছে, আর দ্বিতীয়টাই বেশি জরুরি:
@@ -168,9 +168,9 @@ Breaker open হয়ে বসে থাকলে সে কখনো জা�
 "ঠিক একটা" অংশটা গুরুত্বপূর্ণ। যদি মেয়াদ শেষে সব আটকে থাকা call একসাথে ছেড়ে দেওয়া হতো, সবে উঠে দাঁড়ানো billing সাথে সাথে আবার পড়ে যেত — আবার সেই thundering herd। Exercise এ billing সুস্থ করার পর:
 
 ```
-   billing সুস্থ হওয়ার পর breaker আবার closed হতে লেগেছে: 208.1 ms
-   (open এর মেয়াদের বাকি অংশ + একটা probe; সবচেয়ে খারাপ ক্ষেত্রে পুরো 500 ms)
-   এই সময়টায় half-open probe গেছে: 1 টা
+   time for the breaker to close again after billing recovered: 208.1 ms
+   (the rest of the open period + one probe; in the worst case the full 500 ms)
+   half-open probes sent during this time: 1
 ```
 
 মানে breaker থাকার একটা দামও আছে: **billing সেরে যাওয়ার পরেও কিছুক্ষণ traffic ফেরে না** — সবচেয়ে খারাপ ক্ষেত্রে open এর পুরো মেয়াদ। মেয়াদ বড় করলে মরতে থাকা service বেশি বিশ্রাম পায় কিন্তু recovery দেরি হয়; ছোট করলে উল্টো। এখানে ৫০০ ms, production এ প্রায়ই কয়েক সেকেন্ড।
@@ -198,12 +198,12 @@ Breaker এর ভুল করার দুটো দিক আছে, দু�
 Exercise এর `npm run isolation` — ৬০০টা request, ৪০ জন client, ১৬টা slot, ৭০% "task তৈরি" আর ৩০% "board খোলা", billing ২ সেকেন্ড ধীর:
 
 ```
-── ক. "board খোলা" — যে কাজটার billing এর সাথে কোনো সম্পর্ক নেই ──
+── a. "open board" — the work that has nothing to do with billing ──
    pool                              ok      failed        shed         p50         p99
    shared (16)                      171           0           0    305.0 ms    595.9 ms
    bulkhead (4 board)               171           0           0      2.1 ms      7.4 ms
 
-── খ. "task তৈরি" — যে কাজটা সত্যিই ধীর billing এর উপর নির্ভর করে ──
+── b. "create task" — the work that really depends on the slow billing ──
    pool                              ok      failed        shed         p50         p99
    shared (16)                        0         429           0    603.3 ms    901.1 ms
    bulkhead (12 create)               0         429           0    906.3 ms      1.21 s

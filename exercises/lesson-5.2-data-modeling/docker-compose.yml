@@ -1,6 +1,5 @@
-# শুধু PostgreSQL container এ — script গুলো তোমার মেশিনে সাধারণ Node process হিসেবে চলবে।
-# Port 5434, যাতে তোমার মেশিনের নিজস্ব Postgres (5432) বা Lesson 4.4 এর exercise (5433)
-# এর সাথে সংঘাত না লাগে।
+# Only PostgreSQL in a container — the scripts run as ordinary Node processes on your machine.
+# Port 5434, so it doesn't clash with your machine's own Postgres (5432) or Lesson 4.4's exercise (5433).
 services:
   postgres:
     image: postgres:17-alpine

@@ -51,62 +51,62 @@ Deterministic — তোমার মেশিনেও হুবহু এই �
 **১. `npm run idempotency`** (শেষের সারাংশ):
 
 ```
-   কৌশল                                         crash: হারাল / দুবার     একসাথে: দুবার
-   ১. কিছু না: send → ack                           0 / 1 (1 টা point)      6 / 6
-   ২. আগে দেখো: check → send → insert → ack         0 / 1 (3 টা point)    60 / 66
-   ৩. আগে দাবি: insert (unique) → send → ack        1 / 0 (2 টা point)     0 / 12
-   ৪. দাবি + অবস্থা (provider key ছাড়া)            0 / 1 (3 টা point)    60 / 66
-   ৫. দাবি + অবস্থা + provider key                  0 / 0 (3 টা point)     0 / 66
-   ৬. একই transaction (effect টা database এ)        0 / 0 (1 টা point)      0 / 6
+   strategy                                     crash: lost / twice    concurrent: twice
+   1. nothing: send → ack                           0 / 1 (1 point)                6 / 6
+   2. check first: check → send → insert → ack      0 / 1 (3 points)             60 / 66
+   3. claim first: insert (unique) → send → ack     1 / 0 (2 points)              0 / 12
+   4. claim + state (no provider key)               0 / 1 (3 points)             60 / 66
+   5. claim + state + provider key                  0 / 0 (3 points)              0 / 66
+   6. one transaction (effect in the database)      0 / 0 (1 point)                0 / 6
 ```
 
 **২. `npm run storm`**:
 
 ```
-── (ক) সবাই একসাথে: 1000 টা job t = 0 তে, provider চালু
+── (a) everyone at once: 1000 jobs at t = 0, provider up
 
-   নীতি                          মোট চেষ্টা   100ms এ সর্বোচ্চ   সফল   হাল ছাড়ল   শেষ সফল   দেরি p99
-   সাথে সাথে আবার                    9750              1990     50        950    450 ms     450 ms
-   স্থির 1 s পরে                     9550              1000    100        900     9.5 s      9.5 s
-   exponential (jitter ছাড়া)        9550              1000    100        900    46.0 s     46.0 s
+   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99
+   retry immediately                 9750              1990     50        950    450 ms     450 ms
+   fixed 1 s later                   9550              1000    100        900     9.5 s      9.5 s
+   exponential (no jitter)           9550              1000    100        900    46.0 s     46.0 s
    exponential + full jitter         7152              1456   1000          0    20.3 s     16.6 s
 
-── (খ) outage: 1000 টা job (50/s, 20 s ধরে), provider 0–5.0 s বন্ধ
+── (b) outage: 1000 jobs (50/s, for 20 s), provider down 0–5.0 s
 
-   নীতি                          মোট চেষ্টা   100ms এ সর্বোচ্চ   সফল   হাল ছাড়ল   শেষ সফল   দেরি p99
-   সাথে সাথে আবার                    3205                50    767        233    20.0 s     350 ms
-   স্থির 1 s পরে                     2192                30   1000          0    20.0 s      8.4 s
-   exponential (jitter ছাড়া)        2415                30   1000          0    20.0 s     13.1 s
+   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99
+   retry immediately                 3205                50    767        233    20.0 s     350 ms
+   fixed 1 s later                   2192                30   1000          0    20.0 s      8.4 s
+   exponential (no jitter)           2415                30   1000          0    20.0 s     13.1 s
    exponential + full jitter         2682                44   1000          0    28.0 s     13.3 s
 ```
 
 **৩. `npm run dlq`**:
 
 ```
-   নীতি                                   worker সময় poison এ   সর্বোচ্চ লাইন   ভালো দেরি p99   DLQ তে গেল (ভালো / poison)   redrive → পৌঁছাল   শেষে বাকি (ভালো / poison)
-   সারাজীবন retry (সীমা নেই)                              74%            1489          93.8 s                        0 / 0              0 → 0                   0 / 131
-   ৫ বার, তারপর DLQ                                       68%            1292          76.1 s                      0 / 135              0 → 0                     0 / 0
-   ৫ বার; permanent সাথে সাথে DLQ                         28%             352         338.5 s                    159 / 135          159 → 159                     0 / 0
-   permanent সাথে সাথে; transient ১২ বার                  28%             417          45.9 s                      0 / 135              0 → 0                     0 / 0
+   policy                                  poison worker time     max waiting  good delay p99       to DLQ (good / poison) redriven → arrived   pending (good / poison)
+   retry forever (no limit)                               74%            1489          93.8 s                        0 / 0              0 → 0                   0 / 131
+   5 times, then DLQ                                      68%            1292          76.1 s                      0 / 135              0 → 0                     0 / 0
+   5 times; permanent to DLQ at once                      28%             352         338.5 s                    159 / 135          159 → 159                     0 / 0
+   permanent at once; transient 12 times                  28%             417          45.9 s                      0 / 135              0 → 0                     0 / 0
 ```
 
 **৪. `npm run backpressure`**:
 
 ```
-── burst (5 s এ 300/s, তারপর 50/s)
+── burst (300/s for 5 s, then 50/s)
 
-   নীতি                                   queue সর্বোচ্চ   producer এ আটকে   ফেরানো (জরুরি / কম)   অপেক্ষা p99 (সব / জরুরি)   শেষ কাজ
-   সীমাহীন queue                                   1001                0                 0 / 0             9.8 s / 9.8 s    60.0 s
-   সীমা 500, বেশি হলে 503                           500                0             250 / 251             5.0 s / 5.0 s    60.0 s
-   সীমা 500, producer অপেক্ষা করে                   500              501                 0 / 0             9.8 s / 9.8 s    60.0 s
-   অগ্রাধিকার: 300 এর পরে কম জরুরি বাদ              475                0               0 / 584             9.6 s / 2.4 s    60.0 s
+   policy                                     queue max    producer held   rejected (urgent / low)   wait p99 (all / urgent)  finished
+   unbounded queue                                 1001                0                     0 / 0             9.8 s / 9.8 s    60.0 s
+   limit 500, 503 when full                         500                0                 250 / 251             5.0 s / 5.0 s    60.0 s
+   limit 500, producer waits                        500              501                     0 / 0             9.8 s / 9.8 s    60.0 s
+   priority: drop less urgent above 300             475                0                   0 / 584             9.6 s / 2.4 s    60.0 s
 
-── sustained (সবসময় 130/s)
+── sustained (always 130/s)
 
-   সীমাহীন queue                                   1801                0                 0 / 0           17.8 s / 17.8 s    78.0 s
-   সীমা 500, বেশি হলে 503                           500                0             650 / 651             5.0 s / 5.0 s    65.0 s
-   সীমা 500, producer অপেক্ষা করে                   500             1301                 0 / 0           17.8 s / 17.8 s    78.0 s
-   অগ্রাধিকার: 300 এর পরে কম জরুরি বাদ              301                0              0 / 1501              8.6 s / 0 ms    63.0 s
+   unbounded queue                                 1801                0                     0 / 0           17.8 s / 17.8 s    78.0 s
+   limit 500, 503 when full                         500                0                 650 / 651             5.0 s / 5.0 s    65.0 s
+   limit 500, producer waits                        500             1301                     0 / 0           17.8 s / 17.8 s    78.0 s
+   priority: drop less urgent above 300             301                0                  0 / 1501              8.6 s / 0 ms    63.0 s
 ```
 
 ## কী দেখার জন্য এটা বানানো

@@ -23,7 +23,7 @@ type Line = {
 const app = P.appInstanceHour * H;
 const fixedPolicy = POLICIES.find((p) => p.kind === 'fixed');
 const reactivePolicy = POLICIES.find((p) => p.kind === 'reactive');
-if (!fixedPolicy || !reactivePolicy) throw new Error('fleet এর নীতি পাওয়া যায়নি');
+if (!fixedPolicy || !reactivePolicy) throw new Error('fleet policies not found');
 const fixedRun = simulate(fixedPolicy);
 const reactiveRun = simulate(reactivePolicy);
 const fixedInstances = fixedRun.instanceMinutes / WEEK;
@@ -47,10 +47,10 @@ const sampledLogGbDay = 1.5;
 const LINES: Line[] = [
 	{
 		group: 'compute',
-		name: `app instance (peak এর মাপে, ${Math.round(fixedInstances)}টা ২৪/৭)`,
+		name: `app instances (sized for peak, ${Math.round(fixedInstances)} 24/7)`,
 		now: monthly(fixedRun.cost),
 		after: commitmentCost(reactiveRun.hourly, committedApp).cost,
-		why: `autoscale (গড় ${autoscaleAvg.toFixed(1)}), ${committedApp}টা commit`
+		why: `autoscale (avg ${autoscaleAvg.toFixed(1)}), ${committedApp} committed`
 	},
 	{
 		group: 'compute',
@@ -64,21 +64,21 @@ const LINES: Line[] = [
 		name: 'gateway + BFF + billing + files',
 		now: 11 * small,
 		after: 11 * small * keep,
-		why: 'commit (সারাক্ষণ চলে)'
+		why: 'commit (always running)'
 	},
 	{
 		group: 'compute',
-		name: 'blue-green এর না-মোছা pool',
+		name: 'undeleted blue-green pool',
 		now: Math.round(fixedInstances) * P.appInstanceHour * 6 * 30,
 		after: 3 * P.appInstanceHour * 1 * 30,
-		why: 'teardown ঠিক; canary +৩, দিনে ১ ঘ'
+		why: 'teardown fixed; canary +3, 1 h a day'
 	},
 	{
 		group: 'observability',
 		name: 'trace collector',
 		now: 4 * small,
 		after: 2 * small,
-		why: 'মাপ ঠিক করা'
+		why: 'right-sized'
 	},
 	{
 		group: 'database',
@@ -89,35 +89,35 @@ const LINES: Line[] = [
 	},
 	{
 		group: 'database',
-		name: 'Postgres read replica ×২',
+		name: 'Postgres read replica ×2',
 		now: 2 * P.dbInstanceHour * H,
 		after: 2 * P.dbInstanceHour * H * keep,
 		why: 'commit'
 	},
 	{
 		group: 'database',
-		name: 'Postgres storage (২ TB × ৪ কপি)',
+		name: 'Postgres storage (2 TB × 4 copies)',
 		now: 2_000 * 4 * P.dbStorageGbMonth,
 		after: 900 * 4 * P.dbStorageGbMonth,
-		why: '৯০ দিনের পুরনো activity S3 এ'
+		why: 'activity older than 90 days in S3'
 	},
 	{
 		group: 'database',
 		name: 'backup snapshot',
 		now: 6_000 * P.backupGbMonth,
 		after: 3_000 * P.backupGbMonth,
-		why: '৩০ → ১৪ দিন রাখা'
+		why: 'keep 30 → 14 days'
 	},
 	{
 		group: 'database',
-		name: 'Redis (cache ৩ + queue ২)',
+		name: 'Redis (cache 3 + queue 2)',
 		now: 5 * P.cacheNodeHour * H,
 		after: 5 * P.cacheNodeHour * H * keep,
 		why: 'commit'
 	},
 	{
 		group: 'other',
-		name: 'staging + dev (prod এর মাপে, ২৪/৭)',
+		name: 'staging + dev (prod-sized, 24/7)',
 		now:
 			(Math.round(fixedInstances) * P.appInstanceHour +
 				2 * P.dbInstanceHour +
@@ -130,7 +130,7 @@ const LINES: Line[] = [
 			H *
 			0.25 *
 			(60 / 168),
-		why: '¼ মাপ, শুধু কাজের সময়'
+		why: '¼ size, working hours only'
 	},
 	{
 		group: 'network',
@@ -141,7 +141,7 @@ const LINES: Line[] = [
 	},
 	{
 		group: 'network',
-		name: 'NAT gateway (ঘণ্টা + প্রতি GB)',
+		name: 'NAT gateway (hourly + per GB)',
 		now: 3 * P.natGatewayHour * H + (s3ViaNatGb + imagePullGb + logShipGb) * P.natPerGb,
 		after: 3 * P.natGatewayHour * H + logShipGb * P.natPerGb,
 		why: 'S3 gateway endpoint, image endpoint'
@@ -151,21 +151,21 @@ const LINES: Line[] = [
 		name: 'VPC interface endpoint (image pull)',
 		now: 0,
 		after: 3 * P.interfaceEndpointHour * H + imagePullGb * P.interfaceEndpointGb,
-		why: 'NAT এর বদলে'
+		why: 'instead of NAT'
 	},
 	{
 		group: 'network',
-		name: 'internet egress: API এর JSON',
+		name: 'internet egress: API JSON',
 		now: apiEgressGb * P.internetEgressGb,
 		after: (apiEgressGb / 5) * P.internetEgressGb,
-		why: 'gzip/br (~৫ গুণ ছোট)'
+		why: 'gzip/br (~5× smaller)'
 	},
 	{
 		group: 'network',
 		name: 'internet egress: attachment',
 		now: attachmentEgressGb * P.internetEgressGb,
 		after: attachmentEgressGb * P.cdnEgressGb + (30_000_000 / 10_000) * P.cdnPer10kRequests,
-		why: 'CDN (দামে প্রায় একই)'
+		why: 'CDN (about the same price)'
 	},
 	{
 		group: 'network',
@@ -179,17 +179,17 @@ const LINES: Line[] = [
 		name: 'cross-AZ: app → database',
 		now: dbTrafficGb * (2 / 3) * crossAz,
 		after: dbTrafficGb * 0.2 * (2 / 3) * crossAz,
-		why: 'প্রতি AZ এ read replica'
+		why: 'a read replica in every AZ'
 	},
 	{
 		group: 'storage',
-		name: 'S3: attachment + পুরনো version',
+		name: 'S3: attachments + old versions',
 		now: 18_000 * P.s3StandardGbMonth + 14_000 * P.s3StandardGbMonth,
 		after:
 			18_000 * 0.3 * P.s3StandardGbMonth +
 			18_000 * 0.7 * P.s3IaGbMonth +
 			1_400 * P.s3StandardGbMonth,
-		why: 'lifecycle: version ৩০ দিন, IA'
+		why: 'lifecycle: versions 30 days, IA'
 	},
 	{
 		group: 'storage',
@@ -200,23 +200,23 @@ const LINES: Line[] = [
 	},
 	{
 		group: 'observability',
-		name: 'log ingest + ৯০ দিন রাখা',
+		name: 'log ingest + keep 90 days',
 		now:
 			(baseLogGbDay + debugLogGbDay) * 30 * P.logIngestGb +
 			(baseLogGbDay + debugLogGbDay) * 90 * P.logStoreGbMonth,
 		after: sampledLogGbDay * 30 * P.logIngestGb + sampledLogGbDay * 14 * P.logStoreGbMonth,
-		why: 'debug বন্ধ, সফল request sample, ১৪ দিন'
+		why: 'debug off, sample successful requests, 14 days'
 	},
 	{
 		group: 'observability',
 		name: 'metric series',
 		now: 60_000 * P.metricSeriesMonth,
 		after: 30_000 * P.metricSeriesMonth,
-		why: 'label পরিষ্কার (10.4)'
+		why: 'labels cleaned up (10.4)'
 	},
 	{
 		group: 'observability',
-		name: 'trace জমা (tail sampling)',
+		name: 'trace storage (tail sampling)',
 		now: 3 * 30 * P.traceIngestGb,
 		after: 3 * 30 * P.traceIngestGb,
 		why: '—'
@@ -228,38 +228,38 @@ const nowTotal = total((l) => l.now);
 const afterTotal = total((l) => l.after);
 
 heading(
-	`অংশ ক — TaskFlow এর মাসিক বিল: ${n(MAU)} MAU, ${n(WORKSPACES)} workspace, ${RPS} req/s (মাসে ${n(REQUESTS / 1e6)} M request)`
+	`Part A — TaskFlow's monthly bill: ${n(MAU)} MAU, ${n(WORKSPACES)} workspaces, ${RPS} req/s (${n(REQUESTS / 1e6)} M requests a month)`
 );
 console.log(
 	row([
-		['লাইন', 40],
-		['এখন', 10],
-		['এখন %', 8],
-		['পরে', 10],
-		['বাঁচল', 10],
-		['কী বদলাল', 40]
+		['line', 42],
+		['now', 10],
+		['now %', 8],
+		['after', 10],
+		['saved', 10],
+		['what changed', 50]
 	])
 );
 for (const line of [...LINES].sort((a, b) => b.now - a.now)) {
 	console.log(
 		row([
-			[line.name, 40],
+			[line.name, 42],
 			[usd(line.now), 10],
 			[pct(line.now, nowTotal), 8],
 			[usd(line.after), 10],
 			[usd(line.now - line.after), 10],
-			[`  ${line.why}`, 40]
+			[`  ${line.why}`, 50]
 		])
 	);
 }
 console.log(
 	row([
-		['মোট', 40],
+		['total', 42],
 		[usd(nowTotal), 10],
 		['100%', 8],
 		[usd(afterTotal), 10],
 		[usd(nowTotal - afterTotal), 10],
-		[`  ${pct(nowTotal - afterTotal, nowTotal, 0)} কম`, 40]
+		[`  ${pct(nowTotal - afterTotal, nowTotal, 0)} less`, 50]
 	])
 );
 
@@ -271,7 +271,7 @@ const groups: Line['group'][] = [
 	'observability',
 	'other'
 ];
-console.log('\nভাগ ধরে:');
+console.log('\nby category:');
 for (const g of groups) {
 	const now = LINES.filter((l) => l.group === g).reduce((s, l) => s + l.now, 0);
 	const after = LINES.filter((l) => l.group === g).reduce((s, l) => s + l.after, 0);
@@ -284,24 +284,24 @@ for (const g of groups) {
 		])
 	);
 }
-console.log('\nএকক ধরে (unit cost):');
+console.log('\nper unit (unit cost):');
 console.log(
 	row([
-		['  প্রতি workspace / মাস', 30],
+		['  per workspace / month', 30],
 		[usd(nowTotal / WORKSPACES), 10],
 		[usd(afterTotal / WORKSPACES), 10]
 	])
 );
 console.log(
 	row([
-		['  প্রতি MAU / মাস', 30],
+		['  per MAU / month', 30],
 		[usd(nowTotal / MAU), 10],
 		[usd(afterTotal / MAU), 10]
 	])
 );
 console.log(
 	row([
-		['  প্রতি ১০ লাখ request', 30],
+		['  per 1 million requests', 30],
 		[usd(nowTotal / (REQUESTS / 1e6)), 10],
 		[usd(afterTotal / (REQUESTS / 1e6)), 10]
 	])
@@ -327,7 +327,7 @@ const PLANS: Plan[] = [
 		egressGb: 2_300
 	},
 	{
-		name: 'free: একটা school district',
+		name: 'free: one school district',
 		workspaces: 1,
 		seats: 3_000,
 		pricePerSeat: 0,
@@ -373,17 +373,17 @@ const allocate = (pick: (l: Line) => number, plan: Plan): number => {
 	return cost;
 };
 
-heading('অংশ খ — unit economics: plan ধরে আয় বনাম ভাগ করা খরচ (এখনকার বিল)');
+heading('Part B — unit economics: revenue vs allocated cost by plan (the current bill)');
 console.log(
 	row([
 		['plan', 28],
 		['workspace', 10],
 		['seat', 8],
-		['আয়', 10],
-		['খরচ', 10],
+		['revenue', 10],
+		['cost', 10],
 		['margin', 10],
-		['খরচ / seat', 12],
-		['খরচ / workspace', 16]
+		['cost / seat', 12],
+		['cost / workspace', 18]
 	])
 );
 let revenueTotal = 0;
@@ -400,15 +400,15 @@ for (const plan of PLANS) {
 			[usd(cost), 10],
 			[revenue === 0 ? '—' : pct(revenue - cost, revenue, 0), 10],
 			[usd(cost / plan.seats), 12],
-			[usd(cost / plan.workspaces), 16]
+			[usd(cost / plan.workspaces), 18]
 		])
 	);
 }
 console.log(
-	`\nমোট আয় ${usd(revenueTotal)} / মাস; বিল এখন ${usd(nowTotal)} (${pct(nowTotal, revenueTotal)}), পরে ${usd(afterTotal)} (${pct(afterTotal, revenueTotal)})`
+	`\ntotal revenue ${usd(revenueTotal)} / month; the bill now ${usd(nowTotal)} (${pct(nowTotal, revenueTotal)}), after ${usd(afterTotal)} (${pct(afterTotal, revenueTotal)})`
 );
 console.log(
-	'(খরচ ভাগ: compute/DB/cache/observability/cross-AZ — request এর অংশে; storage আর backup — GB এ; attachment egress — GB এ; staging/LB — seat এ)'
+	'(cost allocation: compute/DB/cache/observability/cross-AZ — by share of requests; storage and backup — by GB; attachment egress — by GB; staging/LB — by seat)'
 );
 
 type Endpoint = {
@@ -473,16 +473,16 @@ const callCost = (e: Endpoint): number =>
 	(e.s3Mb / 1_000) * P.natPerGb +
 	(e.s3Gets / 1_000) * P.s3GetPer1k;
 
-heading('অংশ গ — endpoint ধরে খরচ (এখনকার নকশা, শুধু পরিবর্তনশীল খরচ)');
+heading('Part C — cost by endpoint (the current design, variable costs only)');
 console.log(
 	row([
 		['endpoint', 26],
-		['call / মাস', 14],
-		['প্রতি call', 12],
-		['প্রতি ১০ লাখ', 14],
-		['মাসে', 10],
-		['call এর %', 10],
-		['খরচের %', 10]
+		['calls / month', 14],
+		['per call', 12],
+		['per million', 14],
+		['monthly', 10],
+		['% of calls', 11],
+		['% of cost', 10]
 	])
 );
 const endpointTotal = ENDPOINTS.reduce((s, e) => s + callCost(e) * e.callsPerMonth, 0);
@@ -496,7 +496,7 @@ for (const e of ENDPOINTS) {
 			[usd(callCost(e)), 12],
 			[usd(callCost(e) * 1e6), 14],
 			[usd(monthly), 10],
-			[pct(e.callsPerMonth, callsTotal, 3), 10],
+			[pct(e.callsPerMonth, callsTotal, 3), 11],
 			[pct(monthly, endpointTotal, 0), 10]
 		])
 	);
@@ -525,9 +525,9 @@ const CATEGORIES: Category[] = [
 		daily: LINES.filter((l) => l.group === 'storage').reduce((s, l) => s + l.after, 0) / 30,
 		volatility: 0.01
 	},
-	{ name: 'log ingest', daily: after('log ingest + ৯০ দিন রাখা'), volatility: 0.08 },
+	{ name: 'log ingest', daily: after('log ingest + keep 90 days'), volatility: 0.08 },
 	{
-		name: 'বাকি observability',
+		name: 'other observability',
 		daily:
 			LINES.filter((l) => l.group === 'observability' && !l.name.startsWith('log')).reduce(
 				(s, l) => s + l.after,
@@ -572,11 +572,11 @@ const totals = Array.from({ length: DAYS }, (_, d) => dayTotal(d));
 const budget = totals.slice(0, 30).reduce((a, b) => a + b, 0) * 1.1;
 const DETECTORS: Detector[] = [
 	{
-		name: 'মাসের budget ছাড়ালে (আগের মাস +১০%)',
+		name: 'over the monthly budget (last month +10%)',
 		fires: (d) => d >= 30 && totals.slice(30, d + 1).reduce((a, b) => a + b, 0) > budget
 	},
 	{
-		name: 'মাস শেষের forecast > budget',
+		name: 'end-of-month forecast > budget',
 		fires: (d) => {
 			if (d < 30) return false;
 			const sofar = totals.slice(30, d + 1);
@@ -585,28 +585,28 @@ const DETECTORS: Detector[] = [
 		}
 	},
 	{
-		name: 'মোট দৈনিক > ৭ দিনের গড় × ১.২',
+		name: 'total daily > 7-day average × 1.2',
 		fires: (d) => d >= 7 && (totals[d] ?? 0) > avg7(totals, d) * 1.2
 	},
 	{
-		name: 'প্রতি ভাগ দৈনিক > নিজের ৭ দিনের গড় × ১.৫',
+		name: 'each category daily > its own 7-day average × 1.5',
 		fires: (d) =>
 			d >= 7 && [...series.values()].some((values) => (values[d] ?? 0) > avg7(values, d) * 1.5)
 	}
 ];
 
 heading(
-	`অংশ ঘ — cost anomaly: দিন ${DEBUG_DAY + 1} এ তিনটা service এ debug log (+${usd(debugExtra)}/দিন), দিন ${EXPORT_DAY + 1} এ একটা export এর loop (+${usd(exportExtra)}/দিন)`
+	`Part D — cost anomaly: debug logs in three services on day ${DEBUG_DAY + 1} (+${usd(debugExtra)}/day), an export loop on day ${EXPORT_DAY + 1} (+${usd(exportExtra)}/day)`
 );
 console.log(
-	`দৈনিক বিল ~${usd(totals[DEBUG_DAY - 1] ?? 0)}; debug log মোটের ${pct(debugExtra, totals[DEBUG_DAY - 1] ?? 1)}, export এর loop ${pct(exportExtra, totals[EXPORT_DAY - 1] ?? 1)}\n`
+	`daily bill ~${usd(totals[DEBUG_DAY - 1] ?? 0)}; debug logs are ${pct(debugExtra, totals[DEBUG_DAY - 1] ?? 1)} of the total, the export loop ${pct(exportExtra, totals[EXPORT_DAY - 1] ?? 1)}\n`
 );
 console.log(
 	row([
-		['detector', 46],
-		['debug log ধরল', 16],
-		['export loop ধরল', 18],
-		['মিথ্যা alarm (দিন ১–৪০)', 22]
+		['detector', 52],
+		['caught debug logs', 19],
+		['caught export loop', 20],
+		['false alarms (days 1–40)', 26]
 	])
 );
 for (const det of DETECTORS) {
@@ -621,13 +621,13 @@ for (const det of DETECTORS) {
 		else if (d >= EXPORT_DAY && exportAt === null) exportAt = d;
 	}
 	const show = (at: number | null, start: number): string =>
-		at === null ? 'ধরেনি' : `${at - start + 1} দিন পরে`;
+		at === null ? 'missed' : `${at - start + 1} day${at - start === 0 ? '' : 's'} later`;
 	console.log(
 		row([
-			[det.name, 46],
-			[show(debugAt, DEBUG_DAY), 16],
-			[show(exportAt, EXPORT_DAY), 18],
-			[n(falseAlarms), 22]
+			[det.name, 52],
+			[show(debugAt, DEBUG_DAY), 19],
+			[show(exportAt, EXPORT_DAY), 20],
+			[n(falseAlarms), 26]
 		])
 	);
 }

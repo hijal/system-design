@@ -1,16 +1,16 @@
 import { percentile } from './random';
 import type { TaskEvent } from './workload';
 
-// তিনটা broker এর জন্য একই "service" আর একই মাপকাঠি — যাতে তুলনাটা সৎ থাকে।
+// The same "service" and the same yardstick for all three brokers — so the comparison stays honest.
 
 export interface ServiceSpec {
 	name: string;
 	workers: number;
-	// একটা ঘটনা প্রক্রিয়া করতে কত ms (seed দেওয়া random থেকে)
+	// how many ms it takes to process one event (from a seeded random)
 	processMs: (event: TaskEvent) => number;
 }
 
-// Service টা এই সময়ের মধ্যে বন্ধ (deploy বা crash) — তার সব worker একসাথে
+// The service is down during this window (deploy or crash) — all its workers at once
 export interface Outage {
 	service: string;
 	from: number;
@@ -19,8 +19,8 @@ export interface Outage {
 
 type Processed = { event: TaskEvent; doneAt: number };
 
-// প্রতিটা service এর চোখে কী ঘটল তার খাতা। "প্রক্রিয়া করা" মানে side effect ঘটে গেছে
-// (email গেছে, index লেখা হয়েছে) — ack বা commit এর আগেই।
+// A ledger of what happened from each service's point of view. "Processed" means the side effect has happened
+// (the email went out, the index was written) — even before the ack or commit.
 export class Recorder {
 	readonly #log = new Map<string, Processed[]>();
 	readonly #backlogPeak = new Map<string, number>();
@@ -36,7 +36,7 @@ export class Recorder {
 		this.#backlogPeak.set(service, Math.max(this.#backlogPeak.get(service) ?? 0, size));
 	}
 
-	// Broker নিজে ফেলে দিল (buffer উপচে পড়া, retention) — "হারানো" এর একটা কারণ
+	// Dropped by the broker itself (buffer overflow, retention) — one of the reasons for "lost"
 	dropped(service: string, count: number): void {
 		this.#dropped.set(service, (this.#dropped.get(service) ?? 0) + count);
 	}
@@ -51,7 +51,7 @@ export class Recorder {
 			if (seen.has(event.id)) continue;
 			seen.add(event.id);
 			firstDone.set(event.id, doneAt);
-			// একই task এর পরের ঘটনা আগেই প্রক্রিয়া হয়ে গেছে? তাহলে এই task এর ক্রম ভাঙল
+			// has a later event of the same task already been processed? Then this task's order is broken
 			const max = maxSeq.get(event.taskId) ?? -1;
 			if (event.seq < max) disordered.add(event.taskId);
 			else maxSeq.set(event.taskId, event.seq);

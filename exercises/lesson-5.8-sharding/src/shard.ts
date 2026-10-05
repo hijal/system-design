@@ -4,12 +4,12 @@ import { z } from 'zod';
 import { closeAll, scalar, shardAt, shards } from './db';
 import { moduloShard } from './hash';
 
-// Lesson 5.8 §১.৩–১.৬ — TaskFlow কে ৩টা database এ ভাগ করা, shard key = workspaceId।
-// একটা workspace এর সব data একটা shard এ — তাই workspace এর ভেতরের সব কাজ এক জায়গায়।
+// Lesson 5.8 §1.3–1.6 — splitting TaskFlow across 3 databases, shard key = workspaceId.
+// All of a workspace's data is on one shard — so all the work inside a workspace is in one place.
 
 const WORKSPACES = 300;
 const TASKS = 300_000;
-const BIG_WORKSPACE = 7; // একটা বিশাল enterprise customer — সব task এর ৪০%
+const BIG_WORKSPACE = 7; // a huge enterprise customer — 40% of all tasks
 const BIG_SHARE = 0.4;
 
 function shardFor(workspaceId: number): Sequelize {
@@ -21,7 +21,7 @@ function shardIndexFor(workspaceId: number): number {
 }
 
 async function setup(): Promise<void> {
-	// প্রতিটা shard এ একই schema
+	// the same schema on every shard
 	for (const shard of shards) {
 		await shard.query('DROP TABLE IF EXISTS tasks, projects');
 		await shard.query(`CREATE TABLE projects (
@@ -32,7 +32,7 @@ async function setup(): Promise<void> {
 		await shard.query('CREATE INDEX ON tasks ("workspaceId", status)');
 	}
 
-	// প্রতিটা workspace এ একটা project; task গুলো workspace এ ভাগ — ৪০% একটায়
+	// one project per workspace; tasks spread across workspaces — 40% in one
 	const bigCount = Math.floor(TASKS * BIG_SHARE);
 	const perOther = Math.floor((TASKS - bigCount) / (WORKSPACES - 1));
 	const rowsByShard = new Map<number, { ws: number; from: number; count: number }[]>();
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
 	await setup();
 
 	console.log(
-		`\n১. ${WORKSPACES}টা workspace, ${TASKS.toLocaleString('en-US')}টা task — shard key: hash(workspaceId) % ${shards.length}`
+		`\n1. ${WORKSPACES} workspaces, ${TASKS.toLocaleString('en-US')} tasks — shard key: hash(workspaceId) % ${shards.length}`
 	);
 	const bigShard = shardIndexFor(BIG_WORKSPACE);
 	for (const [i, shard] of shards.entries()) {
@@ -80,11 +80,11 @@ async function main(): Promise<void> {
 		const workspaces = await scalar(shard, 'SELECT count(*) AS v FROM projects');
 		const bar = '█'.repeat(Math.round((tasks / TASKS) * 40));
 		console.log(
-			`   shard${i}: ${String(workspaces).padStart(3)}টা workspace  ${tasks.toLocaleString('en-US').padStart(8)}টা task  ${bar}${i === bigShard ? `  ← workspace ${BIG_WORKSPACE} (৪০%) এখানে` : ''}`
+			`   shard${i}: ${String(workspaces).padStart(3)} workspaces  ${tasks.toLocaleString('en-US').padStart(8)} tasks  ${bar}${i === bigShard ? `  ← workspace ${BIG_WORKSPACE} (40%) is here` : ''}`
 		);
 	}
 
-	console.log('\n২. Shard key সহ query — "workspace 42 এ কয়টা খোলা task?"');
+	console.log('\n2. A query with the shard key — "how many open tasks in workspace 42?"');
 	const single = await timed(() =>
 		scalar(
 			shardFor(42),
@@ -92,16 +92,18 @@ async function main(): Promise<void> {
 		)
 	);
 	console.log(
-		`   → শুধু shard${shardIndexFor(42)} এ যায়: ${single.value}টা, ${single.ms.toFixed(2)} ms`
+		`   → goes only to shard${shardIndexFor(42)}: ${single.value}, ${single.ms.toFixed(2)} ms`
 	);
 
-	console.log('\n৩. Shard key ছাড়া query — "সবচেয়ে বেশি খোলা task কোন ১০টা workspace এ?"');
+	console.log(
+		'\n3. A query without the shard key — "which 10 workspaces have the most open tasks?"'
+	);
 	const sql = `SELECT "workspaceId", count(*) AS open FROM tasks WHERE status = 'todo'
 	             GROUP BY "workspaceId" ORDER BY open DESC LIMIT 10`;
 	const perShardMs: number[] = [];
 	const gathered = await timed(async () => {
 		perShardMs.length = 0;
-		// Scatter: সব shard এ একসাথে পাঠাও; gather: app এ মিলিয়ে আবার সাজাও
+		// Scatter: send to every shard at once; gather: merge in the app and sort again
 		const parts = await Promise.all(
 			shards.map(async (shard, i) => {
 				const started = performance.now();
@@ -116,19 +118,21 @@ async function main(): Promise<void> {
 			.slice(0, 10);
 	});
 	console.log(
-		`   → ${shards.length}টা shard এ একসাথে (scatter), app এ মিলিয়ে সাজানো (gather): মোট ${gathered.ms.toFixed(1)} ms`
+		`   → sent to all ${shards.length} shards at once (scatter), merged and sorted in the app (gather): ${gathered.ms.toFixed(1)} ms total`
 	);
 	console.log(
-		`     ${perShardMs.map((ms, i) => `shard${i}: ${ms.toFixed(1)} ms`).join(', ')} — মোট সময় সবচেয়ে ধীরটার সমান`
+		`     ${perShardMs.map((ms, i) => `shard${i}: ${ms.toFixed(1)} ms`).join(', ')} — the total equals the slowest one`
 	);
 	console.log(
-		`     শীর্ষ ৩: ${gathered.value
+		`     top 3: ${gathered.value
 			.slice(0, 3)
 			.map((r) => `workspace ${r.workspaceId} (${r.open})`)
 			.join(', ')}`
 	);
 
-	console.log('\n৪. দুই shard জুড়ে কাজ — project কে অন্য workspace এ সরানো (আলাদা shard এ)');
+	console.log(
+		'\n4. Work across two shards — moving a project to another workspace (on a different shard)'
+	);
 	const from =
 		[...Array(WORKSPACES).keys()]
 			.map((i) => i + 1)
@@ -136,15 +140,15 @@ async function main(): Promise<void> {
 	const to =
 		[...Array(WORKSPACES).keys()].map((i) => i + 1).find((ws) => shardIndexFor(ws) === 2) ?? 2;
 	console.log(`   project ${from}: workspace ${from} (shard0) → workspace ${to} (shard2)`);
-	// ধাপ ১: নতুন shard এ লেখো (shard2 এর নিজের transaction)
+	// step 1: write to the new shard (shard2's own transaction)
 	await shardAt(2).transaction(async (transaction) => {
 		await shardAt(2).query(
 			`INSERT INTO projects VALUES (${from}, ${to}, 'Project of workspace ${from}')`,
 			{ transaction }
 		);
 	});
-	console.log('   ধাপ ১: shard2 তে project লেখা হলো — COMMIT ✓');
-	console.log('   ধাপ ২: shard0 থেকে মুছে ফেলার আগেই app crash করল ✗');
+	console.log('   step 1: project written to shard2 — COMMIT ✓');
+	console.log('   step 2: the app crashed before deleting it from shard0 ✗');
 	const inShard0 = await scalar(
 		shardAt(0),
 		`SELECT count(*) AS v FROM projects WHERE id = ${from}`
@@ -154,7 +158,7 @@ async function main(): Promise<void> {
 		`SELECT count(*) AS v FROM projects WHERE id = ${from}`
 	);
 	console.log(
-		`   → project ${from} এখন shard0 এ ${inShard0}টা, shard2 এ ${inShard2}টা — দুই জায়গাতেই! কোনো একক transaction এটা আটকাতে পারেনি`
+		`   → project ${from} is now on shard0 (${inShard0}) and on shard2 (${inShard2}) — in both places! No single transaction could prevent it`
 	);
 	console.log('');
 	await closeAll();

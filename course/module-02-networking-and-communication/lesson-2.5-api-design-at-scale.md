@@ -57,7 +57,7 @@ Lesson 1.3 এর estimation মনে আছে? যদি TaskFlow এ লা�
 
 ```sql
 SELECT * FROM tasks ORDER BY created_at LIMIT 20 OFFSET 40;
--- মানে: ৪১তম row থেকে শুরু করে পরের ২০টা row দাও (page 3, যদি page size 20 হয়)
+-- meaning: skip to row 41 and give me the next 20 (page 3, if page size is 20)
 ```
 
 ```
@@ -74,8 +74,8 @@ GET /api/tasks?page=3&limit=20
 
 ```sql
 SELECT * FROM tasks WHERE created_at > '2026-08-19T10:00:00Z' ORDER BY created_at LIMIT 20;
--- "এই timestamp এর পরের ২০টা task দাও" — OFFSET স্ক্যান করার দরকার নেই,
--- index সরাসরি সেই position এ jump করতে পারে
+-- "give me the 20 tasks after this timestamp" — no OFFSET scanning needed;
+-- the index can jump straight to that position
 ```
 
 ```
@@ -207,23 +207,23 @@ Exercise টা একটা Express + TypeScript endpoint যেটা `Idempot
 **Mechanism এর মূল অংশ** — handler এর ভেতরের তিনটা ধাপ:
 
 ```typescript
-// ধাপ ১: এই key আগে দেখা গেছে কিনা check করো — যদি হ্যাঁ, cached result ফেরত দাও,
-// আবার business logic execute কোরো না (এটাই idempotency এর মূল কথা)
+// Step 1: check whether this key has been seen before — if so, return the cached result
+// and don't execute the business logic again (this is the core of idempotency)
 const cached = idempotencyStore.get(idempotencyKey);
 if (cached !== undefined) {
 	res.status(cached.statusCode).json(cached.body);
 	return;
 }
 
-// ধাপ ২: body validate করো (runtime input কে type assertion দিয়ে বিশ্বাস করা হয় না)
+// Step 2: validate the body (runtime input is never trusted through a type assertion)
 const parseResult = createTaskSchema.safeParse(req.body);
 if (!parseResult.success) {
-	// Error contract সহ 422। Cache করা হয় না: কিছুই execute হয়নি, তাই client body ঠিক করে
-	// একই key দিয়ে retry করলে সেটা নতুন করে process হওয়া উচিত (Stripe ও তাই করে)
+	// 422 with the error contract. Not cached: nothing was executed, so when the client fixes the body
+	// and retries with the same key, it should be processed afresh (Stripe does the same)
 	/* ... */
 }
 
-// ধাপ ৩: actual "write" — এটাই সেই non-idempotent অংশ যেটা আমরা রক্ষা করছি
+// Step 3: the actual "write" — this is the non-idempotent part we are protecting
 const newTask: Task = { id: randomUUID() /* ... */ };
 tasks.push(newTask);
 

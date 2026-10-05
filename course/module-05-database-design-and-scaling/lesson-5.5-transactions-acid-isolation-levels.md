@@ -46,7 +46,7 @@ Lesson 5.2 এ একটা প্রশ্ন খোলা রেখে এস�
 **Sequelize এ transaction** — দুই ধরনের:
 
 ```typescript
-// Managed — callback শেষ হলে commit, throw করলে নিজে থেকে rollback
+// Managed — commits when the callback finishes, rolls back automatically on throw
 await sequelize.transaction(async (transaction) => {
 	await Task.create({ title, projectId }, { transaction });
 	await Project.increment('openTaskCount', { by: 1, where: { id: projectId }, transaction });
@@ -101,8 +101,8 @@ Exercise এর `npm run anomalies` দুটো transaction (A আর B) এর
 
 ```
 [B = READ UNCOMMITTED]
-  A: নাম বদলে "Draft name" — এখনো COMMIT করেনি
-  B: পড়ল: "Website"
+  A: renamed to "Draft name" — not committed yet
+  B: read: "Website"
 ```
 
 Postgres এ এটা **কখনো** ঘটে না — এমনকি `READ UNCOMMITTED` চাইলেও। Postgres সেটাকে চুপচাপ `READ COMMITTED` হিসেবে চালায়। MVCC তে uncommitted version অন্য কারো snapshot এ দৃশ্যমানই হয় না।
@@ -110,8 +110,8 @@ Postgres এ এটা **কখনো** ঘটে না — এমনকি `RE
 **২. Non-repeatable read — একই row দুবার পড়ে ভিন্ন মান।**
 
 ```
-[READ COMMITTED]    A: প্রথমবার "Website"  → B বদলে commit → A: দ্বিতীয়বার "Website v2"
-[REPEATABLE READ]   A: প্রথমবার "Website"  → B বদলে commit → A: দ্বিতীয়বার "Website"
+[READ COMMITTED]    A: first "Website"  → B changes and commits → A: second "Website v2"
+[REPEATABLE READ]   A: first "Website"  → B changes and commits → A: second "Website"
 ```
 
 TaskFlow এ কোথায় সমস্যা? একটা report transaction প্রথমে project গুলোর নাম পড়ল, তারপর তাদের task গুনল — মাঝখানে কেউ কিছু বদলালে report এর দুই অংশ দুটো আলাদা মুহূর্তের সত্য দেখায়।
@@ -119,19 +119,19 @@ TaskFlow এ কোথায় সমস্যা? একটা report transact
 **৩. Phantom read — একই শর্তে দুবার খুঁজে ভিন্ন সংখ্যক row।**
 
 ```
-[READ COMMITTED]    A: 3টা task  → B নতুন task যোগ করে commit → A: 4টা task
-[REPEATABLE READ]   A: 3টা task  → B নতুন task যোগ করে commit → A: 3টা task
+[READ COMMITTED]    A: 3 tasks  → B adds a new task and commits → A: 4 tasks
+[REPEATABLE READ]   A: 3 tasks  → B adds a new task and commits → A: 3 tasks
 ```
 
 **৪. Lost update — দুজনের লেখার একটা নীরবে হারিয়ে যায়।** এটাই Lesson 5.2 এর রহস্য:
 
 ```
 [READ COMMITTED]
-  A: পড়ল 5
-  B: পড়ল 5
-  A: লিখল 6, COMMIT
-  B: লিখল 6, COMMIT
-    → শেষ মান 6 (হওয়া উচিত 7) — একটা update নীরবে হারিয়ে গেছে, কেউ কোনো error পায়নি
+  A: read 5
+  B: read 5
+  A: wrote 6, COMMIT
+  B: wrote 6, COMMIT
+    → final value 6 (should be 7) — one update silently lost, nobody got an error
 ```
 
 দেখো — দুজনেই transaction এ, দুজনেই সফল, কোনো error নেই। READ COMMITTED শুধু নিশ্চিত করে তুমি **commit হওয়া** data পড়বে; সে নিশ্চিত করে না যে তুমি যা পড়েছ সেটা তুমি লেখার সময় পর্যন্ত **সত্য থাকবে**। B এর পড়া "5" তার লেখার সময় আর সত্য ছিল না।
@@ -140,9 +140,9 @@ TaskFlow এ কোথায় সমস্যা? একটা report transact
 
 ```
 [REPEATABLE READ]
-  A: পড়ল 5 · B: পড়ল 5 · A: লিখল 6, COMMIT
-  B: লিখতে গেল → ERROR 40001 — could not serialize access (serialization failure), ROLLBACK
-    → শেষ মান 6 — B এর কাজ হয়নি, কিন্তু B সেটা জানে; retry করলে 7 হবে। নীরবে হারায়নি
+  A: read 5 · B: read 5 · A: wrote 6, COMMIT
+  B: tried to write → ERROR 40001 — could not serialize access (serialization failure), ROLLBACK
+    → final value 6 — B's work didn't happen, but B knows it; a retry gives 7. Not silently lost
 ```
 
 এখানে Postgres ধরে ফেলেছে: B এর snapshot এ row টা এক রকম, অথচ B লিখতে যাওয়ার আগে অন্য কেউ সেটা বদলে commit করেছে। সে B কে লিখতে দেয় না — **serialization failure** (SQLSTATE `40001`) ছুড়ে দেয়। এর অর্থ: "তোমার পড়া data পুরনো; পুরো transaction টা আবার শুরু থেকে চালাও।" Update এখনো হয়নি — কিন্তু **নীরবে হারায়নি**, আর এই পার্থক্যটাই সব।
@@ -150,14 +150,14 @@ TaskFlow এ কোথায় সমস্যা? একটা report transact
 **৫. Write skew — দুজনেই নিয়ম মেনেছে, তবু নিয়ম ভেঙেছে।** এটাই admin bug:
 
 ```
-[REPEATABLE READ]  নিয়ম: অন্তত ১ জন admin থাকবেই
-  A: Rahim যাচাই করল: admin 2 জন → "আমি সরলেও একজন থাকবে" ✓
-  B: Karim যাচাই করল: admin 2 জন → "আমি সরলেও একজন থাকবে" ✓
-  A: Rahim নিজেকে member করল
-  B: Karim নিজেকে member করল
+[REPEATABLE READ]  rule: there must always be at least 1 admin
+  A: Rahim checked: 2 admins → "one will remain if I leave" ✓
+  B: Karim checked: 2 admins → "one will remain if I leave" ✓
+  A: Rahim made himself a member
+  B: Karim made himself a member
   A: COMMIT ✓
   B: COMMIT ✓
-    → এখন admin: 0 জন — নিয়ম ভেঙে গেছে, অথচ দুজনেই নিয়ম যাচাই করেছিল!
+    → admins now: 0 — the rule is broken, even though both checked it!
 ```
 
 REPEATABLE READ কেন ধরতে পারল না, যখন lost update ধরেছিল? কারণ এখানে দুজন **আলাদা row** বদলেছে — রহিম নিজের row, করিম নিজের row। কোনো row এ দুজনের লেখা নেই, তাই কোনো সংঘাত দেখা যায় না। সমস্যাটা row এ না — সমস্যাটা **যে শর্ত দুজনেই পড়ে সিদ্ধান্ত নিয়েছে** ("admin ২ জন"), সেটা অন্যের লেখায় মিথ্যা হয়ে গেছে।
@@ -168,10 +168,10 @@ SERIALIZABLE এ একই ঘটনা:
 
 ```
 [SERIALIZABLE]
-  … (একই চারটা ধাপ) …
+  … (the same four steps) …
   A: COMMIT ✓
   B: COMMIT → ERROR 40001 — could not serialize access (serialization failure)
-    → এখন admin: 1 জন — নিয়ম টিকে আছে
+    → admins now: 1 — the rule holds
 ```
 
 Postgres এর SERIALIZABLE (যেটার ভেতরের পদ্ধতির নাম Serializable Snapshot Isolation, SSI) শুধু লেখার সংঘাত না, **কে কী পড়েছিল** সেটাও নজরে রাখে। সে দেখে: A যা পড়েছিল B সেটা বদলেছে, আর B যা পড়েছিল A সেটা বদলেছে — এমন কোনো ক্রম নেই যেখানে দুটো একটার পর একটা চললে এই ফল হতো। তাই একজনকে বাতিল করে।
@@ -203,14 +203,14 @@ Postgres এর SERIALIZABLE (যেটার ভেতরের পদ্ধত
 এবার Lesson 5.2 এর counter। Exercise এর `npm run lostupdate` একটা counter এ **১০০টা `+1` একসাথে** চালায়, সাতটা কৌশলে (pool এ ১০টা connection):
 
 ```
-কৌশল                                      শেষ মান      retry      সময়
-১. read-modify-write, transaction ছাড়া   ✗   1/100        0     145 ms
-২. একই, READ COMMITTED transaction এ      ✗  10/100        0     113 ms
-৩. SELECT ... FOR UPDATE                  ✓ 100/100        0     141 ms
-৪. atomic UPDATE … SET x = x + 1          ✓ 100/100        0     106 ms
-৫. REPEATABLE READ + retry                ✓ 100/100      348     371 ms
-৬. optimistic locking (version) + retry   ✓ 100/100     1206     801 ms
-৭. SERIALIZABLE + retry                   ✓ 100/100      339     347 ms
+strategy                                final value  retries      time
+1. read-modify-write, no transaction      ✗   1/100        0     145 ms
+2. same, in a READ COMMITTED transaction  ✗  10/100        0     113 ms
+3. SELECT ... FOR UPDATE                  ✓ 100/100        0     141 ms
+4. atomic UPDATE … SET x = x + 1          ✓ 100/100        0     106 ms
+5. REPEATABLE READ + retry                ✓ 100/100      348     371 ms
+6. optimistic locking (version) + retry   ✓ 100/100     1206     801 ms
+7. SERIALIZABLE + retry                   ✓ 100/100      339     347 ms
 ```
 
 প্রথম দুটো লাইন Lesson 5.2 এর রহস্যের উত্তর: **transaction একা কিছুই সমাধান করেনি** (১০০ এর মধ্যে ৯০টা হারাল)। বাকি পাঁচটা সঠিক — কিন্তু তারা তিনটা একেবারে ভিন্ন দর্শন থেকে আসে:

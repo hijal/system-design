@@ -90,39 +90,39 @@ function simulate(mode: Mode): Outcome {
 }
 
 heading(
-	`অংশ ক — ${n(ACCOUNTS)}টা wallet (প্রতিটায় ${n(START)} পয়সা), ${n(TRANSFERS)}টা transfer, সেকেন্ডে ${n(RATE)}, ${HOT_SHARE * 100}% একটা বড় merchant এর wallet এ, DB এর round trip ~${DB_MS} ms, ${CRASH * 100}% মাঝপথে crash`
+	`Part A — ${n(ACCOUNTS)} wallets (${n(START)} cents in each), ${n(TRANSFERS)} transfers, ${n(RATE)} a second, ${HOT_SHARE * 100}% to one big merchant's wallet, DB round trip ~${DB_MS} ms, ${CRASH * 100}% crash midway`
 );
 console.log(
 	row([
-		['নকশা', 52],
-		['মোট টাকার বদল', 15],
-		['ঋণাত্মক wallet', 15],
-		['মাঝপথে হারাল', 14],
-		['প্রমাণ করা যায়?', 16],
-		['lock এ অপেক্ষা', 14]
+		['design', 60],
+		['total change', 15],
+		['negative wallets', 18],
+		['lost midway', 14],
+		['provable?', 16],
+		['wait on locks', 15]
 	])
 );
 for (const [mode, name] of [
-	['read-write', 'balance column: পড়ো, হিসাব করো, লেখো'],
-	['atomic-rows', 'balance column: প্রতিটা row atomic, দুটো আলাদা'],
-	['ledger', 'double-entry: এক transaction, দুই account lock'],
-	['ledger-debit-lock', 'double-entry: শুধু টাকা যে দেয় তার lock']
+	['read-write', 'balance column: read, compute, write'],
+	['atomic-rows', 'balance column: each row atomic, two separate statements'],
+	['ledger', 'double-entry: one transaction, locks on both accounts'],
+	['ledger-debit-lock', 'double-entry: lock only the account paying out']
 ] as const) {
 	const r = simulate(mode);
 	console.log(
 		row([
-			[name, 52],
+			[name, 60],
 			[`${r.drift > 0 ? '+' : ''}${n(r.drift)}`, 15],
-			[n(r.negative), 15],
+			[n(r.negative), 18],
 			[n(r.vanished), 14],
-			[r.detectable ? 'হ্যাঁ, Σ = 0' : 'না', 16],
-			[ms(r.maxWait), 14]
+			[r.detectable ? 'yes, Σ = 0' : 'no', 16],
+			[ms(r.maxWait), 15]
 		])
 	);
 }
-console.log('"মোট টাকার বদল" শূন্য হওয়ার কথা — টাকা শুধু এক wallet থেকে আরেকটায় যায়।');
+console.log('"total change" should be zero — money only moves from one wallet to another.');
 
-heading(`অংশ খ — ${n(PRICES)}টা দাম যোগ: float এ dollar বনাম integer এ পয়সা`);
+heading(`Part B — summing ${n(PRICES)} prices: dollars in float vs cents in integers`);
 {
 	const random = mulberry32(SEED + 7);
 	let dollars = 0;
@@ -139,27 +139,27 @@ heading(`অংশ খ — ${n(PRICES)}টা দাম যোগ: float এ dol
 	const feeOnce = Math.round(feeTotalBase * 0.029);
 	console.log(
 		row([
-			['float এ যোগ (dollar)', 46],
+			['sum in float (dollars)', 46],
 			[dollars.toFixed(6), 22]
 		])
 	);
 	console.log(
 		row([
-			['integer এ যোগ (পয়সা) ÷ 100', 46],
+			['sum in integers (cents) ÷ 100', 46],
 			[(cents / 100).toFixed(6), 22]
 		])
 	);
 	console.log(
 		row([
-			['পার্থক্য', 46],
-			[`${((dollars - cents / 100) * 100).toFixed(4)} পয়সা`, 22]
+			['difference', 46],
+			[`${((dollars - cents / 100) * 100).toFixed(4)} cents`, 22]
 		])
 	);
 	console.log(`0.1 + 0.2 = ${0.1 + 0.2}; 0.029 * 100 = ${0.029 * 100}`);
 	console.log(
-		`\nfee ২.৯%: প্রতিটায় round করে যোগ ${n(feePerItem)} পয়সা, মোটের উপর একবার round ${n(feeOnce)} পয়সা — পার্থক্য ${n(feePerItem - feeOnce)} পয়সা`
+		`\nfee 2.9%: rounding each then summing ${n(feePerItem)} cents, rounding once on the total ${n(feeOnce)} cents — difference ${n(feePerItem - feeOnce)} cents`
 	);
 	console.log(
-		'দুটোই "ঠিক" — কিন্তু কোনটা নিয়ম, সেটা লিখে রাখতে হয়, নইলে দুই system এর হিসাব কখনো মেলে না।'
+		'both are "right" — but which one is the rule has to be written down, or two systems\' books never match.'
 	);
 }

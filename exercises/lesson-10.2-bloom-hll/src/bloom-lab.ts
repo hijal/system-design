@@ -21,14 +21,14 @@ function fill(filter: { add(key: string): void }, from: number, to: number): voi
 
 function bitsPerItem(): void {
 	heading(
-		`ক. ${ITEMS.toLocaleString('en-US')}টা নাম, আর ${PROBES.toLocaleString('en-US')}টা নাম যা কখনো ঢোকানো হয়নি — কতগুলোকে "হয়তো আছে" বলে?`
+		`A. ${ITEMS.toLocaleString('en-US')} names, and ${PROBES.toLocaleString('en-US')} names never inserted — how many are called "maybe present"?`
 	);
 	console.log(
 		row([
-			['bit / নাম', 12],
+			['bits/name', 12],
 			['k', 5],
-			['মাপা false positive', 22],
-			['তত্ত্ব', 10],
+			['measured FP rate', 22],
+			['theory', 10],
 			['memory', 12]
 		])
 	);
@@ -55,21 +55,21 @@ function bitsPerItem(): void {
 		return count;
 	})();
 	console.log(
-		`   ঢোকানো ${ITEMS.toLocaleString('en-US')}টা নামের কয়টাকে "নেই" বলল (false negative): ${missed}`
+		`   inserted names called "absent" (false negatives), out of ${ITEMS.toLocaleString('en-US')}: ${missed}`
 	);
 	console.log(
-		`   ${pct(TARGET, 1, 1)} এর জন্য লাগে ${(bitsForRate(ITEMS, TARGET) / ITEMS).toFixed(2)} bit/নাম; ${pct(TARGET / 10, 1, 1)} এর জন্য ${(bitsForRate(ITEMS, TARGET / 10) / ITEMS).toFixed(2)}`
+		`   ${pct(TARGET, 1, 1)} needs ${(bitsForRate(ITEMS, TARGET) / ITEMS).toFixed(2)} bits/name; ${pct(TARGET / 10, 1, 1)} needs ${(bitsForRate(ITEMS, TARGET / 10) / ITEMS).toFixed(2)}`
 	);
 }
 
 function hashCount(): void {
-	heading('খ. ১০ bit/নাম স্থির রেখে hash function এর সংখ্যা (k) বদলালে');
+	heading('B. Changing the number of hash functions (k) at a fixed 10 bits/name');
 	console.log(
 		row([
 			['k', 5],
-			['মাপা false positive', 22],
-			['তত্ত্ব', 10],
-			['bit এর কত % ১', 16]
+			['measured FP rate', 22],
+			['theory', 10],
+			['% of bits set', 16]
 		])
 	);
 	for (const hashes of [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16]) {
@@ -90,14 +90,14 @@ function hashCount(): void {
 function overfill(): void {
 	const filter = BloomFilter.forCapacity(ITEMS, TARGET);
 	heading(
-		`গ. ${ITEMS.toLocaleString('en-US')}টা নামের জন্য ${pct(TARGET, 1, 0)} ধরে বানানো filter (${kb(filter.size)}, k = ${filter.hashes}) — তারপর বেশি ঢোকালে`
+		`C. A filter built for ${ITEMS.toLocaleString('en-US')} names at ${pct(TARGET, 1, 0)} (${kb(filter.size)}, k = ${filter.hashes}) — then inserting more`
 	);
 	console.log(
 		row([
-			['ঢোকানো', 14],
-			['ধারণক্ষমতার', 13],
-			['মাপা false positive', 22],
-			['bit এর কত % ১', 16]
+			['inserted', 14],
+			['of capacity', 13],
+			['measured FP rate', 22],
+			['% of bits set', 16]
 		])
 	);
 	let inserted = 0;
@@ -120,15 +120,15 @@ function overfill(): void {
 function deletion(): void {
 	const removed = Math.round(ITEMS / 10);
 	heading(
-		`ঘ. ${removed.toLocaleString('en-US')}টা নাম মুছে ফেলা হলো (account delete) — বাকি ${(ITEMS - removed).toLocaleString('en-US')}টার কী হলো?`
+		`D. ${removed.toLocaleString('en-US')} names deleted (account delete) — what happened to the other ${(ITEMS - removed).toLocaleString('en-US')}?`
 	);
 	console.log(
 		row([
-			['পদ্ধতি', 30],
+			['approach', 30],
 			['memory', 12],
-			['থাকা নাম কে "নেই"', 19],
-			['মোছা নাম কে "আছে"', 19],
-			['নতুন false positive', 21]
+			['kept → "no"', 19],
+			['deleted → "yes"', 19],
+			['new false positive', 21]
 		])
 	);
 	const size = bitsForRate(ITEMS, TARGET);
@@ -144,9 +144,9 @@ function deletion(): void {
 	for (let i = 0; i < removed; i++) counting.remove(member(i));
 
 	const cases: [string, { has(key: string): boolean }, number][] = [
-		['মুছি না, রেখে দিই', untouched, size],
-		['সাধারণ bloom, bit মুছে', naive, size],
-		['counting bloom (৪-bit counter)', counting, counting.memoryBits()]
+		["don't delete, keep them", untouched, size],
+		['plain bloom, clear bits', naive, size],
+		['counting bloom (4-bit)', counting, counting.memoryBits()]
 	];
 	for (const [label, filter, bits] of cases) {
 		let lost = 0;
@@ -164,7 +164,7 @@ function deletion(): void {
 			])
 		);
 	}
-	console.log(`   counting bloom এ ১৫ ছুঁয়ে আটকে যাওয়া counter: ${counting.saturated}`);
+	console.log(`   counters stuck at 15 in the counting bloom: ${counting.saturated}`);
 }
 
 bitsPerItem();

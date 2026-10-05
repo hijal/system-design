@@ -56,42 +56,42 @@ npm run smoke
 post কে ৬ কোটি থেকে ৪ লাখে নামায়; pull এ প্রতি পড়ায় ২০০ fetch:
 
 ```
-মাঝের account (p50)                                         62
-সবচেয়ে বড় account                                  150,000,000
-push, শুধু সক্রিয় follower                              46,296      60,000,000         1.0         104,167    3.8 TB
-fan-out on read (সবার থেকে pull)                           0               0       200.0      20,833,333         —
-hybrid: 1,000,000 এর বেশি → pull                     42,091         400,000        19.2       1,996,773    3.8 TB
-1,000,000 এর বেশি follower: 2,178টা account, সব follow এর 9.1%
+median account (p50)                                      62
+biggest account                                  150,000,000
+push, active followers only                          46,296      60,000,000             1.0         104,167    3.8 TB
+fan-out on read (pull from everyone)                      0               0           200.0      20,833,333         —
+hybrid: over 1,000,000 → pull                        42,091         400,000            19.2       1,996,773    3.8 TB
+over 1,000,000 followers: 2,178 accounts, 9.1% of all follows
 ```
 
 `npm run fanout` — এক FIFO queue তে celebrity এর post এর পেছনে তিন লাখ সাধারণ post ৫ s এর বেশি আটকায়:
 
 ```
-একটা FIFO queue, সবাইকে push                                     100 ms  142.10 s     147.70 s    311,955     147.80 s
-দুটো queue: বড় job (> 100,000) আলাদা, ক্ষমতার 25%                    100 ms    100 ms     156.60 s          8     157.40 s
-hybrid: 1,000,000 এর বেশি follower push হয় না                    100 ms    100 ms       300 ms          0       pull এ
+one FIFO queue, push to everyone                                         100 ms  142.10 s     147.70 s     311,955       147.80 s
+two queues: big jobs (> 100,000) separate, 25% of capacity               100 ms    100 ms     156.60 s           8       157.40 s
+hybrid: over 1,000,000 followers are not pushed                          100 ms    100 ms       300 ms           0        by pull
 ```
 
 `npm run read` — K বাড়লে p99 একটা ধীর fetch এ আটকায়; hedge কিছুটা বাঁচায়; offset এ দ্বিতীয় page এ আগে দেখা post:
 
 ```
-push: শুধু নিজের timeline                              1   2.01 ms   6.69 ms            0.9%
-hybrid: timeline + ~১৯টা celebrity                 20   4.40 ms     53 ms           18.2%
-hybrid, ধীরগুলো hedge (১০ ms এ দ্বিতীয় চেষ্টা)               20   4.40 ms     14 ms           18.1%
-pull: ২০০ জনের সবার post                           200     52 ms     54 ms           86.7%
-?offset=20 (প্রথম ২০টা বাদ দাও)                                     40.6%           18.4%
-?cursor=<শেষ দেখা id> (id < cursor)                            0.0%            0.0%
+push: your own timeline only                             1   2.01 ms   6.69 ms               0.9%
+hybrid: timeline + ~19 celebrities                      20   4.40 ms     53 ms              18.2%
+hybrid, slow ones hedged (second try at 10 ms)          20   4.40 ms     14 ms              18.1%
+pull: posts from all 200                               200     52 ms     54 ms              86.7%
+?offset=20 (skip the first 20)                                  40.6%           18.4%
+?cursor=<last seen id> (id < cursor)                        0.0%            0.0%
 ```
 
 `npm run smoke` — ১০টা ধাপ:
 
 ```
-1   alice post করল a1; fan-out এর queue এখনও চলেনি        bob: (খালি); queue এ 2টা
-3   star post করল s1 (৪ follower → push হয় না)           queue এ 0টা; amy: s1[pull]
-4   bob এর feed: push আর pull মিশিয়ে, id এর ক্রমে             s1[pull] a1[push]
-6   এর মধ্যে a8, a9 এলো; দ্বিতীয় page ?offset=3                 a6[push] a5[push] a4[push]
-7   দ্বিতীয় page ?cursor=6                                  a4[push] a3[push] a2[push]
-8   bob alice কে unfollow (timeline এ id গুলো রয়ে গেছে)       bob: s1[pull]
+1   alice posted a1; the fan-out queue hasn't run yet           bob: (empty); 2 in the queue
+3   star posted s1 (4 followers → not pushed)                   0 in the queue; amy: s1[pull]
+4   bob's feed: push and pull merged, in id order               s1[pull] a1[push]
+6   meanwhile a8, a9 arrived; second page ?offset=3             a6[push] a5[push] a4[push]
+7   second page ?cursor=6                                       a4[push] a3[push] a2[push]
+8   bob unfollows alice (the ids remain in his timeline)        bob: s1[pull]
 ```
 
 ## কী দেখার জন্য এটা বানানো

@@ -67,15 +67,15 @@ function main(): void {
 	let hottest = 0;
 	for (const count of exact.values()) hottest = Math.max(hottest, count);
 	heading(
-		`${REQUESTS.toLocaleString('en-US')}টা request, ${exact.size.toLocaleString('en-US')}টা আলাদা board, Zipf ${ZIPF} — সবচেয়ে গরম board একাই ${pct(hottest, REQUESTS, 1)}`
+		`${REQUESTS.toLocaleString('en-US')} requests, ${exact.size.toLocaleString('en-US')} distinct boards, Zipf ${ZIPF} — the hottest board alone is ${pct(hottest, REQUESTS, 1)}`
 	);
 	console.log(
 		row([
 			['width × depth', 16],
 			['memory', 10],
-			['top 10 ধরা', 12],
-			['top 10 এ বাড়তি গোনা', 21],
-			['ঠান্ডা board এ (≤5 বার)', 24]
+			['top 10 hit', 12],
+			['top 10 overcount', 21],
+			['cold boards (≤5 times)', 24]
 		])
 	);
 	for (const width of [64, 256, 1024, 4096, 16384]) {
@@ -86,12 +86,12 @@ function main(): void {
 				[`${Math.round(sketch.memoryBytes() / 1024)} KB`, 10],
 				[`${recall}/${TOP}`, 12],
 				[`≤ ${pct(topError, 1, 2)}`, 21],
-				[`${tailRatio.toFixed(1)}x আসলের`, 24]
+				[`${tailRatio.toFixed(1)}x actual`, 24]
 			])
 		);
 	}
 	console.log(
-		`   আসল হিসাব: ${exact.size.toLocaleString('en-US')}টা key এর একটা Map; sketch কখনো কম গোনে না, শুধু বেশি`
+		`   exact count: a Map of ${exact.size.toLocaleString('en-US')} keys; the sketch never undercounts, only overcounts`
 	);
 }
 

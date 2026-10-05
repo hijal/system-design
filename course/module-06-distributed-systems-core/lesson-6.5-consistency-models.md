@@ -63,10 +63,10 @@ Lesson 5.9 এ প্রথম শুনেছিলে — CAP এর "C"। �
 Client এর চোখে: system টা যেন **একটাই কপি**, আর প্রতিটা লেখা শেষ হওয়ার মুহূর্ত থেকে **সবাই** সেটা দেখে। Exercise এর `npm run models` এর প্রথম তিনটা ঘটনা:
 
 ```
-   ঘটনা                                   lesson   linear.  sequential  causal  RYW  mono.read  eventual
-   এক primary, সব স্বাভাবিক               5.x      ✓        ✓           ✓       ✓    ✓          ✓
-   লেখা চলার মাঝে পড়া নতুন মান পেল       6.2      ✓        ✓           ✓       ✓    ✓          ✓
-   পুরনো leader থেকে পড়া                 6.2      ✗        ✓           ✓       ✓    ✓          ✓
+   incident                               lesson   linear.  sequential  causal  RYW  mono.read  eventual
+   one primary, all normal                5.x      ✓        ✓           ✓       ✓    ✓          ✓
+   read during a write got the new value  6.2      ✓        ✓           ✓       ✓    ✓          ✓
+   read from the old leader               6.2      ✗        ✓           ✓       ✓    ✓          ✓
 ```
 
 - **"লেখা চলার মাঝে পড়া নতুন মান পেল" — linearizable।** লেখা এখনো শেষ হয়নি, কিন্তু পড়া নতুন মান পেয়েছে। কোনো সমস্যা নেই: লেখার linearization point পড়ার আগে বসানো যায়। Linearizability মানে "সবকিছু ধীরে, একটার পর একটা" না — concurrent operation চলে, শুধু ফলগুলো একটা যুক্তিসঙ্গত সারিতে বসাতে হবে।
@@ -93,7 +93,7 @@ Database এর জগতে sequential consistency কদাচিৎ আলা
 মানে: করিম রহিমের প্রশ্ন **দেখে** উত্তর দিলে, উত্তর দেখা যে কেউ প্রশ্নটাও দেখবে। কিন্তু দুজন একে অপরের কথা না জেনে দুটো আলাদা comment করলে, কেউ রহিমেরটা আগে দেখবে, কেউ করিমেরটা — দুটোই বৈধ।
 
 ```
-   উত্তর আছে, প্রশ্ন নেই                  6.3      ✗        ✗           ✗       ✓    ✓          ✓
+   answer present, question missing       6.3      ✗        ✗           ✗       ✓    ✓          ✓
 ```
 
 এই সারিটা এই lesson এর সবচেয়ে গুরুত্বপূর্ণ সারির একটা। P3 এর **নিজের** দেখায় কোনো নিয়ম ভাঙেনি — সে নিজে কিছু লেখেনি (read-your-writes ✓), তার দেখা কখনো পেছনে যায়নি (monotonic ✓)। ভেঙেছে **অন্য দুজনের** মধ্যের কার্যকারণ: প্রশ্ন → করিম পড়ল → উত্তর। Session guarantee গুলো (6.3) একজন client এর নিজের ইতিহাস দেখে; causal দেখে পুরো কার্যকারণের জাল।
@@ -105,8 +105,8 @@ Causal এর একটা বিশেষ গুরুত্ব আছে: গ�
 6.3 এর session guarantee গুলো আসলে একজন client এর চোখে causal এর টুকরো:
 
 ```
-   Replica lag: নিজের লেখা নেই            5.7      ✗        ✗           ✗       ✗    ✓          ✓
-   Refresh এ task উধাও                    6.3      ✗        ✗           ✗       ✓    ✗          ✓
+   replica lag: own write missing         5.7      ✗        ✗           ✗       ✗    ✓          ✓
+   task vanishes on refresh               6.3      ✗        ✗           ✗       ✓    ✗          ✓
 ```
 
 প্রতিটা আলাদা, স্বাধীন: প্রথমটায় read-your-writes ভাঙে কিন্তু monotonic ঠিক; দ্বিতীয়টায় উল্টো। তাই design doc এ "session consistency" লেখা যথেষ্ট না — **কোন** guarantee গুলো, নাম ধরে।
@@ -116,7 +116,7 @@ Causal এর একটা বিশেষ গুরুত্ব আছে: গ�
 **Eventual consistency** (5.9) — নতুন লেখা থামলে একসময় সব replica একই মানে পৌঁছাবে। ব্যস।
 
 ```
-   LWW: ঘড়ির ভুলে bot এর edit হারাল      6.4      ✗        ✗           ✗       ✗    ✓          ✓
+   LWW: bot's edit lost to a clock error  6.4      ✗        ✗           ✗       ✗    ✓          ✓
 ```
 
 শেষ কলামে ✓ — সব replica শেষে একই মানে পৌঁছেছে (bot এর edit হারিয়ে)। আর বাকি প্রায় সব ✗। Eventual consistency বলে না **কবে** মিলবে, বলে না মাঝের সময়ে কী দেখা যাবে, আর বলে না **কোন** মানে মিলবে — এমনকি একটা "saved" বলা লেখা হারিয়েও মিলতে পারে। Vendor যখন শুধু "eventually consistent" বলে, প্রশ্ন করো: "আর তার সাথে কী?"
@@ -153,9 +153,9 @@ Exercise এর `npm run jepsen` একই কাজ, ছোট করে: চ�
 
 ```
    system                        linear.  sequential  causal    RYW   mono.read  eventual
-   এক primary                    100%     100%      100%    100%     100%      100%
-   যেকোনো replica                 32%      58%       61%     70%      85%      100%
-   client প্রতি একটা replica      29%      57%       63%     67%     100%      100%
+   one primary                   100%     100%      100%    100%     100%      100%
+   any replica                    32%      58%       61%     70%      85%      100%
+   one replica per client         29%      57%       63%     67%     100%      100%
    version token                  48%     100%      100%    100%     100%      100%
 ```
 

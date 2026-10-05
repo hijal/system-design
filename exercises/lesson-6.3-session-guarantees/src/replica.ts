@@ -1,9 +1,9 @@
 import { latency } from './random';
 
-// একটা async replica এর মডেল: প্রতিটা লেখা (LSN) primary তে commit হওয়ার কিছু পরে দেখা যায় —
-// ন্যূনতম + exponential লেজ, আর মাঝে মাঝে "আটকে যাওয়া" (লম্বা query এর সাথে WAL replay এর বিরোধ,
-// vacuum, network)। Replica লেখা **ক্রমানুসারে** প্রয়োগ করে: একটা আটকালে পেছনের সবাই আটকায়।
-// সংখ্যাগুলো ধরে নেওয়া মডেল, কোনো নির্দিষ্ট system থেকে মাপা না।
+// A model of an async replica: every write (LSN) becomes visible some time after it commits on the primary —
+// a minimum + an exponential tail, and now and then a "stall" (WAL replay conflicting with a long query,
+// vacuum, the network). The replica applies writes **in order**: when one stalls, everything behind it stalls.
+// The numbers are an assumed model, not measured from any particular system.
 
 export interface LagModel {
 	base: number;
@@ -13,7 +13,7 @@ export interface LagModel {
 }
 
 export class Replica {
-	private readonly visibleAt: number[] = []; // visibleAt[lsn - 1] = এই LSN কখন দেখা যায়
+	private readonly visibleAt: number[] = []; // visibleAt[lsn - 1] = when this LSN becomes visible
 	private stalledUntil = 0;
 
 	constructor(
@@ -21,7 +21,7 @@ export class Replica {
 		private readonly random: () => number
 	) {}
 
-	// primary তে `at` সময়ে একটা লেখা commit হলো (LSN = আগের + 1)
+	// a write committed on the primary at time `at` (LSN = previous + 1)
 	receive(at: number): void {
 		if (this.random() < this.model.stallPerWrite) this.stalledUntil = at + this.model.stallMs;
 		this.visibleAt.push(
@@ -33,7 +33,7 @@ export class Replica {
 		);
 	}
 
-	// `at` সময়ে replica কোন LSN পর্যন্ত প্রয়োগ করেছে (Postgres এর pg_last_wal_replay_lsn() এর মতো)
+	// up to which LSN the replica has applied at time `at` (like Postgres's pg_last_wal_replay_lsn())
 	replayedAt(at: number): number {
 		let lo = 0;
 		let hi = this.visibleAt.length;

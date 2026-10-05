@@ -20,14 +20,14 @@ interface Job {
 type Policy = { name: string; pushCelebrities: boolean; split: boolean };
 
 const policies: Policy[] = [
-	{ name: 'একটা FIFO queue, সবাইকে push', pushCelebrities: true, split: false },
+	{ name: 'one FIFO queue, push to everyone', pushCelebrities: true, split: false },
 	{
-		name: `দুটো queue: বড় job (> ${n(BIG_JOB)}) আলাদা, ক্ষমতার ${BIG_SHARE * 100}%`,
+		name: `two queues: big jobs (> ${n(BIG_JOB)}) separate, ${BIG_SHARE * 100}% of capacity`,
 		pushCelebrities: true,
 		split: true
 	},
 	{
-		name: `hybrid: ${n(THRESHOLD)} এর বেশি follower push হয় না`,
+		name: `hybrid: over ${n(THRESHOLD)} followers are not pushed`,
 		pushCelebrities: false,
 		split: false
 	}
@@ -64,16 +64,16 @@ function drain(
 }
 
 heading(
-	`${n(POSTS_PER_S)} post/s (peak), fan-out এর ক্ষমতা ${n(CAPACITY)} লেখা/s; ১ মিনিটে সবচেয়ে বড় account, ২০০ s এ পরের ৫টা একসাথে post করে`
+	`${n(POSTS_PER_S)} posts/s (peak), fan-out capacity ${n(CAPACITY)} writes/s; the biggest account posts at 1 minute, the next 5 together at 200 s`
 );
 console.log(
 	row([
-		['নীতি', 52],
-		['সাধারণ post p50', 16],
+		['policy', 60],
+		['ordinary post p50', 19],
 		['p99', 10],
-		['সবচেয়ে খারাপ', 13],
-		['> ৫ s দেরি', 11],
-		['বড় post শেষ', 13]
+		['worst', 13],
+		['> 5 s late', 12],
+		['big post done', 15]
 	])
 );
 for (const policy of policies) {
@@ -128,15 +128,15 @@ for (const policy of policies) {
 	normalDelays.sort((a, b) => a - b);
 	console.log(
 		row([
-			[policy.name, 52],
-			[ms(percentile(normalDelays, 50)), 16],
+			[policy.name, 60],
+			[ms(percentile(normalDelays, 50)), 19],
 			[ms(percentile(normalDelays, 99)), 10],
 			[ms(normalDelays[normalDelays.length - 1] ?? 0), 13],
-			[n(late), 11],
-			[celebrityDelays.length === 0 ? 'pull এ' : ms(Math.max(...celebrityDelays)), 13]
+			[n(late), 12],
+			[celebrityDelays.length === 0 ? 'by pull' : ms(Math.max(...celebrityDelays)), 15]
 		])
 	);
 }
 console.log(
-	'\nদেরি = post থেকে শেষ follower এর timeline এ পৌঁছানো, ১০০ ms এর ধাপে। "> ৫ s দেরি" = কতগুলো সাধারণ post পাঁচ সেকেন্ডের বেশি অপেক্ষা করল।'
+	'\ndelay = from the post to reaching the last follower\'s timeline, in steps of 100 ms. "> 5 s late" = how many ordinary posts waited more than five seconds.'
 );

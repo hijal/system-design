@@ -58,11 +58,11 @@ Monolith এ browser একটা server কে চিনত। এখন servic
 Exercise এর `npm run bff`: TaskFlow এর "task detail" page — task, assignee, ২০টা comment, আর তাদের author। Browser এর network একটা model: প্রতিটা request এ একটা round trip (RTT), আর উত্তরের byte একটা ভাগ করা পাইপে — desktop (RTT 20 ms, 50 Mbps) আর mobile (RTT 100 ms, 5 Mbps)। সার্ভারের কাজ আসল:
 
 ```
-── "Task detail" page: task + assignee + ২০টা comment + author · data center এর ভেতরে প্রতিটা call এ 1 ms · 40 বার ──
-   পথ                             browser এর network              request   ধাপ   browser এ এলো        p50        p95
-   browser → service, সরাসরি      desktop (RTT 20 ms, 50 Mbps)          4      3     25.2 KB    71.5 ms    74.1 ms
+── "Task detail" page: task + assignee + 20 comments + authors · 1 ms per call inside the data center · 40 times ──
+   path                           browser network                requests  steps  to browser        p50        p95
+   browser → services, direct     desktop (RTT 20 ms, 50 Mbps)          4      3     25.2 KB    71.5 ms    74.1 ms
    browser → web BFF              desktop (RTT 20 ms, 50 Mbps)          1      1     10.2 KB    28.9 ms    30.3 ms
-   browser → service, সরাসরি      mobile (RTT 100 ms, 5 Mbps)           4      3     25.2 KB   348.7 ms   350.9 ms
+   browser → services, direct     mobile (RTT 100 ms, 5 Mbps)           4      3     25.2 KB   348.7 ms   350.9 ms
    browser → web BFF              mobile (RTT 100 ms, 5 Mbps)           1      1     10.2 KB   123.6 ms   125.0 ms
    app → mobile BFF               mobile (RTT 100 ms, 5 Mbps)           1      1      1.8 KB   109.2 ms   110.3 ms
 ```
@@ -96,26 +96,26 @@ Exercise এর `npm run bff`: TaskFlow এর "task detail" page — task, assi
 **TaskFlow এর web এর BFF আসলে আগে থেকেই আছে** — SvelteKit এর server route। `+page.server.ts` এর `load` function server এ চলে, browser এর একটা request এর উত্তরে:
 
 ```typescript
-// src/routes/tasks/[id]/+page.server.ts — TaskFlow web এর BFF
+// src/routes/tasks/[id]/+page.server.ts — TaskFlow web's BFF
 import { error } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
-import { internal } from '$lib/server/internal'; // ভেতরের service এর client: base URL, internal token, timeout, Zod
+import { internal } from '$lib/server/internal'; // the client for internal services: base URL, internal token, timeout, Zod
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	if (!locals.user) error(401, 'login লাগবে');
+	if (!locals.user) error(401, 'login required');
 	const id = z.coerce.number().int().positive().parse(params.id);
-	const as = locals.user; // কার হয়ে ডাকছি — প্রতিটা ভেতরের call এ যায় (১.৫)
+	const as = locals.user; // on whose behalf we call — goes on every internal call (1.5)
 
-	const task = await internal.work.getTask(id, as); // ধাপ ১
-	const comments = await internal.work.listComments(id, as); // ধাপ ২ — data center এর ভেতরে, ~১ ms
+	const task = await internal.work.getTask(id, as); // step 1
+	const comments = await internal.work.listComments(id, as); // step 2 — inside the data center, ~1 ms
 	const people = await internal.identity.usersByIds(
 		[task.assigneeId, ...comments.map((c) => c.authorId)],
 		as
-	); // ধাপ ৩ — সব একবারে (9.1 এর batched)
+	); // step 3 — all at once (9.1's batched)
 	const byId = new Map(people.map((u) => [u.id, { name: u.name, avatar: u.avatar }]));
 
-	// যা return হয় সেটা serialize হয়ে browser এ যায় — তাই শুধু যা page এ দেখানো হবে
+	// whatever is returned is serialized and sent to the browser — so only what the page will show
 	return {
 		task: { id: task.id, title: task.title, description: task.description, status: task.status },
 		assignee: byId.get(task.assigneeId) ?? null,
@@ -162,9 +162,9 @@ Spaced repetition এর উত্তর: gateway L7 — path (`/api/files/*`) �
 **বাড়তি hop এর দাম।** Exercise এর `npm run gateway`, অংশ ক:
 
 ```
-── ক. বাড়তি hop: tasks service সরাসরি বনাম gateway এর ভেতর দিয়ে (token যাচাই + proxy) ──
-   পথ                                 একা ১ জন p50   ব্যস্ত (16 জন): req/s        p50        p99   gateway এর CPU / request
-   client → tasks (সরাসরি)                  0.2 ms              11982     1.2 ms     2.7 ms   —
+── a. Extra hop: tasks service directly vs through the gateway (token check + proxy) ──
+   path                               1 client p50  16 clients: req/s        p50        p99   gateway CPU / request
+   client → tasks (direct)                  0.2 ms              11982     1.2 ms     2.7 ms   —
    client → gateway → tasks                 0.4 ms               6312     2.4 ms     3.9 ms   0.2 ms
 ```
 
@@ -175,8 +175,8 @@ Spaced repetition এর উত্তর: gateway L7 — path (`/api/files/*`) �
 **Canary Routing** — একটা route এর traffic এর ছোট একটা অংশ (যেমন ১০%) নতুন version বা নতুন service এ পাঠানো, বাকিটা পুরনোতে; সমস্যা না হলে ধীরে ধীরে ভাগ বাড়ানো, সমস্যা হলে এক setting এ ফেরানো। ভাগ সাধারণত user (বা workspace) ধরে, যাতে একজনের অভিজ্ঞতা request ভেদে লাফায় না।
 
 ```
-── গ. Thumbnail এর route: পুরনো পথ (monolith) বনাম নতুন files service — 1000 জন user, প্রত্যেকে ২ বার ──
-   canary %   নতুন service এ   পুরনো পথে   একই user দুবার একই দিকে
+── c. The thumbnail route: old path (monolith) vs new files service — 1000 users, 2 times each ──
+   canary %   to new service    old path     same side both times
          0%                0        1000                     100%
         10%              104         896                     100%
         50%              499         501                     100%
@@ -194,15 +194,15 @@ User id এর hash ধরে ভাগ — ১০% মানে ১০৪ জ�
 ঘটনা ২ এর সমাধান প্রথম অর্ধেক: token যাচাই এক জায়গায় — gateway এ — তাই মেয়াদ দেখতে ভোলার জায়গা একটা। কিন্তু ঘটনা ৩: gateway যাচাই করে `x-user-id: 42` বসায়, আর service সেটা বিশ্বাস করে। কেউ gateway এড়িয়ে service এ পৌঁছালে? অংশ খ:
 
 ```
-── খ. কে পাঠাল? — gateway এর যাচাই, আর gateway এড়িয়ে সরাসরি service এ ──
+── b. Who sent it? — the gateway's check, and bypassing the gateway to the service directly ──
    request                                                    trust mode                       signed mode
-   gateway, token ছাড়া                                       401                              401
-   gateway, user 42 এর বৈধ token                              200 · user 42                    200 · user 42
-   gateway, বৈধ token + নিজে বসানো x-user-id: 1               200 · user 42                    200 · user 42
-   gateway, মেয়াদ পেরোনো token                               401                              401
-   gateway, অন্য secret এ বানানো token (sub: 1)               401                              401
-   service সরাসরি (gateway এড়িয়ে), x-user-id: 1             200 · user 1 ← অন্যের পরিচয়ে    401
-   service সরাসরি, ৭০ s আগের আসল x-internal-auth (user 42)    —                                401
+   gateway, no token                                          401                              401
+   gateway, valid token for user 42                           200 · user 42                    200 · user 42
+   gateway, valid token + self-set x-user-id: 1               200 · user 42                    200 · user 42
+   gateway, expired token                                     401                              401
+   gateway, token made with another secret (sub: 1)           401                              401
+   service directly (bypassing gateway), x-user-id: 1         200 · user 1 ← impersonated      401
+   service directly, real x-internal-auth 70 s old (user 42)  —                                401
 ```
 
 - **Gateway এর ভেতর দিয়ে সব ঠিক** — দুই mode এ। তৃতীয় সারিটা জরুরি: client নিজে `x-user-id: 1` পাঠাল, gateway সেটা **ফেলে দিয়ে** নিজে বসাল (৪২)। এটা না করলে gateway নিজেই ফাঁক।

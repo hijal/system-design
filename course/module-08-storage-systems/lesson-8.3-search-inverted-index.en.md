@@ -45,7 +45,7 @@ Today's question: where does this one line break, what does it take for a databa
 The exercise's `npm run like`, a million comments, no index:
 
 ```
-── A. no index: ILIKE '%…%' ──────────────────────────────── time       found
+── A. no index: ILIKE '%…%' ───────────────────────── time       found
    count all "deploy"                             390.4 ms    281,022
    count all "rollback" (rare word)               409.3 ms      9,117
    first 20 "deploy" (common word)                  0.5 ms         20
@@ -167,7 +167,7 @@ Now the answer to "deploy checklist" is the overlap of two short lists — no do
 ── 2. "deploy checklist" — comments containing both words ──
    full scan, substring (like LIKE)               16.2 ms   4,301
    full scan, with the same analyzer             430.4 ms   4,129
-   inverted index (intersecting two posting lists) 1.4 ms   4,129
+   inverted index (intersecting posting lists)     1.4 ms   4,129
 ```
 
 - Stopwords alone are 35% of all words. Kept, each one's posting list would span about a quarter of all documents — helping no search, just taking space. (Modern engines sometimes keep stopwords — for phrases like "to be or not to be" — and deal with them through ranking, below.)
@@ -178,8 +178,8 @@ Now the answer to "deploy checklist" is the overlap of two short lists — no do
 
 ```
 ── 3. "kax AND rollback" — one very common (112,242 docs), one rare (1,785) ──
-   walking both lists side by side (merge)          0.7 ms   comparisons   112,808   results 1037
-   start from the short list, binary search the long 0.4 ms   comparisons    29,087   results 1037
+   walking both lists side by side (merge)         0.7 ms   comparisons   112,808   results 1037
+   start from the short list, binary search        0.4 ms   comparisons    29,087   results 1037
 ```
 
 Walking side by side touches nearly all of the long list; starting from the rare word and jumping into the long one (binary search, or "skip lists" in a real engine) needs a quarter of the comparisons. It's a tiny query planner — Lesson 5.4's idea of "the most selective condition first".
@@ -190,7 +190,7 @@ Walking side by side touches nearly all of the long list; starting from the rare
 ── D. Full-text search: tsvector + GIN (11.56 s to build column and index, index 25 MB, table now 264 MB) ──
    count all "deploy"                             102.0 ms    267,943
    "deploy checklist" (both present)               18.2 ms     20,293
-   best 20 "deploy checklist", ordered by ts_rank  23.4 ms         20
+   best 20 "deploy checklist" by ts_rank           23.4 ms         20
    "recieve" (misspelled)                           0.4 ms          0
 ```
 

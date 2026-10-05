@@ -24,12 +24,12 @@ const avg = perDay / DAY;
 const peak = avg * PEAK;
 const fanout = (1 - GROUP_SHARE) * 1 + GROUP_SHARE * (GROUP_SIZE - 1);
 
-heading(`অংশ ক — connection: ${big(DAU)} DAU, peak এ ${Math.round(ONLINE_SHARE * 100)}% online`);
+heading(`Part A — connections: ${big(DAU)} DAU, ${Math.round(ONLINE_SHARE * 100)}% online at peak`);
 console.log(
 	row([
 		['', 52],
-		['মান', 18]
-	]) + '   মন্তব্য'
+		['value', 18]
+	]) + '   note'
 );
 const line = (label: string, value: string, note: string): void =>
 	console.log(
@@ -38,58 +38,60 @@ const line = (label: string, value: string, note: string): void =>
 			[value, 18]
 		]) + (note === '' ? '' : `   ${note}`)
 	);
-line('একসাথে খোলা connection', big(online), 'প্রতিটা একটা TCP + TLS + WebSocket');
+line('connections open at once', big(online), 'each is a TCP + TLS + WebSocket');
 line(
-	`connection এর memory (${bytes(CONN_BYTES)} প্রতিটা, আনুমানিক)`,
+	`connection memory (${bytes(CONN_BYTES)} each, approximate)`,
 	bytes(online * CONN_BYTES),
-	'kernel buffer, TLS, app এর অবস্থা'
+	'kernel buffers, TLS, app state'
 );
 line(
-	`gateway server (${n(CONNS_PER_GATEWAY)} connection প্রতিটা)`,
+	`gateway servers (${n(CONNS_PER_GATEWAY)} connections each)`,
 	n(Math.ceil(online / CONNS_PER_GATEWAY)),
-	'একটা মরলে এতগুলো মানুষ একসাথে reconnect করে'
+	'when one dies, this many people reconnect at once'
 );
-line(`heartbeat / s (প্রতি ${HEARTBEAT_S} s এ)`, n(online / HEARTBEAT_S), 'message এর চেয়েও বেশি');
+line(`heartbeats / s (every ${HEARTBEAT_S} s)`, n(online / HEARTBEAT_S), 'more than the messages');
 
 heading(
-	`অংশ খ — message: দিনে user প্রতি ${MESSAGES_PER_USER}টা, ${Math.round(GROUP_SHARE * 100)}% group এ (গড়ে ${GROUP_SIZE} জন)`
+	`Part B — messages: ${MESSAGES_PER_USER} a day per user, ${Math.round(GROUP_SHARE * 100)}% in groups (${GROUP_SIZE} people on average)`
 );
-line('পাঠানো message / s (গড়)', n(avg), `দিনে ${big(perDay)}`);
-line(`পাঠানো message / s (peak, ${PEAK}×)`, n(peak), '');
+line('messages sent / s (average)', n(avg), `${big(perDay)} a day`);
+line(`messages sent / s (peak, ${PEAK}×)`, n(peak), '');
 line(
-	'প্রতি message এ পৌঁছানো (fan-out)',
+	'deliveries per message (fan-out)',
 	fanout.toFixed(1),
-	'group এর প্রতিটা সদস্য একটা আলাদা delivery'
+	'each group member is a separate delivery'
 );
 line('delivery / s (peak)', n(peak * fanout), '');
 line(
 	'receipt (delivered + read) / s (peak)',
 	n(peak * fanout * 2),
-	'প্রতিটা delivery থেকে দুটো — message এর চেয়ে বেশি লেখা'
+	'two from each delivery — more writes than messages'
 );
 
-heading(`অংশ গ — storage: message প্রতি ${MESSAGE_BYTES} B`);
+heading(`Part C — storage: ${MESSAGE_BYTES} B per message`);
 const forever = perDay * MESSAGE_BYTES * 365 * YEARS;
 const pending = (peak / PEAK) * fanout * OFFLINE_SHARE * OFFLINE_WAIT_H * 3_600 * MESSAGE_BYTES;
-line('প্রতিদিন নতুন', bytes(perDay * MESSAGE_BYTES), '');
+line('new per day', bytes(perDay * MESSAGE_BYTES), '');
 line(
-	`সব history চিরকাল (${YEARS} বছর, এক কপি)`,
+	`all history forever (${YEARS} years, one copy)`,
 	bytes(forever),
-	'server এ history (Messenger/Slack এর মতো)'
+	'history on the server (like Messenger/Slack)'
 );
 line(
-	'শুধু না-পৌঁছানো message (পৌঁছালে মুছে ফেলা)',
+	'only undelivered messages (deleted once delivered)',
 	bytes(pending),
-	`${Math.round(OFFLINE_SHARE * 100)}% delivery গড়ে ${OFFLINE_WAIT_H} ঘণ্টা অপেক্ষা করে`
+	`${Math.round(OFFLINE_SHARE * 100)}% of deliveries wait ${OFFLINE_WAIT_H} hours on average`
 );
-line('পার্থক্য', `${n(forever / pending)} গুণ`, 'একটা product এর সিদ্ধান্ত, storage এর না');
+line('difference', `${n(forever / pending)} times`, 'a product decision, not a storage one');
 
-heading(`অংশ ঘ — presence: গড়ে ${CONTACTS} contact, দিনে ${TRANSITIONS} বার online ↔ offline`);
+heading(
+	`Part D — presence: ${CONTACTS} contacts on average, online ↔ offline ${TRANSITIONS} times a day`
+);
 const transitions = (DAU * TRANSITIONS) / DAY;
-line('online/offline বদল / s', n(transitions), '');
-line('সব contact কে push / s', n(transitions * CONTACTS), 'presence storm');
+line('online/offline changes / s', n(transitions), '');
+line('push to every contact / s', n(transitions * CONTACTS), 'presence storm');
 line(
-	`শুধু যাদের chat খোলা (${Math.round(CHAT_OPEN_SHARE * 100)}%) / s`,
+	`only those with the chat open (${Math.round(CHAT_OPEN_SHARE * 100)}%) / s`,
 	n(transitions * CONTACTS * CHAT_OPEN_SHARE),
-	'lazy presence: subscribe করলে তবেই'
+	'lazy presence: only if subscribed'
 );

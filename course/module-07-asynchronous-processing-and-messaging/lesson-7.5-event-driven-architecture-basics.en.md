@@ -129,7 +129,7 @@ This is the twin of the gap in Lesson 7.4's 1.2. There, "sending the email" and 
 The exercise's `npm run scenario` — 2000 comments, and on roughly one in every 50 the writer `SIGKILL`s itself exactly between the two writes (which comment is decided from its id — so it's the same 41 in every mode). At the end, Postgres and the Redis Stream are reconciled:
 
 ```
-   mode             comments   lost   phantom   extra (same eventId)
+   mode            comments    lost  phantom    extra (same eventId)
    commit-first        2000      41        0        0
    publish-first       1959       0       41        0
 ```
@@ -174,7 +174,7 @@ Dual write's two writes are now one transaction in one database — Lesson 5.5's
 The exercise's third row:
 
 ```
-   mode             comments   lost   phantom   extra (same eventId)
+   mode            comments    lost  phantom    extra (same eventId)
    outbox              1959       0        0      160
    relay crashes: 11 · from commit to reaching the stream p50 118 ms, p99 457 ms
 ```

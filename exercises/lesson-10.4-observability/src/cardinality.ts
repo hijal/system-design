@@ -42,7 +42,7 @@ const VARIANTS: Variant[] = [
 	{ name: 'method, route, status, instance', key: base },
 	{ name: '+ plan (free/pro/business)', key: (r) => base(r) * 3 + r.plan },
 	{
-		name: 'route এর বদলে আসল path',
+		name: 'the real path instead of the route',
 		key: (r) => base(r) * (BOARDS + 1) + (r.route < BOARD_ROUTES ? r.board + 1 : 0)
 	},
 	{ name: '+ user_id', key: (r) => base(r) * USERS + r.user },
@@ -74,14 +74,14 @@ for (let i = 0; i < total; i++) {
 }
 
 heading(
-	`ক. একটা metric — http_requests — ${HOURS} ঘণ্টায় ${n(total)} request (${RPS} req/s), ${n(USERS)} user, ${n(BOARDS)} board; label এর সেট বদলে কয়টা time series`
+	`A. One metric — http_requests — ${n(total)} requests in ${HOURS} hours (${RPS} req/s), ${n(USERS)} users, ${n(BOARDS)} boards; how many time series as the label set changes`
 );
 console.log(
 	row([
-		['label', 34],
+		['label', 38],
 		['counter series', 16],
 		[`histogram (×${BUCKETS + 3})`, 18],
-		['আনুমানিক memory', 18]
+		['approx. memory', 18]
 	])
 );
 VARIANTS.forEach((variant, index) => {
@@ -89,7 +89,7 @@ VARIANTS.forEach((variant, index) => {
 	const histogram = series * (BUCKETS + 3);
 	console.log(
 		row([
-			[variant.name, 34],
+			[variant.name, 38],
 			[n(series), 16],
 			[n(histogram), 18],
 			[bytes(histogram * BYTES_PER_SERIES), 18]
@@ -97,26 +97,26 @@ VARIANTS.forEach((variant, index) => {
 	);
 });
 console.log(
-	`   histogram এ প্রতিটা label এর সমন্বয়ে ${BUCKETS + 1}টা bucket (+Inf সহ) + _sum + _count = ${BUCKETS + 3}টা series; memory ধরে নেওয়া ~${n(BYTES_PER_SERIES)} byte/series`
+	`   in a histogram, each label combination has ${BUCKETS + 1} buckets (with +Inf) + _sum + _count = ${BUCKETS + 3} series; memory assumed ~${n(BYTES_PER_SERIES)} bytes/series`
 );
 
-heading('খ. প্রতি request এর ঘটনা কোথায় রাখলে কত — একদিনে');
+heading("B. What each request's event costs depending on where it is kept — in a day");
 const LOG_LINE = 350;
 const DEBUG_LINES = 25;
 const SPANS = 20;
 const SPAN = 400;
 console.log(
 	row([
-		['কী রাখছি', 40],
-		['প্রতি request', 15],
-		['প্রতি দিন', 12]
+		['what we keep', 40],
+		['per request', 15],
+		['per day', 12]
 	])
 );
 const lines: [string, number][] = [
-	['log, প্রতি request এ একটা JSON লাইন', LOG_LINE],
-	[`log, debug চালু (${DEBUG_LINES}টা লাইন)`, LOG_LINE * DEBUG_LINES],
-	[`trace, সব request (${SPANS}টা span)`, SPANS * SPAN],
-	[`trace, ১% sample`, (SPANS * SPAN) / 100]
+	['log, one JSON line per request', LOG_LINE],
+	[`log, debug on (${DEBUG_LINES} lines)`, LOG_LINE * DEBUG_LINES],
+	[`trace, every request (${SPANS} spans)`, SPANS * SPAN],
+	[`trace, 1% sample`, (SPANS * SPAN) / 100]
 ];
 for (const [label, perRequest] of lines)
 	console.log(
@@ -129,5 +129,5 @@ for (const [label, perRequest] of lines)
 const baseline = (seen[0]?.size ?? 0) * (BUCKETS + 3);
 const samplesPerDay = baseline * ((24 * 3_600) / 15);
 console.log(
-	`   log লাইন ~${LOG_LINE} byte, span ~${SPAN} byte — ধরে নেওয়া। Metric এর খরচ request এর সংখ্যায় না, series এর সংখ্যায়: প্রথম সারির ${n(baseline)}টা series, প্রতি ১৫ s এ একটা sample = দিনে ${n(samplesPerDay)} sample — traffic দ্বিগুণ হলেও একই, series দ্বিগুণ হলে দ্বিগুণ`
+	`   a log line ~${LOG_LINE} bytes, a span ~${SPAN} bytes — assumed. A metric's cost is not in the number of requests but in the number of series: the first row's ${n(baseline)} series, one sample every 15 s = ${n(samplesPerDay)} samples a day — the same if traffic doubles, double if the series double`
 );

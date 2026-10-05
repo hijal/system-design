@@ -1,9 +1,9 @@
 import { QueryTypes } from 'sequelize';
 import { sequelize } from './db';
 
-// Counter টা source of truth (tasks table) থেকে নতুন করে হিসাব করা।
-// Production এ এটাই "reconciliation job" — নিয়মিত (যেমন প্রতি রাতে) চালিয়ে counter drift
-// ধরা আর ঠিক করা। Lesson 5.2 §১.৫ দেখো।
+// Recomputing the counter from the source of truth (the tasks table).
+// In production this is the "reconciliation job" — run regularly (say every night) to catch and fix
+// counter drift. See Lesson 5.2 §1.5.
 export async function reconcile(): Promise<number> {
 	const [, affected] = await sequelize.query(
 		`UPDATE projects p SET "openTaskCount" = fresh.open
@@ -16,7 +16,7 @@ export async function reconcile(): Promise<number> {
 		 WHERE fresh.id = p.id AND p."openTaskCount" <> fresh.open`,
 		{ type: QueryTypes.UPDATE }
 	);
-	// QueryTypes.UPDATE দিলে দ্বিতীয় মানটা হয় কয়টা row বদলেছে — মানে কয়টা counter ভুল ছিল।
-	// শুধু ভুলগুলোই বদলানো হয় (WHERE ... <> fresh.open), তাই সংখ্যাটা drift এর মাপ।
+	// With QueryTypes.UPDATE the second value is how many rows changed — i.e. how many counters were wrong.
+	// Only the wrong ones are changed (WHERE ... <> fresh.open), so the number is a measure of the drift.
 	return affected;
 }

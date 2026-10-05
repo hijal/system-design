@@ -24,21 +24,21 @@ type Policy = {
 };
 
 const policies: Policy[] = [
-	{ name: 'একটা FIFO queue, একটা provider account', order: 'fifo', paced: false, separate: false },
+	{ name: 'one FIFO queue, one provider account', order: 'fifo', paced: false, separate: false },
 	{
-		name: `FIFO, কিন্তু campaign ঢোকে ধীরে (সীমার ${PACE_SHARE * 100}%)`,
+		name: `FIFO, but the campaign enters slowly (${PACE_SHARE * 100}% of the limit)`,
 		order: 'fifo',
 		paced: true,
 		separate: false
 	},
 	{
-		name: 'অগ্রাধিকার: OTP আগে, campaign বাকিটা',
+		name: 'priority: OTP first, the campaign gets the rest',
 		order: 'priority',
 		paced: false,
 		separate: false
 	},
 	{
-		name: 'আলাদা account: OTP আর campaign এর আলাদা সীমা',
+		name: 'separate accounts: separate limits for OTP and campaign',
 		order: 'priority',
 		paced: false,
 		separate: true
@@ -46,16 +46,16 @@ const policies: Policy[] = [
 ];
 
 heading(
-	`SMS provider এর সীমা ${PROVIDER_PER_S}/s; OTP ${OTP_PER_S}/s; ${CAMPAIGN_AT_S} s এ ${n(CAMPAIGN)}টা marketing SMS এর campaign; OTP এর মেয়াদ ${OTP_VALID_S / 60} মিনিট`
+	`SMS provider limit ${PROVIDER_PER_S}/s; OTP ${OTP_PER_S}/s; a campaign of ${n(CAMPAIGN)} marketing SMS at ${CAMPAIGN_AT_S} s; OTPs expire after ${OTP_VALID_S / 60} minutes`
 );
 console.log(
 	row([
-		['নীতি', 50],
+		['policy', 58],
 		['OTP p50', 10],
 		['OTP p99', 10],
-		['সবচেয়ে খারাপ', 13],
-		['মেয়াদ পার', 11],
-		['campaign শেষ', 14]
+		['worst', 13],
+		['expired', 11],
+		['campaign done', 15]
 	])
 );
 for (const policy of policies) {
@@ -128,20 +128,20 @@ for (const policy of policies) {
 	delays.sort((a, b) => a - b);
 	console.log(
 		row([
-			[policy.name, 50],
+			[policy.name, 58],
 			[ms(percentile(delays, 50)), 10],
 			[ms(percentile(delays, 99)), 10],
 			[ms(delays[delays.length - 1] ?? 0), 13],
 			[n(expired), 11],
 			[
 				campaignDone < 0
-					? `> ${SECONDS / 3_600} ঘ`
-					: `${((campaignDone / 1_000 - CAMPAIGN_AT_S) / 60).toFixed(0)} মি`,
+					? `> ${SECONDS / 3_600} h`
+					: `${((campaignDone / 1_000 - CAMPAIGN_AT_S) / 60).toFixed(0)} min`,
 				14
 			]
 		])
 	);
 }
 console.log(
-	'\nদেরি ১০০ ms এর ধাপে। "আলাদা account" এ দুই account এর প্রতিটার সীমা একই, তাই মোট ক্ষমতা দ্বিগুণ — সেটাও একটা খরচ।'
+	'\ndelay in steps of 100 ms. With "separate accounts" each of the two accounts has the same limit, so total capacity doubles — that is a cost too.'
 );

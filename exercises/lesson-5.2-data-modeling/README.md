@@ -24,7 +24,7 @@ exercise (5433) এর সাথে সংঘাত না লাগে।
 ## Setup
 
 ```bash
-docker compose up -d --wait   # Postgres, healthy হওয়া পর্যন্ত অপেক্ষা করে
+docker compose up -d --wait   # Postgres, waits until it is healthy
 npm install
 ```
 
@@ -35,7 +35,7 @@ npm install
 
 ```bash
 npm run anomalies
-npm run dashboard   # ৪ লাখ row seed করে — ১৫-২০ সেকেন্ড লাগতে পারে
+npm run dashboard   # seeds 400,000 rows — may take 15-20 seconds
 npm run counter
 ```
 
@@ -44,15 +44,15 @@ npm run counter
 **১. `npm run anomalies`**
 
 ```
-━━ Denormalized (bad_tasks) — সব এক table এ ━━━━━━━━━━━━━━━━━━━━
-১. rahim@taskflow.app এর নাম কয়টা?    2 টা → "Rahim", "Rahim Uddin"
-২. "bug" tag এর task কয়টা?           2 টা → "Logging যোগ করো", "Login bug ঠিক করো"
-৩. Task মোছার পর project কয়টা?       1 টা → Website  (Marketing উধাও!)
+━━ Denormalized (bad_tasks) — everything in one table ━━━━━━━━━━
+1. How many names does rahim@taskflow.app have?  2 → "Rahim", "Rahim Uddin"
+2. How many tasks with the "bug" tag?            2 → "Add logging", "Fix the login bug"
+3. How many projects after deleting the task?    1 → Website  (Marketing is gone!)
 
 ━━ Normalized (users / projects / tasks / tags) ━━━━━━━━━━━━━━━━
-১. rahim@taskflow.app এর নাম কয়টা?    1 টা → "Rahim Uddin"
-২. "bug" tag এর task কয়টা?           1 টা → "Login bug ঠিক করো"
-৩. Task মোছার পর project কয়টা?       2 টা → Marketing, Website
+1. How many names does rahim@taskflow.app have?  1 → "Rahim Uddin"
+2. How many tasks with the "bug" tag?            1 → "Fix the login bug"
+3. How many projects after deleting the task?    2 → Marketing, Website
 ```
 
 এই output টা deterministic — তোমার মেশিনেও হুবহু এটাই আসবে।
@@ -65,9 +65,9 @@ Expected (আমার মেশিনে মাপা — তোমারটা
   seeded         : 500 projects × 800 tasks = 400,000 tasks (14.1s)
   results match  : page=true, busiest=true
 
-  প্রশ্ন                          গুনে (সরল)   গুনে (LATERAL)   counter পড়ে
-  ২০টা project এর পাতা             39.18 ms        1.78 ms         0.42 ms
-  সবচেয়ে ব্যস্ত ১০টা project        39.34 ms          —             0.31 ms
+  question                     counted (simple)   counted (LATERAL)   read counter
+  page of 20 projects                  39.18 ms             1.78 ms        0.42 ms
+  10 busiest projects                  39.34 ms                —           0.31 ms
 ```
 
 `results match` দুটোই অবশ্যই `true` হতে হবে — দ্রুত কিন্তু ভুল উত্তরের কোনো দাম নেই।
@@ -75,16 +75,16 @@ Expected (আমার মেশিনে মাপা — তোমারটা
 **৩. `npm run counter`**
 
 ```
-  200টা "task তৈরি + counter +1" একসাথে:
+  200 "create task + counter +1" at once:
 
-  ক. read-modify-write               counter =   1   আসল = 200   ✗ 199 টা হারিয়েছে
-  খ. transaction + increment         counter = 200   আসল = 200   ✓ ঠিক আছে
-  গ. খ এর পরে ৫০টা bulk import       counter = 200   আসল = 250   ✗ 50 টা হারিয়েছে
+  a. read-modify-write               counter =   1   actual = 200   ✗ 199 lost
+  b. transaction + increment         counter = 200   actual = 200   ✓ correct
+  c. 50 bulk imports after b         counter = 200   actual = 250   ✗ 50 lost
 
-  reconcile() চালানো হলো — 2 টা project এর counter ভুল ছিল, ঠিক করা হয়েছে:
+  ran reconcile() — 2 projects had a wrong counter, fixed:
 
-  ক. (reconcile এর পরে)              counter = 200   আসল = 200   ✓ ঠিক আছে
-  খ+গ. (reconcile এর পরে)            counter = 250   আসল = 250   ✓ ঠিক আছে
+  a. (after reconcile)               counter = 200   actual = 200   ✓ correct
+  b+c. (after reconcile)             counter = 250   actual = 250   ✓ correct
 ```
 
 (ক) তে কতগুলো হারায় সেটা মেশিনভেদে বদলাতে পারে — কিন্তু **শূন্য হবে না**। (খ) সবসময়

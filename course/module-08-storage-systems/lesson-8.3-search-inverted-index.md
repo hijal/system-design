@@ -45,13 +45,13 @@ const results = await Comment.findAll({
 Exercise এর `npm run like`, ১০ লাখ comment, index ছাড়া:
 
 ```
-── ক. index ছাড়া: ILIKE '%…%' ─────────────────────────────── সময়       পাওয়া গেল
-   সব "deploy" গোনা                               390.4 ms    281,022 টা
-   সব "rollback" গোনা (বিরল শব্দ)                 409.3 ms      9,117 টা
-   প্রথম ২০টা "deploy" (সাধারণ শব্দ)                0.5 ms         20 টা
-   প্রথম ২০টা "rollback" (বিরল শব্দ)                2.7 ms         20 টা
-   প্রথম ২০টা "recieve" (ভুল বানান — কিছুই নেই)   398.0 ms          0 টা
-   plan, সব "deploy" (২৮% row এ আছে): Aggregate ← Gather · 15,584 page
+── A. no index: ILIKE '%…%' ───────────────────────── time       found
+   count all "deploy"                             390.4 ms    281,022
+   count all "rollback" (rare word)               409.3 ms      9,117
+   first 20 "deploy" (common word)                  0.5 ms         20
+   first 20 "rollback" (rare word)                  2.7 ms         20
+   first 20 "recieve" (misspelled — none exist)   398.0 ms          0
+   plan, all "deploy" (in 28% of rows): Aggregate ← Gather · 15,584 pages
 ```
 
 "গোনা" পুরো table পড়ে — ১৫,৫৮৪টা page, প্রতিটা row এর text এ অক্ষর ধরে খোঁজা। কিন্তু দেখো মাঝের সারি দুটো: "প্রথম ২০টা deploy" **০.৫ ms**। কারণ Postgres সামনে থেকে পড়া শুরু করে, আর "deploy" এত সাধারণ যে প্রথম কয়েকশো row এর মধ্যেই ২০টা পেয়ে থামে।
@@ -61,9 +61,9 @@ Exercise এর `npm run like`, ১০ লাখ comment, index ছাড়া:
 **B-tree কেন কাজে আসে না — spaced repetition এর উত্তর।** B-tree এর ভেতরে মান গুলো সাজানো ক্রমে (Lesson 5.4)। "deploy দিয়ে শুরু" মানে সেই ক্রমের একটা টানা অংশ — গাছ বেয়ে সেখানে নামা যায়। কিন্তু "যেকোনো জায়গায় deploy আছে" সাজানো ক্রমের কোনো টানা অংশ না — "a deploy…", "fix the deploy…", "zzz deploy" অভিধানের ক্রমে সব জায়গায় ছড়ানো। Composite index এ বাঁ দিকের column ছাড়া খোঁজার মতোই।
 
 ```
-── খ. B-tree index, lower(body) text_pattern_ops (বানাতে 1.07 s, 113 MB) ──
-   lower(body) LIKE '%deploy%' → Aggregate ← Gather · 15,584 page
-   lower(body) LIKE 'deploy%'  → Aggregate ← Bitmap Heap Scan · 11,678 page   ← শুধু "deploy দিয়ে শুরু"
+── B. B-tree index, lower(body) text_pattern_ops (1.07 s to build, 113 MB) ──
+   lower(body) LIKE '%deploy%' → Aggregate ← Gather · 15,584 pages
+   lower(body) LIKE 'deploy%'  → Aggregate ← Bitmap Heap Scan · 11,678 pages   ← only "starts with deploy"
 ```
 
 ১১৩ MB এর index, আর `'%deploy%'` এ Postgres সেটা ছুঁয়েও দেখে না। Prefix এর জন্য সে কাজের (task এর title এর autocomplete — প্রশ্ন ১), কিন্তু "comment এর মাঝখানে একটা শব্দ" খোঁজার জন্য না।
@@ -75,13 +75,13 @@ Exercise এর `npm run like`, ১০ লাখ comment, index ছাড়া:
 Postgres এ এটা `pg_trgm` extension, একটা GIN index:
 
 ```
-── গ. pg_trgm GIN index (বানাতে 12.35 s, 81 MB) ──── সময়       পাওয়া গেল
-   সব "deploy" গোনা                               174.8 ms    281,022 টা
-   সব "rollback" গোনা (বিরল শব্দ)                  14.2 ms      9,117 টা
-   প্রথম ২০টা "rollback" (বিরল শব্দ)                1.9 ms         20 টা
-   প্রথম ২০টা "recieve" (ভুল বানান — কিছুই নেই)     0.5 ms          0 টা
-   plan, সব "deploy" (২৮% row এ আছে): Aggregate ← Gather · 15,840 page
-   plan, সব "rollback" (বিরল):     Aggregate ← Bitmap Heap Scan · 6,995 page
+── C. pg_trgm GIN index (12.35 s to build, 81 MB) ────── time       found
+   count all "deploy"                             174.8 ms    281,022
+   count all "rollback" (rare word)                14.2 ms      9,117
+   first 20 "rollback" (rare word)                  1.9 ms         20
+   first 20 "recieve" (misspelled — none exist)     0.5 ms          0
+   plan, all "deploy" (in 28% of rows): Aggregate ← Gather · 15,840 pages
+   plan, all "rollback" (rare):     Aggregate ← Bitmap Heap Scan · 6,995 pages
 ```
 
 - **বিরল শব্দ:** ৪০৯ ms থেকে ১৪ ms — index বলে দেয় কোন row গুলো দেখতে হবে, বাকি গুলো ছোঁয়াই হয় না।
@@ -93,7 +93,7 @@ Postgres এ এটা `pg_trgm` extension, একটা GIN index:
 Trigram এর আরেকটা শক্তি ঘটনা ৩ এর: ভুল বানান। দুটো শব্দের trigram কতটা মেলে, সেটা দিয়ে "কাছাকাছি" শব্দ খোঁজা যায়:
 
 ```
-── ভুল বানান: শব্দের তালিকায় trigram এর মিল ("did you mean") ──
+── Misspellings: trigram similarity against the word list ("did you mean") ──
    "recieve" → receive (0.33)
    "deplyo" → deploy (0.40), deploying (0.31)
    "chekclist" → checklist (0.43)
@@ -106,8 +106,8 @@ Trigram এর আরেকটা শক্তি ঘটনা ৩ এর: ভ�
 User যখন "art" লেখে, সে একটা **শব্দ** খুঁজছে, অক্ষরের একটা ক্রম না। আর যখন "deploying" লেখে, সে "deploy" এর যেকোনো রূপ চায়। Exercise এ একই comment গুলো দুইভাবে গোনা:
 
 ```
-── শব্দ বনাম substring: কী মেলে ──
-   ILIKE '%deploy%': 281,022 (redeploy সহ) · full-text "deploy": 267,943 (deployment, deploying সহ, redeploy বাদ — আলাদা শব্দ, 18,319 টা)
+── Words vs substrings: what matches ──
+   ILIKE '%deploy%': 281,022 (including redeploy) · full-text "deploy": 267,943 (including deployment, deploying; redeploy excluded — a separate word, 18,319 of them)
    ILIKE '%art%': 175,420 (start, party, article, smart …) · full-text "art": 9,104
    ILIKE '%log%': 105,336 (login, blog, catalog) · full-text "log": 0
 ```
@@ -159,15 +159,15 @@ Analyzer এর পরে প্রতিটা document একটা term এ�
 এখন "deploy checklist" এর উত্তর দুটো ছোট তালিকার মিল — কোনো document পড়তে হয় না। Exercise এর `npm run inverted` এটা নিজে বানায়, TypeScript এ, ২ লাখ comment এ:
 
 ```
-── ১. Index বানানো: 200,000 টা comment ──
-   সময় 1181.2 ms · আলাদা term 5,030 · posting 1,879,748 (~14 MB, id + tf)
-   বাদ পড়া stopword: 1,083,698 / 3,098,532 শব্দ (35%) — রাখলে প্রতিটার list বিশাল, কত ভাগ document এ: the 24%, a 24%, to 24%
-   সবচেয়ে লম্বা posting list: kax 112,242 · lox 68,330 · deploy 53,634 · mix 48,866 · rax 37,970
+── 1. Building the index: 200,000 comments ──
+   time 1181.2 ms · distinct terms 5,030 · postings 1,879,748 (~14 MB, id + tf)
+   stopwords dropped: 1,083,698 / 3,098,532 words (35%) — kept, each list would be huge; share of documents: the 24%, a 24%, to 24%
+   longest posting lists: kax 112,242 · lox 68,330 · deploy 53,634 · mix 48,866 · rax 37,970
 
-── ২. "deploy checklist" — দুটো শব্দই আছে এমন comment ──
-   পুরো scan, substring (LIKE এর মতো)           16.2 ms   4,301 টা
-   পুরো scan, একই analyzer দিয়ে               430.4 ms   4,129 টা
-   inverted index (দুটো posting list মেলানো)     1.4 ms   4,129 টা
+── 2. "deploy checklist" — comments containing both words ──
+   full scan, substring (like LIKE)               16.2 ms   4,301
+   full scan, with the same analyzer             430.4 ms   4,129
+   inverted index (intersecting posting lists)     1.4 ms   4,129
 ```
 
 - Stopword একাই সব শব্দের ৩৫%। রাখলে প্রতিটার posting list প্রায় চার ভাগের এক ভাগ document জুড়ে — কোনো খোঁজায় কোনো সাহায্য করে না, শুধু জায়গা নেয়। (আধুনিক engine গুলো কখনো stopword রেখে দেয় — "to be or not to be" এর মতো phrase এর জন্য — আর সেটা সামলায় ranking দিয়ে, নিচে।)
@@ -177,9 +177,9 @@ Analyzer এর পরে প্রতিটা document একটা term এ�
 **Posting list মেলানো — ক্রমটা জরুরি।** একটা খুব সাধারণ শব্দ আর একটা বিরল শব্দ একসাথে:
 
 ```
-── ৩. "kax AND rollback" — একটা খুব সাধারণ (112,242 টা doc), একটা বিরল (1,785 টা) ──
-   দুটো list পাশাপাশি হাঁটা (merge)              0.7 ms   তুলনা   112,808   ফল 1037
-   ছোট list থেকে শুরু, বড়টায় binary search       0.4 ms   তুলনা    29,087   ফল 1037
+── 3. "kax AND rollback" — one very common (112,242 docs), one rare (1,785) ──
+   walking both lists side by side (merge)         0.7 ms   comparisons   112,808   results 1037
+   start from the short list, binary search        0.4 ms   comparisons    29,087   results 1037
 ```
 
 পাশাপাশি হাঁটলে বড় list এর প্রায় সবটা ছুঁতে হয়; বিরল শব্দ থেকে শুরু করে বড়টায় লাফ দিলে (binary search, বা আসল engine এ "skip list") তুলনা চার ভাগের এক ভাগ। এটা একটা ছোট query planner — Lesson 5.4 এর "সবচেয়ে selective শর্ত আগে" এর ধারণা।
@@ -187,11 +187,11 @@ Analyzer এর পরে প্রতিটা document একটা term এ�
 **Postgres এর ভেতরে এটা আছে।** Postgres এর GIN (Generalized Inverted Index) ঠিক এই জিনিস — trigram index ও একটা inverted index (term এর বদলে trigram)। Full-text search এ:
 
 ```
-── ঘ. Full-text search: tsvector + GIN (column আর index বানাতে 11.56 s, index 25 MB, table এখন 264 MB) ──
-   সব "deploy" গোনা                               102.0 ms    267,943 টা
-   "deploy checklist" (দুটোই আছে)                  18.2 ms     20,293 টা
-   সেরা ২০টা "deploy checklist", ts_rank দিয়ে সাজানো    23.4 ms         20 টা
-   "recieve" (ভুল বানান)                            0.4 ms          0 টা
+── D. Full-text search: tsvector + GIN (11.56 s to build column and index, index 25 MB, table now 264 MB) ──
+   count all "deploy"                             102.0 ms    267,943
+   "deploy checklist" (both present)               18.2 ms     20,293
+   best 20 "deploy checklist" by ts_rank           23.4 ms         20
+   "recieve" (misspelled)                           0.4 ms          0
 ```
 
 `tsvector` হলো analyzer এর ফল (term গুলো, অবস্থান সহ), আর GIN তার inverted index। Index মাত্র ২৫ MB — trigram এর ৮১ MB এর তিন ভাগের এক ভাগ, কারণ term অনেক কম (৫ হাজার শব্দ বনাম অগণিত trigram)। কিন্তু দেখো table: ১২২ MB থেকে ২৬৪ MB — `tsvector` টা আলাদা column এ রাখা (stored)। Experiment ১: column ছাড়া একটা expression index (`gin (to_tsvector('english', body))`) — table ১২২ MB ই থাকে, query প্রায় একই সময়ে (~৪০–৫৫ ms); দাম: মেলা প্রতিটা row এ `to_tsvector` আবার গোনা, আর query তে হুবহু একই expression লিখতে হয়।
@@ -199,7 +199,7 @@ Analyzer এর পরে প্রতিটা document একটা term এ�
 TaskFlow এর stack এ, Sequelize দিয়ে (উদাহরণ — exercise এর query গুলো raw SQL এ চালানো; এই Sequelize অংশটা চালানো হয়নি):
 
 ```typescript
-// migration: generated column আর GIN — Sequelize এ সরাসরি এর type নেই, তাই raw SQL
+// migration: a generated column and GIN — Sequelize has no type for these, so raw SQL
 await queryInterface.sequelize.query(`
 	ALTER TABLE comments ADD COLUMN tsv tsvector
 		GENERATED ALWAYS AS (to_tsvector('english', body)) STORED;
@@ -221,12 +221,12 @@ async function searchComments(
 		        ts_headline('english', body, query, 'MaxWords=20') AS snippet,
 		        ts_rank(tsv, query)::float AS rank
 		   FROM comments, websearch_to_tsquery('english', :q) AS query
-		  WHERE workspace_id = :workspaceId AND tsv @@ query   -- workspace এর filter সবসময় (১.৬)
+		  WHERE workspace_id = :workspaceId AND tsv @@ query   -- always the workspace filter (1.6)
 		  ORDER BY rank DESC
 		  LIMIT 20`,
 		{ replacements: { q, workspaceId }, type: QueryTypes.SELECT }
 	);
-	return z.array(hitSchema).parse(rows); // raw query এর ফল — type assertion না, parse
+	return z.array(hitSchema).parse(rows); // the result of a raw query — parse, not a type assertion
 }
 ```
 
@@ -235,10 +235,10 @@ async function searchComments(
 **লেখার দাম:**
 
 ```
-── লেখার দাম: নতুন 20,000 টা comment insert (১০০০ করে) ──
-   শুধু primary key       114.9 ms   1.0 গুণ
-   + trigram GIN          541.8 ms   4.7 গুণ
-   + full-text GIN        321.5 ms   2.8 গুণ
+── Write cost: inserting 20,000 new comments (1000 at a time) ──
+   primary key only       114.9 ms   1.0×
+   + trigram GIN          541.8 ms   4.7×
+   + full-text GIN        321.5 ms   2.8×
 ```
 
 একটা comment এ ১৫টা শব্দ মানে inverted index এর ১৫টা আলাদা posting list এ একটা করে যোগ — B-tree এর একটা জায়গায় একটা entry এর চেয়ে অনেক বেশি কাজ। Postgres এর GIN এটা কিছুটা কমায় একটা "pending list" দিয়ে (`fastupdate`): নতুন entry আগে একটা ছোট তালিকায় জমে, পরে একসাথে মূল index এ — Lesson 5.3 এর LSM এর ধারণার আত্মীয়। (আর Elasticsearch এর Lucene পুরোপুরি এই পথে: নতুন document ছোট ছোট অপরিবর্তনীয় "segment" এ, পরে background এ বড় segment এ জোড়া — প্রায় হুবহু LSM।)
@@ -254,11 +254,11 @@ async function searchComments(
 **Relevance scoring (TF-IDF, BM25)** — প্রতিটা মেলা document কে একটা score দেওয়া যেটা এই সংকেত গুলো জোড়ে: query এর প্রতিটা term এর জন্য idf × (tf এর একটা বাঁকানো, দৈর্ঘ্য অনুযায়ী ঠিক করা রূপ)। BM25 এর এই সূত্রই আজ Lucene, Elasticsearch, OpenSearch এর default।
 
 ```
-── ৪. "deploy checklist" এর সেরা ৩টা — BM25 দিয়ে সাজানো ──
-   #25628 score 5.99 · 10 টা term · "Dalox kax checklist release deploy mirax of can bax checklist it this to a deplo…"
-   #6142 score 5.91 · 2 টা term · "Deploy to on checklist and is in."
-   #44060 score 5.91 · 2 টা term · "To checklist deploy after can a."
-   IDF (যত বিরল, তত ভারী): deploy 1.32 · checklist 2.66 · rollback 4.72 · kax 0.58
+── 4. The top 3 for "deploy checklist" — ordered by BM25 ──
+   #25628 score 5.99 · 10 terms · "Dalox kax checklist release deploy mirax of can bax checklist it this to a deplo…"
+   #6142 score 5.91 · 2 terms · "Deploy to on checklist and is in."
+   #44060 score 5.91 · 2 terms · "To checklist deploy after can a."
+   IDF (the rarer, the heavier): deploy 1.32 · checklist 2.66 · rollback 4.72 · kax 0.58
 ```
 
 দ্বিতীয় আর তৃতীয়টা ছোট — stopword বাদে মাত্র ২টা term, দুটোই মেলা — দৈর্ঘ্যের সংকেত। প্রথমটা লম্বা, কিন্তু "checklist" দুবার আর "deploy" এর রূপ দুবার — tf। আর IDF এর সারিটা: "checklist" "deploy" এর চেয়ে দ্বিগুণ ভারী, কারণ বিরল; খুব সাধারণ "kax" প্রায় ওজনহীন।

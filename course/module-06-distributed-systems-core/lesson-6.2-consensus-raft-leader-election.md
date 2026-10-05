@@ -132,8 +132,8 @@ Follower একটা নির্দিষ্ট সময় (**election timeo
 Exercise এর `npm run election` — ৫টা node একসাথে চালু, কেউ leader না, প্রতিটা range এ ১০০০ বার:
 
 ```
-   election timeout     leader পাওয়া গেছে    সময় p50 / p99          গড় term (১ = প্রথম চেষ্টাতেই)
-   150 ms (স্থির)        837/1000           4204 /  9761 ms         30.61
+   election timeout     leader found          time p50 / p99          avg terms (1 = first try)
+   150 ms (fixed)        837/1000           4204 /  9761 ms         30.61
    150–155 ms           1000/1000            315 /  1526 ms         2.94
    150–175 ms           1000/1000            161 /   331 ms         1.08
    150–300 ms           1000/1000            176 /   252 ms         1.00
@@ -163,16 +163,16 @@ Leader client এর লেখা নিজের log এর শেষে যো
 এখন exercise এর আসল পরীক্ষা। `npm run partition` — ৫টা node, n1 leader, `x=1` লেখা হয়ে গেছে। তারপর network তিন ভাগে কাটা: পুরনো leader n1 একা, n2 একা, বাকি তিনজন (n3 n4 n5) একসাথে:
 
 ```
-   ═══ 1200 ms: network কাটা — [n1] | [n2] | [n3 n4 n5] ═══
+   ═══ 1200 ms: network cut — [n1] | [n2] | [n3 n4 n5] ═══
 
     1250 ms  A       "x=2" → n1 (log index 2, term 1)
-    1329 ms  n3      ★ leader হলো (term 2)
+    1329 ms  n3      ★ became leader (term 2)
     2000 ms  B       "x=3" → n3 (log index 2, term 2)
     2008 ms  n3      commit: index 2 "x=3"
-    2008 ms  B       ✓ "x=3" নিশ্চিত (8 ms)
-    2250 ms  A       ✗ "x=2" — 1000 ms এ কোনো নিশ্চয়তা আসেনি (timeout)
+    2008 ms  B       ✓ "x=3" confirmed (8 ms)
+    2250 ms  A       ✗ "x=2" — no confirmation within 1000 ms (timeout)
 
-   ── partition চলছে — দুজন "leader"? ──
+   ── partition in progress — two "leaders"? ──
    n1  LEADER    term  1   log: x=1(t1) x=2(t1)                commit 1   x = 1
    n2  candidate term  5   log: x=1(t1)                        commit 1   x = 1
    n3  LEADER    term  2   log: x=1(t1) x=3(t2)                commit 2   x = 3
@@ -192,17 +192,17 @@ Leader client এর লেখা নিজের log এর শেষে যো
 ### ১.৬ Partition জোড়া লাগলে
 
 ```
-   ═══ 3500 ms: network জোড়া লাগল ═══
+   ═══ 3500 ms: network healed ═══
 
-    3512 ms  n1      term 10 দেখল → আর leader না (ছিল term 1)
-    3540 ms  n3      term 10 দেখল → আর leader না (ছিল term 2)
-    3628 ms  n3      n2 কে ভোট দিল না — ওর log আমার চেয়ে পুরনো (term 11)
-      …     (n1, n4, n5 ও একই কথা বলে)
-    3716 ms  n5      ★ leader হলো (term 12)
+    3512 ms  n1      saw term 10 → no longer leader (was term 1)
+    3540 ms  n3      saw term 10 → no longer leader (was term 2)
+    3628 ms  n3      did not vote for n2 — its log is older than mine (term 11)
+      …     (n1, n4, n5 say the same)
+    3716 ms  n5      ★ became leader (term 12)
       …
-   ── শেষ অবস্থা ──
+   ── final state ──
    n1  follower  term 12   log: x=1(t1) x=3(t2) x=4(t12)       commit 3   x = 4
-   (বাকি চারজনের log হুবহু একই)
+   (the other four have exactly the same log)
 ```
 
 তিনটা জিনিস ঘটেছে:
@@ -230,15 +230,15 @@ Leader client এর লেখা নিজের log এর শেষে যো
 Restriction তুলে দিলে কী হয়? `npm run unsafe` — একই গল্প, শুধু ভোটের এই শর্ত বন্ধ:
 
 ```
-    3631 ms  n2      ★ leader হলো (term 11)
+    3631 ms  n2      ★ became leader (term 11)
     4500 ms  C       "x=4" → n2 (log index 2, term 11)
-   ── শেষ অবস্থা ──
+   ── final state ──
    n1  follower  term 11   log: x=1(t1) x=4(t11)               commit 2   x = 4
    n2  LEADER    term 11   log: x=1(t1) x=4(t11)               commit 2   x = 4
    n3  follower  term 11   log: x=1(t1) x=4(t11)               commit 2   x = 3
    …
-   "x=3" এখন কয়টা node এর log এ আছে: 0/5   ← নিশ্চিত করা লেখা হারিয়ে গেছে!
-   সব node এ x এর মান এক? না — n1=4 n2=4 n3=3 n4=3 n5=3   ← replica গুলো আলাদা হয়ে গেছে!
+   how many nodes have "x=3" in their log now: 0/5   ← a confirmed write has been lost!
+   is x the same on every node? no — n1=4 n2=4 n3=3 n4=3 n5=3   ← the replicas have diverged!
 ```
 
 সবচেয়ে বড় term নিয়ে ফিরে আসা n2 জিতে গেল, আর তার পুরনো log কে "সত্য" ধরে বাকিদের `x=3` মুছে দিল — যে লেখা client B কে ৮ ms এ "নিশ্চিত" বলা হয়েছিল। আর তার চেয়েও খারাপ: n3, n4, n5 আগেই `x=3` প্রয়োগ করে ফেলেছিল, তাই তাদের state machine এ x = 3, বাকিদের x = 4 — **replica গুলো আর এক না।** একটা শর্ত সরানোয় পুরো algorithm এর দুটো মূল প্রতিশ্রুতিই ভাঙল।

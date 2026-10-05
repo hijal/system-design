@@ -164,7 +164,7 @@ export class Gateway {
 	private attach(socket: WebSocket, req: IncomingMessage): void {
 		const user = new URL(req.url ?? '/', 'http://gateway').searchParams.get('user');
 		if (user === null || user === '') {
-			socket.close(1008, 'user লাগবে');
+			socket.close(1008, 'user required');
 			return;
 		}
 		this.sockets.set(user, socket);

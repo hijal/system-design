@@ -1,16 +1,16 @@
 import { eventual, MODELS, type History, type Op } from './checker';
 import { latency, mulberry32 } from './random';
 
-// Lesson 6.5 §১.৭ — Jepsen এর ধারণা, ছোট করে: একটা system চালাও, সব operation এর history রেকর্ড করো,
-// তারপর checker দিয়ে যাচাই করো কোন consistency model সে আসলে দেয়।
+// Lesson 6.5 §1.7 — the idea of Jepsen, in small: run a system, record the history of every operation,
+// then use a checker to verify which consistency model it actually provides.
 //
-// চারটা system, প্রতিটায় ৩০০টা random history (৩ জন client, প্রত্যেকে ৫টা operation, একটা key):
-//   primary  — সব read আর write একটা primary তে
-//   replica  — write primary তে, read দুটো async replica এর যেকোনোটায় (Lesson 5.7, 6.3)
-//   sticky   — প্রতিটা client সবসময় একই replica থেকে পড়ে
-//   token    — version token: client এর দেখা/লেখা সবচেয়ে নতুন version এর চেয়ে পিছিয়ে থাকা replica
-//              থেকে পড়ে না, তখন primary তে যায় (Lesson 6.3)
-// সবশেষে প্রতিটা client ১ সেকেন্ড পরে একবার পড়ে — eventual যাচাইয়ের জন্য।
+// Four systems, 300 random histories each (3 clients, 5 operations each, one key):
+//   primary  — every read and write on one primary
+//   replica  — writes on the primary, reads on either of two async replicas (Lesson 5.7, 6.3)
+//   sticky   — each client always reads from the same replica
+//   token    — version token: never reads from a replica behind the newest version the client has seen/written;
+//              goes to the primary instead (Lesson 6.3)
+// Finally every client reads once more 1 second later — to check eventual.
 
 type System = 'primary' | 'replica' | 'sticky' | 'token';
 const HISTORIES = 300;
@@ -32,21 +32,21 @@ function generate(system: System, seed: number): History {
 	for (const process of CLIENTS) {
 		let t = random() * 10;
 		for (let i = 0; i <= OPS_EACH; i++) {
-			const last = i === OPS_EACH; // শেষেরটা ১ s পরে একটা read
+			const last = i === OPS_EACH; // the last one is a read 1 s later
 			if (last) t += 1000;
 			const kind = !last && random() < 0.35 ? 'write' : 'read';
 			const start = t;
 			const end = t + 2 + random() * 8;
-			// operation টা আসলে কখন কার্যকর হলো — শুরু আর শেষের মাঝে কোনো এক মুহূর্তে
+			// when the operation actually took effect — some moment between its start and end
 			const at = start + random() * (end - start);
 			planned.push({ process, kind, start, end, at, value: kind === 'write' ? nextValue++ : 0 });
 			t = end + random() * 20;
 		}
 	}
 
-	// Primary তে write গুলো কার্যকর হওয়ার ক্রমে — এটাই primary এর log
+	// Writes on the primary, in the order they took effect — this is the primary's log
 	const log = planned.filter((p) => p.kind === 'write').sort((a, b) => a.at - b.at);
-	// প্রতিটা replica তে প্রতিটা write কখন দেখা যায় — lag, মাঝে মাঝে বড়, আর ক্রমানুসারে
+	// when each write becomes visible on each replica — a lag, sometimes large, and in order
 	const visible = [0, 1].map(() => {
 		let prev = 0;
 		return log.map((wr) => {
@@ -55,7 +55,7 @@ function generate(system: System, seed: number): History {
 			return prev;
 		});
 	});
-	const upTo = (times: number[], t: number): number => times.filter((x) => x <= t).length; // কয়টা write প্রয়োগ হয়েছে
+	const upTo = (times: number[], t: number): number => times.filter((x) => x <= t).length; // how many writes have been applied
 	const valueAt = (count: number): number => log[count - 1]?.value ?? 0;
 	const primaryCount = (t: number): number => log.filter((wr) => wr.at <= t).length;
 
@@ -99,15 +99,15 @@ function generate(system: System, seed: number): History {
 
 function main(): void {
 	const labels: Record<System, string> = {
-		primary: 'এক primary',
-		replica: 'যেকোনো replica',
-		sticky: 'client প্রতি একটা replica',
+		primary: 'one primary',
+		replica: 'any replica',
+		sticky: 'one replica per client',
 		token: 'version token'
 	};
 	console.log(
-		`\n   প্রতিটা system এ ${HISTORIES}টা random history (${CLIENTS.length} client × ${OPS_EACH + 1} op) — কত শতাংশ কোন model মানে`
+		`\n   ${HISTORIES} random histories per system (${CLIENTS.length} clients × ${OPS_EACH + 1} ops) — what percentage obeys each model`
 	);
-	console.log('   (seed দেওয়া — প্রতিবার একই ফল)\n');
+	console.log('   (seeded — the same result every time)\n');
 	console.log(
 		'   system                        linear.  sequential  causal    RYW   mono.read  eventual'
 	);
@@ -127,7 +127,7 @@ function main(): void {
 		);
 	}
 	console.log(
-		'\n   ১০০% মানে "এই ৩০০টা history তে কখনো ভাঙেনি" — প্রমাণ না। ১০০% এর কম মানে নিশ্চিতভাবে ভাঙে।\n'
+		'\n   100% means "never broken in these 300 histories" — not a proof. Below 100% means it definitely breaks.\n'
 	);
 }
 

@@ -49,7 +49,7 @@
 TTL (Time To Live) মানে — "এই key টা N সেকেন্ড পর নিজে থেকেই মরে যাবে।"
 
 ```typescript
-await redis.set(cacheKey, JSON.stringify(tasks), 'EX', 300); // ৫ মিনিট
+await redis.set(cacheKey, JSON.stringify(tasks), 'EX', 300); // 5 minutes
 ```
 
 এর সৌন্দর্য হলো এটা **স্বয়ংক্রিয়**। তুমি invalidate করতে ভুলে গেলেও, সর্বোচ্চ ৫ মিনিট পর পুরনো data নিজে থেকে চলে যাবে। এটা একটা safety net — শেষ ভরসা।
@@ -102,10 +102,10 @@ async function updateTask(
 	taskId: number,
 	title: string
 ): Promise<void> {
-	// ধাপ ১ — সত্যের উৎস (DB) আগে
+	// Step 1 — the source of truth (DB) first
 	await Task.update({ title }, { where: { id: taskId, userId } });
 
-	// ধাপ ২ — তারপর cache মুছে দাও
+	// Step 2 — then delete from the cache
 	await redis.del(`task:${taskId}`, `tasks:user:${userId}`);
 }
 ```

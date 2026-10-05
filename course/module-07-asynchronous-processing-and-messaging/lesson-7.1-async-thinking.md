@@ -38,7 +38,7 @@ router.post(
 			const assignee = await User.findByPk(assigneeId, { transaction: t, rejectOnEmpty: true });
 			await task.update({ assigneeId }, { transaction: t });
 			await Activity.create({ taskId: task.id, kind: 'assigned' }, { transaction: t });
-			// email ব্যর্থ হলে পুরো transaction rollback — "সব হবে, নয়তো কিছুই না"
+			// if the email fails, the whole transaction rolls back — "all of it, or none of it"
 			await mailer.send({
 				to: assignee.email,
 				template: 'task-assigned',
@@ -160,15 +160,15 @@ Exercise এর `npm run compare` এ `sync-in-tx` mode — ঠিক উপর�
 
 ```
 ── mode: sync-in-tx ────────────────────────────────────────
-   phase            assign p50 / p99    assign ব্যর্থ    list p99    list ব্যর্থ
-   স্বাভাবিক         168 ms / 195 ms           0%       27 ms          0%
-   provider ধীর       3.0 s / 5.0 s           57%       3.0 s         52%
-   সেরে ওঠার পর      168 ms / 1.4 s            0%       1.2 s          0%
+   phase            assign p50 / p99   assign failed    list p99   list failed
+   normal            168 ms / 195 ms              0%       27 ms            0%
+   provider slow      3.0 s / 5.0 s              57%       3.0 s           52%
+   after recovery    168 ms / 1.4 s               0%       1.2 s            0%
 
-   assign: সফল 386, ব্যর্থ 91  (pool ফুরিয়েছে 81, client timeout 10, অন্য 0)
-   list:   ব্যর্থ 207 / 1188   ← এই route email ছোঁয়ই না
-   pool এ সর্বোচ্চ লাইন: 209
-   "ব্যর্থ" বলা হলো, অথচ email গেছে: 10
+   assign: ok 387, failed 91  (pool exhausted 81, client timeout 10, other 0)
+   list:   failed 207 / 1188   ← this route never touches email
+     max pool queue: 210
+   told "failed", yet email sent: 10
 ```
 
 তিনটা জিনিস দেখো:
@@ -193,14 +193,14 @@ Commit এর পরে email পাঠালে connection ৫ ms এ ফের
 
 ```
 ── mode: sync-after-commit ─────────────────────────────────
-   phase            assign p50 / p99    assign ব্যর্থ    list p99    list ব্যর্থ
-   স্বাভাবিক         168 ms / 186 ms           0%       26 ms          0%
-   provider ধীর       4.0 s / 4.0 s           37%       27 ms          0%
-   সেরে ওঠার পর      166 ms / 185 ms           1%       27 ms          0%
+   phase            assign p50 / p99   assign failed    list p99   list failed
+   normal            168 ms / 186 ms              0%       26 ms            0%
+   provider slow      4.0 s / 4.0 s              37%       27 ms            0%
+   after recovery    165 ms / 184 ms              1%       26 ms            0%
 
-   assign: সফল 417, ব্যর্থ 61  (pool ফুরিয়েছে 0, client timeout 0, অন্য 61)
-   list:   ব্যর্থ 0 / 1187
-   provider 429 (rate limited) ফেরত দিয়েছে: 61
+   assign: ok 417, failed 61  (pool exhausted 0, client timeout 0, other 61)
+   list:   failed 0 / 1187
+   provider returned 429 (rate limited): 61
 ```
 
 List **পুরোপুরি বাঁচল** — ০ ব্যর্থ, p99 ২৭ ms। Cascading failure শেষ, কারণ ধীর dependency আর ভাগ করা resource ধরে রাখে না। কিন্তু assign এর নিজের অবস্থা দেখো: ধীর phase এ প্রতিটা assign ৪ সেকেন্ড, আর ৩৭% ব্যর্থ। ব্যর্থ কেন? প্রতি সেকেন্ডে ২০টা assign × ৪ সেকেন্ড = ৮০টা email একসাথে provider এ — আর provider একসাথে ৫০টার বেশি নেয় না (বাস্তবের provider এর rate limit এর মতো; exercise এ এই সীমা একটা ধরে নেওয়া সংখ্যা)। বাড়তিগুলো `429` পায়।
@@ -213,22 +213,22 @@ List **পুরোপুরি বাঁচল** — ০ ব্যর্থ, p9
 
 ```typescript
 await task.update({ assigneeId });            // commit
-void mailer.send({ to: assignee.email, … });  // শুরু করলাম — ফল দেখব না
-res.json({ taskId: task.id, assigneeId });    // সাথে সাথে উত্তর
+void mailer.send({ to: assignee.email, … });  // started it — won't look at the result
+res.json({ taskId: task.id, assigneeId });    // answer immediately
 ```
 
 `fire-and-forget`:
 
 ```
 ── mode: fire-and-forget ───────────────────────────────────
-   phase            assign p50 / p99    assign ব্যর্থ    list p99    list ব্যর্থ
-   স্বাভাবিক          10 ms / 27 ms            0%       26 ms          0%
-   provider ধীর       10 ms / 27 ms            0%       27 ms          0%
-   সেরে ওঠার পর       10 ms / 26 ms            0%       27 ms          0%
+   phase            assign p50 / p99   assign failed    list p99   list failed
+   normal             10 ms / 27 ms               0%       26 ms            0%
+   provider slow      11 ms / 25 ms               0%       27 ms            0%
+   after recovery     11 ms / 24 ms               0%       26 ms            0%
 
-   provider এ একসাথে সর্বোচ্চ: 50
-   provider 429 (rate limited) ফেরত দিয়েছে: 60
-   "সফল" বলা হলো, email যায়নি: 60
+  max concurrent at provider: 50
+   provider returned 429 (rate limited): 60
+   told "ok", email never sent: 61
 ```
 
 দেখতে নিখুঁত: assign সবসময় ১০ ms, কেউ কোনো error দেখেনি। কিন্তু শেষ লাইনটা পড়ো — **৬০ জন user কে "সফল" বলা হয়েছে, আর তাদের assignee কখনো email পায়নি।** আর কেউ জানে না। কোনো error page নেই, কোনো alert নেই, শুধু একটা `.catch(() => {})` যেটা নীরবে গিলে ফেলেছে।
@@ -263,14 +263,14 @@ Assign route এখন একটা "কাজের ইচ্ছা" লিখ�
 
 ```
 ── mode: queue ─────────────────────────────────────────────
-   phase            assign p50 / p99    assign ব্যর্থ    list p99    list ব্যর্থ
-   স্বাভাবিক          11 ms / 27 ms            0%       27 ms          0%
-   provider ধীর       10 ms / 26 ms            0%       27 ms          0%
-   সেরে ওঠার পর        9 ms / 26 ms            0%       27 ms          0%
+   phase            assign p50 / p99   assign failed    list p99   list failed
+   normal             11 ms / 27 ms               0%       27 ms            0%
+   provider slow       9 ms / 26 ms               0%       26 ms            0%
+   after recovery   9 ms / 26 ms            0%       27 ms          0%
 
-   email বাকি (সর্বোচ্চ): 152   provider এ একসাথে সর্বোচ্চ: 8
-   provider 429 (rate limited) ফেরত দিয়েছে: 0   email পৌঁছাতে (assign থেকে) p99: 7.6 s
-   "সফল" বলা হলো, email যায়নি: 0
+   emails pending (max): 152  max concurrent at provider: 8
+   provider returned 429 (rate limited): 0   email delivery (from assign) p99: 7.6 s
+   told "ok", email never sent: 0
 ```
 
 Assign ১০ ms, list অক্ষত, provider কখনো ৮টার বেশি একসাথে দেখেনি, তাই একটাও `429` নেই, আর **একটাও email হারায়নি**। তাহলে ক্ষতিটা গেল কোথায়? কারণ provider তো সত্যিই ৪ সেকেন্ড ধীর ছিল — সেই সময়টা কোথাও না কোথাও দিতে হবে।
@@ -300,9 +300,9 @@ Queue দুটো জিনিস আলাদা করে দিল যেগ
 **দ্বিতীয়: এই queue টা memory তে।** Experiment ২: `CRASH_AT_MS=14000` — ধীর phase এর মাঝখানে API process কে `SIGKILL` করা হয় (যেকোনো deploy বা crash এর মতো), আর নতুন process চালু হয়:
 
 ```
-    14.0 s  API process SIGKILL — deploy/crash; নতুন process চালু হচ্ছে
+    14.0 s  API process SIGKILL — deploy/crash; starting a new process
    …
-   "সফল" বলা হলো, email যায়নি: 103
+   told "ok", email never sent: 103
 ```
 
 ১০৩ জন user "সফল" দেখেছিল; তাদের job গুলো process এর memory তে লাইনে ছিল; process এর সাথে মিলিয়ে গেল। Fire-and-forget এর "স্মৃতি নেই" সমস্যা, শুধু বড় আকারে — কারণ queue এখন ইচ্ছা করে কাজ জমিয়ে রাখে। Lesson 3.4 এর graceful shutdown কিছুটা বাঁচাত (বন্ধ হওয়ার আগে queue খালি করা) — কিন্তু crash এ, OOM kill এ, machine মরলে না।

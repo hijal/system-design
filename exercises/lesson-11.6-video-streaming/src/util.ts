@@ -28,10 +28,16 @@ export const bytes = (value: number): string => {
 };
 
 export const big = (value: number): string => {
-	if (value >= 1e12) return `${(value / 1e12).toFixed(2)} লাখ কোটি`;
-	if (value >= 1e7) {
-		const crore = value / 1e7;
-		return `${crore >= 100 || Number.isInteger(crore) ? n(crore) : crore.toFixed(1)} কোটি`;
+	const scales: [number, string][] = [
+		[1e12, 'trillion'],
+		[1e9, 'billion'],
+		[1e6, 'million']
+	];
+	for (const [size, word] of scales) {
+		if (value >= Math.max(size, 1e7)) {
+			const v = value / size;
+			return `${v >= 1_000 ? n(v) : Number(v.toPrecision(3))} ${word}`;
+		}
 	}
 	return n(value);
 };
@@ -42,12 +48,12 @@ const cells = (value: string): number => [...segmenter.segment(value)].length;
 
 export const padEnd = (value: string | number, width: number): string => {
 	const text = String(value);
-	return text + ' '.repeat(Math.max(1, width - cells(text)));
+	return text + ' '.repeat(Math.max(2, width - cells(text)));
 };
 
 export const padLeft = (value: string | number, width: number): string => {
 	const text = String(value);
-	return ' '.repeat(Math.max(1, width - cells(text))) + text;
+	return ' '.repeat(Math.max(2, width - cells(text))) + text;
 };
 
 export function row(columns: [string | number, number][]): string {
@@ -64,7 +70,7 @@ export const env = (name: string, fallback: number): number => {
 	const raw = process.env[name];
 	if (raw === undefined || raw.trim() === '') return fallback;
 	const value = Number(raw);
-	if (!Number.isFinite(value)) throw new Error(`${name} একটা সংখ্যা হতে হবে, পাওয়া গেল "${raw}"`);
+	if (!Number.isFinite(value)) throw new Error(`${name} must be a number, got "${raw}"`);
 	return value;
 };
 

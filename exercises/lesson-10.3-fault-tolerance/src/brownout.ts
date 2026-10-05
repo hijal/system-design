@@ -9,10 +9,10 @@ const BROWNOUT_WAIT = Number(process.env.BROWNOUT_WAIT ?? 50);
 const SEED = Number(process.env.SEED ?? 11);
 
 const PARTS = [
-	{ name: 'task তালিকা', cost: 8 },
-	{ name: 'comment সংখ্যা', cost: 5 },
+	{ name: 'task list', cost: 8 },
+	{ name: 'comment counts', cost: 5 },
 	{ name: 'activity panel', cost: 12 },
-	{ name: '"এরকম আরও board"', cost: 25 }
+	{ name: '"more boards like this"', cost: 25 }
 ] as const;
 
 const COST_AT_LEVEL = [0, 1, 2, 3].map((level) =>
@@ -48,7 +48,7 @@ function arrivals(): Float64Array {
 type Policy = { name: string; deadline: boolean; shed: boolean; brownout: boolean };
 
 const POLICIES: Policy[] = [
-	{ name: 'কিছু না', deadline: false, shed: false, brownout: false },
+	{ name: 'nothing', deadline: false, shed: false, brownout: false },
 	{ name: '+ deadline check', deadline: true, shed: false, brownout: false },
 	{ name: 'load shedding (7.4)', deadline: true, shed: true, brownout: false },
 	{ name: 'brownout', deadline: true, shed: false, brownout: true },
@@ -188,36 +188,40 @@ function simulate(policy: Policy, times: Float64Array): Result {
 
 function recovery(lastLate: number): string {
 	const after = lastLate - 12 * 60_000;
-	if (lastLate >= DURATION - 1_000) return '১৫ মিনিটেও না';
-	if (after <= 0) return 'সাথে সাথে';
+	if (lastLate >= DURATION - 1_000) return 'not even in 15 minutes';
+	if (after <= 0) return 'immediately';
 	return `${(after / 1_000).toFixed(0)} s`;
 }
 
 const times = arrivals();
 const fullCapacity = (WORKERS * 1_000) / (COST_AT_LEVEL[0] ?? 1);
 heading(
-	`ক. Board খোলা — ${WORKERS}টা worker, স্বাভাবিক ${BASE_RPS} req/s, সকাল ৯টায় ${PEAK} গুণ (${n(BASE_RPS * PEAK)} req/s) ৭ মিনিট; client ${CLIENT_TIMEOUT / 1_000} s পরে চলে যায়`
+	`A. Opening a board — ${WORKERS} workers, normally ${BASE_RPS} req/s, ${PEAK}× at 9 am (${n(BASE_RPS * PEAK)} req/s) for 7 minutes; the client leaves after ${CLIENT_TIMEOUT / 1_000} s`
 );
 console.log(
-	`   পুরো page = ${PARTS.map((part) => `${part.name} ${part.cost} ms`).join(' + ')} = ${COST_AT_LEVEL[0]} ms worker সময়`
+	`   full page = ${PARTS.map((part) => `${part.name} ${part.cost} ms`).join(' + ')} = ${COST_AT_LEVEL[0]} ms of worker time`
 );
 console.log(
-	`   ক্ষমতা: পুরো page এ ${n(fullCapacity)} req/s; brownout এর ধাপে ${COST_AT_LEVEL.slice(1)
+	`   capacity: ${n(fullCapacity)} req/s with the full page; at the brownout levels ${COST_AT_LEVEL.slice(
+		1
+	)
 		.map((cost) => `${cost} ms → ${n((WORKERS * 1_000) / cost)} req/s`)
 		.join(', ')}`
 );
-console.log('   নিচের সংখ্যা শুধু চাপের ৭ মিনিটে (মিনিট ৪ থেকে ১১) আসা request এর:');
+console.log(
+	'   the numbers below are only for requests arriving in the 7 minutes of load (minute 4 to 11):'
+);
 console.log(
 	row([
-		['নীতি', 22],
-		['board পেল', 11],
-		['পুরো page', 11],
+		['policy', 22],
+		['got board', 11],
+		['full page', 11],
 		['503', 9],
 		['timeout', 10],
 		['p50', 10],
 		['p99', 10],
-		['নষ্ট কাজ', 10],
-		['চাপ শেষে সারতে', 17]
+		['wasted work', 12],
+		['recovery after load', 21]
 	])
 );
 const results = POLICIES.map((policy) => ({ policy, result: simulate(policy, times) }));
@@ -231,26 +235,26 @@ for (const { policy, result } of results) {
 			[pct(result.timedOut, result.total), 10],
 			[result.latencies.length ? ms(percentile(result.latencies, 50)) : '—', 10],
 			[result.latencies.length ? ms(percentile(result.latencies, 99)) : '—', 10],
-			[pct(result.wasted, result.work), 10],
-			[recovery(result.lastLate), 17]
+			[pct(result.wasted, result.work), 12],
+			[recovery(result.lastLate), 21]
 		])
 	);
 }
 console.log(
-	`   "নষ্ট কাজ" = যে request এর client আগেই চলে গেছে তার পেছনে খরচ হওয়া worker সময়, মোট worker সময়ের %; "চাপ শেষে সারতে" = traffic স্বাভাবিক হওয়ার (মিনিট ১২) কতক্ষণ পরে শেষবার কেউ সময়মতো উত্তর পায়নি`
+	`   "wasted work" = worker time spent on requests whose client had already left, as % of total worker time; "recovery after load" = how long after traffic returned to normal (minute 12) someone last failed to get a timely answer`
 );
 
-heading('খ. মিনিট ধরে — brownout এর ধাপ কীভাবে নড়ে (০ = পুরো page, ৩ = শুধু task তালিকা)');
+heading('B. By the minute — how the brownout level moves (0 = full page, 3 = task list only)');
 const brownout = results.find(({ policy }) => policy.name === 'brownout')?.result;
 const nothing = results[0]?.result;
 console.log(
 	row([
-		['মিনিট', 8],
+		['minute', 8],
 		['req/s', 8],
-		['গড় ধাপ', 10],
+		['avg level', 10],
 		['brownout p99', 14],
-		['কিছু না: p99', 14],
-		['কিছু না: সময়মতো', 17]
+		['nothing: p99', 14],
+		['nothing: on time', 17]
 	])
 );
 for (let m = 0; m < DURATION / 60_000; m++) {

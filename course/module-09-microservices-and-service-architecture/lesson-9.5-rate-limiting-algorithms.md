@@ -62,7 +62,7 @@ Code এ এটা তিন লাইন — একটা `Map`, একটা `
 Exercise এর `npm run window`, অংশ ক — ১০টা চেষ্টা জানালার শেষে, ১০টা ঠিক পরের জানালার শুরুতে:
 
 ```
-   algorithm                  allowed          span         সীমার কত গুণ
+   algorithm                  allowed          span   times the limit
    fixed window                    20         24 ms              2.0x
    sliding log                     10          9 ms              1.0x
    sliding counter                 11         16 ms              1.1x
@@ -79,7 +79,7 @@ Exercise এর `npm run window`, অংশ ক — ১০টা চেষ্ট
 দাম দুটো, আর দ্বিতীয়টা বেশি গুরুত্বপূর্ণ:
 
 ```
-   ── গ. Memory — 50,000 জন user, প্রত্যেকে 10 টা request ──
+── c. Memory — 50,000 users, 10 requests each ──
    algorithm                  entries    bytes/user
    fixed window                 50000           109
    sliding log                  50000           253
@@ -100,8 +100,8 @@ Exercise এর `npm run window`, অংশ ক — ১০টা চেষ্ট
 কিন্তু এখানেই exercise টা লিখতে গিয়ে একটা জিনিস ধরা পড়ল, আর সেটা এই lesson এর সবচেয়ে দরকারি অংশ। অংশ ক একটা **নির্দিষ্ট** burst দেখে। আসল প্রশ্নটা অন্য: **একজন user সবচেয়ে বেশি কত পাঠাতে পারে?** সেটা জানতে সব সম্ভাব্য শুরুর সময় ধরে সবচেয়ে খারাপটা খুঁজতে হয়:
 
 ```
-   ── খ. একজন user সবচেয়ে বেশি কত পাঠাতে পারে — সব শুরুর সময় ধরে সবচেয়ে খারাপটা ──
-   algorithm              worst / 1000 ms         সীমার কত গুণ        কোন phase এ
+   ── b. The most one user can send — the worst over every start time ──
+   algorithm              worst / 1000 ms   times the limit          at phase
    fixed window                        20              2.0x            100 ms
    sliding log                         10              1.0x              0 ms
    sliding counter                     19              1.9x            820 ms
@@ -125,18 +125,18 @@ Exercise এর `npm run window`, অংশ ক — ১০টা চেষ্ট
 মূল পার্থক্যটা গৃহীত হওয়ার হারে না — **বেরোনোর আকারে**। Exercise এর `npm run bucket`, একই আগমন (t=0 এ ৩০টার burst, তারপর ৫/s), হার ১০/s, capacity ১০:
 
 ```
-   token bucket — burst টা সাথে সাথে বেরিয়ে যায়:
+   token bucket — the burst goes out at once:
          0 ms   11  ███████████
        250 ms    1  █
        500 ms    1  █
        750 ms    1  █
-   leaky bucket — একই আগমন, সমান গতিতে বেরোয়:
+   leaky bucket — the same arrivals, going out at an even pace:
          0 ms    3  ███
        250 ms    2  ██
        500 ms    3  ███
        750 ms    2  ██
 
-   downstream এ সর্বোচ্চ তাৎক্ষণিক চাপ (250 ms এ): token bucket 11 · leaky bucket 3
+   peak instantaneous load downstream (per 250 ms): token bucket 11 · leaky bucket 3
 ```
 
 গড় হার দুটোরই ~১০/s। কিন্তু downstream যেটা অনুভব করে সেটা গড় না — **শীর্ষ**: ১১ বনাম ৩। আর leaky bucket এর দাম সেখানেই: গৃহীত request গুলোকে অপেক্ষা করতে হয় (মাপা সবচেয়ে বেশি অপেক্ষা ১.০০ s), মানে user এর latency বাড়ে। Token bucket কাউকে অপেক্ষা করায় না — হয় এখনই যাও, নয় 429।
@@ -144,7 +144,7 @@ Exercise এর `npm run window`, অংশ ক — ১০টা চেষ্ট
 আর capacity এর মানেটা একেবারে আক্ষরিক:
 
 ```
-   capacity                     passed       burst এ পাশ         চাপ/250ms
+   capacity                     passed  passed in burst       load/250ms
    1                                16                1                2
    5                                20                5                6
    10                               25               10               11
@@ -164,9 +164,9 @@ Exercise এর `npm run window`, অংশ ক — ১০টা চেষ্ট
 Exercise এর `npm run distributed` — তিনটা আসল Express instance, সীমা ১০, একজন user round robin এ ৬০টা request:
 
 ```
-   গোনা কোথায়                          200      429     আসল সীমা    store call
-   প্রতি instance এর নিজের গোনা          30       30         3.0x             0
-   ভাগ করা store (RTT 1 ms)             10       50         1.0x            60
+   where counted                   200      429     real limit  store call
+   each instance counts its own    30       30         3.0x             0
+   shared store (RTT 1 ms)            10       50         1.0x            60
 ```
 
 **আসল সীমা = তোমার লেখা সীমা × instance সংখ্যা।** তিনটা instance এ ৩.০x, ছয়টায় ৬x। আর সবচেয়ে বিপজ্জনক দিক: autoscaling এ instance বাড়লে তোমার সীমা **নিজে থেকে** বেড়ে যায়, কোনো deploy ছাড়া, কোনো alert ছাড়া। Config এ তখনো লেখা "১০০ per minute", অথচ বাস্তবে ৬০০ — আর কেউ টের পায় না যতক্ষণ downstream না পড়ে।
@@ -186,9 +186,9 @@ Exercise এর `npm run distributed` — তিনটা আসল Express inst
 সীমা প্রয়োগ করা অর্ধেক কাজ; client কে সঠিকভাবে জানানো বাকি অর্ধেক। Lesson 2.5 এর error contract এর ধারাবাহিকতা:
 
 ```
-   চেষ্টা 1: status 200 · x-ratelimit-remaining: 1
-   চেষ্টা 2: status 200 · x-ratelimit-remaining: 0
-   চেষ্টা 3: status 429 · x-ratelimit-remaining: 0 · retry-after: 1s
+   attempt 1: status 200 · x-ratelimit-remaining: 1
+   attempt 2: status 200 · x-ratelimit-remaining: 0
+   attempt 3: status 429 · x-ratelimit-remaining: 0 · retry-after: 1s
 ```
 
 - **429, 503 না** — 429 বলে "তুমি বেশি চাইছ", 503 বলে "আমি ভেঙে পড়েছি"। Client এর আচরণ আলাদা হওয়া উচিত।

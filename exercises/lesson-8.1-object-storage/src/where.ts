@@ -8,15 +8,15 @@ import { messageSchema } from './downloader';
 import { checkServices, emptyBucket, env, getObject, pgPool, putObject } from './storage';
 import { mb, ms, mulberry32, percentile } from './random';
 
-// Lesson 8.1 §১.২ — TaskFlow এর attachment কোথায় রাখব: Postgres এর bytea column এ, নাকি object
-// storage এ (আর database এ শুধু একটা metadata row)?
+// Lesson 8.1 §1.2 — where to keep TaskFlow's attachments: in a Postgres bytea column, or in object
+// storage (with only a metadata row in the database)?
 //
-//   ধাপ ১: একই FILES টা file দুই জায়গায় রাখা — সময়, WAL কত লেখা হলো, database কত বড় হলো
-//   ধাপ ২: pg_dump — file সহ database এর backup, আর file ছাড়া (শুধু metadata) এর backup
-//   ধাপ ৩: board এর OLTP query চলছে; তার সাথে DOWNLOADERS জন file নামাচ্ছে — Postgres থেকে, তারপর
-//          object storage থেকে। OLTP এর p99 এর কী হয়?
+//   step 1: the same FILES files kept in both places — time, how much WAL was written, how much the database grew
+//   step 2: pg_dump — a backup of the database with the files, and without them (metadata only)
+//   step 3: the board's OLTP queries are running; alongside, DOWNLOADERS people download files — from Postgres, then
+//          from object storage. What happens to OLTP's p99?
 //
-// আসল database, আসল সময় — সংখ্যা মেশিন ভেদে বদলাবে, আকৃতি একই থাকার কথা।
+// A real database, real time — the numbers will vary between machines, the shape should stay the same.
 
 const cfg = z
 	.object({
@@ -25,7 +25,7 @@ const cfg = z
 		CLIENTS: z.coerce.number().int().positive().default(8),
 		DOWNLOADERS: z.coerce.number().int().nonnegative().default(8),
 		POOL_MAX: z.coerce.number().int().positive().default(10),
-		// 1 = আরেকটা ধাপ: object storage এর file ও app এর ভেতর দিয়ে (proxy) — experiment ২
+		// 1 = one more step: object storage files also go through the app (proxy) — experiment 2
 		PROXY_S3: z.enum(['0', '1']).default('0'),
 		SEED: z.coerce.number().int().default(7)
 	})
@@ -37,9 +37,9 @@ const OLTP_SQL = `
 
 type FileSpec = { id: number; taskId: number; name: string; size: number };
 
-// File এর আকার seed দিয়ে ঠিক করা: ৭০% ছোট (50 KB–1 MB), ২৫% মাঝারি (1–5 MB), ৫% বড় (5–10 MB) —
-// screenshot, PDF, আর মাঝে মাঝে একটা design file। Content এলোমেলো byte — আসল PDF/ছবি/zip এর মতোই
-// আর চাপা যায় না (সেগুলো নিজেরাই আগে থেকে compressed)।
+// File sizes fixed by a seed: 70% small (50 KB–1 MB), 25% medium (1–5 MB), 5% large (5–10 MB) —
+// screenshots, PDFs, and now and then a design file. The content is random bytes — like real PDFs/images/zips,
+// it doesn't compress (those are already compressed themselves).
 function fileSpecs(): FileSpec[] {
 	const random = mulberry32(cfg.SEED);
 	const KB = 1024;
@@ -56,7 +56,7 @@ function fileSpecs(): FileSpec[] {
 	});
 }
 
-// items কে concurrency টা worker দিয়ে চালানো
+// run items with `concurrency` workers
 async function inParallel<T>(
 	items: T[],
 	concurrency: number,
@@ -92,7 +92,7 @@ async function relationSize(pool: Pool, table: string): Promise<number> {
 	return z.object({ bytes: z.coerce.number() }).parse(res.rows[0]).bytes;
 }
 
-// pg_dump চালানো container এর ভেতরে — output এর আকার আর সময়
+// running pg_dump inside the container — the size and time of the output
 async function dump(excludeFiles: boolean): Promise<{ bytes: number; ms: number }> {
 	const exclude = excludeFiles ? '-T attachments_blob' : '';
 	const t = performance.now();
@@ -125,12 +125,12 @@ async function setup(pool: Pool): Promise<void> {
 		       TIMESTAMPTZ '2026-01-01' + (i * 37 % 31536000) * INTERVAL '1 second'
 		FROM generate_series(1, 200000) AS i;
 		CREATE INDEX tasks_board ON tasks (project_id, updated_at DESC);
-		-- পথ ক: file টা নিজেই database এ (Sequelize এ DataTypes.BLOB → Postgres এ bytea)
+		-- path a: the file itself in the database (DataTypes.BLOB in Sequelize → bytea in Postgres)
 		CREATE TABLE attachments_blob (
 			id int PRIMARY KEY, task_id int NOT NULL, name text NOT NULL,
 			content_type text NOT NULL, size int NOT NULL, data bytea NOT NULL
 		);
-		-- পথ খ: database এ শুধু metadata; bytes object storage এ, storage_key দিয়ে খুঁজে পাওয়া
+		-- path b: only metadata in the database; the bytes in object storage, found by storage_key
 		CREATE TABLE attachments (
 			id int PRIMARY KEY, task_id int NOT NULL, name text NOT NULL,
 			content_type text NOT NULL, size int NOT NULL, storage_key text NOT NULL, etag text NOT NULL
@@ -144,7 +144,7 @@ type Downloaded = { downloads: number[]; bytes: number };
 type Phase = Downloaded & { name: string; oltp: number[] };
 type Source = 'none' | 'db-app' | 'db-child' | 's3-app' | 's3-child';
 
-// child process এ downloader চালিয়ে 'ready' এর অপেক্ষা; ফেরত দেয় ফলের promise (ফল আসে phase শেষে)
+// run the downloader in a child process and wait for 'ready'; returns the result's promise (the result arrives at the end of the phase)
 async function startChild(source: 'db' | 's3'): Promise<Promise<Downloaded>> {
 	const child = fork(path.join(__dirname, 'downloader.js'), [], {
 		env: {
@@ -193,8 +193,8 @@ async function servePhase(pool: Pool, name: string, source: Source): Promise<Pha
 			oltp.push(performance.now() - t);
 		}
 	};
-	// app এর ভেতর দিয়ে file দেওয়া: একই process (আর database হলে একই pool) — file যখন database এ থাকে,
-	// app কে এভাবেই দিতে হয়; object storage এর বেলায় এটা ঐচ্ছিক (proxy)
+	// serving the file through the app: the same process (and for the database, the same pool) — when the file is in the database,
+	// the app has to serve it this way; for object storage this is optional (a proxy)
 	const appDownloader = async (): Promise<void> => {
 		while (Date.now() < deadline) {
 			const id = Math.floor(random() * cfg.FILES) + 1;
@@ -227,14 +227,14 @@ async function main(): Promise<void> {
 	const files = fileSpecs();
 	const total = files.reduce((sum, f) => sum + f.size, 0);
 	console.log(
-		`\n   ${cfg.FILES} টা file, মোট ${mb(total)} · Postgres আর object storage দুটোই ২টা CPU তে\n`
+		`\n   ${cfg.FILES} files, ${mb(total)} in total · Postgres and object storage both on 2 CPUs\n`
 	);
 
 	await setup(pool);
 	await emptyBucket(env.BUCKET);
 	const contents = new Map(files.map((f) => [f.id, randomBytes(f.size)] as const));
 
-	// ── ধাপ ১: রাখা ─────────────────────────────────────────────
+	// ── step 1: storing ─────────────────────────────────────────
 	let t = performance.now();
 	const dbWal = await walBytes(pool, () =>
 		inParallel(files, 4, async (f) => {
@@ -251,7 +251,7 @@ async function main(): Promise<void> {
 		inParallel(files, 4, async (f) => {
 			const body = contents.get(f.id);
 			if (!body) return;
-			// আগে object, তারপর metadata row — কেন এই ক্রম, সেটা §১.৮ এ (dual write, 7.5)
+			// object first, then the metadata row — why this order is in §1.8 (dual write, 7.5)
 			const etag = await putObject(env.BUCKET, storageKey(f), body, 'application/pdf');
 			await pool.query(
 				'INSERT INTO attachments (id, task_id, name, content_type, size, storage_key, etag) VALUES ($1, $2, $3, $4, $5, $6, $7)',
@@ -265,9 +265,9 @@ async function main(): Promise<void> {
 	const metaTable = await relationSize(pool, 'attachments');
 	const tasksTable = await relationSize(pool, 'tasks');
 
-	console.log('── ১. রাখা (একসাথে ৪টা upload) ─────────────────────────────────');
+	console.log('── 1. Storing (4 uploads at a time) ─────────────────────────────');
 	console.log(
-		'   কোথায়                              সময়      WAL লেখা    database এ বাড়ল   object storage এ'
+		'   where                               time         WAL         DB growth    object storage'
 	);
 	console.log(
 		`   Postgres (bytea)              ${ms(dbMs).padStart(10)}  ${mb(dbWal).padStart(10)}  ${mb(blobTable).padStart(16)}  ${'—'.padStart(16)}`
@@ -275,35 +275,37 @@ async function main(): Promise<void> {
 	console.log(
 		`   object storage + metadata row ${ms(s3Ms).padStart(10)}  ${mb(s3Wal).padStart(10)}  ${mb(metaTable).padStart(16)}  ${mb(total).padStart(16)}`
 	);
-	console.log(`   (তুলনার জন্য: ২ লাখ task এর পুরো tasks table + index = ${mb(tasksTable)})\n`);
+	console.log(
+		`   (for comparison: the whole tasks table of 200k tasks + indexes = ${mb(tasksTable)})\n`
+	);
 
-	// ── ধাপ ২: backup ───────────────────────────────────────────
+	// ── step 2: backup ──────────────────────────────────────────
 	const full = await dump(false);
 	const lean = await dump(true);
-	console.log('── ২. Backup (pg_dump -Fc, container এর ভেতরে) ─────────────────');
+	console.log('── 2. Backup (pg_dump -Fc, inside the container) ─────────────────');
 	console.log(
-		`   file সহ database                    ${mb(full.bytes).padStart(10)}  ${ms(full.ms).padStart(9)}`
+		`   ${'database with files'.padEnd(36)}${mb(full.bytes).padStart(10)}  ${ms(full.ms).padStart(9)}`
 	);
 	console.log(
-		`   file ছাড়া (শুধু metadata)          ${mb(lean.bytes).padStart(10)}  ${ms(lean.ms).padStart(9)}\n`
+		`   ${'without files (metadata only)'.padEnd(36)}${mb(lean.bytes).padStart(10)}  ${ms(lean.ms).padStart(9)}\n`
 	);
 
-	// ── ধাপ ৩: file দেওয়ার সময় OLTP ───────────────────────────
-	await servePhase(pool, 'গরম করা', 'none'); // প্রথম ধাপ যাতে ঠান্ডা cache এর দাম না দেয়
+	// ── step 3: OLTP while files are served ────────────────────
+	await servePhase(pool, 'warm-up', 'none'); // so the first phase doesn't pay for a cold cache
 	const phases = [
-		await servePhase(pool, 'শুধু OLTP', 'none'),
-		await servePhase(pool, '+ file, Postgres → app এর ভেতর দিয়ে', 'db-app'),
-		await servePhase(pool, '+ file, Postgres → আলাদা process', 'db-child'),
+		await servePhase(pool, 'OLTP only', 'none'),
+		await servePhase(pool, '+ files, Postgres → through the app', 'db-app'),
+		await servePhase(pool, '+ files, Postgres → separate process', 'db-child'),
 		...(cfg.PROXY_S3 === '1'
-			? [await servePhase(pool, '+ file, object storage → app এর ভেতর দিয়ে', 's3-app')]
+			? [await servePhase(pool, '+ files, object storage → through the app', 's3-app')]
 			: []),
-		await servePhase(pool, '+ file, object storage → সরাসরি', 's3-child')
+		await servePhase(pool, '+ files, object storage → direct', 's3-child')
 	];
 	console.log(
-		`── ৩. File দেওয়ার সময় board এর query (${cfg.CLIENTS} OLTP client, pool max ${cfg.POOL_MAX}; ${cfg.DOWNLOADERS} জন file নামায়) ──`
+		`── 3. Board queries while files are served (${cfg.CLIENTS} OLTP clients, pool max ${cfg.POOL_MAX}; ${cfg.DOWNLOADERS} downloading files) ──`
 	);
 	console.log(
-		'   ধাপ                                          OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99'
+		'   step                                        OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99'
 	);
 	for (const p of phases) {
 		const secs = cfg.PHASE_MS / 1000;

@@ -1,11 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
-// দুই ধরনের "পরিচয়":
-//   ১. User এর access token — HS256 JWT (header.payload.signature), login এর সময় দেওয়া। Gateway যাচাই করে।
-//   ২. Gateway → service এর internal header — gateway যাচাইয়ের পরে user id বসায়, আর (signed mode এ) নিজের
-//      secret দিয়ে সেটা sign করে, যাতে service বুঝতে পারে header টা সত্যিই gateway থেকে এসেছে।
-// Exercise এর জন্য secret গুলো নির্দিষ্ট — আসল system এ secret manager থেকে (Lesson 10.5)।
+// Two kinds of "identity":
+//   1. The user's access token — an HS256 JWT (header.payload.signature), issued at login. The gateway verifies it.
+//   2. The gateway → service internal header — after verifying, the gateway sets the user id, and (in signed mode) signs it
+//      with its own secret, so the service can tell the header really came from the gateway.
+// The secrets are fixed for the exercise — in a real system they come from a secret manager (Lesson 10.5).
 
 export const JWT_SECRET = 'lesson-9.2-user-token-secret';
 export const INTERNAL_SECRET = 'lesson-9.2-gateway-internal-secret';
@@ -28,7 +28,7 @@ export function verifyJwt(token: string, nowSec = Date.now() / 1000): Claims | n
 	if (!head || !body || !sig) return null;
 	const expected = hmac(JWT_SECRET, `${head}.${body}`);
 	const given = Buffer.from(sig, 'base64url');
-	// সমান দৈর্ঘ্য না হলে timingSafeEqual throw করে — তাই আগে দৈর্ঘ্য
+	// timingSafeEqual throws if the lengths differ — so check the length first
 	if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
 	try {
 		const claims = claimsSchema.parse(JSON.parse(Buffer.from(body, 'base64url').toString()));
@@ -38,7 +38,7 @@ export function verifyJwt(token: string, nowSec = Date.now() / 1000): Claims | n
 	}
 }
 
-// Gateway এর internal header: "userId.timestamp.signature"
+// The gateway's internal header: "userId.timestamp.signature"
 export function signInternal(userId: number, nowMs = Date.now()): string {
 	const data = `${userId}.${nowMs}`;
 	return `${data}.${b64url(hmac(INTERNAL_SECRET, data))}`;
@@ -54,7 +54,7 @@ export function verifyInternal(
 	const expected = hmac(INTERNAL_SECRET, `${id}.${at}`);
 	const given = Buffer.from(sig, 'base64url');
 	if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
-	if (Math.abs(nowMs - Number(at)) > maxAgeMs) return null; // পুরনো header আবার পাঠানো আটকাতে
+	if (Math.abs(nowMs - Number(at)) > maxAgeMs) return null; // to stop an old header being sent again
 	const userId = Number(id);
 	return Number.isInteger(userId) && userId > 0 ? userId : null;
 }

@@ -67,8 +67,8 @@ bad_tasks
 ┌────┬───────────────────┬─────────────┬────────────────────┬──────────────┬────────────┐
 │ id │ title             │ projectName │ assigneeEmail      │ assigneeName │ tags       │
 ├────┼───────────────────┼─────────────┼────────────────────┼──────────────┼────────────┤
-│ 1  │ Login bug ঠিক করো │ Website     │ rahim@taskflow.app │ Rahim        │ bug,urgent │
-│ 2  │ Logging যোগ করো   │ Website     │ rahim@taskflow.app │ Rahim        │ debug      │
+│ 1  │ Fix the login bug │ Website     │ rahim@taskflow.app │ Rahim        │ bug,urgent │
+│ 2  │ Add logging       │ Website     │ rahim@taskflow.app │ Rahim        │ debug      │
 │ 3  │ Q3 campaign plan  │ Marketing   │ karim@taskflow.app │ Karim        │ planning   │
 └────┴───────────────────┴─────────────┴────────────────────┴──────────────┴────────────┘
 ```
@@ -86,15 +86,15 @@ bad_tasks
 Exercise এর `npm run anomalies` ঠিক এই তিনটা কাজ করে দেখায়, দুই schema তে পাশাপাশি:
 
 ```
-━━ Denormalized (bad_tasks) — সব এক table এ
-১. rahim@taskflow.app এর নাম কয়টা?    2 টা → "Rahim", "Rahim Uddin"
-২. "bug" tag এর task কয়টা?           2 টা → "Logging যোগ করো", "Login bug ঠিক করো"
-৩. Task মোছার পর project কয়টা?       1 টা → Website  (Marketing উধাও!)
+━━ Denormalized (bad_tasks) — everything in one table
+1. How many names does rahim@taskflow.app have?  2 → "Rahim", "Rahim Uddin"
+2. How many tasks with the "bug" tag?            2 → "Add logging", "Fix the login bug"
+3. How many projects after deleting the task?    1 → Website  (Marketing is gone!)
 
 ━━ Normalized (users / projects / tasks / tags)
-১. rahim@taskflow.app এর নাম কয়টা?    1 টা → "Rahim Uddin"
-২. "bug" tag এর task কয়টা?           1 টা → "Login bug ঠিক করো"
-৩. Task মোছার পর project কয়টা?       2 টা → Marketing, Website
+1. How many names does rahim@taskflow.app have?  1 → "Rahim Uddin"
+2. How many tasks with the "bug" tag?            1 → "Fix the login bug"
+3. How many projects after deleting the task?    2 → Marketing, Website
 ```
 
 সবচেয়ে ভয়ের কথা: প্রথম তিনটা লাইনের **কোনোটাতেই কোনো error আসেনি।** Database খুশি মনে ভুল data রেখে দিয়েছে। Anomaly production এ crash করে না — চুপচাপ data নষ্ট করে, আর ধরা পড়ে মাসখানেক পরে, একজন বিরক্ত user এর support ticket এ।
@@ -163,9 +163,9 @@ Normalized schema তে প্রতিটা তথ্য এক জায়�
 এবার TaskFlow এর dashboard। Exercise এর `npm run dashboard` ৫০০টা project আর ৪ লাখ task বানিয়ে একই প্রশ্ন কয়েকভাবে মাপে (আমার মেশিনে, ৩০ বারের median):
 
 ```
-প্রশ্ন                          গুনে (সরল)   গুনে (LATERAL)   counter পড়ে
-২০টা project এর পাতা             39.18 ms        1.78 ms         0.42 ms
-সবচেয়ে ব্যস্ত ১০টা project        39.34 ms          —             0.31 ms
+question                     counted (simple)   counted (LATERAL)   read counter
+page of 20 projects                  39.18 ms             1.78 ms        0.42 ms
+10 busiest projects                  39.34 ms                —           0.31 ms
 ```
 
 প্রথম লাইনটা মনোযোগ দিয়ে দেখো — এখানে এই lesson এর সবচেয়ে গুরুত্বপূর্ণ শিক্ষাটা লুকিয়ে আছে।
@@ -195,9 +195,9 @@ ORDER BY p.name;
 Counter যোগ করার পর প্রতিটা write path কে তার কথা মনে রাখতে হবে। Exercise এর `npm run counter` একটা project এ **২০০টা task একসাথে** তৈরি করে, তিনভাবে:
 
 ```
-ক. read-modify-write               counter =   1   আসল = 200   ✗ 199 টা হারিয়েছে
-খ. transaction + increment         counter = 200   আসল = 200   ✓ ঠিক আছে
-গ. খ এর পরে ৫০টা bulk import       counter = 200   আসল = 250   ✗ 50 টা হারিয়েছে
+a. read-modify-write               counter =   1   actual = 200   ✗ 199 lost
+b. transaction + increment         counter = 200   actual = 200   ✓ correct
+c. 50 bulk imports after b         counter = 200   actual = 250   ✗ 50 lost
 ```
 
 **(ক) এর code টা দেখতে একদম নিরীহ:**
@@ -237,7 +237,7 @@ async function atomic(projectId: number): Promise<void> {
 এর প্রতিকার Module 4 এর TTL এর মতোই একটা **safety net** — **reconciliation job**: নির্দিষ্ট সময় পরপর (যেমন প্রতি রাতে) derived data কে source of truth থেকে নতুন করে হিসাব করে, আর গরমিল পেলে ঠিক করে দেয় (এবং গরমিলের সংখ্যাটা log/alert করে — ওটাই তোমাকে বলবে কোথাও একটা write path counter ভুলে গেছে)। Exercise এ:
 
 ```
-reconcile() চালানো হলো — 2 টা project এর counter ভুল ছিল, ঠিক করা হয়েছে
+ran reconcile() — 2 projects had a wrong counter, fixed
 ```
 
 **Counter sync রাখার তিনটা উপায়, trade-off সহ:**

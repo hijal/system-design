@@ -63,16 +63,16 @@ Lesson 9.1 এর ফল মনে করো: ৩০০০টা "task তৈর
 Postgres এ এটা আসলেই আছে — exercise এর coordinator এর মূল অংশ:
 
 ```typescript
-// exercises/lesson-9.3-saga-2pc/src/twopc.ts — coordinator (সংক্ষেপ)
+// exercises/lesson-9.3-saga-2pc/src/twopc.ts — the coordinator (abridged)
 await Promise.all([a.query('BEGIN'), b.query('BEGIN')]);
-await a.query(insertTask, [op.workspaceId, op.title]); // tasks_svc — lock ধরা, commit না
-await b.query(bumpCounter, [op.workspaceId]); // billing_svc — lock ধরা, commit না
-// phase 1 — এরপর দুটো database এর কেউ আর নিজে সিদ্ধান্ত নিতে পারে না
+await a.query(insertTask, [op.workspaceId, op.title]); // tasks_svc — holds the locks, no commit
+await b.query(bumpCounter, [op.workspaceId]); // billing_svc — holds the locks, no commit
+// phase 1 — after this neither database can decide on its own anymore
 await Promise.all([
 	a.query(`PREPARE TRANSACTION '${gid}:tasks'`),
 	b.query(`PREPARE TRANSACTION '${gid}:billing'`)
 ]);
-// সিদ্ধান্ত — coordinator এর নিজের log এ
+// the decision — in the coordinator's own log
 await a.query('INSERT INTO twopc_log (gid, decision) VALUES ($1, $2)', [gid, 'commit']);
 // phase 2
 await Promise.all([
@@ -86,11 +86,11 @@ await Promise.all([
 Exercise এর `npm run twopc`, অংশ ক — 9.1 এর একই ৩০০০টা operation, একই ৮৩টা crash:
 
 ```
-── ক. 3000 টা "task তৈরি", 100 টা workspace, 83 টায় প্রথম লেখার পরে crash (3%), 8 টা একসাথে ──
-   পথ                                    সফল   ব্যর্থ  task row  counter  অমিল ws   ফল                    ops/s      p50
-   monolith: একটা transaction (9.1)       2917     83     2917     2917        0   মেলে                   2775   2.3 ms
-   services: দুটো আলাদা লেখা (9.1)        2917     83     3000     2917       57   83 টা task বিনা বিলে   1594   4.4 ms
-   services: 2PC                          2917     83     2917     2917        0   মেলে                   1027   7.1 ms
+── A. 3000 "create task", 100 workspaces, crash after the first write in 83 (3%), 8 concurrent ──
+   path                                     ok failed    tasks  counter   bad ws   result                  ops/s      p50
+   monolith: one transaction (9.1)        2917     83     2917     2917        0   they match               2775   2.3 ms
+   services: two separate writes (9.1)    2917     83     3000     2917       57   83 tasks with no bill    1594   4.4 ms
+   services: 2PC                          2917     83     2917     2917        0   they match               1027   7.1 ms
 ```
 
 - **2PC এ অমিল ০।** Coordinator PREPARE এর আগে মরলে তার connection কেটে যায়, আর দুটো database নিজে থেকেই তাদের অর্ধেক কাজ rollback করে — monolith এর মতোই। DBA ঠিক বলেছিল: 2PC সত্যিই atomic।
@@ -107,12 +107,12 @@ Coordinator যদি মরে **PREPARE এর পরে, COMMIT এর আগ
 অংশ খ: ৫টা workspace এর transaction in doubt (১০০টার মধ্যে), তারপর ৮ জন client ৩ সেকেন্ড ধরে নতুন task বানাচ্ছে:
 
 ```
-── খ. Coordinator মারা গেল PREPARE এর পরে, COMMIT এর আগে — 5 টা workspace এর transaction "in doubt" ──
-   prepared হয়ে পড়ে আছে: tasks_svc এ 5 টা, billing_svc এ 5 টা · coordinator এর log এ "commit": 2 টা
-   workspace 1 এর task_count পড়া (SELECT): 0 — 0.4 ms, আটকায়নি (MVCC: commit হওয়া পুরনো মান)
-   তারপর 3 s ধরে 8 জন client নতুন task বানাচ্ছে (2PC, 100 টা workspace এ random):
-   billing এর lock_timeout    সফল   ops/s   lock এ ব্যর্থ       p99   শেষে আটকে থাকা client   সবাই আটকে গেল
-   নেই (Postgres default)       90      30             0   23.9 ms              8 / 8   156.8 ms এ
+── B. The coordinator died after PREPARE, before COMMIT — 5 workspaces' transactions "in doubt" ──
+   left prepared: 5 in tasks_svc, 5 in billing_svc · "commit" in the coordinator's log: 2
+   reading workspace 1's task_count (SELECT): 0 — 0.4 ms, not blocked (MVCC: the committed old value)
+   then 8 clients creating new tasks for 3 s (2PC, random among 100 workspaces):
+   billing's lock_timeout       ok   ops/s    lock fails       p99       stuck at end   all stuck at
+   none (Postgres default)      90      30             0   23.9 ms              8 / 8   at 156.8 ms
    200 ms                     1348     449            57  317.8 ms              0 / 8   —
 ```
 
@@ -123,10 +123,10 @@ Coordinator যদি মরে **PREPARE এর পরে, COMMIT এর আগ
 তাহলে billing নিজে কেন সিদ্ধান্ত নেয় না? অংশ গ:
 
 ```
-── গ. তারপর: in-doubt transaction গুলোর সিদ্ধান্ত ──
-   কে সিদ্ধান্ত নিল                             tasks_svc              billing_svc            অমিল ws   ফল
-   coordinator ফিরে এসে, log ধরে (নেই → rollback) commit 2 · rollback 3  commit 2 · rollback 3       0   মেলে
-   billing অপেক্ষা না করে নিজে ROLLBACK, তারপর coordinator commit 2 · rollback 3  commit 0 · rollback 5       2   2 টা task বিনা বিলে
+── C. What next: deciding the in-doubt transactions ──
+   who decided                                  tasks_svc              billing_svc            bad ws   result
+   coordinator, from its log (none → rollback)  commit 2 · rollback 3  commit 2 · rollback 3       0   they match
+   billing rolled back alone, then coordinator  commit 2 · rollback 3  commit 0 · rollback 5       2   2 tasks with no bill
 ```
 
 - **Coordinator ফিরে এসে log পড়ে:** যেগুলোর "commit" log এ আছে (২টা) — commit; যেগুলোর নেই (৩টা) — rollback, কারণ log এ না থাকা মানে commit এর সিদ্ধান্ত কখনো হয়নি (এই নিয়মের নাম "presumed abort")। অমিল ০।
@@ -191,13 +191,13 @@ Compensation এর তিনটা সূক্ষ্মতা:
 Saga এর প্রতিটা ধাপ আলাদা commit — তাহলে orchestrator মাঝপথে মরলে? Exercise এর `npm run saga`, অংশ ক — একই ৮৩টা crash (এবার billing এ লেখার পরে, orchestrator এর log এ লেখার আগে — সবচেয়ে খারাপ মুহূর্ত), আর ৪৪টা operation যাদের project archived:
 
 ```
-── ক. 3000 টা "task তৈরি" — 83 টায় billing এ লেখার পরে crash (3%), 44 টার project archived, 8 টা একসাথে ──
-   পথ                                        সম্পন্ন  archived  crash  অসমাপ্ত  task row  counter  অমিল ws   ফল                    ops/s      p50
-   দুটো লেখা, saga ছাড়া                      2873        44     83         —     2873     3000       58   127 টা বিল, task নেই   1979   3.9 ms
-   saga (idempotent ধাপ)                      2873        44     83        83     2873     2956       57   83 টা বিল, task নেই     966   7.9 ms
-     … recovery: log পড়ে এগোনো (234.1 ms)    2955        45      —         0     2955     2955        0   মেলে                      —        —
-   saga, ধাপ idempotent না                    2873        44     83        83     2873     2956       57   83 টা বিল, task নেই     992   7.7 ms
-     … recovery: log পড়ে এগোনো (282.5 ms)    2955        45      —         0     2955     3038       57   83 টা বিল, task নেই       —        —
+── A. 3000 "create task" — crash after writing to billing in 83 (3%), 44 with an archived project, 8 concurrent ──
+   path                                       done  archived  crash   pending    tasks  counter   bad ws   result                  ops/s      p50
+   two writes, no saga                        2873        44     83         —     2873     3000       58   127 bills with no task   1979   3.9 ms
+   saga (idempotent steps)                    2873        44     83        83     2873     2956       57   83 bills with no task     966   7.9 ms
+     … recovery from the log (234.1 ms)       2955        45      —         0     2955     2955        0   they match                  —        —
+   saga, steps not idempotent                 2873        44     83        83     2873     2956       57   83 bills with no task     992   7.7 ms
+     … recovery from the log (282.5 ms)       2955        45      —         0     2955     3038       57   83 bills with no task       —        —
 ```
 
 - **Saga ছাড়া:** ১২৭টা বিল যার task নেই — ৮৩টা crash আর ৪৪টা archived। Archived গুলোর জন্য কোনো উল্টো কাজ নেই। ঘটনা ২।
@@ -208,9 +208,9 @@ Saga এর প্রতিটা ধাপ আলাদা commit — তাহ
 Idempotent রূপটা billing এর নিজের খাতা দিয়ে — saga এর id ধরে (Lesson 2.5 এর idempotency key, 7.4 এর idempotent consumer — এবার saga এর প্রতিটা ধাপে আর প্রতিটা উল্টো কাজে):
 
 ```typescript
-// billing service — ধাপ ১ (সংক্ষেপ, একটা local transaction এর ভেতরে)
+// billing service — step 1 (abridged, inside one local transaction)
 const prev = await c.query('SELECT status FROM reservations WHERE saga_id = $1', [sagaId]);
-if (prev.rows[0] !== undefined) return previousAnswer(prev.rows[0]); // আগে হয়ে গেছে — আবার গুনো না
+if (prev.rows[0] !== undefined) return previousAnswer(prev.rows[0]); // already done — don't count it again
 const r = await c.query(
 	'UPDATE workspaces SET task_count = task_count + 1 WHERE id = $1 AND task_count < task_limit RETURNING id',
 	[workspaceId]
@@ -222,7 +222,7 @@ await c.query('INSERT INTO reservations (saga_id, workspace_id, status) VALUES (
 	status
 ]);
 
-// উল্টো কাজ — শুধু 'reserved' থেকে 'released' এ; দুবার ডাকলেও একবার কমে
+// the reverse action — only from 'reserved' to 'released'; called twice, it decreases once
 // WITH r AS (UPDATE reservations SET status = 'released' WHERE saga_id = $1 AND status = 'reserved' RETURNING workspace_id)
 // UPDATE workspaces w SET task_count = task_count - 1 FROM r WHERE w.id = r.workspace_id
 ```
@@ -276,10 +276,10 @@ await c.query('INSERT INTO reservations (saga_id, workspace_id, status) VALUES (
 Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এর মাঝপথ অন্যরা দেখে না। Saga তে এটা নেই: ধাপ ১ commit হওয়ার সাথে সাথে বাকি সবাই সেটা দেখে — এমনকি যদি পরে সেটা ফেরানো হয়। কোথায় লাগে? সীমার কাছে। অংশ খ: ৫০টা workspace, প্রতিটার সীমা ১০, আগে থেকে ৮টা task (খালি ২টা জায়গা) — আর প্রতিটায় একসাথে ৪টা "task তৈরি", যাদের এক-চতুর্থাংশের project archived:
 
 ```
-── খ. সীমার কাছে: 50 টা workspace, সীমা 10, আগে থেকে 8 টা task — প্রতিটায় 4 টা "task তৈরি" একসাথে, 41 টার project archived ──
-   নিয়ম                                     তৈরি  ফেরানো  "সীমা শেষ"  সীমা পেরোনো ws  বাড়তি task  ভুল "সীমা শেষ"
-   আগে সংরক্ষণ → task → দরকারে ফেরত (saga)     75      25         100              0           0              25
-   আগে দেখা → task → শেষে usage বাড়ানো       159       —           0             42          61               0
+── B. Near the limit: 50 workspaces, limit 10, 8 tasks already — 4 concurrent "create task" in each, 41 with an archived project ──
+   rule                                      made  undone     refused  ws over limit       extra  false refusals
+   reserve → task → release (saga)             75      25         100              0           0              25
+   check → task → count usage at end          159       —           0             42          61               0
 ```
 
 - **আগে সংরক্ষণ (আমাদের saga):** সীমা কখনো পেরোয় না — প্রতিটা workspace এ ঠিক ২টা সংরক্ষণ, বাকি ১০০টা "সীমা শেষ"। কিন্তু ২৫টা সংরক্ষণ পরে ফেরত গেল (archived) — আর সেই জায়গা গুলোর জন্য যারা আগেই "না" শুনেছে, তারা **ভুল করে** না শুনেছে। মাঝপথের অবস্থা (সংরক্ষিত, কিন্তু task এখনো হয়নি) অন্যদের সিদ্ধান্ত বদলে দিল।

@@ -57,24 +57,24 @@ Card এর data?                              আমাদের system এ ঢ
 `npm run estimate`:
 
 ```
-── অংশ ক — চাপ: দিনে 1 কোটি payment, গড় $30 ──
-payment / s (গড়)                                                 116
-payment / s (sale এর দিনে, 10×)                                  1,157   একটা Postgres এর জন্য ছোট
-দিনে টাকার পরিমাণ                                                   $30 কোটি
+── Part A — load: 10 million payments a day, $30 on average ──
+payments / s (average)                                           116
+payments / s (on a sale day, 10×)                              1,157   small for a Postgres
+money per day                                           $300 million
 
-── অংশ খ — ভুলের দাম ──
-0.1% payment এ ভুল                                           $300,000          $10.9 কোটি
-0.01% payment এ ভুল                                           $30,000           $1.1 কোটি
-0.001% payment এ ভুল                                           $3,000        $1,095,000
+── Part B — the price of mistakes ──
+mistakes on 0.1% of payments                                $300,000      $110 million
+mistakes on 0.01% of payments                                $30,000     $10.9 million
+mistakes on 0.001% of payments                                $3,000        $1,095,000
 
-── অংশ গ — ledger: payment প্রতি 6টা entry ──
-দিনে entry                                                        6 কোটি
-7 বছর রাখা (আইনি)                                             15,330 কোটি   30.7 TB
+── Part C — ledger: 6 entries per payment ──
+entries per day                                           60 million
+kept 7 years (legal)                                     153 billion   30.7 TB
 
-── অংশ ঘ — একটা $30 payment এর টাকা কোথায় যায় (fee 2.9% + $0.3, আনুমানিক) ──
-customer দিল                                                   $30.00
+── Part D — where the money of one $30 payment goes (fee 2.9% + $0.3, approximate) ──
+the customer paid                                             $30.00
 processing fee                                                 $1.17   3.9%
-merchant পাবে                                                   $28.83   কয়েক দিন পরে, payout এ
+the merchant gets                                             $28.83   a few days later, in the payout
 ```
 
 এই lesson এর বাকিটা এই এক টেবিলের ব্যাখ্যা। **চাপ ছোট:** sale এর দিনেও সেকেন্ডে ~১,২০০, একটা ভালো Postgres এর জন্য সহজ; sharding এর প্রশ্নই নেই (11.1 এর মতো)। **ভুল বড়:** দশ হাজারে একটা ভুল বছরে $১.১ কোটি। আর ভুলগুলো সাধারণত ক্লান্তিকর জায়গা থেকে আসে, যেমন একটা timeout, একটা crash, একটা race, একটা rounding, একটা time zone। নকশার কাজ তাই throughput না, **প্রতিটা কিনারার ঘটনায় নির্ভুলতা।**
@@ -116,11 +116,11 @@ created ──PSP──► ├───────────── charged �
 `npm run timeout` অংশ ক: ১০ লাখ payment, ১% timeout, যার ৬০% আসলে কাটা হয়েছিল:
 
 ```
-নীতি                                                    দুবার কাটা    কাটা, order নেই      অপেক্ষা p99
-timeout = ব্যর্থ, user আবার চেষ্টা করুক                          4,060           1,819            —
-নিজে আবার পাঠাও, নতুন request                                5,821               0            —
-নিজে আবার পাঠাও, একই idempotency key                            0               0            —
-"unknown" রাখো: webhook, না এলে status জিজ্ঞেস                     0               0         52 s
+policy                                                charged twice  charged, no order     wait p99
+timeout = failed, let the user try again                      4,060              1,819            —
+resend it ourselves, a new request                            5,821                  0            —
+resend it ourselves, the same idempotency key                     0                  0            —
+keep "unknown": webhook, else ask for the status                  0                  0         52 s
 ```
 
 - **"ব্যর্থ" ধরা:** customer কে "payment failed, আবার চেষ্টা করো" দেখানো। যারা আবার চেষ্টা করে আর প্রথমটা আসলে কেটেছিল, তাদের **দুবার কাটা** (৪,০৬০)। আর যারা চেষ্টা করে না, তাদের টাকা কাটা কিন্তু order নেই (১,৮১৯): তারা জানে না, আমরাও জানি না যতক্ষণ না reconciliation ধরে। দ্বিতীয়টা চুপচাপ, আর তাই খারাপ। Experiment ১: কম মানুষ আবার চেষ্টা করলে দুবার কাটা কমে, কিন্তু "কাটা, order নেই" বেড়ে ৪,২৪৮।
@@ -131,9 +131,9 @@ timeout = ব্যর্থ, user আবার চেষ্টা করুক 
 **Spaced repetition এর উত্তর, আর অংশ খ:** dual write এ দুটো system এর মাঝে একটা crash যেকোনো ক্রমে একটাকে অন্যটা ছাড়া রেখে দিতে পারে; outbox একটা system এ (DB) একটা transaction এ দুটোই লেখে, আর পরে অন্যটায় পাঠায়। এখানে দ্বিতীয় system টা PSP, যাকে আমাদের transaction এ আনা যায় না। তাই একমাত্র নিরাপদ ক্রম: **আগে নিজের কাছে টেকসই রেকর্ড, তারপর বাইরের কাজ।** প্রতি ধাপে ০.১% crash:
 
 ```
-ক্রম                                                                কাটা, আমাদের কোনো রেকর্ড নেই      recovery খুঁজে পায়
-PSP তে charge → তারপর DB তে payment লেখো                                              970                   0
-DB তে intent (created) → PSP → DB তে ফল                                              0                 955
+order                                                         charged, we have no record      recovery finds
+charge at the PSP → then write the payment to the DB                                 970                   0
+intent in the DB (created) → PSP → the result in the DB                                0                 955
 ```
 
 আগে PSP তে charge করলে, crash এর পরে ৯৭০ জনের টাকা কাটা আর আমাদের কোথাও কিছু নেই — খোঁজার মতো কোনো সূত্রও না। আগে intent লিখলে, সেই crash এ payment টা `created` অবস্থায় পড়ে থাকে, আর **recovery job** (কয়েক মিনিট পরপর, "created বা unknown, X মিনিটের বেশি পুরনো" খোঁজে) PSP কে payment id দিয়ে জিজ্ঞেস করে আর ঠিক করে: ৯৫৫টা খুঁজে পায়, শূন্য হারায়। এটা ঠিক outbox এর ধারণা: নিজের DB তে "আমি এটা করতে যাচ্ছি" লিখে রাখো, যাতে crash এর পরে কেউ শেষ করতে পারে।
@@ -145,11 +145,11 @@ DB তে intent (created) → PSP → DB তে ফল                         
 প্রথম চালের `merchant.balance += amount` এর দুটো সমস্যা। `npm run ledger`: ১,০০০টা wallet, ২ লাখ transfer, তার ৩০% একটা বড় merchant এর দিকে (একটা sale এর দিনের মতো), DB এর round trip ~২ ms, ০.১% মাঝপথে crash:
 
 ```
-নকশা                                                      মোট টাকার বদল    ঋণাত্মক wallet      মাঝপথে হারাল      প্রমাণ করা যায়?    lock এ অপেক্ষা
-balance column: পড়ো, হিসাব করো, লেখো                           -5,139,292              0           158               না       0.00 ms
-balance column: প্রতিটা row atomic, দুটো আলাদা                      -35,998              0           157               না       0.00 ms
-double-entry: এক transaction, দুই account lock                     0              0             0        হ্যাঁ, Σ = 0       37.40 s
-double-entry: শুধু টাকা যে দেয় তার lock                                  0              0             0        হ্যাঁ, Σ = 0       7.39 ms
+design                                                         total change  negative wallets   lost midway       provable?  wait on locks
+balance column: read, compute, write                             -5,139,292                 0           158              no        0.00 ms
+balance column: each row atomic, two separate statements            -35,998                 0           157              no        0.00 ms
+double-entry: one transaction, locks on both accounts                     0                 0             0      yes, Σ = 0        37.40 s
+double-entry: lock only the account paying out                            0                 0             0      yes, Σ = 0        7.39 ms
 ```
 
 - **পড়ো, হিসাব করো, লেখো:** 5.5 এর lost update, এবার টাকায়। গরম merchant এর balance এ দুটো transfer একই পুরনো মান পড়ে, একটার যোগ হারায়। ১০০ সেকেন্ডে **৫১ লাখ পয়সা** ($৫১,০০০) নিঃশব্দে উধাও। Experiment এ DB ধীর (১০ ms) হলে ৮৪ লাখ: race এর জানালা বড়।
@@ -163,11 +163,11 @@ Smoke এর ধাপ ১: $৩০ এর payment মানে তিনটা 
 **Minor Units** — টাকা সবসময় তার সবচেয়ে ছোট এককের integer এ রাখা (cent, পয়সা), কখনো float এ না। অংশ খ:
 
 ```
-float এ যোগ (dollar)                                 504892524.099961
-integer এ যোগ (পয়সা) ÷ 100                            504892524.100000
+sum in float (dollars)                              504892524.099961
+sum in integers (cents) ÷ 100                       504892524.100000
 0.1 + 0.2 = 0.30000000000000004; 0.029 * 100 = 2.9000000000000004
 
-fee ২.৯%: প্রতিটায় round করে যোগ 1,464,194,395 পয়সা, মোটের উপর একবার round 1,464,188,320 পয়সা — পার্থক্য 6,075 পয়সা
+fee 2.9%: rounding each then summing 1,464,194,395 cents, rounding once on the total 1,464,188,320 cents — difference 6,075 cents
 ```
 
 এক কোটি দামের যোগে float এর ভুল মাত্র ০.০০৪ পয়সা — ছোট, কিন্তু শূন্য না, আর `===` দিয়ে তুলনা ভাঙে, আর দুটো system এর হিসাব "প্রায়" মেলে, কখনো পুরো না। দ্বিতীয় লাইনটা আরও সূক্ষ্ম: integer এও rounding এর **নিয়ম** লাগে। প্রতিটা payment এর fee আলাদা round করে যোগ বনাম মোটের উপর একবার round: ৬,০৭৫ পয়সা পার্থক্য। দুটোই যুক্তিসঙ্গত। কিন্তু তুমি একটা, PSP আরেকটা ব্যবহার করলে হিসাব কখনো মিলবে না। তাই rounding (কোথায়, কোন দিকে, half-up না banker's) একটা লেখা নিয়ম, PSP এর নিয়মের সাথে মিলিয়ে। আর বহু currency তে: প্রতিটা currency এর minor unit আলাদা (JPY এর কোনো পয়সা নেই, কিছু currency তে তিন দশমিক), তাই amount সবসময় currency এর সাথে জোড়া।
@@ -181,10 +181,10 @@ Unknown, recovery, ledger — সব থাকার পরেও কিছু �
 `npm run reconcile`: একটা দিনে ১০ লাখ payment, ৩৭২টা আসল সমস্যা (চার ধরনের), আর একটা বাস্তব খুঁটিনাটি: PSP এর দিন UTC তে, আমাদের UTC+6 এ (বাংলাদেশ):
 
 ```
-মেলানোর নিয়ম                                               alert       আসল     মিথ্যা alert     আসল, ধরা পড়েনি
-একই তারিখ, শুধু amount মিলিয়ে                                56,020         1       56,019      371 (100%)
-আমাদের payment id (PSP এর reference এ), একই তারিখ        500,514       318      500,196        54 (15%)
-payment id, ±১ দিনের জানালা                                   372       372            0          0 (0%)
+matching rule                                              alert      real  false alerts  real, not caught
+same date, matching amounts only                          56,020         1        56,019        371 (100%)
+our payment id (in the PSP's reference), same date       500,514       318       500,196          54 (15%)
+payment id, a ±1 day window                                  372       372             0            0 (0%)
 ```
 
 - **Amount দিয়ে মেলানো:** একই amount এর অনেক payment, তাই এলোমেলো জোড়া, আর একটা আসল সমস্যা প্রায় সবসময় একটা ভুল জোড়ার আড়ালে লুকায়: **৩৭২ এর ৩৭১টাই ধরা পড়ে না,** আর তার উপর ৫৬,০০০ মিথ্যা alert। Experiment ৪: একই time zone এও ৯৮% লুকায়। মেলানোর key হতে হবে অনন্য, আর সেজন্যই PSP কে আমাদের payment id reference হিসেবে দেওয়া।
@@ -198,20 +198,20 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 `npm run smoke` উপরের সব নিয়ম চালায়: integer পয়সা, intent আগে, idempotency key, unknown, HMAC webhook, recovery job, refund এর সীমা, double-entry ledger, reconciliation:
 
 ```
-#   ধাপ                                                    ফল
-1   $30.00 এর payment                                     201 succeeded; psp_receivable $30.00, merchant:m_shop −$28.83, revenue:fees −$1.17
-2   একই idempotency key আবার (client এর retry)             200 pay_1 (আগেরটা pay_1); PSP call 1
-3   $42.00, card decline                                  402 failed; ledger এ entry 3টা
-4   $55.00, PSP timeout (আসলে কেটেছে)                         202 unknown
-5   PSP এর webhook এলো (সঠিক signature)                     200 → succeeded
-6   জাল webhook (ভুল secret)                                401; pay_1 এখনও succeeded
-7   $77.00 timeout, webhook হারাল; ৫ মিনিট পরে recovery job    1টা ঠিক হলো → succeeded
-8   $30.00 থেকে $10.00 refund                               201 ok
-9   একই refund key আবার                                    200 duplicate
-10  আরও $25.00 refund (মোট captured ছাড়ায়)                   409 exceeds
-11  দিনশেষে PSP এর report মেলানো                                pay_3: PSP তে 2 বার
-12  ledger এর শেষ অবস্থা                                      psp_receivable $152.00, merchant:m_shop −$146.79, revenue:fees −$5.21
-13  সব entry এর যোগফল                                      0 পয়সা (12টা entry)
+#   step                                                        result
+1   a $30.00 payment                                            201 succeeded; psp_receivable $30.00, merchant:m_shop −$28.83, revenue:fees −$1.17
+2   the same idempotency key again (the client's retry)         200 pay_1 (earlier pay_1); PSP calls 1
+3   $42.00, card decline                                        402 failed; 3 entries in the ledger
+4   $55.00, PSP timeout (actually charged)                      202 unknown
+5   the PSP's webhook arrived (correct signature)               200 → succeeded
+6   a fake webhook (wrong secret)                               401; pay_1 still succeeded
+7   $77.00 timeout, webhook lost; recovery job 5 minutes later  1 fixed → succeeded
+8   refund $10.00 of the $30.00                                 201 ok
+9   the same refund key again                                   200 duplicate
+10  refund another $25.00 (over the total captured)             409 exceeds
+11  matching the PSP's report at the end of the day             pay_3: 2 times at the PSP
+12  the ledger's final state                                    psp_receivable $152.00, merchant:m_shop −$146.79, revenue:fees −$5.21
+13  the sum of all entries                                      0 cents (12 entries)
 ```
 
 - ধাপ ২: client (browser বা checkout service) timeout পেয়ে একই key তে আবার ডাকল: একই payment, PSP তে একটাই call। দুই স্তরে idempotency: client → আমরা (key), আমরা → PSP (payment id)।

@@ -52,10 +52,10 @@ t = 60.1s   ৫০টা request   →  ৫০টাই MISS
 **এটা শুধু তত্ত্ব না — exercise এ তুমি এটা ঘটিয়ে দেখবে।** আমার মেশিনে মাপা:
 
 ```
-৫০টা request একসাথে, cache সদ্য খালি, DB query ~200ms:
+50 requests at once, cache just emptied, DB query ~200ms:
 
-  single-flight ছাড়া : DB query  50 টা   (802 ms)
-  single-flight সহ   : DB query   1 টা   (254 ms)
+  without single-flight : DB queries  50   (802 ms)
+  with single-flight    : DB queries   1   (254 ms)
 ```
 
 **৫০ থেকে ১।**
@@ -100,8 +100,8 @@ const inFlight = new Map<string, Promise<unknown>>();
 export async function single<T>(key: string, load: () => Promise<T>): Promise<T> {
 	const running = inFlight.get(key);
 	if (running !== undefined) {
-		// অন্য কেউ ইতিমধ্যে এই key টা load করছে — নতুন query না করে
-		// তার ফলাফলের জন্যই অপেক্ষা করো
+		// someone else is already loading this key — instead of running a new query,
+		// wait for their result
 		return (await running) as T;
 	}
 
@@ -155,7 +155,7 @@ t = 300s   ১০০০টা key একসাথে মরল  →  একস�
 
 ```typescript
 const BASE_TTL = 300;
-const ttl = BASE_TTL + Math.floor(Math.random() * 60); // ৩০০–৩৬০s
+const ttl = BASE_TTL + Math.floor(Math.random() * 60); // 300–360s
 ```
 
 এখন ওই ১০০০টা key ৬০ সেকেন্ড জুড়ে ছড়িয়ে মরবে, একসাথে না। একে বলে **TTL jitter**। এক লাইনের পরিবর্তন, কিন্তু এটা না থাকলে তোমার DB তে periodic spike আসতেই থাকবে — আর সেই spike এর কারণ খুঁজে বের করা ভয়ানক কঠিন, কারণ graph এ সেটা দেখতে "রহস্যময় প্রতি ৫ মিনিটের চূড়া" এর মতো।
@@ -202,7 +202,7 @@ GET /api/tasks/999999   →  cache এ নেই (স্বাভাবিক, �
 
 ```typescript
 if (task === null) {
-	await redis.set(key, 'NOT_FOUND', 'EX', 30); // ছোট TTL
+	await redis.set(key, 'NOT_FOUND', 'EX', 30); // short TTL
 }
 ```
 
@@ -324,7 +324,7 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 
 ```bash
 docker compose up -d && npm install && npm run seed
-npm run build && npm start     # আলাদা terminal এ
+npm run build && npm start     # in a separate terminal
 npm run stampede
 ```
 

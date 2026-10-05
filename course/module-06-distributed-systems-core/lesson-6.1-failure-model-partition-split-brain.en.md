@@ -95,9 +95,9 @@ From 1.1 we know what it's really doing: **guessing from silence.** And guesses 
 The exercise's `npm run detector` runs a primary for 24 hours. The primary is **alive** the whole time — it never crashes once. It just goes quiet now and then: 1% of heartbeats are lost on the network, and on average once every ~200 seconds the process stops (mostly briefly, like a GC; occasionally for 1–8 seconds, like a VM or disk problem):
 
 ```
-   heartbeats arrived: 852,617; the longest silence between two was 7.75 s
+   heartbeats arrived: 852,617; the longest silence between two: 7.75 s
 
-   timeout     false "dead" declarations / day     time to notice a real crash (p50 / p99)
+   timeout     false "dead" calls / day     time to notice a real crash (p50 / p99)
      150 ms           8751                101 ms /   151 ms
      300 ms            241                251 ms /   301 ms
      500 ms            102                451 ms /   501 ms
@@ -145,18 +145,18 @@ That's exactly what the exercise builds. Two real Node processes, A and B, take 
 A becomes leader, and on batch 3, right after reading the cursor, it freezes for 2.5 seconds (a synchronous busy loop — an exact imitation of a blocked event loop). `npm run split-brain`:
 
 ```
-     703 ms  A      read cursor = 3 … then the process froze (2500 ms, stop-the-world)
+     703 ms  A      read cursor = 3 … then the process stopped (2500 ms, stop-the-world)
     1793 ms  lock   lease → B (token 2)
-    1796 ms  email  B sent batch 3
+    1796 ms  email  batch 3 sent by B
     1798 ms  store  cursor 3 → 4  (B, token 2)
       …              (B sends batches 4 to 9)
     3025 ms  store  cursor 9 → 10  (B, token 2)
-    3203 ms  A      running again — it looks to me like nothing happened, sending batch 3
-    3204 ms  email  A sent batch 3   ← again! duplicate
+    3203 ms  A      running again — as far as I can tell nothing happened, sending batch 3
+    3204 ms  email  batch 3 sent by A   ← again! duplicate
     3206 ms  store  cursor 10 → 4  (A, token 1)   ← went backwards!
-    3228 ms  email  B sent batch 4   ← again! duplicate
+    3228 ms  email  batch 4 sent by B   ← again! duplicate
       …              (B faithfully sends 5, 6, 7, 8 again)
-    3408 ms  A      lease renewal failed — someone else is leader, I'm a follower
+    3408 ms  A      lease not renewed — someone else is leader, I am a follower
 
    reminder batches sent: 16 times, 10 distinct batches
    sent more than once: 6 batches  (3: B+A, 4: B+B, 5: B+B, 6: B+B, 7: B+B, 8: B+B)
@@ -243,12 +243,12 @@ But the exercise broke exactly this. To obey the lease the holder must **notice*
 `npm run fenced` — the same story, but this time the storage checks the token:
 
 ```
-    3201 ms  A      running again — it looks to me like nothing happened, sending batch 3
-    3202 ms  email  A sent batch 3   ← again! duplicate
+    3201 ms  A      running again — as far as I can tell nothing happened, sending batch 3
+    3202 ms  email  batch 3 sent by A   ← again! duplicate
     3203 ms  store  ✗ A's write rejected: token 1 < 2
-    3204 ms  A      storage rejected my write: my token 1 < 2 — I'm no longer leader, stopping
+    3204 ms  A      storage rejected the write: my token 1 < 2 — I am no longer leader, stopping
 
-   sent more than once: 1 batch  (3: B+A)
+   sent more than once: 1 batches  (3: B+A)
    writes rejected by storage: 1
 ```
 

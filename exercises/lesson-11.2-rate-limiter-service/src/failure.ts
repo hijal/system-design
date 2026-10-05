@@ -42,7 +42,7 @@ interface Policy {
 
 const policies: Policy[] = [
 	{
-		name: 'timeout নেই, উত্তরের অপেক্ষা',
+		name: 'no timeout, wait for the answer',
 		timeout: Number.POSITIVE_INFINITY,
 		mode: 'closed',
 		breaker: false,
@@ -63,14 +63,14 @@ const policies: Policy[] = [
 		slack: 1
 	},
 	{
-		name: `timeout ${TIMEOUT_MS} ms → local bucket (সীমা / N)`,
+		name: `timeout ${TIMEOUT_MS} ms → local bucket (limit / N)`,
 		timeout: TIMEOUT_MS,
 		mode: 'local',
 		breaker: false,
 		slack: 1
 	},
 	{
-		name: `+ breaker → local bucket, উদার (${SLACK} × সীমা / N)`,
+		name: `+ breaker → local bucket, generous (${SLACK} × limit / N)`,
 		timeout: TIMEOUT_MS,
 		mode: 'local',
 		breaker: true,
@@ -160,23 +160,23 @@ function simulate(policy: Policy, phase: Phase): Stats {
 }
 
 console.log(
-	`একটা Redis shard এর key গুলো: ${NORMAL_KEYS}টা সাধারণ key (চাহিদা ${NORMAL_DEMAND}/s, সীমা ${NORMAL_LIMIT}/s) আর একটা abuser (চাহিদা ${n(ABUSER_DEMAND)}/s, সীমা ${ABUSER_LIMIT}/s); ${SERVERS}টা API server, প্রতিটা অবস্থা ${PHASE_S} s`
+	`One Redis shard's keys: ${NORMAL_KEYS} ordinary keys (demand ${NORMAL_DEMAND}/s, limit ${NORMAL_LIMIT}/s) and one abuser (demand ${n(ABUSER_DEMAND)}/s, limit ${ABUSER_LIMIT}/s); ${SERVERS} API servers, ${PHASE_S} s per state`
 );
 const phases: [Phase, string][] = [
-	['healthy', `সুস্থ (store median ${HEALTHY_MS} ms)`],
-	['slow', `store ধীর (median ${SLOW_MS} ms)`],
-	['down', `store এর network এ blackhole (উত্তর আসে না; TCP ${HANG_MS / 1_000} s এ হাল ছাড়ে)`]
+	['healthy', `healthy (store median ${HEALTHY_MS} ms)`],
+	['slow', `store slow (median ${SLOW_MS} ms)`],
+	['down', `blackhole on the store's network (no answer; TCP gives up after ${HANG_MS / 1_000} s)`]
 ];
 for (const [phase, label] of phases) {
 	heading(label);
 	console.log(
 		row([
-			['নীতি', 46],
-			['বাড়তি p50', 11],
-			['বাড়তি p99', 11],
-			['server এ ঝুলে থাকা', 19],
-			['সাধারণ আটকানো', 15],
-			['abuser পেল', 12]
+			['policy', 54],
+			['extra p50', 11],
+			['extra p99', 11],
+			['hanging per server', 20],
+			['ordinary blocked', 18],
+			['abuser got', 13]
 		])
 	);
 	for (const policy of policies) {
@@ -184,16 +184,16 @@ for (const [phase, label] of phases) {
 		const mean = s.latencies.reduce((a, b) => a + b, 0) / Math.max(1, s.latencies.length);
 		console.log(
 			row([
-				[policy.name, 46],
+				[policy.name, 54],
 				[ms(percentile(s.latencies, 50)), 11],
 				[ms(percentile(s.latencies, 99)), 11],
-				[n(PER_SERVER_RPS * (mean / 1_000)), 19],
-				[pct(s.normalRejected, s.normal, 1), 15],
-				[`${(s.abuserAdmitted / PHASE_S / ABUSER_LIMIT).toFixed(1)}x সীমা`, 12]
+				[n(PER_SERVER_RPS * (mean / 1_000)), 20],
+				[pct(s.normalRejected, s.normal, 1), 18],
+				[`${(s.abuserAdmitted / PHASE_S / ABUSER_LIMIT).toFixed(1)}x limit`, 13]
 			])
 		);
 	}
 }
 console.log(
-	`\n"server এ ঝুলে থাকা" = Little's law: প্রতি API server এ ${n(PER_SERVER_RPS)} request/s × গড় অপেক্ষা — একসাথে কতগুলো request limiter এর উত্তরের অপেক্ষায়।`
+	`\n"hanging per server" = Little's law: ${n(PER_SERVER_RPS)} requests/s per API server × average wait — how many requests are waiting for the limiter's answer at once.`
 );

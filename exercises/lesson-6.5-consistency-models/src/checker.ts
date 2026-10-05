@@ -1,11 +1,11 @@
-// Lesson 6.5 — একটা ছোট consistency checker (Jepsen এর Knossos এর ধারণায়, অনেক সরল)।
+// Lesson 6.5 — a small consistency checker (in the spirit of Jepsen's Knossos, much simpler).
 //
-// History = কয়েকটা process এর read/write operation এর তালিকা, প্রতিটার শুরু আর শেষের সময় সহ।
-// প্রতিটা key একটা register, শুরুর মান 0; প্রতিটা write এর মান ওই key তে অনন্য — তাই একটা read
-// কোন write এর মান পেয়েছে ("reads-from"), সেটা নিশ্চিতভাবে জানা যায়।
+// History = a list of several processes' read/write operations, each with its start and end time.
+// Every key is a register with initial value 0; every write value is unique for that key — so which write
+// a read got its value from ("reads-from") is known for certain.
 //
-// প্রশ্ন একটাই, ভিন্ন ভিন্ন নিয়মে: "এমন কোনো একটা সারি (total order) আছে কি, যেখানে সব operation
-// একটার পর একটা ঘটেছে বলে ধরলে প্রতিটা read ঠিক আগের write এর মান পায় — আর সারিটা এই নিয়মগুলো মানে?"
+// One question, under different rules: "is there some sequence (total order) in which, taking all operations
+// as happening one after another, every read gets the value of the write just before it — and does the sequence obey these rules?"
 
 export type Op = {
 	id: number;
@@ -27,11 +27,11 @@ export function r(process: string, key: string, value: number, start: number, en
 	return { id: nextId++, process, kind: 'read', key, value, start, end };
 }
 
-// ops এর এমন একটা ক্রম খোঁজো যেটা mustPrecede মানে আর যেখানে প্রতিটা read সঠিক মান পায়।
-// Backtracking + memo (কোন op গুলো হয়ে গেছে, আর register গুলোর বর্তমান মান)।
+// find an order of ops that obeys mustPrecede and in which every read gets the right value.
+// Backtracking + memo (which ops are done, and the current values of the registers).
 function orderExists(ops: Op[], mustPrecede: (a: Op, b: Op) => boolean): boolean {
 	const n = ops.length;
-	if (n > 30) throw new Error('history খুব বড় — এই checker ৩০ টা op পর্যন্ত');
+	if (n > 30) throw new Error('history too big — this checker handles up to 30 ops');
 	const pred = ops.map((b) =>
 		ops.reduce((mask, a, i) => (a !== b && mustPrecede(a, b) ? mask | (1 << i) : mask), 0)
 	);
@@ -45,11 +45,11 @@ function orderExists(ops: Op[], mustPrecede: (a: Op, b: Op) => boolean): boolean
 		seen.add(memo);
 		for (let i = 0; i < n; i++) {
 			if (done & (1 << i)) continue;
-			if ((pred[i] ?? 0) & ~done) continue; // যাকে আগে আসতে হবে, সে এখনো আসেনি
+			if ((pred[i] ?? 0) & ~done) continue; // something that must come first has not come yet
 			const op = ops[i];
 			if (!op) continue;
 			if (op.kind === 'read') {
-				if ((state.get(op.key) ?? 0) !== op.value) continue; // এই মুহূর্তে এই read এই মান পেত না
+				if ((state.get(op.key) ?? 0) !== op.value) continue; // this read could not get this value at this point
 				if (dfs(done | (1 << i), state)) return true;
 			} else {
 				const next = new Map(state);
@@ -62,17 +62,17 @@ function orderExists(ops: Op[], mustPrecede: (a: Op, b: Op) => boolean): boolean
 	return dfs(0, new Map());
 }
 
-// Linearizable: একটা op শেষ হওয়ার পরে আরেকটা শুরু হলে (যেকোনো process এর), সারিতেও সেটা পরে।
+// Linearizable: if one op ends before another starts (in any process), it is also earlier in the sequence.
 export function linearizable(h: History): boolean {
 	return orderExists(h, (a, b) => a.end < b.start);
 }
 
-// Sequential: শুধু প্রতিটা process এর নিজের ক্রম মানতে হবে; আসল সময় (process পেরিয়ে) মানতে হয় না।
+// Sequential: only each process's own order must be kept; real time (across processes) need not be.
 export function sequential(h: History): boolean {
 	return orderExists(h, (a, b) => a.process === b.process && a.end <= b.start);
 }
 
-// Happens-before (Lesson 6.4): নিজের process এর ক্রম + reads-from (write → যে read তার মান পেল), transitive।
+// Happens-before (Lesson 6.4): each process's own order + reads-from (write → the read that got its value), transitive.
 export function happensBefore(h: History): (a: Op, b: Op) => boolean {
 	const n = h.length;
 	const index = new Map(h.map((op, i) => [op.id, i]));
@@ -93,11 +93,11 @@ export function happensBefore(h: History): (a: Op, b: Op) => boolean {
 	return (a, b) => reach[index.get(a.id) ?? -1]?.[index.get(b.id) ?? -1] ?? false;
 }
 
-// Causal: প্রতিটা process এর জন্য আলাদা — সব write আর ওই process এর নিজের read গুলো এমন একটা ক্রমে
-// সাজানো যায় যেটা happens-before মানে। (বিভিন্ন process concurrent write গুলো ভিন্ন ক্রমে দেখতে পারে।)
+// Causal: separately for each process — all writes plus that process's own reads can be put in an order
+// that obeys happens-before. (Different processes may see concurrent writes in different orders.)
 export function causal(h: History): boolean {
 	const hb = happensBefore(h);
-	if (h.some((op) => hb(op, op))) return false; // চক্র — কার্যকারণ নিজেই অসম্ভব
+	if (h.some((op) => hb(op, op))) return false; // a cycle — the causality itself is impossible
 	const processes = [...new Set(h.map((op) => op.process))];
 	return processes.every((p) =>
 		orderExists(
@@ -113,7 +113,7 @@ function source(h: History, read: Op): Op | null {
 	);
 }
 
-// Read-your-writes: নিজের write এর পরে নিজের read — শুরুর মান বা নিজের write এর আগের কোনো মান না
+// Read-your-writes: a process's own read after its own write — not the initial value or a value older than its write
 export function readYourWrites(h: History): boolean {
 	const hb = happensBefore(h);
 	return h.every((mine) => {
@@ -132,7 +132,7 @@ export function readYourWrites(h: History): boolean {
 	});
 }
 
-// Monotonic reads: একই process এর পরপর দুটো read এ দ্বিতীয়টা প্রথমটার চেয়ে পুরনো না
+// Monotonic reads: of two successive reads by the same process, the second is not older than the first
 export function monotonicReads(h: History): boolean {
 	const hb = happensBefore(h);
 	return h.every((first) =>
@@ -142,15 +142,15 @@ export function monotonicReads(h: History): boolean {
 				return true;
 			const a = source(h, first);
 			const b = source(h, second);
-			if (a === null) return true; // প্রথমটা শুরুর মান — এর চেয়ে পুরনো কিছু নেই
-			if (b === null) return false; // নতুন দেখার পরে আবার শুরুর মান
+			if (a === null) return true; // the first is the initial value — nothing is older than that
+			if (b === null) return false; // the initial value again after seeing a newer one
 			return b === a || !hb(b, a);
 		})
 	);
 }
 
-// Eventual (সীমিত রূপ): সব write থেমে যাওয়ার পরে (settleMs পরে) শুরু হওয়া read গুলো সব একই মান পায় কিনা।
-// সেরকম read না থাকলে উত্তর নেই (null) — eventual consistency কোনো সীমিত সময়ের কথা দেয় না।
+// Eventual (bounded form): do all reads that start after writes stop (settleMs later) get the same value?
+// With no such read there is no answer (null) — eventual consistency promises no bounded time.
 export function eventual(h: History, settleMs = 200): boolean | null {
 	const lastWrite = Math.max(0, ...h.filter((op) => op.kind === 'write').map((op) => op.end));
 	const late = h.filter((op) => op.kind === 'read' && op.start > lastWrite + settleMs);

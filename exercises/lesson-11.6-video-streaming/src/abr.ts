@@ -45,14 +45,14 @@ const harmonic = (values: number[]): number =>
 	values.length === 0 ? 1 : values.length / values.reduce((s, v) => s + 1 / v, 0);
 
 const policies: Policy[] = [
-	{ name: 'সবসময় 1080p', pick: () => top },
-	{ name: 'সবসময় 240p', pick: () => 0 },
+	{ name: 'always 1080p', pick: () => top },
+	{ name: 'always 240p', pick: () => 0 },
 	{
-		name: `throughput: শেষ ৩টার হারের ${SAFETY * 100}% এর নিচে সর্বোচ্চ`,
+		name: `throughput: the highest under ${SAFETY * 100}% of the last 3 rates`,
 		pick: (v) => highestUnder(harmonic(v.throughputs.slice(-3)) * SAFETY)
 	},
 	{
-		name: `buffer: ${RESERVOIR_S} s এর নিচে সর্বনিম্ন, ${CUSHION_S} s এ সর্বোচ্চ`,
+		name: `buffer: lowest below ${RESERVOIR_S} s, highest at ${CUSHION_S} s`,
 		pick: (v) =>
 			v.buffer <= RESERVOIR_S
 				? 0
@@ -62,7 +62,7 @@ const policies: Policy[] = [
 					)
 	},
 	{
-		name: 'মিশ্র: throughput, buffer কম হলে নামো, ধাপে ধাপে ওঠো',
+		name: 'mixed: throughput, drop when the buffer is low, climb step by step',
 		pick: (v) => {
 			if (v.buffer < RESERVOIR_S / 2) return 0;
 			const target = highestUnder(harmonic(v.throughputs.slice(-3)) * SAFETY);
@@ -72,15 +72,15 @@ const policies: Policy[] = [
 ];
 
 heading(
-	`${SESSIONS}টা session, প্রতিটা ${CONTENT_S / 60} মিনিটের video, ${SEGMENT_S} s এর টুকরো; mobile network ০.৪–১২ Mbps এর মধ্যে ওঠানামা করে`
+	`${SESSIONS} sessions, each a ${CONTENT_S / 60}-minute video, ${SEGMENT_S} s pieces; a mobile network swinging between 0.4 and 12 Mbps`
 );
 console.log(
 	row([
-		['নীতি', 50],
-		['শুরুর দেরি', 11],
-		['আটকে থাকা', 11],
-		['গড় bitrate', 12],
-		['quality বদল', 12]
+		['policy', 68],
+		['start-up delay', 16],
+		['stalled', 11],
+		['avg bitrate', 12],
+		['quality switches', 18]
 	])
 );
 for (const policy of policies) {
@@ -140,14 +140,14 @@ for (const policy of policies) {
 	}
 	console.log(
 		row([
-			[policy.name, 50],
-			[`${(startup / SESSIONS).toFixed(1)} s`, 11],
+			[policy.name, 68],
+			[`${(startup / SESSIONS).toFixed(1)} s`, 16],
 			[`${((stalled / (played + stalled)) * 100).toFixed(2)}%`, 11],
 			[`${(bits / (played + 1e-9)).toFixed(2)} Mbps`, 12],
-			[(switches / SESSIONS).toFixed(1), 12]
+			[(switches / SESSIONS).toFixed(1), 18]
 		])
 	);
 }
 console.log(
-	`\n"আটকে থাকা" = দেখার সময়ের কত % buffer খালি হয়ে থেমে ছিল (rebuffer)। "quality বদল" = session প্রতি গড়ে কতবার resolution বদলাল। দর্শক ${n(CONTENT_S)} s দেখে।`
+	`\n"stalled" = what % of the watching time it was stopped with an empty buffer (rebuffer). "quality switches" = how many times the resolution changed per session on average. Viewers watch ${n(CONTENT_S)} s.`
 );

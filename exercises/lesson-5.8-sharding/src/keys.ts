@@ -1,8 +1,8 @@
 import { hash32, moduloShard } from './hash';
 
-// Lesson 5.8 §১.৪ আর §১.৭ — database ছাড়া, শুধু হিসাব (deterministic, seed দেওয়া):
-//   ক. কোন shard key তে write কোথায় জমে (hot shard)
-//   খ. shard ৩ থেকে ৪ করলে কত data সরাতে হয় — hash % N বনাম consistent hashing
+// Lesson 5.8 §1.4 and §1.7 — no database, just arithmetic (deterministic, seeded):
+//   a. where writes pile up under each shard key (hot shard)
+//   b. how much data has to move going from 3 to 4 shards — hash % N vs consistent hashing
 
 const SHARDS = 4;
 const WRITES = 1_000_000;
@@ -11,7 +11,7 @@ const PROJECTS_PER_WORKSPACE = 20;
 const BIG_WORKSPACE = 7;
 const BIG_SHARE = 0.4;
 
-// ছোট একটা seeded PRNG (mulberry32) — প্রতিবার একই "random" ক্রম, যাতে ফল মেলানো যায়
+// a small seeded PRNG (mulberry32) — the same "random" sequence every time, so the results can be compared
 function mulberry32(seed: number): () => number {
 	let a = seed;
 	return () => {
@@ -24,7 +24,7 @@ function mulberry32(seed: number): () => number {
 
 type Write = { taskId: number; workspaceId: number; projectId: number; month: number };
 
-// আজকের ১০ লাখ write — ৪০% একটা বিশাল workspace থেকে, বাকিটা ছড়ানো। সব এই মাসের (১২)।
+// today's 1,000,000 writes — 40% from one huge workspace, the rest spread out. All in this month (12).
 function todaysWrites(): Write[] {
 	const random = mulberry32(42);
 	return Array.from({ length: WRITES }, (_unused, i) => {
@@ -40,8 +40,8 @@ type KeyStrategy = { label: string; shardOf: (w: Write) => number };
 const strategies: KeyStrategy[] = [
 	{ label: 'hash(workspaceId)', shardOf: (w) => moduloShard(`ws:${w.workspaceId}`, SHARDS) },
 	{ label: 'hash(taskId)', shardOf: (w) => moduloShard(`task:${w.taskId}`, SHARDS) },
-	// Range by time: মাস ১–৩ → shard0, ৪–৬ → shard1, … — নতুন data সবসময় শেষ shard এ
-	{ label: 'range(createdAt) — ত্রৈমাসিক', shardOf: (w) => Math.floor((w.month - 1) / 3) },
+	// Range by time: months 1–3 → shard0, 4–6 → shard1, … — new data always on the last shard
+	{ label: 'range(createdAt) — quarterly', shardOf: (w) => Math.floor((w.month - 1) / 3) },
 	{
 		label: 'hash(workspaceId, projectId)',
 		shardOf: (w) => moduloShard(`ws:${w.workspaceId}:p:${w.projectId}`, SHARDS)
@@ -50,11 +50,11 @@ const strategies: KeyStrategy[] = [
 
 function writeDistribution(writes: Write[]): void {
 	console.log(
-		`\nক. আজকের ${WRITES.toLocaleString('en-US')}টা write, ${SHARDS}টা shard — কোন shard key তে কোথায় জমে?`
+		`\na. Today's ${WRITES.toLocaleString('en-US')} writes, ${SHARDS} shards — where do writes pile up under each shard key?`
 	);
-	console.log('   (৪০% write একটা workspace থেকে — একটা বিশাল enterprise customer)\n');
+	console.log('   (40% of writes come from one workspace — a huge enterprise customer)\n');
 	console.log(
-		`   ${'shard key'.padEnd(30)} ${'প্রতিটা shard এ write এর ভাগ'.padEnd(32)} সবচেয়ে ব্যস্ত   workspace ${BIG_WORKSPACE} এর data কয়টা shard এ`
+		`   ${'shard key'.padEnd(30)} ${'share of writes per shard'.padEnd(32)} busiest   shards holding workspace ${BIG_WORKSPACE}'s data`
 	);
 	for (const strategy of strategies) {
 		const counts = new Array<number>(SHARDS).fill(0);
@@ -67,15 +67,15 @@ function writeDistribution(writes: Write[]): void {
 		const shares = counts.map((c) => `${((c / WRITES) * 100).toFixed(0).padStart(3)}%`).join(' ');
 		const busiest = Math.max(...counts) / WRITES;
 		console.log(
-			`   ${strategy.label.padEnd(30)} ${shares.padEnd(32)} ${`${(busiest * 100).toFixed(0)}%`.padStart(8)}        ${bigShards.size}টা`
+			`   ${strategy.label.padEnd(30)} ${shares.padEnd(32)} ${`${(busiest * 100).toFixed(0)}%`.padStart(8)}        ${bigShards.size}`
 		);
 	}
-	console.log(`\n   (সমান ভাগ হলে প্রতিটা shard এ ${(100 / SHARDS).toFixed(0)}%)`);
+	console.log(`\n   (an even split would be ${(100 / SHARDS).toFixed(0)}% per shard)`);
 }
 
-// Consistent hashing — এখানে শুধু ধারণা দেখানোর মতো ছোট একটা রূপ; পূর্ণ গভীরতা Lesson 10.1 এ।
-// প্রতিটা shard কে একটা বৃত্তের (ring) উপর অনেকগুলো বিন্দুতে বসানো (virtual node); একটা key
-// যায় বৃত্তে তার ঘড়ির কাঁটার দিকে পরের বিন্দুর shard এ।
+// Consistent hashing — here only a small version, enough to show the idea; full depth in Lesson 10.1.
+// Every shard is placed at many points on a circle (ring) (virtual nodes); a key
+// goes to the shard of the next point clockwise from it on the circle.
 function buildRing(shardCount: number, virtualNodes = 200): { point: number; shard: number }[] {
 	const ring: { point: number; shard: number }[] = [];
 	for (let shard = 0; shard < shardCount; shard++) {
@@ -101,7 +101,7 @@ function resharding(): void {
 	const KEYS = 100_000;
 	const keys = Array.from({ length: KEYS }, (_unused, i) => `ws:${i + 1}`);
 	console.log(
-		`\nখ. Shard ৩ থেকে ৪ করা — ${KEYS.toLocaleString('en-US')}টা workspace এর কতগুলো অন্য shard এ সরাতে হবে?\n`
+		`\nb. Going from 3 to 4 shards — how many of ${KEYS.toLocaleString('en-US')} workspaces must move to another shard?\n`
 	);
 
 	const movedModulo = keys.filter((k) => moduloShard(k, 3) !== moduloShard(k, 4)).length;
@@ -111,12 +111,12 @@ function resharding(): void {
 	const pct = (n: number): string => `${((n / KEYS) * 100).toFixed(1)}%`;
 
 	console.log(
-		`   hash % N              ${movedRing > 0 ? pct(movedModulo).padStart(6) : ''}   (${movedModulo.toLocaleString('en-US')}টা)`
+		`   hash % N              ${movedRing > 0 ? pct(movedModulo).padStart(6) : ''}   (${movedModulo.toLocaleString('en-US')})`
 	);
 	console.log(
-		`   consistent hashing    ${pct(movedRing).padStart(6)}   (${movedRing.toLocaleString('en-US')}টা)`
+		`   consistent hashing    ${pct(movedRing).padStart(6)}   (${movedRing.toLocaleString('en-US')})`
 	);
-	console.log(`   আদর্শ (শুধু নতুন shard এর ভাগটুকু = ১/৪)   ${pct(KEYS / 4).padStart(6)}`);
+	console.log(`   ideal (only the new shard's share = 1/4)   ${pct(KEYS / 4).padStart(6)}`);
 }
 
 function main(): void {

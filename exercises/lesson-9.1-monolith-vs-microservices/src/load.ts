@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { PROJECTS } from './domain';
 import { percentile } from './random';
 
-// Board এর load: CONCURRENCY জন client, প্রত্যেকে একটার পর একটা board খোলে, DURATION_MS ধরে।
-// প্রতিটা client একটা নির্দিষ্ট ক্রমে project ঘোরে — প্রতিবার একই।
+// The board's load: CONCURRENCY clients, each opening boards one after another, for DURATION_MS.
+// Every client goes through the projects in a fixed order — the same every time.
 
 const boardSchema = z.object({
 	projectId: z.number(),
@@ -64,7 +64,7 @@ export async function boardLoad(
 	};
 }
 
-// একটা board খুলে দেখা যে দুই পথে হুবহু একই উত্তর আসে
+// open one board and check that both paths return exactly the same answer
 export async function fetchBoard(baseUrl: string, projectId: number): Promise<unknown> {
 	const res = await fetch(`${baseUrl}/board/${projectId}`);
 	return res.json();

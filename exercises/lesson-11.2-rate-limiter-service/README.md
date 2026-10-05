@@ -59,51 +59,51 @@ npm run smoke
 `npm run estimate` — সব নিয়ম একটা Lua script এ রাখলে op আর খরচ অর্ধেক:
 
 ```
-প্রতি নিয়মে আলাদা Redis call                            1,000,000          20      300 MB/s         $10,368
-সব নিয়ম একটা Lua script এ (একই shard এ)              500,000          10      150 MB/s          $5,184
+a separate Redis call per rule                    1,000,000          20      300 MB/s         $10,368
+all rules in one Lua script (on the same shard)    500,000          10      150 MB/s          $5,184
 ```
 
 `npm run accuracy` — atomic না হলে race এ সীমা ফাঁস; async sync আক্রমণে ২ গুণ; সীমা ভাগ করা skewed traffic এ ভুল আটকায়;
 lease × server burst ছাড়ালে ভুল আটকানো লাফায়:
 
 ```
-── আক্রমণ: চাহিদা সীমার ২০ গুণ, 50টা server এ সমান ভাগে ──
-কেন্দ্রে, প্রতি request এ, atomic (Lua)                   1,020   1.02x             1.20x    94.9%        20,033    0.50 ms    1.27 ms
-কেন্দ্রে, GET তারপর SET (atomic না)                      5,799   5.80x             7.33x    71.1%        40,065    1.04 ms    2.04 ms
-local + প্রতি 100 ms এ sync (async)                 2,016   2.02x             2.08x    89.9%           495    0.00 ms    0.00 ms
-── চাহিদা সীমার ৮০% (কাউকে আটকানো উচিত না), 90% traffic 5টা server এ ──
-সীমা ভাগ করে (প্রতি server এ সীমা / N)                      176   0.18x             0.20x    78.3%             0    0.00 ms    0.00 ms
-token lease (4টা একসাথে, না পেলে অপেক্ষা)                    813   0.81x             0.88x     0.0%           215    0.00 ms    0.99 ms
+── attack: demand 20× the limit, spread evenly over 50 servers ──
+central, every request, atomic (Lua)                   1,020     1.02x             1.20x    94.9%        20,033    0.50 ms    1.27 ms
+central, GET then SET (not atomic)                     5,799     5.80x             7.33x    71.1%        40,065    1.04 ms    2.04 ms
+local + sync every 100 ms (async)                      2,016     2.02x             2.08x    89.9%           495    0.00 ms    0.00 ms
+── demand at 80% of the limit (nobody should be blocked), 90% of traffic on 5 servers ──
+split the limit (limit / N on each server)               176     0.18x             0.20x    78.3%             0    0.00 ms    0.00 ms
+token lease (4 at a time, wait if not granted)           813     0.81x             0.88x     0.0%           215    0.00 ms    0.99 ms
 20                 1,000                   0.89x           341             11.6%           108
 ```
 
 `npm run hotkey` — shard দ্বিগুণ করলে ব্যস্ততম shard প্রায় একই; lease বা key ভাগ করলে নামে:
 
 ```
-প্রতি request এ এক op, 16টা shard                    500,000     31,250         63,494      63%         2.03x
-একই, 32টা shard                                   500,000     15,625         52,306      52%         3.35x
-বড় tenant (> 1,000/s) এ lease                    413,256     25,828         33,521      34%         1.30x
+one op per request, 16 shards                    500,000     31,250         63,494          63%          2.03x
+the same, 32 shards                              500,000     15,625         52,306          52%          3.35x
+leases on big tenants (> 1,000/s)                413,256     25,828         33,521          34%          1.30x
 ```
 
 `npm run failure` — timeout ছাড়া blackhole এ প্রতি server এ হাজার হাজার ঝুলে থাকা request; breaker + উদার fallback এ বাড়তি
 latency শূন্য, দাম abuser এর ৩ গুণ:
 
 ```
-timeout নেই, উত্তরের অপেক্ষা                              30.00 s    30.00 s             37,500           0.0%     1.0x সীমা
-timeout 5 ms → local bucket (সীমা / N)              5.00 ms    5.00 ms                  6          16.2%     1.0x সীমা
-+ breaker → local bucket, উদার (3 × সীমা / N)        0.00 ms    0.00 ms                  0           0.0%     3.1x সীমা
+no timeout, wait for the answer                           30.00 s    30.00 s              37,500              0.0%   1.0x limit
+timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms                   6             16.2%   1.0x limit
++ breaker → local bucket, generous (3 × limit / N)        0.00 ms    0.00 ms                   0              0.0%   3.1x limit
 ```
 
 `npm run smoke` — দুটো API server মিলে ঠিক ১০টা; lease এ ১০০ request এ ২০টা call; limiter ধীর বা বন্ধ হলেও API দ্রুত উত্তর
 দেয়, login fail closed:
 
 ```
-1   key acme: A তে ১৫টা, B তে ১৫টা, পালা করে                         A: 200 × 5, 429 × 10 | B: 200 × 5, 429 × 10
-5   key big-co: lease (৫টা) সহ API তে ১০০টা                      200 × 100; limiter এ 20টা lease call
-6   limiter ২০০ ms ধীর, timeout ২০ ms: GET /data (local)       200, উৎস: fallback, ১০০ ms এর কম
-7   একই সময়ে POST /login (fail closed)                         503, Retry-After: 1, ১০০ ms এর কম
-9   তার মধ্যে limiter এর দিকে network call                          3টা (breaker ৩টা ব্যর্থতায় খোলে)
-11  limiter ফিরল, breaker এর ৩০০ ms পরে                         200, উৎস: limiter, network call 1টা
+1   key acme: 15 on A, 15 on B, alternating                   A: 200 × 5, 429 × 10 | B: 200 × 5, 429 × 10
+5   key big-co: 100 to the API with leases (5)                200 × 100; 20 lease calls to the limiter
+6   limiter 200 ms slow, timeout 20 ms: GET /data (local)     200, source: fallback, under 100 ms
+7   at the same time POST /login (fail closed)                503, Retry-After: 1, under 100 ms
+9   network calls toward the limiter during that              3 (the breaker opens after 3 failures)
+11  limiter back, 300 ms after the breaker                    200, source: limiter, 1 network call(s)
 ```
 
 ## কী দেখার জন্য এটা বানানো

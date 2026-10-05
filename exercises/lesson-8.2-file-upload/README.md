@@ -44,10 +44,10 @@ npm install
 ## Run
 
 ```bash
-npm run through-app   # ~৩০ সেকেন্ড
-npm run presign       # ~৫ সেকেন্ড (একটা মেয়াদ শেষ হওয়ার অপেক্ষা সহ)
-npm run resume        # ~১ মিনিট
-npm run cdn           # ~১৫ সেকেন্ড
+npm run through-app   # ~30 seconds
+npm run presign       # ~5 seconds (including waiting for one expiry)
+npm run resume        # ~1 minute
+npm run cdn           # ~15 seconds
 ```
 
 Teardown:
@@ -61,11 +61,11 @@ docker compose down -v
 `npm run through-app` (এই মেশিনে):
 
 ```
-   পথ                                       app এর memory (শুরু → সর্বোচ্চ)   app এ একসাথে খোলা upload   app এর ভেতর দিয়ে   ping p50 / p99      event loop দেরি p99 / max   সব upload শেষ
-   শুধু ping                                            81 → 99 MB                        0             0.0 MB   0.5 ms / 2.1 ms              1.5 ms / 6.2 ms              —
-   buffer (পুরো file memory তে)                       79 → 1159 MB                        8          1024.0 MB   0.4 ms / 2.2 ms            1.8 ms / 434.6 ms        13.71 s
-   stream (app এর ভেতর দিয়ে বয়ে যায়)                80 → 111 MB                        8          1024.0 MB   0.5 ms / 1.3 ms             1.6 ms / 19.5 ms         8.19 s
-   presigned (সরাসরি object storage এ)                  79 → 99 MB                        0             0.0 MB   0.5 ms / 1.2 ms             1.6 ms / 16.7 ms         8.19 s
+   path                                      app memory start→peak     uploads open at once    through the app   ping p50 / p99          event loop p99 / max   uploads done
+   ping only                                            81 → 99 MB                        0             0.0 MB   0.5 ms / 2.1 ms              1.5 ms / 6.2 ms              —
+   buffer (whole file in memory)                      79 → 1159 MB                        8          1024.0 MB   0.4 ms / 2.2 ms            1.8 ms / 434.6 ms        13.71 s
+   stream (flows through the app)                      80 → 111 MB                        8          1024.0 MB   0.5 ms / 1.3 ms             1.6 ms / 19.5 ms         8.19 s
+   presigned (straight to object storage)               79 → 99 MB                        0             0.0 MB   0.5 ms / 1.2 ms             1.6 ms / 16.7 ms         8.19 s
 ```
 
 মিলতে হবে: buffer এ memory কয়েকশো MB থেকে GB এর ঘরে; stream এ memory প্রায় সমান কিন্তু ৮টা upload খোলা আর ১ GB app এর ভেতর
@@ -74,65 +74,65 @@ docker compose down -v
 `npm run presign`:
 
 ```
-── Upload এর presigned URL (PUT) ──
-    1. ঠিক file, ঠিক content-type                                     → 200
-    2. একই URL দিয়ে আবার (মেয়াদের মধ্যে)                            → 200
-    3. একই URL, content-type বদলে (text/html)                         → 403
-    4. URL এর key বদলে অন্য object এ লেখার চেষ্টা                     → 403
-    5. বড় file, একই URL (আকার sign করা)                              → 403
-    6. মেয়াদ ২ s, ৩.৫ s পরে ব্যবহার                                  → 403
-    7. আকার sign না করা URL এ ৫০ গুণ বড় file                         → 200
-    8. SDK এর default checksum সহ sign করা URL                        → 400 BadDigest
+── Presigned URL for upload (PUT) ──
+    1. correct file, correct content-type                             → 200
+    2. the same URL again (before expiry)                             → 200
+    3. the same URL, content-type changed (text/html)                 → 403
+    4. changing the URL's key to write to another object              → 403
+    5. a bigger file, the same URL (size signed)                      → 403
+    6. expiry 2 s, used after 3.5 s                                   → 403
+    7. a file 50 times bigger on a URL without the size signed        → 200
+    8. URL signed with the SDK's default checksum                     → 400 BadDigest
 
-── Confirm: browser বলল "শেষ", app যাচাই করে ──
-       ঠিকঠাক upload                            → ready (ETag "…")
-       URL নিয়েছে, upload করেনি                → rejected: object নেই — upload হয়নি
-       আকার sign ছিল না, বড় file এসেছে         → rejected: আকার 1500 (বলা ছিল 30) — object মুছে ফেলা হলো
+── Confirm: the browser said "done", the app verifies ──
+       correct upload                           → ready (ETag "…")
+       took the URL, never uploaded             → rejected: no object — not uploaded
+       size not signed, a bigger file arrived   → rejected: size 1500 (declared 30) — object deleted
 
-── Download এর presigned URL (GET) ──
-    9. presigned GET                                                  → 200 · attachment; filename*=UTF-8''…
-   10. একই object, signature ছাড়া                                    → 403
+── Presigned URL for download (GET) ──
+    9. presigned GET                                                  → 200 · attachment; filename*=UTF-8''Release%20notes%20%E2%80%94%20v2.1.pdf
+   10. the same object, without a signature                           → 403
 
 ── CORS … (preflight) ──
        https://app.taskflow.test                → 200 · allow-origin: https://app.taskflow.test
-       https://evil.example                     → 403 · allow-origin: (নেই)
+       https://evil.example                     → 403 · allow-origin: (none)
 ```
 
 `npm run resume` (seed ১১):
 
 ```
-   পদ্ধতি                               শেষ হলো?   পাঠানো      file এর কত গুণ   request   ছিঁড়েছে   আনুমানিক সময়   MD5 মিলেছে   ETag
-   একটা PUT, network ঠিক থাকলে             হ্যাঁ    200.0 MB           1.00         1         0      1.3 মিনিট       হ্যাঁ   "…"
-   একটা PUT, ভাঙা network                     না    819.3 MB           4.10        15        15      5.5 মিনিট           —
-   multipart, 5 MB part                    হ্যাঁ    208.0 MB           1.04        44         4      1.5 মিনিট       হ্যাঁ   "…-40"
-   multipart, 16 MB part                   হ্যাঁ    238.0 MB           1.19        17         4      1.6 মিনিট       হ্যাঁ   "…-13"
-   multipart, 64 MB part                   হ্যাঁ    758.7 MB           3.79        18        14      5.1 মিনিট       হ্যাঁ   "…-4"
-   multipart, 16 MB, মাঝপথে tab বন্ধ       হ্যাঁ    238.0 MB           1.19        17         4      1.6 মিনিট       হ্যাঁ   "…-13"
-                                        13 টা part, 4 টা আবার · tab বন্ধের পরে 6 টা আগে থেকেই ছিল
+   method                                  done?        sent    × file size  requests      torn      est. time   MD5 match   ETag
+   one PUT, network fine                     yes    200.0 MB           1.00         1         0        1.3 min         yes   "…"
+   one PUT, broken network                    no    819.3 MB           4.10        15        15        5.5 min           —
+   multipart, 5 MB part                      yes    208.0 MB           1.04        44         4        1.5 min         yes   "…-40"
+   multipart, 16 MB part                     yes    238.0 MB           1.19        17         4        1.6 min         yes   "…-13"
+   multipart, 64 MB part                     yes    758.7 MB           3.79        18        14        5.1 min         yes   "…-4"
+   multipart, 16 MB, tab closed midway       yes    238.0 MB           1.19        17         4        1.6 min         yes   "…-13"
+                                        13 parts, 4 resent · after closing the tab 6 were already there
 
-── Model: একই network, 1000 টা আলাদা seed (IO ছাড়া, শুধু byte এর হিসাব) ──
-   পদ্ধতি                    শেষ হলো    পাঠানো (গড়, file এর গুণ)   সময় গড়      সময় p95      request গড়
-   একটা PUT                      43%                       2.61    3.5 মিনিট    6.5 মিনিট            7
-   multipart, 5 MB part         100%                       1.04    1.5 মিনিট    1.6 মিনিট           43
-   multipart, 16 MB part        100%                       1.14    1.6 মিনিট    1.8 মিনিট           17
-   multipart, 64 MB part        100%                       1.76    2.4 মিনিট    3.7 মিনিট           10
+── Model: the same network, 1000 different seeds (no IO, just byte accounting) ──
+   method                       done    sent (avg, × file size)     time avg     time p95     requests
+   one PUT                       43%                       2.61      3.5 min      6.5 min            7
+   multipart, 5 MB part         100%                       1.04      1.5 min      1.6 min           43
+   multipart, 16 MB part        100%                       1.14      1.6 min      1.8 min           17
+   multipart, 64 MB part        100%                       1.76      2.4 min      3.7 min           10
 
-── অসমাপ্ত upload (৩টা part পাঠিয়ে user চলে গেল) ──
-   LIST objects এ দেখা যায়: 0 টা · অসমাপ্ত multipart upload: 1 টা, part গুলোর জায়গা 24.0 MB
-   AbortMultipartUpload এর পরে অসমাপ্ত upload: 0 টা
+── Unfinished upload (3 parts sent, then the user left) ──
+   visible in LIST objects: 0 · unfinished multipart uploads: 1, space used by parts 24.0 MB
+   unfinished uploads after AbortMultipartUpload: 0
 ```
 
 `npm run cdn`:
 
 ```
-   300 জন viewer · প্রত্যেকে জনপ্রিয় 5 MB file + 4 টা অন্য file (200 টা 300 KB এর মধ্যে) = 1500 টা download
+   300 viewers · each opens the popular 5 MB file + 4 other files (among 200 files of 300 KB) = 1500 downloads
 
-   পথ                                          download   cache hit   object storage এ request   object storage থেকে বেরোল
-   CDN নেই — সরাসরি presigned GET                  1500          0%                       1500                  1851.6 MB
-   CDN + প্রত্যেকের নিজের presigned URL            1500          0%                       1500                  1851.6 MB
-   CDN + CDN এর signed token (path এ cache)        1500         87%                        200                    63.3 MB
+   path                                        download   cache hit    object storage requests      object storage egress
+   no CDN — presigned GET directly                 1500          0%                       1500                  1851.6 MB
+   CDN + each viewer's own presigned URL           1500          0%                       1500                  1851.6 MB
+   CDN + the CDN's signed token (path cached)      1500         87%                        200                    63.3 MB
 
-   token এক file এর, চাওয়া অন্য workspace এর file: 403 · মেয়াদ পেরোনো token: 403
+   token for one file, a file from another workspace requested: 403 · expired token: 403
 ```
 
 ## কী দেখার জন্য এটা বানানো

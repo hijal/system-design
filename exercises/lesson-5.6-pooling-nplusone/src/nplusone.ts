@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { createSequelize } from './db';
 import { Member, Project, Task, User, initModels } from './models';
 
-// Lesson 5.6 — একই dashboard এর data, চারভাবে আনা:
-// "workspace এর ৫০টা project, প্রতিটার task, প্রতিটা task এর assignee এর নাম"
+// Lesson 5.6 — the same dashboard's data, fetched four ways:
+// "the workspace's 50 projects, each one's tasks, each task's assignee's name"
 
 const PROJECTS = 50;
 const TASKS_PER_PROJECT = 20;
@@ -13,9 +13,9 @@ const MEMBERS_PER_PROJECT = 10;
 const USERS = 200;
 const ROUNDS = 5;
 
-// প্রতিটা query গোনা — Sequelize এর logging callback প্রতিটা SQL এর জন্য একবার ডাকা হয়
+// counting every query — Sequelize's logging callback is called once for every SQL
 const executed: string[] = [];
-let counting = true; // seed এর সময় বন্ধ
+let counting = true; // off during the seed
 const sequelize = createSequelize({ max: 10 }, (sql: string): void => {
 	if (counting) executed.push(sql.replace(/^Executing \([^)]*\): /, ''));
 });
@@ -23,21 +23,21 @@ initModels(sequelize);
 
 type Row = { project: string; task: string; assignee: string };
 
-// ── ক. N+1 — "স্বাভাবিকভাবে" লেখা code ─────────────────────────────────────
+// ── a. N+1 — code written "the natural way" ─────────────────────────────────
 async function nPlusOne(): Promise<Row[]> {
 	const rows: Row[] = [];
-	const projects = await Project.findAll({ order: [['id', 'ASC']] }); // ১টা query
+	const projects = await Project.findAll({ order: [['id', 'ASC']] }); // 1 query
 	for (const project of projects) {
-		const tasks = await Task.findAll({ where: { projectId: project.id }, order: [['id', 'ASC']] }); // N টা
+		const tasks = await Task.findAll({ where: { projectId: project.id }, order: [['id', 'ASC']] }); // N
 		for (const task of tasks) {
-			const assignee = await User.findByPk(task.assigneeId); // আরও N×M টা
+			const assignee = await User.findByPk(task.assigneeId); // N×M more
 			rows.push({ project: project.name, task: task.title, assignee: assignee?.name ?? '?' });
 		}
 	}
 	return rows;
 }
 
-// ── খ. include — একটা JOIN query ─────────────────────────────────────────────
+// ── b. include — one JOIN query ─────────────────────────────────────────────
 async function eager(): Promise<Row[]> {
 	const projects = await Project.findAll({
 		include: [{ model: Task, as: 'tasks', include: [{ model: User, as: 'assignee' }] }],
@@ -55,7 +55,7 @@ async function eager(): Promise<Row[]> {
 	);
 }
 
-// ── গ. Batching — প্রতিটা স্তরে একটা `IN (...)` query (DataLoader এর ধারণা) ────
+// ── c. Batching — one `IN (...)` query per level (the DataLoader idea) ──────
 async function batched(): Promise<Row[]> {
 	const projects = await Project.findAll({ order: [['id', 'ASC']] });
 	const tasks = await Task.findAll({
@@ -74,7 +74,7 @@ async function batched(): Promise<Row[]> {
 	}));
 }
 
-// ── Cartesian explosion — দুটো hasMany একসাথে include ────────────────────────
+// ── Cartesian explosion — two hasMany included together ─────────────────────
 async function twoHasManyJoined(): Promise<number> {
 	const projects = await Project.findAll({
 		include: [
@@ -88,7 +88,7 @@ async function twoHasManyJoined(): Promise<number> {
 async function twoHasManySeparate(): Promise<number> {
 	const projects = await Project.findAll({
 		include: [
-			{ model: Task, as: 'tasks', separate: true }, // আলাদা query: WHERE projectId IN (...)
+			{ model: Task, as: 'tasks', separate: true }, // separate query: WHERE projectId IN (...)
 			{ model: Member, as: 'members', separate: true }
 		]
 	});
@@ -97,7 +97,7 @@ async function twoHasManySeparate(): Promise<number> {
 
 const countRow = z.array(z.object({ n: z.coerce.number() })).length(1);
 
-// Database আসলে কতগুলো row পাঠাল — প্রতিটা চালানো SQL কে count(*) দিয়ে মুড়ে গোনা
+// how many rows the database actually sent — counted by wrapping every executed SQL in count(*)
 async function rowsReturned(sqls: string[]): Promise<number> {
 	let total = 0;
 	for (const sql of sqls) {
@@ -159,31 +159,31 @@ function line(label: string, m: Measured, projectedRttMs: number): string {
 
 async function main(): Promise<void> {
 	await seed();
-	const RTT = 1; // production এ app আর DB আলাদা machine এ — প্রতি round trip ~১ ms ধরে হিসাব
+	const RTT = 1; // in production the app and DB are on separate machines — calculated at ~1 ms per round trip
 
-	// আগে correctness — তিনটাই একই data দেয় কিনা
+	// correctness first — whether all three give the same data
 	const [a, b, c] = [await nPlusOne(), await eager(), await batched()];
 	const same = JSON.stringify(a) === JSON.stringify(b) && JSON.stringify(b) === JSON.stringify(c);
 	console.log(
-		`\n১. Dashboard: ${PROJECTS}টা project → ${a.length}টা task → assignee এর নাম   (তিনটার ফল এক? ${same})`
+		`\n1. Dashboard: ${PROJECTS} projects → ${a.length} tasks → assignee names   (same result for all three? ${same})`
 	);
-	console.log(`   ${'পদ্ধতি'.padEnd(30)}  query     rows   মাপা সময়   +${RTT}ms RTT হলে*`);
-	console.log(line('ক. N+1 (loop এ findByPk)', await measure(nPlusOne), RTT));
-	console.log(line('খ. include (একটা JOIN)', await measure(eager), RTT));
-	console.log(line('গ. batching (IN দিয়ে ৩টা)', await measure(batched), RTT));
+	console.log(`   ${'approach'.padEnd(30)}queries     rows     measured   +${RTT} ms RTT*`);
+	console.log(line('a. N+1 (findByPk in a loop)', await measure(nPlusOne), RTT));
+	console.log(line('b. include (one JOIN)', await measure(eager), RTT));
+	console.log(line('c. batching (3 with IN)', await measure(batched), RTT));
 
 	console.log(
-		`\n২. দুটো hasMany একসাথে: project → tasks (${TASKS_PER_PROJECT}টা) + members (${MEMBERS_PER_PROJECT}টা)`
+		`\n2. Two hasMany at once: project → tasks (${TASKS_PER_PROJECT}) + members (${MEMBERS_PER_PROJECT})`
 	);
-	console.log(`   ${'পদ্ধতি'.padEnd(30)}  query     rows   মাপা সময়   +${RTT}ms RTT হলে*`);
-	console.log(line('include, একটা JOIN', await measure(twoHasManyJoined), RTT));
+	console.log(`   ${'approach'.padEnd(30)}queries     rows     measured   +${RTT} ms RTT*`);
+	console.log(line('include, one JOIN', await measure(twoHasManyJoined), RTT));
 	console.log(line('include, separate: true', await measure(twoHasManySeparate), RTT));
 
 	console.log(
-		`\n   * মাপা সময় এই মেশিনে (DB একই মেশিনে, round trip প্রায় শূন্য)। শেষ কলাম একটা হিসাব,`
+		`\n   * measured time on this machine (DB on the same machine, round trip near zero). The last column is a calculation,`
 	);
 	console.log(
-		`     মাপা না: মাপা সময় + query সংখ্যা × ${RTT} ms — app আর DB আলাদা machine এ থাকলে যা হতো।\n`
+		`     not a measurement: measured time + query count × ${RTT} ms — what it would be with the app and DB on separate machines.\n`
 	);
 	await sequelize.close();
 }

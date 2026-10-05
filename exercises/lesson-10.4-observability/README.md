@@ -60,12 +60,12 @@ npm run trace
 `npm run percentiles` — গড় ১৭২ ms (সবুজ), p99 ৩.৭৯ s; মিনিটের p99 এর গড় ৬১৭ ms (মিথ্যা); replica ধরে ভাগ করলে শুধু r3:
 
 ```
-গড়               p50       p90       p99     p99.9       max     > 1 s
+average          p50       p90       p99     p99.9       max     > 1 s
 172 ms         79 ms    132 ms    3.79 s    4.50 s    4.77 s     2.50%
 
-আসল p99 (সব request একসাথে)               3.79 s
-৬০টা মিনিটের p99 এর গড়                      617 ms
-৬০টা মিনিটের p99 এর median                  187 ms
+true p99 (all requests together)            3.79 s
+average of the 60 minutes' p99              617 ms
+median of the 60 minutes' p99               187 ms
 
 replica r1       359,847     84 ms     78 ms    185 ms     0.00%
 replica r2       360,375     84 ms     78 ms    187 ms     0.00%
@@ -75,10 +75,10 @@ replica r3       359,778    346 ms     81 ms    4.31 s     7.49%
 `npm run cardinality` — চারটা সাধারণ label এ ২,৪০০টা series; আসল path বা `user_id` দিলে ২৫ লাখ:
 
 ```
-label                               counter series   histogram (×15)      আনুমানিক memory
+label                                   counter series   histogram (×15)    approx. memory
 method, route, status, instance              2,400            36,000            103 MB
 + plan (free/pro/business)                   7,114           106,710            305 MB
-route এর বদলে আসল path                    2,529,996        37,949,940            106 GB
+the real path instead of the route           2,529,996        37,949,940            106 GB
 + user_id                                2,534,244        38,013,660            106 GB
 + trace_id                               8,640,000       129,600,000            362 GB
 ```
@@ -87,23 +87,23 @@ route এর বদলে আসল path                    2,529,996        37,
 service নিজে sample করলে প্রায় কোনো trace পুরো না:
 
 ```
-নীতি                            রাখা trace    পুরো trace     error        ধীর   বিরল bug      জমা/দিন   collector এ আসে
-সব রাখো                       25,920,000    100.000%    13,088   130,236     45/45     193 GB           193 GB
-head ১%                        259,702    100.000%       129     1,319      0/45     1.9 GB           1.9 GB
-tail: error + ধীর + ১%          401,513    100.000%    13,088   130,236     45/45     3.0 GB           193 GB
-প্রতি service নিজে ১০%           10,620,422      0.002%         0         2      0/45     1.9 MB          19.3 GB
+policy                      traces kept  full trace     error      slow  rare bug  stored/day   into collector
+keep all                    25,920,000    100.000%    13,088   130,236     45/45     193 GB           193 GB
+head 1%                        259,702    100.000%       129     1,319      0/45     1.9 GB           1.9 GB
+tail: error + slow + 1%        401,513    100.000%    13,088   130,236     45/45     3.0 GB           193 GB
+each service its own 10%    10,620,422      0.002%         0         2      0/45     1.9 MB          19.3 GB
 ```
 
 `npm run alerts` — স্থির ১% এর নিয়ম ধীর ক্ষয় কখনো ধরে না আর সপ্তাহে ৭বার deploy এর জন্য জাগায়; multi-window কাউকে
 অকারণে জাগায় না আর ধীর ক্ষয় ধরে ticket হিসেবে:
 
 ```
-ঘটনা                                  budget খেল     error > ১%, ৫ মি   error > 0.1%, ৫ মি    burn > 14.4, ১ ঘ        multi-window
-বড় outage: ৩০ মিনিট, ২০%                   13.9%          1 মি (0.5%)          1 মি (0.5%)          5 মি (2.3%)          5 মি (2.3%)
-মাঝারি: ২ ঘণ্টা, ১.৫%                           4.1%          4 মি (0.1%)          1 মি (0.0%)         58 মি (2.0%)         58 মি (2.0%)
-ধীর ক্ষয়: ৩ দিন, ০.৪%                        38.4%                 ধরেনি          2 মি (0.0%)                 ধরেনি ticket 14.4 ঘ (7.7%)
+event                               budget used   error > 1%, 5 min  error > 0.1%, 5 min    burn > 14.4, 1 h        multi-window
+big outage: 30 minutes, 20%              13.9%        1 min (0.5%)        1 min (0.5%)        5 min (2.3%)        5 min (2.3%)
+medium: 2 hours, 1.5%                     4.1%        4 min (0.1%)        1 min (0.0%)       58 min (2.0%)       58 min (2.0%)
+slow burn: 3 days, 0.4%                  38.4%              missed        2 min (0.0%)              missed  ticket 14.4 h (7.7%)
 
-কিছু না (শুধু deploy এর ঝাঁকুনি)                              7                   7                   0                   0
+nothing (only the deploy blip)                       7                   7                   0                   0
 ```
 
 `npm run trace` — সবচেয়ে ধীর request এর ১.২ সেকেন্ডের পুরোটা একটা span এ (`db.query tasks r3`); header না পাঠালে ৩০টা
@@ -121,8 +121,8 @@ gateway · GET /boards/:id                   1,203 ms   |███████�
         billing · GET /plan/:id                15 ms   |█                                       |
 
                               span   trace
-header পাঠালে                     270      30
-bff header না পাঠালে               270      90
+with the header                270      30
+bff without the header         270      90
 ```
 
 ## কী দেখার জন্য এটা বানানো

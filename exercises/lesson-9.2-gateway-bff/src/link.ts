@@ -1,9 +1,9 @@
 import { httpGet } from './http';
 
-// Browser আর data center এর মাঝের link এর একটা সরল model:
-//   - প্রতিটা request এ একটা round trip (RTT) — অর্ধেক যেতে, অর্ধেক ফিরতে
-//   - উত্তরের byte গুলো একটা ভাগ করা পাইপ দিয়ে আসে (MBPS) — একসাথে কয়েকটা request হলে তারা লাইনে দাঁড়ায়
-// সার্ভারের নিজের কাজ আসল (localhost এ আসল HTTP)। TCP slow start, TLS, packet loss — এই model এ নেই।
+// A simple model of the link between the browser and the data center:
+//   - one round trip (RTT) per request — half going, half coming back
+//   - the response bytes come through one shared pipe (MBPS) — with several requests at once they queue up
+// The servers' own work is real (real HTTP on localhost). TCP slow start, TLS, packet loss — not in this model.
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 
@@ -19,16 +19,16 @@ export class Link {
 
 	async get(url: string): Promise<unknown> {
 		this.requests++;
-		await sleep(this.profile.rttMs / 2); // request পৌঁছাতে
+		await sleep(this.profile.rttMs / 2); // for the request to arrive
 		const { status, body } = await httpGet(url);
 		if (status < 200 || status >= 300) throw new Error(`${url} → ${status}`);
 		const size = Buffer.byteLength(body);
 		this.bytes += size;
-		// উত্তরের byte গুলো পাইপে: আগের উত্তর শেষ না হলে তার পরে
+		// the response bytes in the pipe: after the previous response, if it has not finished
 		const now = performance.now();
 		const start = Math.max(now, this.#pipeFreeAt);
 		this.#pipeFreeAt = start + (size * 8) / (this.profile.mbps * 1000); // mbps → bits per ms
-		await sleep(this.#pipeFreeAt - now + this.profile.rttMs / 2); // শেষ byte ফেরত পৌঁছাতে
+		await sleep(this.#pipeFreeAt - now + this.profile.rttMs / 2); // for the last byte to arrive back
 		return JSON.parse(body);
 	}
 }

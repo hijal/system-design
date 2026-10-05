@@ -37,7 +37,7 @@ class Client {
 			if (found.length >= count) return found;
 			await new Promise((r) => setTimeout(r, 5));
 		}
-		throw new Error(`${this.user}: অপেক্ষা শেষ, frame আসেনি`);
+		throw new Error(`${this.user}: timed out waiting, no frame arrived`);
 	}
 
 	messages(conv: string): string[] {
@@ -67,7 +67,7 @@ const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 30));
 let step = 0;
 const show = (what: string, result: string): void => {
 	step++;
-	console.log(padEnd(step, 4) + padEnd(what, 56) + result);
+	console.log(padEnd(step, 4) + padEnd(what, 64) + result);
 };
 
 async function main(): Promise<void> {
@@ -85,34 +85,34 @@ async function main(): Promise<void> {
 	await bob.connect(p2);
 
 	heading(
-		'দুটো gateway (gw1, gw2), একটা chat core (registry + store); alice gw1 এ, bob gw2 এ, carol offline'
+		'two gateways (gw1, gw2), one chat core (registry + store); alice on gw1, bob on gw2, carol offline'
 	);
-	console.log(padEnd('#', 4) + padEnd('ধাপ', 56) + 'ফল');
+	console.log(padEnd('#', 4) + padEnd('step', 64) + 'result');
 
 	alice.send({ type: 'send', conv: 'dm', clientMsgId: 'a-1', text: 'hi' });
 	const [ack] = await alice.waitFor(isAck);
-	show('alice → bob: "hi"', `ack seq ${ack?.seq} (✓ server এ টেকসই)`);
+	show('alice → bob: "hi"', `ack seq ${ack?.seq} (✓ durable on the server)`);
 	await bob.waitFor(isMessage);
-	show('bob পেল (gw2 তে, registry দেখে)', bob.messages('dm').join(', '));
+	show('bob received it (on gw2, via the registry)', bob.messages('dm').join(', '));
 	await alice.waitFor(isReceipt);
-	show('bob এর phone স্বয়ংক্রিয় "delivered"', 'alice পেল receipt: delivered (✓✓)');
+	show('bob\'s phone sends "delivered" automatically', 'alice got receipt: delivered (✓✓)');
 	bob.send({ type: 'read', conv: 'dm', seq: 1 });
 	await alice.waitFor(isReceipt, 2);
-	show('bob পড়ল', 'alice পেল receipt: read (নীল ✓✓)');
+	show('bob read it', 'alice got receipt: read (blue ✓✓)');
 
 	alice.send({ type: 'send', conv: 'dm', clientMsgId: 'a-1', text: 'hi' });
 	const acks = await alice.waitFor(isAck, 2);
 	await settle();
 	show(
-		'alice আবার পাঠাল একই client_msg_id (ack হারিয়েছিল ধরে)',
-		`ack seq ${acks[1]?.seq}, duplicate: ${String(acks[1]?.duplicate)}; bob এ ${bob.messages('dm').length}টা`
+		'alice resent the same client_msg_id (as if the ack was lost)',
+		`ack seq ${acks[1]?.seq}, duplicate: ${String(acks[1]?.duplicate)}; ${bob.messages('dm').length} at bob`
 	);
 
-	for (const text of ['standup?', '১০টায়', 'ok'])
+	for (const text of ['standup?', 'at 10', 'ok'])
 		alice.send({ type: 'send', conv: 'team', clientMsgId: `a-${text}`, text });
 	await bob.waitFor(isMessage, 4);
 	show(
-		'alice → team এ ৩টা, carol offline',
+		'alice → team, 3 messages, carol offline',
 		`bob: ${bob.messages('team').join(', ')}; offline push: ${core.stats.offlinePush}`
 	);
 
@@ -123,22 +123,22 @@ async function main(): Promise<void> {
 
 	gw2.crash();
 	await settle();
-	alice.send({ type: 'send', conv: 'dm', clientMsgId: 'a-2', text: 'আছো?' });
-	alice.send({ type: 'send', conv: 'dm', clientMsgId: 'a-3', text: 'call দাও' });
+	alice.send({ type: 'send', conv: 'dm', clientMsgId: 'a-2', text: 'you there?' });
+	alice.send({ type: 'send', conv: 'dm', clientMsgId: 'a-3', text: 'call me' });
 	await alice.waitFor(isAck, 4 + 2);
 	await settle();
 	show(
-		'gw2 crash; alice → bob ২টা (registry তখনও gw2)',
-		`stale route: ${core.stats.staleRoute}, store এ dm: ${core.conversations.get('dm')?.log.length ?? 0}টা`
+		'gw2 crashes; alice → bob 2 messages (registry still gw2)',
+		`stale route: ${core.stats.staleRoute}, ${core.conversations.get('dm')?.log.length ?? 0} in dm in the store`
 	);
 	const bob2 = new Client('bob');
 	await bob2.connect(p1);
 	bob2.send({ type: 'sync', cursors: { dm: 1, team: 3 } });
 	await bob2.waitFor(isSynced);
-	show('bob gw1 এ reconnect, sync { dm: 1, team: 3 }', bob2.messages('dm').join(', '));
+	show('bob reconnects on gw1, sync { dm: 1, team: 3 }', bob2.messages('dm').join(', '));
 
-	alice.send({ type: 'send', conv: 'team', clientMsgId: 'a-x', text: 'আমি আগে' });
-	bob2.send({ type: 'send', conv: 'team', clientMsgId: 'b-x', text: 'না আমি' });
+	alice.send({ type: 'send', conv: 'team', clientMsgId: 'a-x', text: 'me first' });
+	bob2.send({ type: 'send', conv: 'team', clientMsgId: 'b-x', text: 'no, me' });
 	await carol.waitFor(isMessage, 2);
 	await settle();
 	const carolView = carol.messages('team').slice(-2).join(', ');
@@ -148,13 +148,13 @@ async function main(): Promise<void> {
 			.filter((a) => a.clientMsgId === 'a-x' || a.clientMsgId === 'b-x')
 			.map((a) => String(a.seq));
 	show(
-		'alice আর bob একসাথে team এ',
-		`carol দেখে: ${carolView}; seq: ${[...tail(alice), ...tail(bob2)].sort().join(', ')}`
+		'alice and bob in team at the same time',
+		`carol sees: ${carolView}; seq: ${[...tail(alice), ...tail(bob2)].sort().join(', ')}`
 	);
 
 	show(
-		'core এর হিসাব',
-		`জমা ${core.stats.stored}, duplicate ${core.stats.duplicates}, অন্য gateway ${core.stats.crossGateway}, একই gateway ${core.stats.sameGateway}`
+		"the core's counts",
+		`stored ${core.stats.stored}, duplicate ${core.stats.duplicates}, other gateway ${core.stats.crossGateway}, same gateway ${core.stats.sameGateway}`
 	);
 
 	for (const c of [alice, bob2, carol]) c.close();

@@ -185,10 +185,10 @@ async function nPlusOne(): Promise<Row[]> {
 The exercise's `npm run nplusone` fetches the same dashboard (50 projects, 1,000 tasks, each one's assignee) three ways, and counts every SQL statement:
 
 ```
-approach                         queries    rows   measured    if RTT = 1 ms*
-a. N+1 (findByPk in a loop)        1051    2,050   210.0 ms      1261 ms
-b. include (one JOIN)                 1    1,000     7.2 ms         8 ms
-c. batching (3 with IN)               3    1,250     3.7 ms         7 ms
+approach                      queries     rows     measured   +1 ms RTT*
+a. N+1 (findByPk in a loop)      1051    2,050     210.0 ms      1261 ms
+b. include (one JOIN)               1    1,000       7.2 ms         8 ms
+c. batching (3 with IN)             3    1,250       3.7 ms         7 ms
 ```
 
 \* The last column is **a calculation, not a measurement**: `measured time + number of queries × 1 ms`.
@@ -225,9 +225,9 @@ From 1,051 queries to 1.
 **Cartesian explosion.** Including **two** hasMany relations on a project at once — tasks (20 per project) and members (10 per project):
 
 ```
-approach                         queries    rows   measured
-include, one JOIN                     1   10,000    28.2 ms
-include, separate: true               3    1,550     8.7 ms
+approach                      queries     rows     measured
+include, one JOIN                   1   10,000      28.2 ms
+include, separate: true             3    1,550       8.7 ms
 ```
 
 **Cartesian explosion** — when one JOIN brings in two separate one-to-many relationships at once, producing, for every "one", a number of rows equal to the **product** of both sides. For each project 20 × 10 = 200 rows (every task paired with every member); 10,000 across 50 projects — while the actual data is only 1,000 tasks + 500 members. Sequelize breaks them apart again, but the database and network work has already been done. With bigger numbers (100 tasks × 50 members) it becomes terrible very quickly.
@@ -257,7 +257,7 @@ Even when a query is fast in the database, the cost isn't over — once the data
 ```
 Model instance (default)              200 ms   (100,000 rows, 1.0x)
 raw: true                              96 ms   (100,000 rows, 2.1x)
-raw: true + only the needed columns    68 ms   (100,000 rows, 2.9x)
+raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 ```
 
 - **`raw: true`** — returns plain JS objects instead of Model instances. When you don't need `.save()` or association methods afterwards (say, for a report or an export), this is enough — and twice as fast.

@@ -2,15 +2,15 @@ import { z } from 'zod';
 import { mulberry32, percentile } from './random';
 import { Sim } from './sim';
 
-// Lesson 7.4 §১.৪ — Poison message আর Dead Letter Queue: চারটা নীতি, একই ৫ মিনিট।
+// Lesson 7.4 §1.4 — Poison messages and the Dead Letter Queue: four policies, the same 5 minutes.
 //
-//   • প্রতি সেকেন্ডে 20টা email job, 300 s ধরে (6000টা); worker 4টা; ভালো job এ 100 ms লাগে
-//   • 2% job "poison": data তে গোলমাল (যেমন অবৈধ address) — প্রতিবার 2 s কাজ করে তারপর provider 400 দেয়।
-//     কখনো সফল হবে না।
-//   • 60–90 s provider এর outage: সব request 50 ms এ 503 — সাময়িক, সেরে যাবে।
-//   • 400 s এ outage এর পরে একজন মানুষ DLQ দেখে "redrive" করে: সব job আবার queue তে।
+//   • 20 email jobs per second for 300 s (6000); 4 workers; a good job takes 100 ms
+//   • 2% of jobs are "poison": something wrong in the data (like an invalid address) — each time it works 2 s, then the provider returns 400.
+//     It will never succeed.
+//   • a provider outage at 60–90 s: every request gets 503 in 50 ms — temporary, it will recover.
+//   • at 400 s, after the outage, a human looks at the DLQ and "redrives": every job back into the queue.
 //
-// Seed দেওয়া — প্রতিবার হুবহু একই। SEED দিয়ে বদলানো যায়।
+// Seeded — exactly the same every time. Can be changed with SEED.
 
 const env = z.object({ SEED: z.coerce.number().int().default(7) }).parse(process.env);
 
@@ -28,22 +28,22 @@ type ErrorKind = 'transient' | 'permanent';
 
 interface Policy {
 	name: string;
-	// এই চেষ্টা ব্যর্থ হলে কী হবে: কত পরে আবার (ms), নাকি DLQ তে
+	// what happens if this attempt fails: retry after how long (ms), or to the DLQ
 	onFail: (attempt: number, kind: ErrorKind) => number | 'dlq';
 }
 
 const expo = (attempt: number, cap: number): number => Math.min(cap, 1000 * 2 ** (attempt - 1));
 
 const policies: Policy[] = [
-	{ name: 'সারাজীবন retry (সীমা নেই)', onFail: (n) => expo(n, 30_000) },
-	{ name: '৫ বার, তারপর DLQ', onFail: (n) => (n >= 5 ? 'dlq' : expo(n, 30_000)) },
+	{ name: 'retry forever (no limit)', onFail: (n) => expo(n, 30_000) },
+	{ name: '5 times, then DLQ', onFail: (n) => (n >= 5 ? 'dlq' : expo(n, 30_000)) },
 	{
-		name: '৫ বার; permanent সাথে সাথে DLQ',
+		name: '5 times; permanent to DLQ at once',
 		onFail: (n, kind) => (kind === 'permanent' || n >= 5 ? 'dlq' : expo(n, 30_000))
 	},
 	{
-		name: 'permanent সাথে সাথে; transient ১২ বার',
-		// 1, 2, 4 … 32, তারপর 60 s — মোট ~৭ মিনিট চেষ্টা: outage ঢাকার মতো লম্বা
+		name: 'permanent at once; transient 12 times',
+		// 1, 2, 4 … 32, then 60 s — ~7 minutes of attempts in total: long enough to cover an outage
 		onFail: (n, kind) => (kind === 'permanent' || n >= 12 ? 'dlq' : expo(n, 60_000))
 	}
 ];
@@ -98,7 +98,7 @@ function run(policy: Policy): Result {
 			if (!job) return;
 			busy++;
 			const outage = sim.now >= OUTAGE.from && sim.now < OUTAGE.to;
-			// Poison এর দোষ data তে — outage থাকুক বা না থাকুক, 2 s কাজ তারপর 400
+			// Poison's fault is in the data — outage or not, 2 s of work, then 400
 			const ms = job.poison ? POISON_MS : outage ? FAST_FAIL_MS : GOOD_MS;
 			const ok = !job.poison && !outage;
 			const kind: ErrorKind = job.poison ? 'permanent' : 'transient';
@@ -144,7 +144,7 @@ function run(policy: Policy): Result {
 	for (let t = 0; t < END; t += 1000)
 		sim.at(t, () => (r.peakWaiting = Math.max(r.peakWaiting, waiting.length)));
 
-	// মানুষ DLQ দেখল: poison গুলো আলাদা করে সরিয়ে রাখল (ঠিক করতে হবে data), বাকি সব আবার queue তে
+	// a human looked at the DLQ: set the poison ones aside (the data needs fixing), everything else back into the queue
 	sim.at(REDRIVE_AT, () => {
 		const again = dlq.filter((j) => !j.poison);
 		dlq.splice(0, dlq.length, ...dlq.filter((j) => j.poison));
@@ -168,10 +168,10 @@ const fmt = (ms: number): string =>
 const pct = (a: number, b: number): string => `${Math.round((a / Math.max(1, b)) * 100)}%`;
 
 console.log(
-	`\n   ${(DURATION / 1000) * RATE} টা job (${RATE}/s), ${WORKERS} worker · 2% poison (প্রতিবার ${fmt(POISON_MS)} তারপর 400) · outage ${OUTAGE.from / 1000}–${OUTAGE.to / 1000} s (503) · redrive ${REDRIVE_AT / 1000} s এ\n`
+	`\n   ${(DURATION / 1000) * RATE} jobs (${RATE}/s), ${WORKERS} workers · 2% poison (${fmt(POISON_MS)} each time, then 400) · outage ${OUTAGE.from / 1000}–${OUTAGE.to / 1000} s (503) · redrive at ${REDRIVE_AT / 1000} s\n`
 );
 console.log(
-	'   নীতি                                   worker সময় poison এ   সর্বোচ্চ লাইন   ভালো দেরি p99   DLQ তে গেল (ভালো / poison)   redrive → পৌঁছাল   শেষে বাকি (ভালো / poison)'
+	'   policy                                  poison worker time     max waiting  good delay p99       to DLQ (good / poison) redriven → arrived   pending (good / poison)'
 );
 for (const policy of policies) {
 	const r = run(policy);
@@ -180,5 +180,5 @@ for (const policy of policies) {
 	);
 }
 console.log(
-	'\n   (ভালো job মোট পৌঁছানোর কথা; "শেষে বাকি" = 600 s এ তখনো waiting বা retry এর অপেক্ষায়)'
+	'\n   (every good job should arrive; "pending" = still waiting or waiting for a retry at 600 s)'
 );

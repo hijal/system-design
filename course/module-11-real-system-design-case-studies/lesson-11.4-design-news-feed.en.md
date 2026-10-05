@@ -61,17 +61,17 @@ The cost of both depends on one number: how many followers a post has. And that 
 
 ```
 ── Part A — the follower distribution: 500 million accounts, following 200 on average, power law (α = 1.2), max 150 million ──
-median account (p50)                                        62
-p99                                                      1,613
-p99.99                                                  74,850
-biggest account                                    150,000,000
+median account (p50)                                      62
+p99                                                    1,613
+p99.99                                                74,850
+biggest account                                  150,000,000
 the top 0.01% of accounts (50,000) hold 18.2% of all follows
 the top 1% of accounts (5,000,000) hold 44.3% of all follows
 
 ── Part B — traffic ──
-                                                     average/s        peak/s
-feed reads                                              34,722       104,167
-new posts                                                  579         1,736
+                                                 average/s        peak/s
+feed reads                                          34,722       104,167
+new posts                                              579         1,736
 ```
 
 The average is 200, but the median account has 62. And 50,000 accounts (0.01%) hold 18% of all follows. When you say "200 writes per post on average", you are forgetting exactly the posts that bring the system down. So in estimation always ask: **what does the distribution look like, and what is in the tail?**
@@ -104,13 +104,13 @@ Three details:
 
 ```
 ── Part C — three paths (40% of followers active; 800 ids × 16 B in a timeline) ──
-path                                          timeline writes/s   biggest post   fetches per read  fetches/s (peak)   cache
-fan-out on write (push to everyone)                   115,741     150,000,000         1.0         104,167    3.8 TB
-push, active followers only                            46,296      60,000,000         1.0         104,167    3.8 TB
-fan-out on read (pull from everyone)                        0               0       200.0      20,833,333         —
-hybrid: over 1,000,000 → pull                          42,091         400,000        19.2       1,996,773    3.8 TB
-hybrid: over 100,000 → pull                            38,446          40,000        34.9       3,636,764    3.8 TB
-hybrid: over 10,000 → pull                             32,660           4,000        59.9       6,240,577    3.8 TB
+path                                      timeline writes/s    biggest post  fetch per read  fetch/s (peak)     cache
+fan-out on write (push to everyone)                 115,741     150,000,000             1.0         104,167    3.8 TB
+push, active followers only                          46,296      60,000,000             1.0         104,167    3.8 TB
+fan-out on read (pull from everyone)                      0               0           200.0      20,833,333         —
+hybrid: over 1,000,000 → pull                        42,091         400,000            19.2       1,996,773    3.8 TB
+hybrid: over 100,000 → pull                          38,446          40,000            34.9       3,636,764    3.8 TB
+hybrid: over 10,000 → pull                           32,660           4,000            59.9       6,240,577    3.8 TB
 over 1,000,000 followers: 2,178 accounts, 9.1% of all follows
 ```
 
@@ -127,10 +127,10 @@ And the price: fetches per read go from 1 to 19 (the average user follows 18 acc
 With push, creating a post is fast (one write), then the fan-out goes to a queue (7.2), and workers place it into followers' timelines. Say the fan-out's total capacity is 2 million writes a second, and the normal load is ~7% of that. `npm run fanout`: 1,736 posts/s at peak, the biggest account posts at the one-minute mark, and the next five together at 200 seconds (at the end of a match, say):
 
 ```
-policy                                                     ordinary post p50       p99     worst      > 5 s late   big post done
-one FIFO queue, push to everyone                                 100 ms  142.10 s     147.70 s    311,955     147.80 s
-two queues: big jobs (> 100,000) separate, 25% of capacity        100 ms    100 ms     156.60 s          8     157.40 s
-hybrid: over 1,000,000 followers are not pushed                   100 ms    100 ms       300 ms          0       by pull
+policy                                                        ordinary post p50       p99        worst  > 5 s late  big post done
+one FIFO queue, push to everyone                                         100 ms  142.10 s     147.70 s     311,955       147.80 s
+two queues: big jobs (> 100,000) separate, 25% of capacity               100 ms    100 ms     156.60 s           8       157.40 s
+hybrid: over 1,000,000 followers are not pushed                          100 ms    100 ms       300 ms           0        by pull
 ```
 
 - **One FIFO queue:** the celebrity's 60 million writes sit at the head of the queue, and every ordinary post waits behind them. **More than 300,000** ordinary posts arrive more than 5 seconds late, p99 142 seconds. Someone tweeted after a big match, and the rest of the world's feeds stood still for two and a half minutes. This is 9.4's bulkhead problem, inside a queue: **put big and small work in one line and the small die behind the big.**
@@ -144,12 +144,12 @@ So hybrid's real argument: **bound the worst-case cost of a single post.** The a
 The cost of pull is not just the number of fetches. A feed read finishes when **the slowest fetch** arrives. In 10.4 we saw that the average hides the tail; here the tail multiplies. `npm run read` part A: each fetch has a median of 2 ms, but 1% of the time 50 ms (GC, a busy shard, the network):
 
 ```
-path                                                 K       p50       p99      at least one slow
-push: your own timeline only                         1   2.01 ms   6.69 ms            0.9%
-hybrid: timeline + ~19 celebrities                  20   4.40 ms     53 ms           18.2%
-hybrid, slow ones hedged (second try at 10 ms)      20   4.40 ms     14 ms           18.1%
-pull: posts from all 200                           200     52 ms     54 ms           86.7%
-pull, with hedging                                 200     12 ms     52 ms           86.8%
+path                                                     K       p50       p99  at least one slow
+push: your own timeline only                             1   2.01 ms   6.69 ms               0.9%
+hybrid: timeline + ~19 celebrities                      20   4.40 ms     53 ms              18.2%
+hybrid, slow ones hedged (second try at 10 ms)          20   4.40 ms     14 ms              18.1%
+pull: posts from all 200                               200     52 ms     54 ms              86.7%
+pull, with hedging                                     200     12 ms     52 ms              86.8%
 ```
 
 **Tail Amplification** — if a request depends on K parts and each has probability p of being slow, the probability that at least one is slow is 1 − (1 − p)^K. With K = 200 and p = 1%, **87%**: even pull's **median** feed read (p50) is 52 ms, because almost every read has some slow part. One part's "rare" tail becomes the whole system's "normal" state. (That is the core of Google's "The Tail at Scale".) Experiment 3: even with only 0.1% slow, 18% of pull reads have a slow part, and p99 is still 53 ms.
@@ -163,9 +163,9 @@ Here is push's real argument on the read side: one fetch, one tail. And if hybri
 **The spaced repetition answer:** offset is slow because the database has to read all the earlier rows and throw them away; a cursor starts from "after this", going straight there via the index. That was about speed. A feed has another problem: while the user reads the first page, new posts pile up on top. Part B, 2 new posts a minute, 30 s on average to read a page, 2% of the first page deleted:
 
 ```
-how the page works                                  already seen on page 2      one skipped
-?offset=20 (skip the first 20)                                     40.6%           18.4%
-?cursor=<last seen id> (id < cursor)                                0.0%            0.0%
+how the page works                        already seen on page 2     one skipped
+?offset=20 (skip the first 20)                                  40.6%           18.4%
+?cursor=<last seen id> (id < cursor)                        0.0%            0.0%
 ```
 
 Offset 20 means "skip the first 20 of the current list". But two new posts have arrived at the top of the current list, so the last two of the first page come back on the second page: repeats in **41%** of sessions. And if a post is deleted from the first page, everything moves up one slot, and one post is never seen: in **18%**. Experiment 4: with 10 new posts a minute, 78% repeats. With a cursor ("give me older than the id I last saw") both are zero, because it anchors on a specific post, not a position in the list. And the new posts on top? That is a separate question: "what is newer than this id" (pull-to-refresh, or a "12 new posts" button).
@@ -185,17 +185,17 @@ One design consequence of ranking: a cursor and "smaller than the id" no longer 
 `npm run smoke` runs an Express feed service: a celebrity threshold of 3 followers (small, for demonstration), star with 4 followers (pull), alice with 2 (push), and a fan-out queue that is `drain()`ed by hand:
 
 ```
-#   step                                                     result
-1   alice posted a1; the fan-out queue hasn't run yet        bob: (empty); 2 in the queue
-2   the fan-out worker ran                                   bob: a1[push]; 2 timeline writes
-3   star posted s1 (4 followers → not pushed)                0 in the queue; amy: s1[pull]
-4   bob's feed: push and pull merged, in id order            s1[pull] a1[push]
-5   cat, first page (limit 3)                                a7[push] a6[push] a5[push]
-6   meanwhile a8, a9 arrived; second page ?offset=3          a6[push] a5[push] a4[push]
-7   second page ?cursor=6                                    a4[push] a3[push] a2[push]
-8   bob unfollows alice (the ids remain in his timeline)     bob: s1[pull]
-9   s1 deleted                                               amy: (empty)
-10  the counts                                               18 timeline writes (22 if everyone were pushed), 9 pull reads
+#   step                                                        result
+1   alice posted a1; the fan-out queue hasn't run yet           bob: (empty); 2 in the queue
+2   the fan-out worker ran                                      bob: a1[push]; 2 timeline writes
+3   star posted s1 (4 followers → not pushed)                   0 in the queue; amy: s1[pull]
+4   bob's feed: push and pull merged, in id order               s1[pull] a1[push]
+5   cat, first page (limit 3)                                   a7[push] a6[push] a5[push]
+6   meanwhile a8, a9 arrived; second page ?offset=3             a6[push] a5[push] a4[push]
+7   second page ?cursor=6                                       a4[push] a3[push] a2[push]
+8   bob unfollows alice (the ids remain in his timeline)        bob: s1[pull]
+9   s1 deleted                                                  amy: (empty)
+10  the counts                                                  18 timeline writes (22 if everyone were pushed), 9 pull reads
 ```
 
 - Steps 1–2: push's eventual consistency, visible: the post exists, but it reaches bob's timeline only after the fan-out worker runs. In this exercise the author also sees it only after the fan-out. Read-your-writes needs the author's own list merged in at read time too, and that is task 4 of the practical exercise.

@@ -41,8 +41,8 @@ npm install
 ## Run
 
 ```bash
-npm run bff       # ~১৫ সেকেন্ড
-npm run gateway   # ~৩০ সেকেন্ড
+npm run bff       # ~15 seconds
+npm run gateway   # ~30 seconds
 ```
 
 Teardown: কিছু লাগে না — script শেষে সব process বন্ধ করে।
@@ -52,11 +52,11 @@ Teardown: কিছু লাগে না — script শেষে সব proces
 `npm run bff` (এই machine এ):
 
 ```
-── "Task detail" page: task + assignee + ২০টা comment + author · data center এর ভেতরে প্রতিটা call এ 1 ms · 40 বার ──
-   পথ                             browser এর network              request   ধাপ   browser এ এলো        p50        p95
-   browser → service, সরাসরি      desktop (RTT 20 ms, 50 Mbps)          4      3     25.2 KB    71.5 ms    74.1 ms
+── "Task detail" page: task + assignee + 20 comments + authors · 1 ms per call inside the data center · 40 times ──
+   path                           browser network                requests  steps  to browser        p50        p95
+   browser → services, direct     desktop (RTT 20 ms, 50 Mbps)          4      3     25.2 KB    71.5 ms    74.1 ms
    browser → web BFF              desktop (RTT 20 ms, 50 Mbps)          1      1     10.2 KB    28.9 ms    30.3 ms
-   browser → service, সরাসরি      mobile (RTT 100 ms, 5 Mbps)           4      3     25.2 KB   348.7 ms   350.9 ms
+   browser → services, direct     mobile (RTT 100 ms, 5 Mbps)           4      3     25.2 KB   348.7 ms   350.9 ms
    browser → web BFF              mobile (RTT 100 ms, 5 Mbps)           1      1     10.2 KB   123.6 ms   125.0 ms
    app → mobile BFF               mobile (RTT 100 ms, 5 Mbps)           1      1      1.8 KB   109.2 ms   110.3 ms
 ```
@@ -67,23 +67,23 @@ Teardown: কিছু লাগে না — script শেষে সব proces
 `npm run gateway`:
 
 ```
-── ক. বাড়তি hop: tasks service সরাসরি বনাম gateway এর ভেতর দিয়ে (token যাচাই + proxy) ──
-   পথ                                 একা ১ জন p50   ব্যস্ত (16 জন): req/s        p50        p99   gateway এর CPU / request
-   client → tasks (সরাসরি)                  0.2 ms              11982     1.2 ms     2.7 ms   —
+── a. Extra hop: tasks service directly vs through the gateway (token check + proxy) ──
+   path                               1 client p50  16 clients: req/s        p50        p99   gateway CPU / request
+   client → tasks (direct)                  0.2 ms              11982     1.2 ms     2.7 ms   —
    client → gateway → tasks                 0.4 ms               6312     2.4 ms     3.9 ms   0.2 ms
 
-── খ. কে পাঠাল? — gateway এর যাচাই, আর gateway এড়িয়ে সরাসরি service এ ──
+── b. Who sent it? — the gateway's check, and bypassing the gateway to the service directly ──
    request                                                    trust mode                       signed mode
-   gateway, token ছাড়া                                       401                              401
-   gateway, user 42 এর বৈধ token                              200 · user 42                    200 · user 42
-   gateway, বৈধ token + নিজে বসানো x-user-id: 1               200 · user 42                    200 · user 42
-   gateway, মেয়াদ পেরোনো token                               401                              401
-   gateway, অন্য secret এ বানানো token (sub: 1)               401                              401
-   service সরাসরি (gateway এড়িয়ে), x-user-id: 1             200 · user 1 ← অন্যের পরিচয়ে    401
-   service সরাসরি, ৭০ s আগের আসল x-internal-auth (user 42)    —                                401
+   gateway, no token                                          401                              401
+   gateway, valid token for user 42                           200 · user 42                    200 · user 42
+   gateway, valid token + self-set x-user-id: 1               200 · user 42                    200 · user 42
+   gateway, expired token                                     401                              401
+   gateway, token made with another secret (sub: 1)           401                              401
+   service directly (bypassing gateway), x-user-id: 1         200 · user 1 ← impersonated      401
+   service directly, real x-internal-auth 70 s old (user 42)  —                                401
 
-── গ. Thumbnail এর route: পুরনো পথ (monolith) বনাম নতুন files service — 1000 জন user, প্রত্যেকে ২ বার ──
-   canary %   নতুন service এ   পুরনো পথে   একই user দুবার একই দিকে
+── c. The thumbnail route: old path (monolith) vs new files service — 1000 users, 2 times each ──
+   canary %   to new service    old path     same side both times
          0%                0        1000                     100%
         10%              104         896                     100%
         50%              499         501                     100%

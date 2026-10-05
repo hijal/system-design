@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
-// Lesson 9.1 — TaskFlow এর board এর তিনটা অংশ, তিনটা module: tasks, users, comments।
-// Data memory তে, একটা নির্দিষ্ট সূত্রে — database নেই, যাতে latency.ts শুধু "function call বনাম network
-// call" এর পার্থক্য মাপে, query এর সময় না।
+// Lesson 9.1 — the three parts of TaskFlow's board, three modules: tasks, users, comments.
+// The data is in memory, from a fixed formula — no database, so latency.ts measures only the "function call vs network
+// call" difference, not query time.
 //
-// Monolith এ তিনটা module একই process এ, একে অপরকে সরাসরি ডাকে। Microservices এ প্রতিটা আলাদা process,
-// আর board বানাতে tasks service বাকি দুটোকে HTTP তে ডাকে। Module এর code দুই ক্ষেত্রেই হুবহু এক —
-// পার্থক্য শুধু মাঝের সীমানায়।
+// In the monolith the three modules are in the same process and call each other directly. In microservices each is a separate process,
+// and to build the board the tasks service calls the other two over HTTP. The modules' code is exactly the same in both —
+// the only difference is the boundary in between.
 
 export const PROJECTS = 40;
 export const TASKS_PER_PROJECT = 50;
@@ -21,7 +21,7 @@ export type BoardCard = {
 	id: number;
 	title: string;
 	assignee: User | null;
-	comments: number | null; // null = comments এর অংশ এই মুহূর্তে পাওয়া যায়নি (failure.ts এর fallback)
+	comments: number | null; // null = the comments part couldn't be reached at this moment (failure.ts's fallback)
 };
 export type Board = { projectId: number; cards: BoardCard[]; degraded: boolean };
 
@@ -52,8 +52,8 @@ export function commentCount(taskId: number): number {
 	return (taskId * 7919) % 23;
 }
 
-// CSV export — "সব comment এর export"। আসল CPU এর কাজ (লাখ লাখ string বানানো আর জোড়া), যেটা event loop
-// আটকায় — Lesson 7.1 এর পার্শ্ব নোট। EXPORT_MS এর কাছাকাছি সময় নেয়।
+// CSV export — "export every comment". Real CPU work (building and joining millions of strings), which blocks the event
+// loop — Lesson 7.1's side note. Takes about EXPORT_MS.
 export function exportComments(targetMs: number): number {
 	const start = performance.now();
 	let bytes = 0;

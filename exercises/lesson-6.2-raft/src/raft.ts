@@ -1,10 +1,10 @@
 import type { Network, Sim, Timer } from './sim';
 
-// Lesson 6.2 — Raft এর মূল অংশ: leader election, log replication, commit, election restriction।
-// Raft paper (Ongaro & Ousterhout, 2014) এর Figure 2 এর নিয়ম, যতটা সম্ভব হুবহু।
-// বাদ দেওয়া হয়েছে: membership change, snapshot, persistence (crash-recovery), PreVote, client session।
+// Lesson 6.2 — the core of Raft: leader election, log replication, commit, the election restriction.
+// The rules of Figure 2 of the Raft paper (Ongaro & Ousterhout, 2014), as faithfully as possible.
+// Left out: membership changes, snapshots, persistence (crash-recovery), PreVote, client sessions.
 //
-// Log index 1 থেকে শুরু (paper এর মতো): index i এর entry আছে log[i - 1] এ; index 0 মানে "খালি log"।
+// Log indexes start at 1 (as in the paper): the entry at index i is in log[i - 1]; index 0 means "empty log".
 
 export type Entry = { term: number; command: string };
 
@@ -21,8 +21,8 @@ export type Message =
 	  }
 	| { type: 'AppendEntriesReply'; term: number; success: boolean; matchIndex: number };
 
-// Role একটা discriminated union — leader এর nextIndex/matchIndex শুধু leader এর আছে,
-// candidate এর votes শুধু candidate এর। Optional field এর জঙ্গল না।
+// Role is a discriminated union — only a leader has nextIndex/matchIndex,
+// only a candidate has votes. Not a jungle of optional fields.
 type Role =
 	| { kind: 'follower'; leaderId: string | null }
 	| { kind: 'candidate'; votes: Set<string> }
@@ -42,7 +42,7 @@ export interface RaftConfig {
 	electionMinMs: number;
 	electionMaxMs: number;
 	heartbeatMs: number;
-	// false হলে "election restriction" বন্ধ: log যত পুরনোই হোক, ভোট দেওয়া হয় — ইচ্ছা করে ভাঙা
+	// when false the "election restriction" is off: votes are granted however old the log — deliberately broken
 	electionRestriction: boolean;
 	onEvent: (event: RaftEvent) => void;
 }
@@ -53,7 +53,7 @@ export class RaftNode {
 	log: Entry[] = [];
 	commitIndex = 0;
 	role: Role = { kind: 'follower', leaderId: null };
-	// state machine: commit হওয়া "key=value" command গুলো প্রয়োগ করে বানানো ছোট key-value store
+	// state machine: a small key-value store built by applying the committed "key=value" commands
 	readonly kv = new Map<string, string>();
 	private lastApplied = 0;
 	private electionTimer: Timer | null = null;
@@ -84,12 +84,12 @@ export class RaftNode {
 		return this.log[this.log.length - 1]?.term ?? 0;
 	}
 
-	// index এর entry এর term; index 0 → 0; entry না থাকলে undefined
+	// the term of the entry at index; index 0 → 0; undefined if there is no entry
 	termAt(index: number): number | undefined {
 		return index === 0 ? 0 : this.log[index - 1]?.term;
 	}
 
-	// client এর লেখা: শুধু leader নেয়। ফেরত দেয় entry এর index (commit এর নিশ্চয়তা না!)
+	// a client write: only the leader takes it. Returns the entry's index (not a promise of commit!)
 	submit(command: string): { index: number; term: number } | null {
 		if (this.role.kind !== 'leader') return null;
 		this.log.push({ term: this.term, command });
@@ -110,7 +110,7 @@ export class RaftNode {
 	private resetElectionTimer(): void {
 		if (this.electionTimer) this.electionTimer.cancelled = true;
 		const { electionMinMs: min, electionMaxMs: max, random } = this.config;
-		// প্রতিবার নতুন random timeout (min–max), সাথে ±0.5 ms এর বাস্তব timer jitter
+		// a new random timeout every time (min–max), plus a realistic ±0.5 ms of timer jitter
 		const delay = min + random() * (max - min) + (random() - 0.5);
 		this.electionTimer = this.config.sim.schedule(delay, () => this.startElection());
 	}
@@ -121,7 +121,7 @@ export class RaftNode {
 		this.votedFor = this.id;
 		this.role = { kind: 'candidate', votes: new Set([this.id]) };
 		this.config.onEvent({ kind: 'candidate', node: this.id, term: this.term });
-		this.resetElectionTimer(); // এই election ও ব্যর্থ হলে (split vote) আবার চেষ্টা
+		this.resetElectionTimer(); // if this election fails too (split vote), try again
 		for (const peer of this.peers)
 			this.send(peer, {
 				type: 'RequestVote',
@@ -150,7 +150,7 @@ export class RaftNode {
 		this.heartbeatTimer = this.config.sim.schedule(this.config.heartbeatMs, () => this.heartbeat());
 	}
 
-	// নিজের চেয়ে বড় term দেখলে: term নাও, আর leader/candidate হলে follower হয়ে যাও
+	// on seeing a bigger term than our own: take that term, and step down to follower if leader/candidate
 	private adoptTerm(term: number): void {
 		const wasLeader = this.role.kind === 'leader';
 		if (wasLeader)
@@ -167,7 +167,7 @@ export class RaftNode {
 	// ── Message ─────────────────────────────────────────────────────────────────
 
 	private handle(message: Message, from: string): void {
-		// Raft এর সবচেয়ে গুরুত্বপূর্ণ নিয়ম: যেকোনো message এ বড় term দেখলেই নিজের term পুরনো
+		// Raft's most important rule: seeing a bigger term in any message means our own term is stale
 		if (message.term > this.term) this.adoptTerm(message.term);
 
 		switch (message.type) {
@@ -183,8 +183,8 @@ export class RaftNode {
 	}
 
 	private onRequestVote(message: Extract<Message, { type: 'RequestVote' }>, from: string): void {
-		// Election restriction: candidate এর log অন্তত আমার মতো নতুন হতে হবে —
-		// শেষ entry এর term বড়, অথবা term সমান আর log অন্তত এত লম্বা
+		// Election restriction: the candidate's log must be at least as up to date as mine —
+		// a bigger term on its last entry, or the same term and a log at least as long
 		const upToDate =
 			message.lastLogTerm > this.lastLogTerm() ||
 			(message.lastLogTerm === this.lastLogTerm() && message.lastLogIndex >= this.lastLogIndex());
@@ -225,19 +225,19 @@ export class RaftNode {
 		const reply = (success: boolean, matchIndex: number): void =>
 			this.send(from, { type: 'AppendEntriesReply', term: this.term, success, matchIndex });
 
-		if (message.term < this.term) return reply(false, 0); // পুরনো leader — প্রত্যাখ্যান, সাথে আমার term
+		if (message.term < this.term) return reply(false, 0); // an old leader — reject, with my term
 
-		// এই term এর বৈধ leader: candidate হলে পিছিয়ে যাও, election timer আবার শুরু
+		// a valid leader for this term: step back if candidate, restart the election timer
 		this.role = { kind: 'follower', leaderId: from };
 		this.resetElectionTimer();
 
-		// আগের entry মেলে কিনা — না মিললে leader এক ধাপ পিছিয়ে আবার পাঠাবে
+		// does the previous entry match — if not, the leader will step back one and send again
 		if (this.termAt(message.prevLogIndex) !== message.prevLogTerm) return reply(false, 0);
 
 		message.entries.forEach((entry, offset) => {
 			const index = message.prevLogIndex + 1 + offset;
 			const existing = this.termAt(index);
-			if (existing !== undefined && existing !== entry.term) this.log.length = index - 1; // বিরোধ: এখান থেকে মুছে ফেলো
+			if (existing !== undefined && existing !== entry.term) this.log.length = index - 1; // conflict: delete from here on
 			if (index > this.log.length) this.log.push(entry);
 		});
 
@@ -278,13 +278,13 @@ export class RaftNode {
 		});
 	}
 
-	// Commit rule: majority এর কাছে পৌঁছেছে, আর entry টা **এই term এর** — পুরনো term এর entry
-	// শুধু গুনে commit করা নিরাপদ না (paper এর Figure 8); সেগুলো এই term এর entry এর সাথে commit হয়
+	// Commit rule: it has reached a majority, and the entry is **from this term** — committing an old term's entry
+	// just by counting is not safe (the paper's Figure 8); those get committed along with an entry from this term
 	private advanceCommit(): void {
 		if (this.role.kind !== 'leader') return;
 		for (let n = this.lastLogIndex(); n > this.commitIndex; n--) {
 			if (this.termAt(n) !== this.term) break;
-			let count = 1; // নিজে
+			let count = 1; // myself
 			for (const match of this.role.matchIndex.values()) if (match >= n) count++;
 			if (count >= this.majority()) {
 				this.commitIndex = n;

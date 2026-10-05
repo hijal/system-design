@@ -58,13 +58,13 @@ In the monolith the browser knew one server. Now there are many services — sho
 From the exercise, `npm run bff`: TaskFlow's "task detail" page — the task, the assignee, 20 comments and their authors. The browser's network is modelled: one round trip per request, and the response bytes through a shared pipe — desktop (RTT 20 ms, 50 Mbps) and mobile (RTT 100 ms, 5 Mbps). The server work is real:
 
 ```
-── "Task detail" page: task + assignee + 20 comments + authors · 1 ms per call inside the data centre · 40 runs ──
-   path                           browser network                    requests   steps   arrived at browser        p50        p95
-   browser → services, direct     desktop (RTT 20 ms, 50 Mbps)              4       3             25.2 KB    71.5 ms    74.1 ms
-   browser → web BFF              desktop (RTT 20 ms, 50 Mbps)              1       1             10.2 KB    28.9 ms    30.3 ms
-   browser → services, direct     mobile (RTT 100 ms, 5 Mbps)               4       3             25.2 KB   348.7 ms   350.9 ms
-   browser → web BFF              mobile (RTT 100 ms, 5 Mbps)               1       1             10.2 KB   123.6 ms   125.0 ms
-   app → mobile BFF               mobile (RTT 100 ms, 5 Mbps)               1       1              1.8 KB   109.2 ms   110.3 ms
+── "Task detail" page: task + assignee + 20 comments + authors · 1 ms per call inside the data center · 40 times ──
+   path                           browser network                requests  steps  to browser        p50        p95
+   browser → services, direct     desktop (RTT 20 ms, 50 Mbps)          4      3     25.2 KB    71.5 ms    74.1 ms
+   browser → web BFF              desktop (RTT 20 ms, 50 Mbps)          1      1     10.2 KB    28.9 ms    30.3 ms
+   browser → services, direct     mobile (RTT 100 ms, 5 Mbps)           4      3     25.2 KB   348.7 ms   350.9 ms
+   browser → web BFF              mobile (RTT 100 ms, 5 Mbps)           1      1     10.2 KB   123.6 ms   125.0 ms
+   app → mobile BFF               mobile (RTT 100 ms, 5 Mbps)           1      1      1.8 KB   109.2 ms   110.3 ms
 ```
 
 The direct path has two distinct problems, and both have names:
@@ -96,24 +96,26 @@ The name comes from SoundCloud's experience, via Sam Newman's 2015 writing. Look
 **TaskFlow's web BFF already exists** — the SvelteKit server route. `+page.server.ts`'s `load` function runs on the server in response to one browser request:
 
 ```typescript
+// src/routes/tasks/[id]/+page.server.ts — TaskFlow web's BFF
 import { error } from '@sveltejs/kit';
 import { z } from 'zod';
 import type { PageServerLoad } from './$types';
-import { internal } from '$lib/server/internal';
+import { internal } from '$lib/server/internal'; // the client for internal services: base URL, internal token, timeout, Zod
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!locals.user) error(401, 'login required');
 	const id = z.coerce.number().int().positive().parse(params.id);
-	const as = locals.user;
+	const as = locals.user; // on whose behalf we call — goes on every internal call (1.5)
 
-	const task = await internal.work.getTask(id, as);
-	const comments = await internal.work.listComments(id, as);
+	const task = await internal.work.getTask(id, as); // step 1
+	const comments = await internal.work.listComments(id, as); // step 2 — inside the data center, ~1 ms
 	const people = await internal.identity.usersByIds(
 		[task.assigneeId, ...comments.map((c) => c.authorId)],
 		as
-	);
+	); // step 3 — all at once (9.1's batched)
 	const byId = new Map(people.map((u) => [u.id, { name: u.name, avatar: u.avatar }]));
 
+	// whatever is returned is serialized and sent to the browser — so only what the page will show
 	return {
 		task: { id: task.id, title: task.title, description: task.description, status: task.status },
 		assignee: byId.get(task.assigneeId) ?? null,
@@ -160,10 +162,10 @@ The spaced repetition's answer: a gateway is L7 — it looks at paths (`/api/fil
 **The cost of the extra hop.** From the exercise, `npm run gateway`, part A:
 
 ```
-── A. The extra hop: the tasks service directly vs through the gateway (token verification + proxy) ──
-   path                               1 user alone p50   busy (16): req/s        p50        p99   gateway CPU / request
-   client → tasks (direct)                      0.2 ms              11982     1.2 ms     2.7 ms   —
-   client → gateway → tasks                     0.4 ms               6312     2.4 ms     3.9 ms   0.2 ms
+── a. Extra hop: tasks service directly vs through the gateway (token check + proxy) ──
+   path                               1 client p50  16 clients: req/s        p50        p99   gateway CPU / request
+   client → tasks (direct)                  0.2 ms              11982     1.2 ms     2.7 ms   —
+   client → gateway → tasks                 0.4 ms               6312     2.4 ms     3.9 ms   0.2 ms
 ```
 
 To one user it is +0.2 ms — practically nothing. But look at the right-hand column: 0.2 ms of gateway CPU per request — one gateway process can serve half as many requests as going direct. Which means the gateway needs a capacity plan of its own (many instances, horizontally — Lesson 1.6), and it is on **everyone's** path: if the gateway goes down, all of TaskFlow goes down. So gateways are kept stateless, numerous, and simple. (The exercise's gateway is an Express toy — real gateways like Envoy, NGINX or Kong use far less CPU per request. The shape is the same: one extra hop, on everyone's path.)
@@ -173,12 +175,12 @@ To one user it is +0.2 ms — practically nothing. But look at the right-hand co
 **Canary Routing** — sending a small share of a route's traffic (say 10%) to a new version or a new service and the rest to the old one; increasing the share gradually if nothing goes wrong, and reverting with one setting if it does. The split is usually by user (or workspace), so one person's experience does not jump between requests.
 
 ```
-── C. The thumbnail route: the old path (monolith) vs the new files service — 1000 users, twice each ──
-   canary %   to the new service   to the old path   same user, both times the same way
-         0%                    0              1000                                 100%
-        10%                  104               896                                 100%
-        50%                  499               501                                 100%
-       100%                 1000                 0                                 100%
+── c. The thumbnail route: old path (monolith) vs new files service — 1000 users, 2 times each ──
+   canary %   to new service    old path     same side both times
+         0%                0        1000                     100%
+        10%              104         896                     100%
+        50%              499         501                     100%
+       100%             1000           0                     100%
 ```
 
 The split is by a hash of the user id — 10% gives 104 people (the natural variance of a hash), and each of them goes the same way both times. The client knows nothing — the URL is the same, only a number in the gateway changed. (Canary for deploys — a new version of the same service — is Lesson 10.6.)
@@ -192,15 +194,15 @@ The split is by a hash of the user id — 10% gives 104 people (the natural vari
 The first half of incident 2's fix: token verification in one place — the gateway — so there is only one place to forget the expiry check. But incident 3: the gateway verifies and sets `x-user-id: 42`, and the service trusts it. What if someone reaches the service bypassing the gateway? Part B:
 
 ```
-── B. Who sent this? — the gateway's verification, and reaching the service directly ──
-   request                                                       trust mode                        signed mode
-   gateway, no token                                             401                               401
-   gateway, user 42's valid token                                200 · user 42                     200 · user 42
-   gateway, valid token + a self-set x-user-id: 1                200 · user 42                     200 · user 42
-   gateway, expired token                                        401                               401
-   gateway, token signed with another secret (sub: 1)            401                               401
-   service directly (bypassing the gateway), x-user-id: 1        200 · user 1 ← someone else's identity   401
-   service directly, a real x-internal-auth from 70 s ago (42)   —                                 401
+── b. Who sent it? — the gateway's check, and bypassing the gateway to the service directly ──
+   request                                                    trust mode                       signed mode
+   gateway, no token                                          401                              401
+   gateway, valid token for user 42                           200 · user 42                    200 · user 42
+   gateway, valid token + self-set x-user-id: 1               200 · user 42                    200 · user 42
+   gateway, expired token                                     401                              401
+   gateway, token made with another secret (sub: 1)           401                              401
+   service directly (bypassing gateway), x-user-id: 1         200 · user 1 ← impersonated      401
+   service directly, real x-internal-auth 70 s old (user 42)  —                                401
 ```
 
 - **Everything through the gateway is fine** — in both modes. The third row matters: the client sent its own `x-user-id: 1`, and the gateway **dropped it** and set its own (42). Without that, the gateway is itself the hole.

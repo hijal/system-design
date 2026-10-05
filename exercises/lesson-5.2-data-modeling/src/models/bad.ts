@@ -7,12 +7,12 @@ import {
 } from 'sequelize';
 import { sequelize } from '../db';
 
-// ইচ্ছা করে খারাপ করে বানানো table — একটা "সব কিছু এক জায়গায়" schema, যেটা
-// প্রথম দিনে সহজ লাগে। Lesson 5.2 §১.২ এর তিনটা anomaly এখান থেকেই জন্মায়।
+// A table built badly on purpose — an "everything in one place" schema, which
+// feels easy on day one. Lesson 5.2 §1.2's three anomalies are born here.
 //
-//   projectName  → project এর তথ্য task এর ভেতরে কপি (delete anomaly)
-//   assigneeName → user এর তথ্য task এর ভেতরে কপি (update anomaly)
-//   tags         → "bug,urgent" — একটা cell এ একাধিক মান (1NF ভাঙা)
+//   projectName  → project data copied into the task (delete anomaly)
+//   assigneeName → user data copied into the task (update anomaly)
+//   tags         → "bug,urgent" — several values in one cell (1NF broken)
 export class BadTask extends Model<InferAttributes<BadTask>, InferCreationAttributes<BadTask>> {
 	declare id: CreationOptional<number>;
 	declare title: string;

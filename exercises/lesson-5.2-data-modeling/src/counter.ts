@@ -2,8 +2,8 @@ import { sequelize } from './db';
 import { Project, Task } from './models/good';
 import { reconcile } from './reconcile';
 
-// Lesson 5.2 §১.৫ — denormalized counter কে ঠিক রাখা কেন কঠিন।
-// একই কাজ ("একটা নতুন task তৈরি করো, counter এক বাড়াও") তিনভাবে, ২০০টা একসাথে।
+// Lesson 5.2 §1.5 — why keeping a denormalized counter correct is hard.
+// The same work ("create a new task, increment the counter") three ways, 200 at once.
 
 const CONCURRENT = 200;
 
@@ -19,15 +19,15 @@ async function report(label: string, projectId: number): Promise<void> {
 	const project = await Project.findByPk(projectId);
 	const actual = await actualOpen(projectId);
 	const stored = project?.openTaskCount ?? -1;
-	const verdict = stored === actual ? '✓ ঠিক আছে' : `✗ ${actual - stored} টা হারিয়েছে`;
+	const verdict = stored === actual ? '✓ correct' : `✗ ${actual - stored} lost`;
 	console.log(
-		`  ${label.padEnd(34)} counter = ${String(stored).padStart(3)}   আসল = ${actual}   ${verdict}`
+		`  ${label.padEnd(34)} counter = ${String(stored).padStart(3)}   actual = ${actual}   ${verdict}`
 	);
 }
 
-// ক. সরল read-modify-write — "পড়ো, JS এ +1 করো, লিখে দাও"।
-// দুটো request একই মান (ধরো ৪১) পড়লে দুজনেই ৪২ লেখে — একটা বৃদ্ধি হারিয়ে যায়।
-// এর নাম lost update, আর কেন transaction একাই এটা আটকায় না — সেটা Lesson 5.5 এ।
+// a. Plain read-modify-write — "read it, +1 in JS, write it back".
+// If two requests read the same value (say 41) both write 42 — one increment is lost.
+// This is called a lost update, and why a transaction alone doesn't prevent it — that is in Lesson 5.5.
 async function naive(projectId: number): Promise<void> {
 	await Task.create({ title: 'naive', projectId, assigneeId: null });
 	const project = await Project.findByPk(projectId);
@@ -36,10 +36,10 @@ async function naive(projectId: number): Promise<void> {
 	await project.save();
 }
 
-// খ. Transaction + atomic increment — Sequelize এখানে বানায়
+// b. Transaction + atomic increment — here Sequelize builds
 //    UPDATE projects SET "openTaskCount" = "openTaskCount" + 1 WHERE id = ...
-// হিসাবটা DB নিজে করে, row টা lock রেখে — তাই কেউ কারো লেখা মুছে দিতে পারে না।
-// আর transaction থাকায় task তৈরি আর counter বাড়ানো — হয় দুটোই হবে, নয়তো কোনোটাই না।
+// The DB does the arithmetic itself, holding the row's lock — so nobody can wipe out someone else's write.
+// And because of the transaction, creating the task and incrementing the counter — either both happen, or neither.
 async function atomic(projectId: number): Promise<void> {
 	await sequelize.transaction(async (transaction) => {
 		await Task.create({ title: 'atomic', projectId, assigneeId: null }, { transaction });
@@ -47,8 +47,8 @@ async function atomic(projectId: number): Promise<void> {
 	});
 }
 
-// গ. পরে কেউ একটা নতুন code path লিখল — CSV থেকে bulk import — আর counter এর কথা
-// ভুলে গেল। Denormalization এর সবচেয়ে সাধারণ বাস্তব ব্যর্থতা এটাই: race না, ভুলে যাওয়া।
+// c. Later someone wrote a new code path — bulk import from CSV — and forgot about
+// the counter. Denormalization's most common real-world failure is this: not a race, forgetting.
 async function bulkImport(projectId: number, count: number): Promise<void> {
 	await Task.bulkCreate(
 		Array.from({ length: count }, (_unused, i) => ({
@@ -61,25 +61,23 @@ async function bulkImport(projectId: number, count: number): Promise<void> {
 
 async function main(): Promise<void> {
 	await sequelize.sync({ force: true });
-	console.log(`\n  ${CONCURRENT}টা "task তৈরি + counter +1" একসাথে:\n`);
+	console.log(`\n  ${CONCURRENT} "create task + counter +1" at once:\n`);
 
 	const a = await freshProject('Naive');
 	await Promise.all(Array.from({ length: CONCURRENT }, () => naive(a.id)));
-	await report('ক. read-modify-write', a.id);
+	await report('a. read-modify-write', a.id);
 
 	const b = await freshProject('Atomic');
 	await Promise.all(Array.from({ length: CONCURRENT }, () => atomic(b.id)));
-	await report('খ. transaction + increment', b.id);
+	await report('b. transaction + increment', b.id);
 
 	await bulkImport(b.id, 50);
-	await report('গ. খ এর পরে ৫০টা bulk import', b.id);
+	await report('c. 50 bulk imports after b', b.id);
 
 	const fixed = await reconcile();
-	console.log(
-		`\n  reconcile() চালানো হলো — ${fixed} টা project এর counter ভুল ছিল, ঠিক করা হয়েছে:\n`
-	);
-	await report('ক. (reconcile এর পরে)', a.id);
-	await report('খ+গ. (reconcile এর পরে)', b.id);
+	console.log(`\n  ran reconcile() — ${fixed} projects had a wrong counter, fixed:\n`);
+	await report('a. (after reconcile)', a.id);
+	await report('b+c. (after reconcile)', b.id);
 	console.log('');
 
 	await sequelize.close();

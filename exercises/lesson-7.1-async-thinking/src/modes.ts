@@ -1,4 +1,4 @@
-// API এর চারটা সংস্করণ — api.ts আর scenario.ts দুজনেই ব্যবহার করে (api.ts import করলে server চালু
-// হয়ে যেত, তাই আলাদা file)
+// The four versions of the API — used by both api.ts and scenario.ts (importing api.ts would start
+// the server, hence a separate file)
 export const modes = ['sync-in-tx', 'sync-after-commit', 'fire-and-forget', 'queue'] as const;
 export type Mode = (typeof modes)[number];

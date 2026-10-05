@@ -3,11 +3,11 @@ import { QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { closeAll, scalar, shardAt } from './db';
 
-// Lesson 5.8 §১.২ — একটা database এর ভেতরে partitioning (Postgres declarative partitioning)।
-// TaskFlow এর activity log — ১২ মাস, মাসে ১ লাখ event। একই data দুটো table এ:
-//   activity_plain — সাধারণ একটা table
-//   activity       — মাস অনুযায়ী ১২টা partition এ ভাগ করা
-// Sequelize partitioned table বানাতে পারে না — তাই DDL raw SQL এ (migration এও তাই লিখতে হয়)।
+// Lesson 5.8 §1.2 — partitioning inside one database (Postgres declarative partitioning).
+// TaskFlow's activity log — 12 months, 100,000 events a month. The same data in two tables:
+//   activity_plain — one ordinary table
+//   activity       — split into 12 partitions by month
+// Sequelize can't create a partitioned table — so the DDL is raw SQL (it has to be in a migration too).
 
 const db = shardAt(0);
 const MONTHS = 12;
@@ -32,7 +32,7 @@ async function setup(): Promise<void> {
 		action text NOT NULL,
 		"createdAt" timestamptz NOT NULL`;
 	await db.query(`CREATE TABLE activity_plain (${columns}, PRIMARY KEY (id))`);
-	// Partitioned table এ primary key তে partition key থাকতেই হয় — Postgres এর নিয়ম
+	// In a partitioned table the primary key must include the partition key — Postgres's rule
 	await db.query(
 		`CREATE TABLE activity (${columns}, PRIMARY KEY (id, "createdAt")) PARTITION BY RANGE ("createdAt")`
 	);
@@ -42,7 +42,7 @@ async function setup(): Promise<void> {
 			 FOR VALUES FROM ('${monthStart(m)}') TO ('${monthStart(m + 1)}')`
 		);
 	}
-	// একই index দুই জায়গায় — partitioned table এ দিলে প্রতিটা partition এ নিজে থেকে তৈরি হয়
+	// the same index in both places — on a partitioned table it is created on every partition by itself
 	await db.query('CREATE INDEX ON activity_plain ("projectId", "createdAt")');
 	await db.query('CREATE INDEX ON activity ("projectId", "createdAt")');
 
@@ -58,7 +58,7 @@ async function setup(): Promise<void> {
 	await db.query('VACUUM ANALYZE activity');
 }
 
-// EXPLAIN এর JSON গাছে কোন কোন table/partition ছোঁয়া হলো
+// which tables/partitions were touched, in the EXPLAIN JSON tree
 type PlanNode = { 'Relation Name'?: string | undefined; Plans?: PlanNode[] | undefined };
 const planNode: z.ZodType<PlanNode> = z.lazy(() =>
 	z.object({ 'Relation Name': z.string().optional(), Plans: z.array(planNode).optional() })
@@ -86,7 +86,7 @@ async function explain(sql: string): Promise<{ touched: string[]; ms: number }> 
 }
 
 function describeTouched(touched: string[]): string {
-	return touched.length > 2 ? `${touched.length}টা partition` : touched.join(', ');
+	return touched.length > 2 ? `${touched.length} partitions` : touched.join(', ');
 }
 
 async function walSince(lsn: string): Promise<number> {
@@ -105,36 +105,36 @@ async function main(): Promise<void> {
 	const started = performance.now();
 	await setup();
 	console.log(
-		`\n  ${MONTHS} মাস × ${PER_MONTH.toLocaleString('en-US')} = ${(MONTHS * PER_MONTH).toLocaleString('en-US')}টা activity, দুটো table এ (${((performance.now() - started) / 1000).toFixed(1)}s)`
+		`\n  ${MONTHS} months × ${PER_MONTH.toLocaleString('en-US')} = ${(MONTHS * PER_MONTH).toLocaleString('en-US')} activities, in two tables (${((performance.now() - started) / 1000).toFixed(1)}s)`
 	);
 
-	console.log('\n১. Partition pruning — query কোন partition ছোঁয়?');
+	console.log('\n1. Partition pruning — which partitions does a query touch?');
 	const queries: [string, string][] = [
 		[
-			'project 42, শেষ ৭ দিন',
+			'project 42, last 7 days',
 			`SELECT count(*) FROM {t} WHERE "projectId" = 42 AND "createdAt" >= '2026-09-23'`
 		],
-		['project 42, সব সময় (সময়ের শর্ত নেই)', `SELECT count(*) FROM {t} WHERE "projectId" = 42`],
+		['project 42, all time (no time condition)', `SELECT count(*) FROM {t} WHERE "projectId" = 42`],
 		[
-			'পুরো মাসের সব event (আগস্ট)',
+			'every event of a whole month (August)',
 			`SELECT count(*) FROM {t} WHERE "createdAt" >= '2026-08-01' AND "createdAt" < '2026-09-01'`
 		]
 	];
-	console.log(`   ${'query'.padEnd(38)} ${'সাধারণ table'.padEnd(26)} partitioned`);
+	console.log(`   ${'query'.padEnd(40)} ${'plain table'.padEnd(26)} partitioned`);
 	for (const [label, template] of queries) {
 		const plain = await explain(template.replace('{t}', 'activity_plain'));
 		const parted = await explain(template.replace('{t}', 'activity'));
 		console.log(
-			`   ${label.padEnd(38)} ${`${plain.ms.toFixed(2)} ms`.padEnd(26)} ${parted.ms.toFixed(2)} ms — ${describeTouched(parted.touched)}`
+			`   ${label.padEnd(40)} ${`${plain.ms.toFixed(2)} ms`.padEnd(26)} ${parted.ms.toFixed(2)} ms — ${describeTouched(parted.touched)}`
 		);
 	}
 
-	console.log('\n২. Retention — সবচেয়ে পুরনো মাস (অক্টোবর ২০২৫) মুছে ফেলা');
+	console.log('\n2. Retention — deleting the oldest month (October 2025)');
 	const plainBefore = await scalar(db, `SELECT pg_total_relation_size('activity_plain') AS v`);
 
 	let lsn = await currentLsn();
 	let t0 = performance.now();
-	// DELETE এর metadata তে pg এর `rowCount` থাকে — type এ unknown, তাই Zod দিয়ে পড়া
+	// the DELETE metadata carries pg's `rowCount` — unknown in the type, so it is read with Zod
 	const [, meta] = await db.query(
 		`DELETE FROM activity_plain WHERE "createdAt" < '${monthStart(1)}'`
 	);
@@ -152,10 +152,10 @@ async function main(): Promise<void> {
 
 	const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 	console.log(
-		`   সাধারণ table: DELETE (${deleted.toLocaleString('en-US')} row)   ${deleteMs.toFixed(0).padStart(6)} ms   WAL ${mb(deleteWal).padStart(9)}   table এর আকার ${mb(plainBefore)} → ${mb(plainAfter)}`
+		`   ${`plain table: DELETE (${deleted.toLocaleString('en-US')} rows)`.padEnd(36)}   ${deleteMs.toFixed(0).padStart(6)} ms   WAL ${mb(deleteWal).padStart(9)}   table size ${mb(plainBefore)} → ${mb(plainAfter)}`
 	);
 	console.log(
-		`   partitioned:  DETACH + DROP partition   ${dropMs.toFixed(0).padStart(6)} ms   WAL ${mb(dropWal).padStart(9)}   (পুরো file টাই মুছে গেল)`
+		`   ${'partitioned: DETACH + DROP partition'.padEnd(36)}   ${dropMs.toFixed(0).padStart(6)} ms   WAL ${mb(dropWal).padStart(9)}   (the whole file is gone)`
 	);
 	console.log('');
 	await closeAll();

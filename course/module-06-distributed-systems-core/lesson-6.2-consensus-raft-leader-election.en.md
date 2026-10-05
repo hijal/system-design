@@ -132,7 +132,7 @@ Every node gives **one** vote per term — to whoever asked first (with one cond
 The exercise's `npm run election` — 5 nodes start together, no leader, 1000 times for each range:
 
 ```
-   election timeout     leader found         time p50 / p99         avg terms (1 = on the first try)
+   election timeout     leader found          time p50 / p99          avg terms (1 = first try)
    150 ms (fixed)        837/1000           4204 /  9761 ms         30.61
    150–155 ms           1000/1000            315 /  1526 ms         2.94
    150–175 ms           1000/1000            161 /   331 ms         1.08
@@ -172,7 +172,7 @@ Now the real test in the exercise. `npm run partition` — 5 nodes, n1 is leader
     2000 ms  B       "x=3" → n3 (log index 2, term 2)
     2008 ms  n3      commit: index 2 "x=3"
     2008 ms  B       ✓ "x=3" confirmed (8 ms)
-    2250 ms  A       ✗ "x=2" — no confirmation in 1000 ms (timeout)
+    2250 ms  A       ✗ "x=2" — no confirmation within 1000 ms (timeout)
 
    ── partition in progress — two "leaders"? ──
    n1  LEADER    term  1   log: x=1(t1) x=2(t1)                commit 1   x = 1
@@ -198,7 +198,7 @@ This isn't 6.1's split brain. Two nodes **think** they're leader, but the **work
 
     3512 ms  n1      saw term 10 → no longer leader (was term 1)
     3540 ms  n3      saw term 10 → no longer leader (was term 2)
-    3628 ms  n3      didn't vote for n2 — its log is older than mine (term 11)
+    3628 ms  n3      did not vote for n2 — its log is older than mine (term 11)
       …     (n1, n4, n5 say the same)
     3716 ms  n5      ★ became leader (term 12)
       …
@@ -239,7 +239,7 @@ What happens if you lift the restriction? `npm run unsafe` — the same story, o
    n2  LEADER    term 11   log: x=1(t1) x=4(t11)               commit 2   x = 4
    n3  follower  term 11   log: x=1(t1) x=4(t11)               commit 2   x = 3
    …
-   nodes whose log still has "x=3": 0/5   ← a confirmed write has been lost!
+   how many nodes have "x=3" in their log now: 0/5   ← a confirmed write has been lost!
    is x the same on every node? no — n1=4 n2=4 n3=3 n4=3 n5=3   ← the replicas have diverged!
 ```
 

@@ -1,14 +1,14 @@
 import express, { type Request, type Response } from 'express';
 import { z } from 'zod';
 
-// Lesson 7.3 — নকল email provider (Lesson 7.1 এর মতো), আলাদা Node process এ।
+// Lesson 7.3 — a fake email provider (like Lesson 7.1's), in a separate Node process.
 //
-//   POST /send         — `latencyMs` অপেক্ষা, তারপর 200; FAIL_RATE অনুপাতে 503 (সাময়িক ব্যর্থতা)
-//   POST /admin/mode   — latency আর failRate বদলানো
-//   GET  /admin/stats  — কোন key এর email কয়বার পৌঁছেছে
+//   POST /send         — wait `latencyMs`, then 200; 503 in proportion to FAIL_RATE (a temporary failure)
+//   POST /admin/mode   — change the latency and failRate
+//   GET  /admin/stats  — how many times each key's email was delivered
 //
-// Provider এর চোখে প্রতিটা email এর একটা `key` (আমাদের job ID) — একই key দুবার এলে সে দুবারই
-// পাঠায়, কারণ সে dedupe করে না। Duplicate গোনার জন্যই key টা রাখা।
+// To the provider every email has a `key` (our job ID) — if the same key arrives twice it sends
+// it twice, because it doesn't dedupe. The key is kept precisely to count duplicates.
 
 const env = z
 	.object({

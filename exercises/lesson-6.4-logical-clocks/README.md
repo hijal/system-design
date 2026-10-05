@@ -46,34 +46,34 @@ npm run lww
 **১. `npm run clocks`** (আগে নিজে কাগজে হিসাব করো, তারপর মেলাও)
 
 ```
-   ঘটনা  process  ধরন       Lamport   vector [A,B,C]   কী হলো
-   a1    A        local        1      [1,0,0]          রহিম title লিখল
-   c1    C        local        1      [0,0,1]          করিম offline এ একটা comment লিখল
-   a2    A        send m1      2      [2,0,0]          title server এ পাঠাল
-   b1    B        recv m1      3      [2,1,0]          server title পেল
-   a3    A        local        3      [3,0,0]          রহিম description বদলাল
-   b2    B        send m2      4      [2,2,0]          server করিমকে notify করল
-   b3    B        local        5      [2,3,0]          server audit log লিখল
-   c2    C        recv m2      5      [2,2,2]          করিম notification পেল
-   c3    C        send m3      6      [2,2,3]          করিম উত্তর দিল রহিমকে
-   a4    A        recv m3      7      [4,2,3]          রহিম উত্তর পেল
+   event process  kind      Lamport   vector [A,B,C]   what happened
+   a1    A        local        1      [1,0,0]          Rahim wrote the title
+   c1    C        local        1      [0,0,1]          Karim wrote a comment offline
+   a2    A        send m1      2      [2,0,0]          sent the title to the server
+   b1    B        recv m1      3      [2,1,0]          the server got the title
+   a3    A        local        3      [3,0,0]          Rahim changed the description
+   b2    B        send m2      4      [2,2,0]          the server notified Karim
+   b3    B        local        5      [2,3,0]          the server wrote an audit log
+   c2    C        recv m2      5      [2,2,2]          Karim got the notification
+   c3    C        send m3      6      [2,2,3]          Karim replied to Rahim
+   a4    A        recv m3      7      [4,2,3]          Rahim got the reply
 
-   জোড়া       Lamport বলে       Vector clock বলে
-   a1, a4      a1 < a4           a1 → a4 (আগে ঘটেছে)
-   a2, c2      a2 < c2           a2 → c2 (আগে ঘটেছে)
-   c1, a2      c1 < a2           concurrent — কেউ কারো কথা জানত না
-   a3, b3      a3 < b3           concurrent — কেউ কারো কথা জানত না
-   a3, c3      a3 < c3           concurrent — কেউ কারো কথা জানত না
+   pair       Lamport says      vector clock says
+   a1, a4      a1 < a4           a1 → a4 (happened before)
+   a2, c2      a2 < c2           a2 → c2 (happened before)
+   c1, a2      c1 < a2           concurrent — neither knew about the other
+   a3, b3      a3 < b3           concurrent — neither knew about the other
+   a3, c3      a3 < c3           concurrent — neither knew about the other
 ```
 
 **২. `npm run lww`**
 
 ```
-   নিয়ম                 মোট edit   পরে-করা edit আগেরটার    একসাথে-করা edit    app কে মেলাতে    শেষ title এর    replica
-                                     কাছে হারল            নীরবে বাদ          বলা হলো         ইতিহাসে নেই       এক?
-   LWW — ঘড়ির সময়          164               10                   43               0               100       হ্যাঁ
-   LWW — Lamport clock       164                0                   45               0               101       হ্যাঁ
-   Vector clock (sibling)    164                0                    0              48                 0       হ্যাঁ
+   rule                   total edits   later edit lost to   concurrent edit   app asked to   not in final     replicas
+                                       the earlier one       silently dropped  merge           title history    agree?
+   LWW — wall clock          164               10                   43               0               100       yes
+   LWW — Lamport clock       164                0                   45               0               101       yes
+   Vector clock (sibling)    164                0                    0              48                 0       yes
 ```
 
 ## কী দেখার জন্য এটা বানানো

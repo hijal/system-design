@@ -4,9 +4,9 @@ import { Task, sequelize } from './db';
 import { invalidate, keys, readList, writeList, type TaskDTO } from './cache';
 import { single } from './singleflight';
 
-const TTL_SECONDS = 60; // Lesson 4.3 এর সিদ্ধান্ত: task list এ ৩০-৬০s
+const TTL_SECONDS = 60; // Lesson 4.3's decision: 30-60s for the task list
 
-// কতবার সত্যিই DB তে যাওয়া হলো — Lesson 4.6 এর stampede demo এটা পড়ে
+// how many times we actually went to the DB — Lesson 4.6's stampede demo reads this
 let dbQueryCount = 0;
 
 interface TaskListResponse {
@@ -22,10 +22,10 @@ interface ApiErrorBody {
 const app = express();
 app.use(express.json());
 
-// শুধু demo এর জন্য: একটা "দামি query" নকল করার সুযোগ (?delay=200)।
-// Stampede বাস্তবে তখনই সমস্যা হয় যখন origin এর কাজটা ধীর — query যদি
-// ১০ ms এর হয়, প্রথম request শেষ হয়ে cache ভরে ফেলে বাকিরা আসার আগেই।
-// Production code এ এমন কিছু থাকবে না।
+// For the demo only: a way to imitate an "expensive query" (?delay=200).
+// A stampede is a real problem only when the origin's work is slow — if the query
+// takes 10 ms, the first request finishes and fills the cache before the rest arrive.
+// Production code would have nothing like this.
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -70,7 +70,7 @@ app.get(
 
 		const elapsed = (): number => Number(process.hrtime.bigint() - started) / 1_000_000;
 
-		// ধাপ ১ — cache
+		// step 1 — cache
 		const lookup = await readList(key);
 		if (lookup.status === 'hit') {
 			res.setHeader('X-Cache', 'HIT');
@@ -79,30 +79,30 @@ app.get(
 		}
 		res.setHeader('X-Cache', lookup.status === 'error' ? 'ERROR' : 'MISS');
 
-		// ধাপ ২ — DB। ?sf=1 দিলে single-flight চালু, তখন একই key এর
-		// concurrent miss গুলো একটাই DB query ভাগ করে নেয় (Lesson 4.6)।
+		// step 2 — DB. With ?sf=1 single-flight is on, and then concurrent misses of the
+		// same key share a single DB query (Lesson 4.6).
 		const useSingleFlight = req.query.sf === '1';
 		const delayMs = Number(req.query.delay ?? 0);
 		const safeDelay = Number.isFinite(delayMs) && delayMs > 0 ? Math.min(delayMs, 5_000) : 0;
 
-		// গুরুত্বপূর্ণ: single-flight এর ভেতরে DB load **আর** cache write —
-		// দুটোই থাকতে হবে। শুধু load টা মুড়লে একটা সরু ফাঁক থেকে যায়:
-		// load শেষ হয়ে in-flight entry মুছে গেছে, কিন্তু cache তখনো লেখা হয়নি —
-		// ঠিক সেই মুহূর্তে আসা request টা miss করবে এবং আরেকটা load শুরু করবে।
+		// Important: inside single-flight the DB load **and** the cache write —
+		// both have to be there. Wrapping only the load leaves a narrow gap:
+		// the load has finished and the in-flight entry is gone, but the cache is not written yet —
+		// a request arriving at exactly that moment will miss and start another load.
 		const loadAndCache = async (): Promise<TaskDTO[]> => {
 			const rows = await loadFromDatabase(userId, completedOnly, safeDelay);
 			await writeList(key, rows, TTL_SECONDS);
 			return rows;
 		};
 
-		// ধাপ ২ + ৩ — DB থেকে এনে cache এ রেখে দাও
+		// step 2 + 3 — fetch from the DB and keep it in the cache
 		const tasks = useSingleFlight ? await single(key, loadAndCache) : await loadAndCache();
 
 		res.status(200).json({ tasks, source: 'database', tookMs: elapsed() });
 	}
 );
 
-// ---------- WRITE: আগে DB, পরে invalidate (Lesson 4.3) ----------
+// ---------- WRITE: DB first, then invalidate (Lesson 4.3) ----------
 const patchSchema = z.object({
 	title: z.string().min(1).optional(),
 	completed: z.boolean().optional()
@@ -136,13 +136,13 @@ app.patch(
 			return;
 		}
 
-		// ধাপ ১ — সত্যের উৎস আগে
+		// step 1 — the source of truth first
 		if (parsed.data.title !== undefined) task.title = parsed.data.title;
 		if (parsed.data.completed !== undefined) task.completed = parsed.data.completed;
 		await task.save();
 
-		// ধাপ ২ — তারপর cache। লক্ষ্য করো: শুধু `tasks:user:N` না,
-		// derived view `:completed` টাও মুছতে হচ্ছে (Lesson 4.3, প্রশ্ন ১)।
+		// step 2 — then the cache. Note: not just `tasks:user:N`,
+		// the derived view `:completed` has to be deleted too (Lesson 4.3, question 1).
 		const affected = [keys.tasksByUser(task.userId), keys.completedByUser(task.userId)];
 		await invalidate(...affected);
 

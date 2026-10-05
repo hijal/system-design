@@ -60,12 +60,12 @@ CREATE TABLE activity (
   "projectId" integer NOT NULL,
   action text NOT NULL,
   "createdAt" timestamptz NOT NULL,
-  PRIMARY KEY (id, "createdAt")          -- partition key primary key এ থাকতেই হবে
+  PRIMARY KEY (id, "createdAt")          -- the partition key must be in the primary key
 ) PARTITION BY RANGE ("createdAt");
 
 CREATE TABLE activity_2026_09 PARTITION OF activity
   FOR VALUES FROM ('2026-09-01') TO ('2026-10-01');
--- প্রতি মাসের জন্য একটা করে
+-- one per month
 ```
 
 App এর কাছে এটা এখনো একটাই `activity` table — `INSERT` করলে Postgres নিজে সঠিক partition এ বসায়। (Sequelize এই DDL বানাতে পারে না — migration এ raw SQL লিখতে হয়।)
@@ -75,10 +75,10 @@ App এর কাছে এটা এখনো একটাই `activity` table 
 Exercise এর `npm run partition` — ১২ মাস × ১ লাখ = ১২ লাখ event, একই data একটা সাধারণ table এ আর একটা partitioned table এ:
 
 ```
-query                                  সাধারণ table     partitioned
-project 42, শেষ ৭ দিন                  0.03 ms          0.04 ms — activity_2026_09
-project 42, সব সময় (সময়ের শর্ত নেই)  0.22 ms          0.62 ms — 12টা partition
-পুরো মাসের সব event (আগস্ট)            22.41 ms         9.14 ms — activity_2026_08
+query                                    plain table                partitioned
+project 42, last 7 days                  0.03 ms                    0.04 ms — activity_2026_09
+project 42, all time (no time condition) 0.22 ms                    0.62 ms — 12 partitions
+every event of a whole month (August)    22.41 ms                   9.14 ms — activity_2026_08
 ```
 
 এখানে একটা সৎ কথা আছে যেটা অনেক article বলে না: **partitioning index এর বিকল্প না।** প্রথম লাইন — index আছে এমন query তে partition কোনো লাভ দেয়নি। দ্বিতীয় লাইন — query তে partition key (`createdAt`) না থাকলে partitioned table **প্রায় তিনগুণ ধীর**, কারণ ১২টা partition এর ১২টা index ঘুরতে হয়। শুধু তৃতীয় লাইনে — যেখানে একটা পুরো partition পড়তে হয় — লাভ স্পষ্ট।
@@ -86,8 +86,8 @@ project 42, সব সময় (সময়ের শর্ত নেই)  0.2
 আসল লাভ অন্য জায়গায় — **পুরনো data মোছা**:
 
 ```
-সাধারণ table: DELETE (103,334 row)       99 ms   WAL   11.5 MB   table এর আকার 142.2 MB → 142.2 MB
-partitioned:  DETACH + DROP partition        8 ms   WAL    0.1 MB   (পুরো file টাই মুছে গেল)
+plain table: DELETE (103,334 rows)         99 ms   WAL   11.5 MB   table size 142.2 MB → 142.2 MB
+partitioned: DETACH + DROP partition        8 ms   WAL    0.1 MB   (the whole file is gone)
 ```
 
 `DELETE` প্রতিটা row আলাদা করে "মৃত" চিহ্নিত করে, প্রতিটার জন্য WAL লেখে (Lesson 5.3), আর — লক্ষ করো — table এর আকার **এক byte ও কমেনি**। মৃত row এর জায়গা VACUUM পরে আবার ব্যবহারযোগ্য করে, কিন্তু disk এর জায়গা operating system কে ফেরত দেয় না। অন্যদিকে একটা partition `DROP` করা মানে তার file টাই মুছে ফেলা — প্রায় কোনো WAL নেই, সাথে সাথে disk খালি। TaskFlow এর রাতের কয়েক ঘণ্টার cleanup job এর উত্তর এটাই।
@@ -125,7 +125,7 @@ export function hash32(key: string): number {
 	return fmix32(fnv1a(key));
 }
 
-// সবচেয়ে সরল routing: hash % shard এর সংখ্যা
+// the simplest routing: hash % number of shards
 export function moduloShard(key: string, shardCount: number): number {
 	return hash32(key) % shardCount;
 }
@@ -136,7 +136,7 @@ export function moduloShard(key: string, shardCount: number): number {
 Exercise এর `npm run shard` — ৩০০টা workspace, ৩ লাখ task, ৩টা shard। একটা workspace এর ভেতরের query শুধু তার shard এ যায়:
 
 ```
-"workspace 42 এ কয়টা খোলা task?"  → শুধু shard0 এ যায়: 201টা, 0.27 ms
+"how many open tasks in workspace 42?"  → goes only to shard0: 201, 0.27 ms
 ```
 
 ### ১.৪ Shard Key বাছা — সবচেয়ে গুরুত্বপূর্ণ সিদ্ধান্ত
@@ -151,11 +151,11 @@ Shard key পরে বদলানো প্রায় নতুন করে
 Exercise এর `npm run keys` একই দিনের ১০ লাখ write চারটা ভিন্ন key দিয়ে ৪টা shard এ ভাগ করে দেখায় (৪০% write একটা বিশাল workspace থেকে):
 
 ```
-shard key                      প্রতিটা shard এ write এর ভাগ     সবচেয়ে ব্যস্ত   workspace 7 এর data কয়টা shard এ
-hash(workspaceId)               14%  16%  15%  55%                   55%        1টা
-hash(taskId)                    25%  25%  25%  25%                   25%        4টা
-range(createdAt) — ত্রৈমাসিক     0%   0%   0% 100%                  100%        1টা
-hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        4টা
+shard key                      share of writes per shard        busiest   shards holding workspace 7's data
+hash(workspaceId)               14%  16%  15%  55%                   55%        1
+hash(taskId)                    25%  25%  25%  25%                   25%        4
+range(createdAt) — quarterly     0%   0%   0% 100%                  100%        1
+hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        4
 ```
 
 প্রতিটা লাইন একটা আলাদা শিক্ষা:
@@ -174,9 +174,9 @@ hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        
 Exercise এর `npm run shard` এ `hash(workspaceId)` দিয়ে ৩টা shard:
 
 ```
-shard0:  94টা workspace   175,986টা task  ███████████████████████  ← workspace 7 (৪০%) এখানে
-shard1: 106টা workspace    63,812টা task  █████████
-shard2: 100টা workspace    60,200টা task  ████████
+shard0:  94 workspaces   175,986 tasks  ███████████████████████  ← workspace 7 (40%) is here
+shard1: 106 workspaces    63,812 tasks  █████████
+shard2: 100 workspaces    60,200 tasks  ████████
 ```
 
 Workspace এর সংখ্যা প্রায় সমান (৯৪, ১০৬, ১০০) — hash তার কাজ ঠিকই করেছে। কিন্তু **data** সমান না, কারণ একটা workspace বাকি ২৯৯টার মিলিত প্রায় সমান। Hash **key** গুলো সমানভাবে ভাগ করে; প্রতিটা key এর **ওজন** সে জানে না। Lesson 4.6 এর hot key মনে আছে? একই সমস্যা, database এ।
@@ -196,8 +196,8 @@ Sharding এর আসল দাম এখানে। Lesson 5.1 এ relational
 **Scatter-gather** — একটা query সব shard এ একসাথে পাঠানো (scatter), আর ফলাফলগুলো app এ মিলিয়ে সাজানো (gather)।
 
 ```
-→ 3টা shard এ একসাথে (scatter), app এ মিলিয়ে সাজানো (gather): মোট 11.0 ms
-  shard0: 11.0 ms, shard1: 4.8 ms, shard2: 4.6 ms — মোট সময় সবচেয়ে ধীরটার সমান
+→ sent to all 3 shards at once (scatter), merged and sorted in the app (gather): 11.0 ms total
+  shard0: 11.0 ms, shard1: 4.8 ms, shard2: 4.6 ms — the total equals the slowest one
 ```
 
 মোট সময় সবচেয়ে ধীর shard এর সমান — আর সবচেয়ে ধীর টা হলো সেই hot shard0। Shard যত বেশি, কোনো একটা ধীর হওয়ার সম্ভাবনা তত বেশি (Lesson 1.5 এর tail latency এর কথা মনে করো)। আর প্রতিটা এমন query সব shard কে কাজ করায় — ১০টা shard মানে ১০ গুণ database এর কাজ। তাই "সব workspace জুড়ে" ধরনের report সাধারণত sharded database এ চালানো হয় না — data একটা আলাদা analytics store এ পাঠানো হয় (Lesson 7.6 এর OLAP)।
@@ -208,9 +208,9 @@ Sharding এর আসল দাম এখানে। Lesson 5.1 এ relational
 
 ```
 project 8: workspace 8 (shard0) → workspace 5 (shard2)
-ধাপ ১: shard2 তে project লেখা হলো — COMMIT ✓
-ধাপ ২: shard0 থেকে মুছে ফেলার আগেই app crash করল ✗
-→ project 8 এখন shard0 এ 1টা, shard2 এ 1টা — দুই জায়গাতেই! কোনো একক transaction এটা আটকাতে পারেনি
+step 1: project written to shard2 — COMMIT ✓
+step 2: the app crashed before deleting it from shard0 ✗
+→ project 8 is now on shard0 (1) and on shard2 (1) — in both places! No single transaction could prevent it
 ```
 
 দুটো আলাদা database, দুটো আলাদা COMMIT — Lesson 5.5 এর atomicity এখানে নেই। এর সমাধান (Saga pattern, two-phase commit) Lesson 9.3 এর পুরো বিষয়। আপাতত নিয়মটা: **shard key এমনভাবে বাছো যাতে এমন কাজ বিরল হয়।**
@@ -226,10 +226,10 @@ project 8: workspace 8 (shard0) → workspace 5 (shard2)
 TaskFlow ৩টা shard দিয়ে শুরু করল; এক বছর পরে ৪টা লাগবে। `hash % N` এ N বদলালে কী হয়? Exercise এর `npm run keys`:
 
 ```
-Shard ৩ থেকে ৪ করা — 100,000টা workspace এর কতগুলো অন্য shard এ সরাতে হবে?
-hash % N               74.9%   (74,874টা)
-consistent hashing     26.3%   (26,274টা)
-আদর্শ (শুধু নতুন shard এর ভাগটুকু = ১/৪)    25.0%
+Going from 3 to 4 shards — how many of 100,000 workspaces must move to another shard?
+hash % N               74.9%   (74,874)
+consistent hashing     26.3%   (26,274)
+ideal (only the new shard's share = 1/4)    25.0%
 ```
 
 **Resharding** — shard এর সংখ্যা বা তাদের মধ্যে data এর ভাগ বদলানো, আর সেই অনুযায়ী data এক shard থেকে আরেকটায় সরানো।

@@ -3,17 +3,17 @@ import path from 'node:path';
 import { z } from 'zod';
 import { modes, type Mode } from './modes';
 
-// Lesson 7.1 — তিনটা আসল Node process: email provider, TaskFlow API, আর এই load generator।
+// Lesson 7.1 — three real Node processes: the email provider, the TaskFlow API, and this load generator.
 //
-//   npm run scenario -- sync-in-tx     → একটা mode
-//   npm run compare                    → চারটা mode পরপর, শেষে তুলনা
+//   npm run scenario -- sync-in-tx     → one mode
+//   npm run compare                    → all four modes in turn, with a comparison at the end
 //
-// প্রতিটা run তিনটা phase: provider স্বাভাবিক (150 ms) → ধীর (SLOW_LATENCY_MS) → আবার স্বাভাবিক।
-// পুরো সময় একই load: প্রতি সেকেন্ডে ASSIGN_RPS টা assign (email সহ) আর LIST_RPS টা task list।
-// Browser/Nginx এর মতো client CLIENT_TIMEOUT_MS পরে হাল ছেড়ে দেয়।
+// Every run has three phases: provider normal (150 ms) → slow (SLOW_LATENCY_MS) → normal again.
+// The same load the whole time: ASSIGN_RPS assigns (with email) and LIST_RPS task lists every second.
+// Like a browser/Nginx, the client gives up after CLIENT_TIMEOUT_MS.
 //
-// CRASH_AT_MS দিলে সেই মুহূর্তে API process কে SIGKILL করে নতুন করে চালু করা হয় —
-// deploy বা crash এর নকল (README এর experiment ২)।
+// With CRASH_AT_MS set, the API process is SIGKILLed at that moment and started again —
+// imitating a deploy or crash (experiment 2 in the README).
 
 const config = z
 	.object({
@@ -164,22 +164,22 @@ async function run(mode: Mode): Promise<Result> {
 		console.log(`   ${fmtMs(Date.now() - t0).padStart(7)}  ${text}`);
 
 	console.log(`\n── mode: ${mode} ${'─'.repeat(50 - mode.length)}`);
-	phaseLog(`provider স্বাভাবিক (${NORMAL_LATENCY_MS} ms)`);
+	phaseLog(`provider normal (${NORMAL_LATENCY_MS} ms)`);
 
 	const events: Promise<void>[] = [
 		sleep(config.PHASE_MS)
 			.then(() => setLatency(config.SLOW_LATENCY_MS))
-			.then(() => phaseLog(`provider ধীর হলো (${fmtMs(config.SLOW_LATENCY_MS)} প্রতি email)`)),
+			.then(() => phaseLog(`provider slowed down (${fmtMs(config.SLOW_LATENCY_MS)} per email)`)),
 		sleep(2 * config.PHASE_MS)
 			.then(() => setLatency(NORMAL_LATENCY_MS))
-			.then(() => phaseLog('provider আবার স্বাভাবিক'))
+			.then(() => phaseLog('provider normal again'))
 	];
 	if (config.CRASH_AT_MS !== undefined) {
 		events.push(
 			sleep(config.CRASH_AT_MS).then(async () => {
 				crashed = true;
 				api.child.kill('SIGKILL');
-				phaseLog('API process SIGKILL — deploy/crash; নতুন process চালু হচ্ছে');
+				phaseLog('API process SIGKILL — deploy/crash; starting a new process');
 				api = await start('api.js', apiEnv);
 			})
 		);
@@ -188,10 +188,10 @@ async function run(mode: Mode): Promise<Result> {
 	await sleep(config.PHASE_MS);
 	clearInterval(assignTimer);
 	clearInterval(listTimer);
-	phaseLog('load বন্ধ — বাকি request আর email শেষ হওয়ার অপেক্ষা');
+	phaseLog('load stopped — waiting for the remaining requests and emails to finish');
 	await Promise.all([...inFlight]);
 
-	// যা email এখনো লাইনে বা পথে আছে, সেগুলো শেষ হতে দাও (সর্বোচ্চ ৩০ সেকেন্ড)
+	// let the emails still queued or in flight finish (at most 30 seconds)
 	let stats = await getJson(`${api.url}/internal/stats`, apiStatsSchema);
 	for (let waited = 0; stats.pendingEmails > 0 && waited < 30_000; waited += 250) {
 		await sleep(250);
@@ -201,7 +201,8 @@ async function run(mode: Mode): Promise<Result> {
 	const providerStats = await getJson(`${provider.url}/admin/stats`, providerStatsSchema);
 	api.child.kill();
 	provider.child.kill();
-	if (crashed) phaseLog('(email এর সময়ের হিসাব শুধু নতুন process এর — পুরনোটার memory গেছে)');
+	if (crashed)
+		phaseLog("(email timing counts only the new process — the old one's memory is gone)");
 
 	return {
 		mode,
@@ -217,12 +218,12 @@ async function run(mode: Mode): Promise<Result> {
 
 function phaseTable(result: Result): void {
 	const phases = [
-		{ name: 'স্বাভাবিক', from: 0, to: config.PHASE_MS },
-		{ name: 'provider ধীর', from: config.PHASE_MS, to: 2 * config.PHASE_MS },
-		{ name: 'সেরে ওঠার পর', from: 2 * config.PHASE_MS, to: 3 * config.PHASE_MS }
+		{ name: 'normal', from: 0, to: config.PHASE_MS },
+		{ name: 'provider slow', from: config.PHASE_MS, to: 2 * config.PHASE_MS },
+		{ name: 'after recovery', from: 2 * config.PHASE_MS, to: 3 * config.PHASE_MS }
 	];
 	console.log('');
-	console.log('   phase            assign p50 / p99    assign ব্যর্থ    list p99    list ব্যর্থ');
+	console.log('   phase            assign p50 / p99   assign failed    list p99   list failed');
 	for (const phase of phases) {
 		const inPhase = result.samples.filter((s) => s.start >= phase.from && s.start < phase.to);
 		const assign = inPhase.filter((s) => s.route === 'assign');
@@ -239,12 +240,12 @@ function phaseTable(result: Result): void {
 					assign.map((s) => s.ms),
 					99
 				)
-			).padEnd(7)}   ${pct(failed(assign), assign.length).padStart(9)}    ${fmtMs(
+			).padEnd(7)}  ${pct(failed(assign), assign.length).padStart(13)}    ${fmtMs(
 				percentile(
 					list.map((s) => s.ms),
 					99
 				)
-			).padStart(8)}   ${pct(failed(list), list.length).padStart(9)}`
+			).padStart(8)}   ${pct(failed(list), list.length).padStart(11)}`
 		);
 	}
 }
@@ -269,9 +270,9 @@ function summarize(result: Result): Summary {
 		assignFailed: failed.length,
 		listFailed: list.filter((s) => s.outcome !== 'ok').length,
 		listTotal: list.length,
-		// User কে "হয়েছে" বলা হলো, কিন্তু email কখনো পৌঁছায়নি
+		// the user was told "done", but the email never arrived
 		lost: ok.filter((s) => !result.delivered.has(s.taskId)).length,
-		// User কে "ব্যর্থ" বলা হলো, অথচ assign আর email দুটোই হয়ে গেছে — Lesson 6.1 এর "জানি না"
+		// the user was told "failed", yet both the assign and the email happened — the "don't know" of Lesson 6.1
 		unknown: failed.filter((s) => result.delivered.has(s.taskId)).length,
 		emailP99: percentile(result.stats.emailDelaysMs, 99)
 	};
@@ -284,32 +285,32 @@ function report(result: Result): Summary {
 	const count = (o: Outcome): number => failures.filter((x) => x.outcome === o).length;
 	console.log('');
 	console.log(
-		`   assign: সফল ${s.assignOk}, ব্যর্থ ${s.assignFailed}  (pool ফুরিয়েছে ${count('pool')}, client timeout ${count('timeout')}, অন্য ${count('error')})`
-	);
-	console.log(`   list:   ব্যর্থ ${s.listFailed} / ${s.listTotal}   ← এই route email ছোঁয়ই না`);
-	console.log(
-		`   pool এ সর্বোচ্চ লাইন: ${result.peakPoolWaiting}   email বাকি (সর্বোচ্চ): ${result.peakPending}   provider এ একসাথে সর্বোচ্চ: ${result.providerPeakInFlight}`
+		`   assign: ok ${s.assignOk}, failed ${s.assignFailed}  (pool exhausted ${count('pool')}, client timeout ${count('timeout')}, other ${count('error')})`
 	);
 	console.log(
-		`   provider 429 (rate limited) ফেরত দিয়েছে: ${result.rateLimited}   email পৌঁছাতে (assign থেকে) p99: ${fmtMs(s.emailP99)}`
+		`   list:   failed ${s.listFailed} / ${s.listTotal}   ← this route never touches email`
 	);
-	console.log(`   "সফল" বলা হলো, email যায়নি: ${s.lost}`);
-	console.log(`   "ব্যর্থ" বলা হলো, অথচ email গেছে: ${s.unknown}`);
+	console.log(
+		`   max pool queue: ${result.peakPoolWaiting}   emails pending (max): ${result.peakPending}   max concurrent at provider: ${result.providerPeakInFlight}`
+	);
+	console.log(
+		`   provider returned 429 (rate limited): ${result.rateLimited}   email delivery (from assign) p99: ${fmtMs(s.emailP99)}`
+	);
+	console.log(`   told "ok", email never sent: ${s.lost}`);
+	console.log(`   told "failed", yet email sent: ${s.unknown}`);
 	return s;
 }
 
 async function main(): Promise<void> {
 	console.log(
-		`   load: প্রতি সেকেন্ডে ${config.ASSIGN_RPS} assign + ${config.LIST_RPS} list · pool max ${config.POOL_MAX} · client timeout ${fmtMs(config.CLIENT_TIMEOUT_MS)}`
+		`   load: ${config.ASSIGN_RPS} assign + ${config.LIST_RPS} list per second · pool max ${config.POOL_MAX} · client timeout ${fmtMs(config.CLIENT_TIMEOUT_MS)}`
 	);
 	const targets: Mode[] = target === 'all' ? [...modes] : [target];
 	const summaries: [Mode, Summary][] = [];
 	for (const mode of targets) summaries.push([mode, report(await run(mode))]);
 	if (summaries.length < 2) return;
-	console.log('\n── তুলনা ' + '─'.repeat(56));
-	console.log(
-		'   mode                assign ব্যর্থ   list ব্যর্থ   email p99   সফল-কিন্তু-email-নেই'
-	);
+	console.log('\n── comparison ' + '─'.repeat(46));
+	console.log('   mode              assign failed  list failed   email p99     said ok, no email');
 	for (const [mode, s] of summaries) {
 		console.log(
 			`   ${mode.padEnd(18)}  ${String(s.assignFailed).padStart(11)}   ${String(s.listFailed).padStart(10)}   ${fmtMs(s.emailP99).padStart(9)}   ${String(s.lost).padStart(19)}`

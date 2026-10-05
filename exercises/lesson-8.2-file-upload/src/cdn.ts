@@ -7,14 +7,14 @@ import type { AddressInfo } from 'node:net';
 import { z } from 'zod';
 import { emptyBucket, env, mb, mulberry32, prepareBucket, s3 } from './common';
 
-// Lesson 8.2 §১.৫ — private file, CDN এর পেছনে। একটা ছোট "CDN" (Express, এই process এ) object storage
-// এর সামনে বসে, আর তিনভাবে file দেওয়া হয়:
-//   ক) CDN নেই — প্রত্যেক viewer নিজের presigned GET নিয়ে সরাসরি object storage এ
-//   খ) CDN, কিন্তু প্রত্যেক viewer এর নিজের presigned URL — CDN পুরো URL (query সহ) কে cache key ধরে
-//   গ) CDN এর নিজের signed token — CDN token যাচাই করে, token বাদ দিয়ে শুধু path কে cache key ধরে, আর
-//      miss হলে নিজের credential দিয়ে object storage থেকে আনে (CloudFront এর signed URL/cookie এর ধারণা)
-// VIEWERS জন viewer, প্রত্যেকে একটা জনপ্রিয় file (webinar এর release notes) আর LONG_TAIL_VIEWS টা
-// অন্য file খোলে। Seed দেওয়া — প্রতিবার হুবহু একই সংখ্যা।
+// Lesson 8.2 §1.5 — private files behind a CDN. A small "CDN" (Express, in this process) sits in front of object
+// storage, and files are served three ways:
+//   a) no CDN — every viewer takes their own presigned GET straight to object storage
+//   b) a CDN, but every viewer's own presigned URL — the CDN uses the whole URL (with the query) as the cache key
+//   c) the CDN's own signed token — the CDN verifies the token, uses only the path (without the token) as the cache key, and
+//      on a miss fetches from object storage with its own credentials (the idea behind CloudFront's signed URLs/cookies)
+// VIEWERS viewers, each opens one popular file (the webinar's release notes) and LONG_TAIL_VIEWS
+// other files. Seeded — exactly the same numbers every time.
 
 const cfg = z
 	.object({
@@ -26,7 +26,7 @@ const cfg = z
 	.parse(process.env);
 
 const B = env.BUCKET;
-const CDN_SECRET = randomBytes(32); // app আর CDN এর ভাগ করা secret — object storage এর credential না
+const CDN_SECRET = randomBytes(32); // a secret shared by the app and the CDN — not the object storage credentials
 
 type Mode = 'direct' | 'cdn-presigned' | 'cdn-token';
 type Counters = {
@@ -37,7 +37,7 @@ type Counters = {
 	rejected: number;
 };
 
-// app এর দিক: CDN এর জন্য সীমিত সময়ের token — path আর মেয়াদ এর HMAC
+// the app's side: a time-limited token for the CDN — an HMAC of the path and the expiry
 function cdnToken(path: string, expiresAt: number): string {
 	return createHmac('sha256', CDN_SECRET).update(`${path}:${expiresAt}`).digest('base64url');
 }
@@ -47,7 +47,7 @@ function verifyToken(path: string, exp: string, sig: string, now: number): boole
 	if (!Number.isFinite(expiresAt) || expiresAt < now) return false;
 	const expected = Buffer.from(cdnToken(path, expiresAt));
 	const given = Buffer.from(sig);
-	// সমান দৈর্ঘ্য হলে তবেই timingSafeEqual — সময় মেপে signature আন্দাজ করা আটকাতে
+	// timingSafeEqual only when the lengths are equal — to stop guessing the signature by measuring time
 	return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
@@ -58,7 +58,7 @@ function startCdn(mode: Mode, counters: Counters): Promise<{ url: string; server
 		void (async (): Promise<void> => {
 			counters.requests++;
 			const path = req.path; // `/${bucket}/${key}`
-			let cacheKey = req.originalUrl; // খ) query সহ পুরো URL
+			let cacheKey = req.originalUrl; // b) the whole URL, with the query
 			if (mode === 'cdn-token') {
 				const q = z.object({ exp: z.string(), sig: z.string() }).safeParse(req.query);
 				if (!q.success || !verifyToken(path, q.data.exp, q.data.sig, Date.now())) {
@@ -66,7 +66,7 @@ function startCdn(mode: Mode, counters: Counters): Promise<{ url: string; server
 					res.status(403).end();
 					return;
 				}
-				cacheKey = path; // গ) token বাদ — একই file সবার জন্য একটাই cache entry
+				cacheKey = path; // c) without the token — one cache entry per file for everyone
 			}
 			const cached = cache.get(cacheKey);
 			if (cached) {
@@ -76,12 +76,12 @@ function startCdn(mode: Mode, counters: Counters): Promise<{ url: string; server
 			}
 			let body: Buffer;
 			if (mode === 'cdn-token') {
-				// CDN নিজের credential দিয়ে origin থেকে আনে (bucket private থাকে — শুধু CDN পড়তে পারে)
+				// the CDN fetches from the origin with its own credentials (the bucket stays private — only the CDN can read it)
 				const key = path.slice(`/${B}/`.length);
 				const obj = await s3.send(new GetObjectCommand({ Bucket: B, Key: key }));
 				body = Buffer.from((await obj.Body?.transformToByteArray()) ?? []);
 			} else {
-				// viewer এর presigned URL টাই origin এ পাঠানো — signature origin যাচাই করে
+				// the viewer's presigned URL itself is sent to the origin — the origin verifies the signature
 				const origin = await fetch(`${env.S3_ENDPOINT}${req.originalUrl}`);
 				if (origin.status !== 200) {
 					res.status(origin.status).end();
@@ -97,7 +97,7 @@ function startCdn(mode: Mode, counters: Counters): Promise<{ url: string; server
 	});
 	return new Promise((resolve) => {
 		const server = app.listen(0, () => {
-			const { port } = server.address() as AddressInfo; // listen(0) এর পরে address() সবসময় AddressInfo
+			const { port } = server.address() as AddressInfo; // after listen(0), address() is always an AddressInfo
 			resolve({ url: `http://127.0.0.1:${port}`, server });
 		});
 	});
@@ -110,7 +110,7 @@ async function run(
 ): Promise<{ name: string; c: Counters }> {
 	const c: Counters = { requests: 0, hits: 0, originRequests: 0, originBytes: 0, rejected: 0 };
 	const cdn = mode === 'direct' ? null : await startCdn(mode, c);
-	// সব URL এর signing সময় অতীতে, কিন্তু মেয়াদের (১ ঘণ্টা) মধ্যে
+	// every URL's signing time is in the past, but within the expiry (1 hour)
 	const base = Date.now() - views.length * 1000;
 	let i = 0;
 	for (const key of views) {
@@ -121,7 +121,7 @@ async function run(
 			const path = `/${B}/${key}`;
 			url = `${cdn?.url ?? ''}${path}?exp=${exp}&sig=${cdnToken(path, exp)}`;
 		} else {
-			// প্রত্যেক viewer আলাদা মুহূর্তে নিজের URL পায় (signingDate আলাদা) — বাস্তবের মতো
+			// every viewer gets their own URL at a different moment (a different signingDate) — as in reality
 			const signed = await getSignedUrl(s3, new GetObjectCommand({ Bucket: B, Key: key }), {
 				expiresIn: 3600,
 				signingDate: new Date(base + i * 1000)
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
 	for (const key of tail)
 		await s3.send(new PutObjectCommand({ Bucket: B, Key: key, Body: randomBytes(300 * 1024) }));
 
-	// কে কী খোলে: প্রত্যেকে জনপ্রিয় file টা, আর কয়েকটা এলোমেলো অন্য file
+	// who opens what: everyone the popular file, plus a few random other files
 	const random = mulberry32(cfg.SEED);
 	const views: string[] = [];
 	for (let v = 0; v < cfg.VIEWERS; v++) {
@@ -162,15 +162,15 @@ async function main(): Promise<void> {
 	}
 
 	const rows = [
-		await run('CDN নেই — সরাসরি presigned GET', 'direct', views),
-		await run('CDN + প্রত্যেকের নিজের presigned URL', 'cdn-presigned', views),
-		await run('CDN + CDN এর signed token (path এ cache)', 'cdn-token', views)
+		await run('no CDN — presigned GET directly', 'direct', views),
+		await run("CDN + each viewer's own presigned URL", 'cdn-presigned', views),
+		await run("CDN + the CDN's signed token (path cached)", 'cdn-token', views)
 	];
 	console.log(
-		`\n   ${cfg.VIEWERS} জন viewer · প্রত্যেকে জনপ্রিয় 5 MB file + ${cfg.LONG_TAIL_VIEWS} টা অন্য file (${cfg.LONG_TAIL_FILES} টা 300 KB এর মধ্যে) = ${views.length} টা download\n`
+		`\n   ${cfg.VIEWERS} viewers · each opens the popular 5 MB file + ${cfg.LONG_TAIL_VIEWS} other files (among ${cfg.LONG_TAIL_FILES} files of 300 KB) = ${views.length} downloads\n`
 	);
 	console.log(
-		'   পথ                                          download   cache hit   object storage এ request   object storage থেকে বেরোল'
+		'   path                                        download   cache hit    object storage requests      object storage egress'
 	);
 	for (const r of rows) {
 		const hit = r.c.requests ? `${((100 * r.c.hits) / r.c.requests).toFixed(0)}%` : '—';
@@ -179,7 +179,7 @@ async function main(): Promise<void> {
 		);
 	}
 
-	// token এর নিরাপত্তা: path বদলানো, আর মেয়াদ পেরোনো
+	// the token's safety: a changed path, and an expired token
 	const c: Counters = { requests: 0, hits: 0, originRequests: 0, originBytes: 0, rejected: 0 };
 	const cdn = await startCdn('cdn-token', c);
 	const exp = Date.now() + 60_000;
@@ -191,7 +191,7 @@ async function main(): Promise<void> {
 	await Promise.all([tampered.arrayBuffer(), expired.arrayBuffer()]);
 	await new Promise((resolve) => cdn.server.close(resolve));
 	console.log(
-		`\n   token এক file এর, চাওয়া অন্য workspace এর file: ${tampered.status} · মেয়াদ পেরোনো token: ${expired.status}\n`
+		`\n   token for one file, a file from another workspace requested: ${tampered.status} · expired token: ${expired.status}\n`
 	);
 }
 

@@ -58,14 +58,14 @@ Two **non-functional** things that are rarer in other systems: **the user's atte
 ```
 ── Part A — load: 300 million DAU, 10 notifications a day per user ──
 all notifications                                     34,722         104,167
-one campaign: 100 million people, in 1 hour           27,778         0.8× the average
+one campaign: 100 million people, in 1 h              27,778    0.8× the average
 
 ── Part B — channels and monthly cost (approximate prices) ──
-channel                share          per day        each          monthly    share of cost
-push (APNs/FCM)        80%        2.4 billion          $0            $0        0.0%
-email                  17%        510 million     $0.0001    $1,530,000       17.5%
-SMS                     1%         30 million      $0.008    $7,200,000       82.5%
-in-app                  2%         60 million          $0            $0        0.0%
+channel              share         per day        each       monthly  share of cost
+push (APNs/FCM)        80%     2.4 billion          $0            $0           0.0%
+email                  17%     510 million     $0.0001    $1,530,000          17.5%
+SMS                     1%      30 million      $0.008    $7,200,000          82.5%
+in-app                  2%      60 million          $0            $0           0.0%
 
 ── Part C — device tokens: 900 million tokens, 30% dead ──
 sending to every token of every user is 7.2 billion pushes a day, 2.16 billion of them to dead tokens
@@ -113,11 +113,11 @@ Three core ideas, each with a new term:
 `npm run queue`: the SMS provider's limit is 100/s, OTPs arrive at 20/s, and at the one-minute mark a campaign of 300,000 marketing SMS enters the queue. OTPs expire after 5 minutes:
 
 ```
-policy                                                    OTP p50    OTP p99     worst        expired   campaign done
-one FIFO queue, one provider account                   120.00 s 2942.40 s    3000.00 s     67,500         50 min
-FIFO, but the campaign enters slowly (50% of the limit)   100 ms    100 ms       100 ms          0        100 min
-priority: OTP first, the campaign gets the rest           100 ms    100 ms       100 ms          0         63 min
-separate accounts: separate limits for OTP and campaign   100 ms    100 ms       100 ms          0         50 min
+policy                                                       OTP p50   OTP p99        worst    expired  campaign done
+one FIFO queue, one provider account                        120.00 s  2942.40 s    3000.00 s     67,500        50 min
+FIFO, but the campaign enters slowly (50% of the limit)       100 ms    100 ms       100 ms          0       100 min
+priority: OTP first, the campaign gets the rest               100 ms    100 ms       100 ms          0        63 min
+separate accounts: separate limits for OTP and campaign       100 ms    100 ms       100 ms          0        50 min
 ```
 
 - **One FIFO:** 300,000 SMS at 100/s is 50 minutes. Every OTP is behind it. p50 two minutes, p99 49 minutes, and **67,500 OTPs arrive after expiring.** Each one is a person who couldn't log in, and probably pressed "send code" again, adding another one to the queue. 11.4's fan-out queue lesson, this time with a harder limit, because it isn't ours: more workers don't raise the provider's limit.
@@ -134,11 +134,11 @@ In the design: three priority queues, separate provider accounts (or senders) fo
 Today we are the client. `npm run retry` part A: 1 million emails, 1% clearly failed (the provider said it didn't send), 2% timed out, and half of the timeouts were actually sent:
 
 ```
-policy                                                        not delivered   delivered twice   provider calls
-once, no retry                                                       2.03%         0.00%          1.000
-again on failure or timeout                                          0.00%         1.01%          1.031
-again, with an idempotency key at the provider                       0.00%         0.00%          1.031
-on timeout to a second provider (the key is not shared)              0.00%         0.99%          1.031
+policy                                                      not delivered  delivered twice  provider call
+once, no retry                                                      2.03%            0.00%          1.000
+again on failure or timeout                                         0.00%            1.01%          1.031
+again, with an idempotency key at the provider                      0.00%            0.00%          1.031
+on timeout to a second provider (the key is not shared)             0.00%            0.99%          1.031
 ```
 
 - **Without retries, 2% is lost,** half of it actually timeouts (we don't know whether they went).
@@ -149,9 +149,9 @@ on timeout to a second provider (the key is not shared)              0.00%      
 Part B, the primary email provider down for ten minutes, 1,000 emails a second:
 
 ```
-policy                                                         delay p50    delay p99         attempts on primary
-exponential backoff on the same provider (max 5 minutes)        402.63 s   786.52 s      5,860,100
-breaker: second provider after 30 s of failures                   500 ms    39.98 s        167,550
+policy                                                      delay p50  delay p99  attempts on primary
+exponential backoff on the same provider (max 5 minutes)     402.63 s   786.52 s            5,860,100
+breaker: second provider after 30 s of failures                500 ms    39.98 s              167,550
 ```
 
 Backoff (7.4) saves the dead provider from load, but doesn't save the emails: p50 **6.7 minutes**, p99 13 minutes. And a subtle thing: even when the provider comes back at ten minutes, many emails are in the middle of a 4–5 minute backoff, so they wait a minute or so even after it is back. The breaker (9.4) sees 30 seconds of failures and moves all traffic to the second provider: p99 40 s, and 35 times less load on the primary. Experiment 4: with the breaker opening at 120 s, p99 204 s. The breaker's timing is a trade-off: too short and one momentary blip triggers failover (and its duplicates), too long and delays in an outage.
@@ -163,11 +163,11 @@ And the ones that don't go out after every attempt go to a DLQ (7.4), with an al
 Someone's post went viral, 500 likes in ten minutes. `npm run aggregate`:
 
 ```
-policy                                                         pushes   first one at       last like reported
-one push per like                                                 500       115 ms                 immediately
-at most one per 5 minutes, drop the rest                            4       115 ms    no (last 112.64 s dropped)
-batch in a 30 s window, "X and N others" (collapse key)            26      30.12 s             30.00 s later
-first one at once, then the window doubles (30 s, 1, 2… min)        6       115 ms            847.36 s later
+policy                                                            push  first one at          last like reported
+one push per like                                                  500       115 ms                 immediately
+at most one per 5 minutes, drop the rest                             4       115 ms  no (last 112.64 s dropped)
+batch in a 30 s window, "X and N others" (collapse key)             26      30.12 s               30.00 s later
+first one at once, then the window doubles (30 s, 1, 2… min)         6       115 ms              847.36 s later
 ```
 
 - **One per like:** the phone rings 500 times. The user's reaction is almost certain: notifications off, and then the next OTP doesn't come by push either.
@@ -186,17 +186,17 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 `npm run smoke` runs every rule above in one Express service: three priority queues, channel plans from types, idempotency, aggregation windows, opt-outs, quiet hours, deleting dead tokens, and retries with the same key. The provider is a fake, which simulates dead tokens and "timed out but actually sent":
 
 ```
-#   step                                                     result
-1   1,000 marketing in the queue, then alice's OTP; 1 sent   push:a-phone ← code: 482913
-2   OTP again with the same idempotency key                  id 1001 (earlier 1001), duplicate: true
-3   50 likes on bob's post; before the window closes         0 pushes
-4   window closes 30 s later                                 push:b-phone ← fan0 and 49 others liked this; merged 49
-5   carol has turned marketing off                           suppressed
-6   dave: marketing at 11 pm, quiet 22–7                     at night: deferred; at 7 am: sent
-7   erin has two tokens, one dead; two OTPs                  provider calls: 2, then 1; tokens deleted 1
-8   frank has no device, OTP                                 sms:phone:frank ← code: 999999
-9   gina's order email: first call timed out (actually sent) email: timeout → email: sent
-10  in gina's inbox                                          1 email
+#   step                                                        result
+1   1,000 marketing in the queue, then alice's OTP; 1 sent      push:a-phone ← code: 482913
+2   OTP again with the same idempotency key                     id 1001 (earlier 1001), duplicate: true
+3   50 likes on bob's post; before the window closes            0 pushes
+4   window closes 30 s later                                    push:b-phone ← fan0 and 49 others liked this; merged 49
+5   carol has turned marketing off                              suppressed
+6   dave: marketing at 11 pm, quiet 22–7                        at night: deferred; at 7 am: sent
+7   erin has two tokens, one dead; two OTPs                     provider calls: 2, then 1; tokens deleted 1
+8   frank has no device, OTP                                    sms:phone:frank ← code: 999999
+9   gina's order email: first call timed out (actually sent)    email: timeout → email: sent
+10  in gina's inbox                                             1 email
 ```
 
 - Step 1: 1,000 marketing notifications were in the queue first, but the first one sent is the OTP.

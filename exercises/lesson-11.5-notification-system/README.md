@@ -56,48 +56,48 @@ npm run smoke
 `npm run estimate` — SMS অল্প কিন্তু খরচের বেশিরভাগ; মরা token এ দিনে কোটি কোটি push:
 
 ```
-email                  17%         51.0 কোটি     $0.0001    $1,530,000       17.5%
-SMS                     1%            3 কোটি      $0.008    $7,200,000       82.5%
-প্রতি user এর সব token এ পাঠালে দিনে 720 কোটি push, তার 216 কোটি মরা token এ
+email                  17%     510 million     $0.0001    $1,530,000          17.5%
+SMS                     1%      30 million      $0.008    $7,200,000          82.5%
+sending to every token of every user is 7.2 billion pushes a day, 2.16 billion of them to dead tokens
 ```
 
 `npm run queue` — এক FIFO তে ৬৭,৫০০ OTP মেয়াদ পার; অগ্রাধিকার বা আলাদা account এ শূন্য:
 
 ```
-একটা FIFO queue, একটা provider account                120.00 s 2942.40 s    3000.00 s     67,500          50 মি
-অগ্রাধিকার: OTP আগে, campaign বাকিটা                           100 ms    100 ms       100 ms          0          63 মি
-আলাদা account: OTP আর campaign এর আলাদা সীমা                100 ms    100 ms       100 ms          0          50 মি
+one FIFO queue, one provider account                        120.00 s  2942.40 s    3000.00 s     67,500        50 min
+priority: OTP first, the campaign gets the rest               100 ms    100 ms       100 ms          0        63 min
+separate accounts: separate limits for OTP and campaign       100 ms    100 ms       100 ms          0        50 min
 ```
 
 `npm run retry` — retry ছাড়া হারায়, key ছাড়া দুবার যায়, failover এ key কাজ করে না; outage এ breaker:
 
 ```
-একবার, retry নেই                                            2.03%         0.00%          1.000
-ব্যর্থ বা timeout হলে আবার                                       0.00%         1.01%          1.031
-আবার, provider এ idempotency key সহ                        0.00%         0.00%          1.031
-timeout হলে দ্বিতীয় provider এ (key শেয়ার হয় না)                  0.00%         0.99%          1.031
-একই provider এ exponential backoff (সর্বোচ্চ 5 মিনিট)         402.63 s   786.52 s      5,860,100
-breaker: 30 s ব্যর্থতার পরে দ্বিতীয় provider                       500 ms    39.98 s        167,550
+once, no retry                                                      2.03%            0.00%          1.000
+again on failure or timeout                                         0.00%            1.01%          1.031
+again, with an idempotency key at the provider                      0.00%            0.00%          1.031
+on timeout to a second provider (the key is not shared)             0.00%            0.99%          1.031
+exponential backoff on the same provider (max 5 minutes)     402.63 s   786.52 s            5,860,100
+breaker: second provider after 30 s of failures                500 ms    39.98 s              167,550
 ```
 
 `npm run aggregate` — ৫০০ like এ ৫০০ push থেকে ৬টা, কিছু না হারিয়ে:
 
 ```
-প্রতিটা like এ একটা push                                        500       115 ms                 সাথে সাথে
-প্রতি 5 মিনিটে সর্বোচ্চ একটা, বাকি ফেলে দাও                                   4       115 ms    না (শেষ 112.64 s বাদ)
-30 s এর জানালায় জমিয়ে "X আর আরও N জন" (collapse key)             26      30.12 s            30.00 s পরে
-প্রথমটা সাথে সাথে, তারপর জানালা দ্বিগুণ হয় (৩০ s, ১, ২… মি)                  6       115 ms           847.36 s পরে
+one push per like                                                  500       115 ms                 immediately
+at most one per 5 minutes, drop the rest                             4       115 ms  no (last 112.64 s dropped)
+batch in a 30 s window, "X and N others" (collapse key)             26      30.12 s               30.00 s later
+first one at once, then the window doubles (30 s, 1, 2… min)         6       115 ms              847.36 s later
 ```
 
 `npm run smoke` — ১০টা ধাপ:
 
 ```
-1   ১,০০০টা marketing queue তে, তারপর alice এর OTP; ১টা পাঠানো   push:a-phone ← কোড: 482913
-4   ৩০ s পরে জানালা বন্ধ                                        push:b-phone ← fan0 আর আরও 49 জন like করেছে; মেশানো 49
-6   dave: রাত ১১টায় marketing, নীরবতা ২২–৭                    রাতে: deferred; সকাল ৭টায়: sent
-7   erin এর দুটো token, একটা মৃত; দুটো OTP                      provider call: 2, তারপর 1; মুছে ফেলা token 1
-9   gina এর অর্ডার email: প্রথম call timeout (আসলে গিয়েছিল)        email: timeout → email: sent
-10  gina এর inbox এ                                       1টা email
+1   1,000 marketing in the queue, then alice's OTP; 1 sent      push:a-phone ← code: 482913
+4   window closes 30 s later                                    push:b-phone ← fan0 and 49 others liked this; merged 49
+6   dave: marketing at 11 pm, quiet 22–7                        at night: deferred; at 7 am: sent
+7   erin has two tokens, one dead; two OTPs                     provider calls: 2, then 1; tokens deleted 1
+9   gina's order email: first call timed out (actually sent)    email: timeout → email: sent
+10  in gina's inbox                                             1 email
 ```
 
 ## কী দেখার জন্য এটা বানানো

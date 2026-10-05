@@ -1,17 +1,17 @@
 import { mulberry32 } from './random';
 import { Replica, type LagModel } from './replica';
 
-// Lesson 6.3 §১.৫ — Consistent prefix: উত্তর আগে, প্রশ্ন পরে।
+// Lesson 6.3 §1.5 — Consistent prefix: the answer first, the question later.
 //
-// TaskFlow এর comment table দুটো partition এ ভাগ (Lesson 5.8), প্রতিটার নিজের primary আর replica।
-// রহিম একটা task এ প্রশ্ন করে ("deploy কখন?"), একটু পরে করিম উত্তর দেয় ("আজ রাত ৯টায়")।
-// অন্যরা thread টা পড়ে — দুটো partition এর replica থেকে।
+// TaskFlow's comment table is split into two partitions (Lesson 5.8), each with its own primary and replica.
+// Rahim asks a question on a task ("when is the deploy?"), and a little later Karim answers ("9 pm tonight").
+// Others read the thread — from the two partitions' replicas.
 //
-// দুটো shard key তুলনা:
-//   commentId  → প্রশ্ন আর উত্তর প্রায়ই দুটো ভিন্ন partition এ
-//   taskId     → একই task এর সব comment একই partition এ
+// Comparing two shard keys:
+//   commentId  → the question and the answer are often in two different partitions
+//   taskId     → all of a task's comments are in the same partition
 //
-// উত্তরের সময়: ৩০% উত্তর একটা automation এর (+50 ms, যেমন "bot: PR linked"), বাকিগুলো মানুষের (১–১০ s)।
+// Answer timing: 30% of answers are from an automation (+50 ms, like "bot: PR linked"), the rest from people (1–10 s).
 
 const SIM_MS = 120_000;
 const WRITES_PER_S_PER_PARTITION = 200;
@@ -42,7 +42,7 @@ function workload(shardKey: ShardKey): {
 	for (let thread = 0; thread < THREADS; thread++) {
 		const asked = 1000 + random() * (SIM_MS - 15_000);
 		const gap = random() < 0.3 ? 50 : 1000 + random() * 9000;
-		// commentId এর hash এ partition: প্রশ্ন আর উত্তর স্বাধীনভাবে যেকোনো দিকে। taskId: দুটোই একই দিকে।
+		// partition by the hash of commentId: the question and answer go either way independently. taskId: both go the same way.
 		const qPartition = Math.floor(random() * 2);
 		const aPartition = shardKey === 'taskId' ? qPartition : Math.floor(random() * 2);
 		writes.push({ at: asked, partition: qPartition, thread, kind: 'question' });
@@ -60,7 +60,7 @@ function run(shardKey: ShardKey): { sawAnswer: number; answerWithoutQuestion: nu
 	const lagRandom = mulberry32(67);
 	const replicas = [new Replica(LAG, lagRandom), new Replica(LAG, lagRandom)];
 	const lsn = [0, 0];
-	// thread → প্রশ্ন আর উত্তর কোন partition এর কোন LSN এ
+	// thread → which LSN of which partition the question and answer are at
 	const where = new Map<number, { q?: [number, number]; a?: [number, number] }>();
 	for (const w of writes) {
 		lsn[w.partition] = (lsn[w.partition] ?? 0) + 1;
@@ -77,7 +77,7 @@ function run(shardKey: ShardKey): { sawAnswer: number; answerWithoutQuestion: nu
 	for (const read of reads) {
 		const entry = where.get(read.thread);
 		if (!entry?.q || !entry.a) continue;
-		// পাঠক দুটো partition এর replica থেকে একই মুহূর্তে পড়ে
+		// the reader reads from both partitions' replicas at the same moment
 		const visible = ([p, l]: [number, number]): boolean =>
 			(replicas[p]?.replayedAt(read.at) ?? 0) >= l;
 		const q = visible(entry.q);
@@ -90,10 +90,10 @@ function run(shardKey: ShardKey): { sawAnswer: number; answerWithoutQuestion: nu
 
 function main(): void {
 	console.log(
-		`\n   comment ২টা partition এ, প্রতিটার একটা async replica; ${THREADS} টা প্রশ্ন-উত্তর, প্রতিটা thread ${READS_PER_THREAD} বার পড়া`
+		`\n   comments in 2 partitions, each with one async replica; ${THREADS} question-answer pairs, each thread read ${READS_PER_THREAD} times`
 	);
-	console.log('   (seed দেওয়া — প্রতিবার একই ফল)\n');
-	console.log('   shard key       উত্তর দেখা গেছে     উত্তর আছে কিন্তু প্রশ্ন নেই');
+	console.log('   (seeded — the same result every time)\n');
+	console.log('   shard key       answer seen         answer present but question missing');
 	for (const key of ['commentId', 'taskId'] as const) {
 		const r = run(key);
 		console.log(

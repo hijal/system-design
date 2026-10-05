@@ -20,11 +20,11 @@ import {
 	s3
 } from './storage';
 
-// Lesson 8.1 §১.৬ — object storage এর API একটা file system না। সাতটা ছোট পরীক্ষা, প্রতিটা একটা নিয়ম:
-//   ১. লেখার পরেই পড়া — নতুন মান পাওয়া যায় কি?        ৫. ETag আর MD5
-//   ২. "Folder" — আসলে key এর prefix                     ৬. দুজন একসাথে লিখলে — last writer wins, আর conditional write
-//   ৩. পুরো object লেখা, কিন্তু আংশিক পড়া (range)       ৭. Versioning — overwrite আর delete এর পরে পুরনো version
-//   ৪. Metadata — body না নামিয়ে (HEAD)
+// Lesson 8.1 §1.6 — object storage's API is not a file system. Seven small tests, each one a rule:
+//   1. read right after write — is the new value returned?   5. ETag and MD5
+//   2. "Folder" — really a key prefix                         6. two writers at once — last writer wins, and conditional writes
+//   3. write the whole object, but read part of it (range)   7. Versioning — old versions after overwrite and delete
+//   4. Metadata — without downloading the body (HEAD)
 
 const B = env.BUCKET;
 const VERSIONED = `${env.BUCKET}-versioned`;
@@ -49,8 +49,10 @@ async function readAfterWrite(): Promise<void> {
 		const got = (await getObject(B, 'raw/counter.txt'))?.toString();
 		if (got !== body) stale++;
 	}
-	console.log('── ১. লেখার পরেই পড়া (একই key তে ২০০ বার overwrite, প্রতিবার সাথে সাথে GET) ──');
-	console.log(`   পুরনো মান ফেরত এসেছে: ${stale} / 200\n`);
+	console.log(
+		'── 1. Read right after write (200 overwrites of one key, each followed immediately by a GET) ──'
+	);
+	console.log(`   old value returned: ${stale} / 200\n`);
 }
 
 async function prefixes(): Promise<void> {
@@ -65,12 +67,12 @@ async function prefixes(): Promise<void> {
 	const list = await s3.send(
 		new ListObjectsV2Command({ Bucket: B, Prefix: 'workspaces/12/', Delimiter: '/' })
 	);
-	console.log('── ২. "Folder" — আসলে key এর prefix ──');
+	console.log('── 2. "Folder" — really just a key prefix ──');
 	console.log("   LIST Prefix='workspaces/12/' Delimiter='/':");
 	for (const c of list.Contents ?? []) console.log(`     object  ${c.Key}`);
 	for (const p of list.CommonPrefixes ?? [])
-		console.log(`     "folder" ${p.Prefix}   ← কোনো আসল জিনিস না, শুধু key এর মিল`);
-	// "folder এর নাম বদলাও" — S3 এ rename নেই: প্রতিটা object copy, তারপর delete
+		console.log(`     "folder" ${p.Prefix}   ← not a real thing, just keys that match`);
+	// "rename the folder" — S3 has no rename: copy every object, then delete
 	const all = await s3.send(new ListObjectsV2Command({ Bucket: B, Prefix: 'workspaces/12/' }));
 	let requests = 1;
 	for (const c of all.Contents ?? []) {
@@ -81,7 +83,7 @@ async function prefixes(): Promise<void> {
 		requests += 2;
 	}
 	console.log(
-		`   workspaces/12/ → workspaces/99/ "rename": ${requests} টা request (১ LIST + প্রতিটা object এ COPY + DELETE)\n`
+		`   workspaces/12/ → workspaces/99/ "rename": ${requests} requests (1 LIST + COPY + DELETE per object)\n`
 	);
 }
 
@@ -89,18 +91,20 @@ async function wholeObjectRangeRead(): Promise<void> {
 	const size = 8 * 1024 * 1024;
 	const body = randomBytes(size);
 	await putObject(B, 'raw/design.psd', body);
-	// ১ byte বদলাতে চাই — append, "এই offset এ লেখো" জাতীয় কোনো API নেই: পুরো object আবার PUT
+	// to change 1 byte — there is no append or "write at this offset" API: PUT the whole object again
 	body[1000] = (body[1000] ?? 0) ^ 0xff;
 	await s3.send(new PutObjectCommand({ Bucket: B, Key: 'raw/design.psd', Body: body }));
-	// কিন্তু পড়া আংশিক হতে পারে — Range header (video এর মাঝখান থেকে চালানো, বড় file এর অংশ)
+	// but a read can be partial — the Range header (playing a video from the middle, part of a big file)
 	const part = await s3.send(
 		new GetObjectCommand({ Bucket: B, Key: 'raw/design.psd', Range: 'bytes=4194304-4195327' })
 	);
 	const got = Buffer.from((await part.Body?.transformToByteArray()) ?? []);
-	console.log('── ৩. লেখা পুরো object, পড়া আংশিক হতে পারে ──');
-	console.log(`   ১ byte বদলাতে পাঠাতে হলো: ${body.length.toLocaleString('en')} byte (পুরো 8 MB)`);
+	console.log('── 3. Writes are whole-object, reads can be partial ──');
 	console.log(
-		`   মাঝখান থেকে 1 KB পড়তে এলো: ${got.length} byte · ${part.ContentRange ?? ''} · মিলেছে: ${got.equals(body.subarray(4194304, 4195328)) ? 'হ্যাঁ' : 'না'}\n`
+		`   to change 1 byte, had to send: ${body.length.toLocaleString('en')} bytes (the whole 8 MB)`
+	);
+	console.log(
+		`   reading 1 KB from the middle returned: ${got.length} bytes · ${part.ContentRange ?? ''} · matches: ${got.equals(body.subarray(4194304, 4195328)) ? 'yes' : 'no'}\n`
 	);
 }
 
@@ -118,15 +122,15 @@ async function metadataAndEtag(): Promise<void> {
 	);
 	const head = await s3.send(new HeadObjectCommand({ Bucket: B, Key: 'raw/spec.pdf' }));
 	const md5 = createHash('md5').update(body).digest('hex');
-	console.log('── ৪. Metadata — HEAD, body ছাড়া ──');
+	console.log('── 4. Metadata — HEAD, without the body ──');
 	console.log(
-		`   আকার ${head.ContentLength ?? 0} · ${head.ContentType ?? ''} · ${head.ContentDisposition ?? ''}`
+		`   size ${head.ContentLength ?? 0} · ${head.ContentType ?? ''} · ${head.ContentDisposition ?? ''}`
 	);
-	console.log(`   নিজের metadata: ${JSON.stringify(head.Metadata ?? {})}\n`);
-	console.log('── ৫. ETag ──');
+	console.log(`   custom metadata: ${JSON.stringify(head.Metadata ?? {})}\n`);
+	console.log('── 5. ETag ──');
 	console.log(`   ETag ${head.ETag ?? ''}`);
 	console.log(
-		`   MD5  "${md5}"  → ${head.ETag === `"${md5}"` ? 'একই (একবারে PUT করা object এ)' : 'আলাদা'}\n`
+		`   MD5  "${md5}"  → ${head.ETag === `"${md5}"` ? 'the same (for an object PUT in one go)' : 'different'}\n`
 	);
 }
 
@@ -148,7 +152,7 @@ async function concurrentWrites(): Promise<void> {
 		return { doc: { items }, etag: res.ETag ?? '' };
 	};
 
-	// ক) দুজন পড়ল, দুজন নিজের item যোগ করে লিখল — কোনো শর্ত ছাড়া
+	// a) two people read, both add their own item and write — without any condition
 	const [a, b] = await Promise.all([read(), read()]);
 	await putObject(
 		B,
@@ -162,7 +166,7 @@ async function concurrentWrites(): Promise<void> {
 	);
 	const plain = (await read()).doc.items;
 
-	// খ) একই কাজ, If-Match দিয়ে — "আমি যেটা পড়েছি, সেটাই যদি এখনো থাকে তবেই লেখো"
+	// b) the same work, with If-Match — "write only if what I read is still there"
 	await putObject(B, key, Buffer.from(JSON.stringify({ items: ['draft'] })));
 	const [c, d] = await Promise.all([read(), read()]);
 	const conditional = async (seen: { doc: Doc; etag: string }, item: string): Promise<string> => {
@@ -175,36 +179,36 @@ async function concurrentWrites(): Promise<void> {
 					IfMatch: seen.etag
 				})
 			);
-			return 'লেখা হলো';
+			return 'wrote';
 		} catch (error: unknown) {
-			return `প্রত্যাখ্যাত (${status(error)})`;
+			return `rejected (${status(error)})`;
 		}
 	};
 	const first = await conditional(c, 'Rahim: review');
 	const second = await conditional(d, 'Karim: deploy');
 	let retried = '';
-	if (second.startsWith('প্রত্যাখ্যাত')) {
-		retried = await conditional(await read(), 'Karim: deploy'); // আবার পড়ে, আবার চেষ্টা
+	if (second.startsWith('rejected')) {
+		retried = await conditional(await read(), 'Karim: deploy'); // read again, try again
 	}
 	const guarded = (await read()).doc.items;
 
-	// গ) If-None-Match: * — "শুধু না থাকলে তৈরি করো" (একই নামের দুটো upload এর দ্বিতীয়টা আটকায়)
+	// c) If-None-Match: * — "create only if it doesn't exist" (stops the second of two uploads with the same name)
 	const createOnly = await s3
 		.send(new PutObjectCommand({ Bucket: B, Key: key, Body: 'x', IfNoneMatch: '*' }))
 		.then(
-			() => 'লেখা হলো (?)',
-			(error: unknown) => `প্রত্যাখ্যাত (${status(error)})`
+			() => 'wrote (?)',
+			(error: unknown) => `rejected (${status(error)})`
 		);
 
-	console.log('── ৬. দুজন একসাথে একই object বদলাল ──');
+	console.log('── 6. Two people changed the same object at once ──');
 	console.log(
-		`   শর্ত ছাড়া:            ${JSON.stringify(plain)}   ← Rahim এর item নীরবে হারাল (last writer wins)`
+		`   unconditional:         ${JSON.stringify(plain)}   ← Rahim's item silently lost (last writer wins)`
 	);
 	console.log(
-		`   If-Match (ETag):       Rahim ${first} · Karim ${second} · আবার পড়ে Karim ${retried || '—'}`
+		`   If-Match (ETag):       Rahim ${first} · Karim ${second} · after re-reading, Karim ${retried || '—'}`
 	);
 	console.log(`                          ${JSON.stringify(guarded)}`);
-	console.log(`   If-None-Match: * (আগে থেকে আছে এমন key এ): ${createOnly}\n`);
+	console.log(`   If-None-Match: * (on a key that already exists): ${createOnly}\n`);
 }
 
 async function versioning(): Promise<void> {
@@ -227,7 +231,7 @@ async function versioning(): Promise<void> {
 		new GetObjectCommand({ Bucket: VERSIONED, Key: key, VersionId: v1.VersionId })
 	);
 	const oldBody = (await old.Body?.transformToString()) ?? '';
-	// ফিরিয়ে আনা: পুরনো version কে নতুন version হিসেবে copy
+	// restoring: copy the old version as a new version
 	await s3.send(
 		new CopyObjectCommand({
 			Bucket: VERSIONED,
@@ -235,14 +239,14 @@ async function versioning(): Promise<void> {
 			CopySource: `${VERSIONED}/${key}?versionId=${v1.VersionId ?? ''}`
 		})
 	);
-	const restored = (await getObject(VERSIONED, key))?.toString() ?? '(নেই)';
-	console.log('── ৭. Versioning (আলাদা bucket, versioning চালু) ──');
+	const restored = (await getObject(VERSIONED, key))?.toString() ?? '(missing)';
+	console.log('── 7. Versioning (a separate bucket, with versioning on) ──');
 	console.log(`   PUT "version one" → PUT "version two" → DELETE`);
 	console.log(
-		`   version আছে: ${versions.Versions?.length ?? 0} · delete marker: ${versions.DeleteMarkers?.length ?? 0} · সাধারণ GET: ${now ? 'পাওয়া গেল' : '404'}`
+		`   versions present: ${versions.Versions?.length ?? 0} · delete markers: ${versions.DeleteMarkers?.length ?? 0} · plain GET: ${now ? 'found' : '404'}`
 	);
 	console.log(
-		`   প্রথম version টা VersionId দিয়ে: "${oldBody}" · copy করে ফিরিয়ে আনার পরে GET: "${restored}"\n`
+		`   the first version by VersionId: "${oldBody}" · GET after copying it back: "${restored}"\n`
 	);
 }
 

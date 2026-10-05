@@ -1,4 +1,4 @@
-// Seeded PRNG (mulberry32) — প্রতিবার একই "random" ক্রম, তাই simulation এর ফল হুবহু মেলে।
+// Seeded PRNG (mulberry32) — the same "random" sequence every time, so simulation results match exactly.
 export function mulberry32(seed: number): () => number {
 	let a = seed;
 	return () => {
@@ -9,8 +9,8 @@ export function mulberry32(seed: number): () => number {
 	};
 }
 
-// Network এর এক দিকের যাত্রার সময় (ms): একটা ন্যূনতম + exponential লেজ।
-// বাস্তব network latency এর মতোই — বেশিরভাগ দ্রুত, মাঝে মাঝে অনেক ধীর।
+// One-way network trip time (ms): a minimum + an exponential tail.
+// Like real network latency — mostly fast, occasionally very slow.
 export function latency(random: () => number, base: number, meanExtra: number): number {
 	return base - meanExtra * Math.log(1 - random());
 }

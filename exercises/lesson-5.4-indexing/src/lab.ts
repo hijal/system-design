@@ -3,16 +3,16 @@ import { z } from 'zod';
 import { dropSecondaryIndexes, sequelize } from './db';
 import { explain } from './explain';
 
-// Lesson 5.4 — একই query, ভিন্ন ভিন্ন index, আর Postgres এর planner কী সিদ্ধান্ত নেয়।
-// প্রতিটা variant শুরু হয় primary key ছাড়া সব index মুছে, তারপর শুধু সেই variant এর index।
+// Lesson 5.4 — the same query, different indexes, and what Postgres's planner decides.
+// Every variant starts by dropping every index except the primary key, then adds only that variant's index.
 
 type Variant = {
 	label: string;
 	sql: string;
-	// index তৈরির কাজ — বেশিরভাগ queryInterface.addIndex দিয়ে, ঠিক যেভাবে একটা
-	// Sequelize migration এ লেখা হয়। যেগুলো addIndex এ প্রকাশ করা যায় না, সেগুলো raw SQL।
+	// the index-building work — mostly with queryInterface.addIndex, exactly the way it is written
+	// in a Sequelize migration. What addIndex can't express is raw SQL.
 	setup: () => Promise<void>;
-	sizeOf?: string; // কোন index এর আকার দেখাতে হবে
+	sizeOf?: string; // which index to show the size of
 };
 
 type Step = { title: string; note: string; variants: Variant[] };
@@ -37,10 +37,10 @@ const FEED = `SELECT id, title, "createdAt" FROM tasks WHERE "projectId" = 7 ORD
 
 const steps: Step[] = [
 	{
-		title: '১. "আমার খোলা task" — foreign key এ index',
-		note: 'Postgres foreign key এ নিজে index বানায় না (Lesson 5.2)',
+		title: '1. "My open tasks" — an index on the foreign key',
+		note: 'Postgres does not create an index on a foreign key by itself (Lesson 5.2)',
 		variants: [
-			{ label: 'index নেই', sql: OPEN_TASKS, setup: none },
+			{ label: 'no index', sql: OPEN_TASKS, setup: none },
 			{
 				label: '(assigneeId)',
 				sql: OPEN_TASKS,
@@ -50,7 +50,7 @@ const steps: Step[] = [
 			{
 				label: '(assigneeId) WHERE status <> done',
 				sql: OPEN_TASKS,
-				// Partial index — শুধু খোলা task গুলো index এ; ৭০% "done" row বাদ
+				// Partial index — only the open tasks are in the index; the 70% "done" rows are left out
 				setup: () =>
 					qi.addIndex('tasks', {
 						fields: ['assigneeId'],
@@ -62,17 +62,17 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '২. Project feed — composite index এ column এর ক্রম',
+		title: '2. Project feed — column order in a composite index',
 		note: 'WHERE projectId = 7 ORDER BY createdAt DESC LIMIT 20',
 		variants: [
-			{ label: 'index নেই', sql: FEED, setup: none },
+			{ label: 'no index', sql: FEED, setup: none },
 			{
 				label: '(projectId)',
 				sql: FEED,
 				setup: () => qi.addIndex('tasks', { fields: ['projectId'], name: 'tasks_project' })
 			},
 			{
-				label: '(createdAt, projectId) — উল্টো',
+				label: '(createdAt, projectId) — reversed',
 				sql: FEED,
 				setup: () =>
 					qi.addIndex('tasks', {
@@ -92,8 +92,8 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '৩. Leftmost prefix — composite index এর দ্বিতীয় column একা',
-		note: 'শুধু createdAt দিয়ে filter, projectId ছাড়া',
+		title: '3. Leftmost prefix — the second column of a composite index alone',
+		note: 'filtering only by createdAt, without projectId',
 		variants: [
 			{
 				label: '(projectId, createdAt)',
@@ -112,8 +112,8 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '৪. Column এর উপর function — index থাকলেও কাজে লাগে না',
-		note: 'দুটো query একই প্রশ্ন করছে; index একই',
+		title: '4. A function on the column — the index exists but does not help',
+		note: 'both queries ask the same question; the index is the same',
 		variants: [
 			{
 				label: '(createdAt) + createdAt::date = …',
@@ -133,7 +133,7 @@ const steps: Step[] = [
 			{
 				label: '(lower(title)) — expression index',
 				sql: `SELECT id FROM tasks WHERE lower(title) = 'fix bug #23'`,
-				// Expression index — addIndex এর typed option এ নেই, তাই raw SQL (migration এও তাই)
+				// Expression index — not among addIndex's typed options, so raw SQL (in a migration too)
 				setup: async () => {
 					await sequelize.query('CREATE INDEX tasks_title_lower ON tasks (lower(title))');
 				}
@@ -141,8 +141,8 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '৫. Selectivity — index আছে, তবু Postgres নেয় না',
-		note: 'done = ~৭০% row, blocked = ~১% row; একই (status) index; id আর title লাগবে, তাই table এ যেতেই হবে',
+		title: '5. Selectivity — the index exists, but Postgres does not use it',
+		note: 'done = ~70% of rows, blocked = ~1% of rows; the same (status) index; id and title are needed, so it has to go to the table',
 		variants: [
 			{
 				label: `(status) + status = 'done'`,
@@ -157,8 +157,8 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '৬. Covering index — table এ না গিয়েই উত্তর',
-		note: 'ধাপ ২ এর feed query',
+		title: '6. Covering index — the answer without going to the table',
+		note: "step 2's feed query",
 		variants: [
 			{
 				label: '(projectId, createdAt)',
@@ -172,7 +172,7 @@ const steps: Step[] = [
 			{
 				label: '(projectId, createdAt) INCLUDE (id, title)',
 				sql: FEED,
-				// INCLUDE — Sequelize v6 এর addIndex এর type এ নেই, তাই raw SQL
+				// INCLUDE — not in the type of Sequelize v6's addIndex, so raw SQL
 				setup: async () => {
 					await sequelize.query(
 						'CREATE INDEX tasks_project_created_cover ON tasks ("projectId", "createdAt") INCLUDE (id, title)'
@@ -182,8 +182,8 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '৭. LIKE — B-tree এর সীমা',
-		note: 'title এ index আছে',
+		title: "7. LIKE — the B-tree's limit",
+		note: 'there is an index on title',
 		variants: [
 			{
 				label: `(title) + LIKE '%bug%'`,
@@ -196,10 +196,10 @@ const steps: Step[] = [
 				setup: () => qi.addIndex('tasks', { fields: ['title'], name: 'tasks_title' })
 			},
 			{
-				label: `(title text_pattern_ops) + একই LIKE`,
+				label: `(title text_pattern_ops) + same LIKE`,
 				sql: `SELECT count(*) FROM tasks WHERE title LIKE 'Fix bug #1234%'`,
-				// Database এর collation en_US.utf8 হলে সাধারণ B-tree দিয়ে LIKE 'abc%' চলে না —
-				// text_pattern_ops দিয়ে byte-by-byte ক্রমে index লাগে। Operator class, raw SQL।
+				// If the database collation is en_US.utf8, a plain B-tree can't serve LIKE 'abc%' —
+				// it needs an index in byte-by-byte order with text_pattern_ops. An operator class, raw SQL.
 				setup: async () => {
 					await sequelize.query(
 						'CREATE INDEX tasks_title_pattern ON tasks (title text_pattern_ops)'
@@ -215,11 +215,11 @@ function row(label: string, shape: string, ms: string, pages: string, extra: str
 }
 
 async function main(): Promise<void> {
-	const only = process.argv[2]; // `npm run lab -- 4` দিলে শুধু ধাপ ৪
+	const only = process.argv[2]; // `npm run lab -- 4` runs only step 4
 	for (const [i, step] of steps.entries()) {
 		if (only && String(i + 1) !== only) continue;
 		console.log(`\n${step.title}\n   (${step.note})`);
-		console.log(row('index', 'plan', 'সময়', 'pages', ''));
+		console.log(row('index', 'plan', 'time', 'pages', ''));
 		for (const variant of step.variants) {
 			await dropSecondaryIndexes();
 			await variant.setup();

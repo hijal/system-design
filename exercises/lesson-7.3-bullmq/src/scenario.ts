@@ -4,15 +4,15 @@ import path from 'node:path';
 import { z } from 'zod';
 import { assignJobId, QUEUE_NAME, redisAddress, type AssignEmail } from './config';
 
-// Lesson 7.3 — আসল Redis (Docker) এর উপর আসল BullMQ, আর তিন ধরনের Node process:
-// নকল email provider, TaskFlow API (producer), এক বা একাধিক worker (consumer)।
+// Lesson 7.3 — real BullMQ on top of real Redis (Docker), and three kinds of Node process:
+// a fake email provider, the TaskFlow API (producer), one or more workers (consumer).
 //
-// Lesson 7.1 এর মতোই তিনটা phase: provider স্বাভাবিক (150 ms) → ধীর → আবার স্বাভাবিক, আর পুরো
-// সময় প্রতি সেকেন্ডে ASSIGN_RPS টা assign। CRASH দিয়ে ধীর phase এর মাঝখানে কোনো process মারা যায়:
+// The same three phases as Lesson 7.1: provider normal (150 ms) → slow → normal again, and the whole
+// time ASSIGN_RPS assigns per second. With CRASH a process dies in the middle of the slow phase:
 //
-//   CRASH=api          — API process SIGKILL, সাথে সাথে নতুন API     (7.1 এর experiment ২ আবার)
-//   CRASH=worker-kill  — একটা worker SIGKILL, সাথে সাথে নতুন worker  (চলমান job এর কী হয়?)
-//   CRASH=worker-term  — একটা worker SIGTERM (graceful), নতুন worker  (deploy যেমন হওয়া উচিত)
+//   CRASH=api          — the API process SIGKILLed, a new API right away     (7.1's experiment 2 again)
+//   CRASH=worker-kill  — one worker SIGKILLed, a new worker right away  (what happens to the running jobs?)
+//   CRASH=worker-term  — one worker SIGTERMed (graceful), a new worker  (how a deploy should go)
 
 const config = z
 	.object({
@@ -25,10 +25,10 @@ const config = z
 		ATTEMPTS: z.coerce.number().int().positive().default(5),
 		WORKER_PROCS: z.coerce.number().int().positive().default(1),
 		CONCURRENCY: z.coerce.number().int().positive().default(8),
-		// Production default 30 s / 30 s; scenario ছোট রাখতে কমানো (README এর সৎ নোট দেখো)
+		// Production default 30 s / 30 s; lowered to keep the scenario short (see the README's honest note)
 		LOCK_MS: z.coerce.number().int().positive().default(10_000),
 		STALLED_MS: z.coerce.number().int().positive().default(5000),
-		// প্রতিটা assign দুবার পাঠানো — double click বা timeout এর পরে client এর retry এর মতো
+		// every assign sent twice — like a double click, or a client's retry after a timeout
 		DOUBLE_SUBMIT: z.enum(['0', '1']).default('0')
 	})
 	.parse(process.env);
@@ -75,14 +75,14 @@ function start(
 }
 
 async function main(): Promise<void> {
-	// Scenario নিজে worker না — Redis না থাকলে অনন্ত অপেক্ষার বদলে দ্রুত ব্যর্থ হোক
+	// The scenario itself isn't a worker — without Redis, fail fast instead of waiting forever
 	const queue = new Queue(QUEUE_NAME, { connection: { ...redisAddress, maxRetriesPerRequest: 1 } });
 	try {
 		await queue.waitUntilReady();
-		// আগের run এর job মুছে পরিষ্কার শুরু
+		// clear the previous run's jobs for a clean start
 		await queue.obliterate({ force: true });
 	} catch (error: unknown) {
-		console.error('Redis পাওয়া যাচ্ছে না — আগে `docker compose up -d --wait` চালাও।');
+		console.error('Redis cannot be reached — run `docker compose up -d --wait` first.');
 		console.error(error instanceof Error ? error.message : error);
 		process.exit(1);
 	}
@@ -163,24 +163,24 @@ async function main(): Promise<void> {
 	}, 250);
 
 	console.log(
-		`   load: প্রতি সেকেন্ডে ${config.ASSIGN_RPS} assign · worker process ${config.WORKER_PROCS} × concurrency ${config.CONCURRENCY} · CRASH=${config.CRASH}${config.FAIL_RATE ? ` · FAIL_RATE=${config.FAIL_RATE}` : ''}${config.DOUBLE_SUBMIT === '1' ? ' · DOUBLE_SUBMIT' : ''}\n`
+		`   load: ${config.ASSIGN_RPS} assign per second · worker process ${config.WORKER_PROCS} × concurrency ${config.CONCURRENCY} · CRASH=${config.CRASH}${config.FAIL_RATE ? ` · FAIL_RATE=${config.FAIL_RATE}` : ''}${config.DOUBLE_SUBMIT === '1' ? ' · DOUBLE_SUBMIT' : ''}\n`
 	);
-	log(`provider স্বাভাবিক (${NORMAL_LATENCY_MS} ms)`);
+	log(`provider normal (${NORMAL_LATENCY_MS} ms)`);
 
 	const events: Promise<void>[] = [
 		sleep(config.PHASE_MS)
 			.then(() => setLatency(config.SLOW_LATENCY_MS))
-			.then(() => log(`provider ধীর হলো (${fmt(config.SLOW_LATENCY_MS)} প্রতি email)`)),
+			.then(() => log(`provider slowed down (${fmt(config.SLOW_LATENCY_MS)} per email)`)),
 		sleep(2 * config.PHASE_MS)
 			.then(() => setLatency(NORMAL_LATENCY_MS))
-			.then(() => log('provider আবার স্বাভাবিক'))
+			.then(() => log('provider normal again'))
 	];
 	if (config.CRASH !== 'none') {
 		events.push(
 			sleep(config.CRASH_AT_MS).then(async () => {
 				if (config.CRASH === 'api') {
 					api.child.kill('SIGKILL');
-					log('API process SIGKILL — নতুন API চালু হচ্ছে');
+					log('API process SIGKILL — a new API is starting');
 					api = await start('api.js', apiEnv);
 					return;
 				}
@@ -189,7 +189,7 @@ async function main(): Promise<void> {
 				const counts = await queue.getJobCounts('active');
 				victim.kill(config.CRASH === 'worker-kill' ? 'SIGKILL' : 'SIGTERM');
 				log(
-					`worker ${config.CRASH === 'worker-kill' ? 'SIGKILL' : 'SIGTERM'} (queue এ তখন active: ${counts['active'] ?? 0}) — নতুন worker চালু হচ্ছে`
+					`worker ${config.CRASH === 'worker-kill' ? 'SIGKILL' : 'SIGTERM'} (active in the queue at the time: ${counts['active'] ?? 0}) — a new worker is starting`
 				);
 				workers.push((await start('worker.js', workerEnv)).child);
 			})
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
 	await Promise.all(events);
 	await sleep(config.PHASE_MS);
 	clearInterval(load);
-	log('load বন্ধ — queue খালি হওয়ার অপেক্ষা');
+	log('load stopped — waiting for the queue to empty');
 	await Promise.all([...inFlight]);
 
 	for (let waited = 0; waited < 120_000; waited += 500) {
@@ -206,7 +206,7 @@ async function main(): Promise<void> {
 		if (Object.values(c).every((n) => n === 0)) break;
 		await sleep(500);
 	}
-	log('queue খালি');
+	log('queue empty');
 	clearInterval(sampler);
 
 	const stats = providerStatsSchema.parse(
@@ -220,11 +220,11 @@ async function main(): Promise<void> {
 
 	// ── report ────────────────────────────────────────────────────────────────────────
 	const phases = [
-		{ name: 'স্বাভাবিক', from: 0, to: config.PHASE_MS },
-		{ name: 'provider ধীর', from: config.PHASE_MS, to: 2 * config.PHASE_MS },
-		{ name: 'সেরে ওঠার পর', from: 2 * config.PHASE_MS, to: 3 * config.PHASE_MS }
+		{ name: 'normal', from: 0, to: config.PHASE_MS },
+		{ name: 'provider slow', from: config.PHASE_MS, to: 2 * config.PHASE_MS },
+		{ name: 'after recovery', from: 2 * config.PHASE_MS, to: 3 * config.PHASE_MS }
 	];
-	console.log('\n   phase            API p50 / p99     API ব্যর্থ');
+	console.log('\n   phase            API p50 / p99     API failed');
 	for (const phase of phases) {
 		const xs = samples.filter((s) => s.start >= phase.from && s.start < phase.to);
 		const ms = xs.map((s) => s.ms);
@@ -243,29 +243,29 @@ async function main(): Promise<void> {
 
 	console.log('');
 	console.log(
-		`   API 202 দিয়েছে: ${samples.filter((s) => s.ok).length} বার, আলাদা job: ${accepted.size}`
+		`   API returned 202: ${samples.filter((s) => s.ok).length} times, distinct jobs: ${accepted.size}`
 	);
 	console.log(
-		`   queue এ সর্বোচ্চ: waiting ${peakWaiting}, delayed (retry এর অপেক্ষায়) ${peakDelayed}`
+		`   most in the queue: waiting ${peakWaiting}, delayed (waiting to retry) ${peakDelayed}`
 	);
 	console.log(
-		`   job: completed ${counts['completed'] ?? 0}, failed ${counts['failed'] ?? 0}` +
-			`   · চেষ্টা লেগেছে: ${[...attempts.entries()]
+		`   jobs: completed ${counts['completed'] ?? 0}, failed ${counts['failed'] ?? 0}` +
+			`   · attempts needed: ${[...attempts.entries()]
 				.sort((a, b) => a[0] - b[0])
-				.map(([n, c]) => `${n} বার → ${c}`)
+				.map(([n, c]) => `${n} → ${c}`)
 				.join(', ')}`
 	);
 	console.log(
-		`   provider: আলাদা email পৌঁছেছে ${delivered.length}, 503 দিয়েছে ${stats.rejected} বার`
+		`   provider: distinct emails delivered ${delivered.length}, returned 503 ${stats.rejected} times`
 	);
 	console.log(
-		`   email পৌঁছাতে (job যোগ থেকে): p50 ${fmt(percentile(delays, 50))}, p99 ${fmt(percentile(delays, 99))}, max ${fmt(Math.max(0, ...delays))}`
+		`   email delivery (from job added): p50 ${fmt(percentile(delays, 50))}, p99 ${fmt(percentile(delays, 99))}, max ${fmt(Math.max(0, ...delays))}`
 	);
 	const reasons = new Map<string, number>();
 	for (const j of failedJobs) reasons.set(j.failedReason, (reasons.get(j.failedReason) ?? 0) + 1);
-	for (const [reason, n] of reasons) console.log(`   failed এর কারণ: "${reason}" × ${n}`);
-	console.log(`   "202 পেল, email যায়নি": ${lost}`);
-	console.log(`   একই email দুবার (বা বেশি) পৌঁছেছে: ${duplicates}`);
+	for (const [reason, n] of reasons) console.log(`   reason for failed: "${reason}" × ${n}`);
+	console.log(`   "got 202, the email never went": ${lost}`);
+	console.log(`   the same email delivered twice (or more): ${duplicates}`);
 }
 
 main().catch((error: unknown) => {

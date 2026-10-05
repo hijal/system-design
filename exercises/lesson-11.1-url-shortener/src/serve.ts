@@ -5,7 +5,7 @@ const { app, clicks } = createShortener(config);
 
 const flusher = setInterval(() => clicks.flush(), 1_000);
 const server = app.listen(config.PORT, () => {
-	console.log(`URL shortener চলছে: ${config.SHORT_ORIGIN} (port ${config.PORT})`);
+	console.log(`URL shortener running: ${config.SHORT_ORIGIN} (port ${config.PORT})`);
 });
 
 const shutdown = (): void => {

@@ -1,2 +1,2 @@
-# seed এর বানানো DuckDB file — চালালেই আবার তৈরি হয়
+# the DuckDB file seed builds — recreated whenever you run it
 data/

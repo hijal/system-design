@@ -44,10 +44,10 @@ npm install
 ## Run
 
 ```bash
-npm run where        # ~১ মিনিট (backup আর চারটা ৮ সেকেন্ডের ধাপ)
-npm run stateless    # ~৫ সেকেন্ড
-npm run durability   # সাথে সাথে
-npm run inspect      # ~১০ সেকেন্ড
+npm run where        # ~1 minute (the backup and four 8-second phases)
+npm run stateless    # ~5 seconds
+npm run durability   # instantly
+npm run inspect      # ~10 seconds
 ```
 
 Teardown:
@@ -61,54 +61,54 @@ docker compose down -v
 `npm run where` (এই মেশিনে):
 
 ```
-── ১. রাখা (একসাথে ৪টা upload) ─────────────────────────────────
-   কোথায়                              সময়      WAL লেখা    database এ বাড়ল   object storage এ
+── 1. Storing (4 uploads at a time) ─────────────────────────────
+   where                               time         WAL         DB growth    object storage
    Postgres (bytea)                  1.14 s    336.9 MB          327.2 MB                 —
    object storage + metadata row     1.69 s       49 KB             80 KB          314.5 MB
 
-── ২. Backup (pg_dump -Fc, container এর ভেতরে) ─────────────────
-   file সহ database                      361.1 MB    21.56 s
-   file ছাড়া (শুধু metadata)              2.4 MB   399.8 ms
+── 2. Backup (pg_dump -Fc, inside the container) ─────────────────
+   database with files                   361.1 MB    21.56 s
+   without files (metadata only)           2.4 MB   399.8 ms
 
-── ৩. File দেওয়ার সময় board এর query (8 OLTP client, pool max 10; 8 জন file নামায়) ──
-   ধাপ                                          OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99
-   শুধু OLTP                                      14437     0.4 ms     0.8 ms        0        0   —
-   + file, Postgres → app এর ভেতর দিয়ে             350    20.9 ms    66.1 ms      192      289   27.9 ms / 170.8 ms
-   + file, Postgres → আলাদা process               14687     0.4 ms     0.8 ms      194      290   23.3 ms / 218.0 ms
-   + file, object storage → সরাসরি                14968     0.4 ms     0.7 ms      348      516   17.5 ms / 91.6 ms
+── 3. Board queries while files are served (8 OLTP clients, pool max 10; 8 downloading files) ──
+   step                                        OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99
+   OLTP only                                      14437     0.4 ms     0.8 ms        0        0   —
+   + files, Postgres → through the app              350    20.9 ms    66.1 ms      192      289   27.9 ms / 170.8 ms
+   + files, Postgres → separate process           14687     0.4 ms     0.8 ms      194      290   23.3 ms / 218.0 ms
+   + files, object storage → direct               14968     0.4 ms     0.7 ms      348      516   17.5 ms / 91.6 ms
 ```
 
 মিলতে হবে: `bytea` তে WAL ≈ file এর মোট আকার (আর তার বেশি), object storage এ কয়েক KB; file সহ backup কয়েকশো MB আর
-দশ সেকেন্ডের ঘরে, file ছাড়া কয়েক MB আর এক সেকেন্ডের কম; ধাপ ৩ এ "app এর ভেতর দিয়ে" সারিতে board এর q/s কয়েক গুণ
-(এখানে ~৪০ গুণ) কম, বাকি দুই সারিতে প্রায় "শুধু OLTP" এর সমান।
+দশ সেকেন্ডের ঘরে, file ছাড়া কয়েক MB আর এক সেকেন্ডের কম; ধাপ ৩ এ "through the app" সারিতে board এর q/s কয়েক গুণ
+(এখানে ~৪০ গুণ) কম, বাকি দুই সারিতে প্রায় "OLTP only" এর সমান।
 
 `npm run stateless`:
 
 ```
-   file কোথায় · load balancer          নিজে আবার খুলল: 404   teammate খুলল: 404   instance A বদলানোর পরে: নেই
+   where files live · load balancer   own reopen 404    teammate open 404     lost after replacing A
    local disk, round robin                       50%                  47%                  148 / 200
-   local disk, sticky (user ধরে)                  0%                  47%                  100 / 200
+   local disk, sticky (per user)                  0%                  47%                  100 / 200
    object storage, round robin                    0%                   0%                    0 / 200
 ```
 
 `npm run durability`:
 
 ```
-── ক. হিসাব (AFR 2%, মেরামতে 24 ঘণ্টা, disk গুলো স্বাধীনভাবে মরে) ──
-   পদ্ধতি       ১ TB রাখতে disk এ   সহ্য করে   বছরে হারানোর সম্ভাবনা   durability   ১০০ কোটি object এ বছরে হারায়
-   ১ কপি                 1.00 TB  0 টা disk                 2.0e-2    1.7 nines                     20000000
-   ২ কপি                 2.00 TB  1 টা disk                 2.2e-6    5.7 nines                         2192
-   ৩ কপি                 3.00 TB  2 টা disk                1.8e-10    9.7 nines                          0.2
-   EC 4+2                1.50 TB  2 টা disk                 3.6e-9    8.4 nines                            4
-   EC 6+3                1.50 TB  3 টা disk                1.7e-12   11.8 nines                        0.002
-   EC 10+4               1.40 TB  4 টা disk                1.8e-15   14.7 nines                     0.000002
+── A. Calculation (AFR 2%, 24 hours to repair, disks die independently) ──
+   scheme          disk for 1 TB   survives     annual loss chance   durability        lost/yr of 1B objects
+   1 copy                1.00 TB    0 disks                 2.0e-2    1.7 nines                     20000000
+   2 copies              2.00 TB     1 disk                 2.2e-6    5.7 nines                         2192
+   3 copies              3.00 TB    2 disks                1.8e-10    9.7 nines                          0.2
+   EC 4+2                1.50 TB    2 disks                 3.6e-9    8.4 nines                            4
+   EC 6+3                1.50 TB    3 disks                1.7e-12   11.8 nines                        0.002
+   EC 10+4               1.40 TB    4 disks                1.8e-15   14.7 nines                     0.000002
 
-── খ. Failure domain (10 টা rack × 12 টা disk, 100,000 টা object) ──
-   পদ্ধতি · fragment কোথায়             পড়া যায় না যখন বন্ধ:    1 rack   2 rack   3 rack
-   ৩ কপি · এলোমেলো disk                                           89      718    2,541
-   ৩ কপি · প্রতিটা আলাদা rack                                      0        0      860
-   EC 6+3 · এলোমেলো disk                                         611    8,021   26,556
-   EC 6+3 · প্রতিটা আলাদা rack                                     0        0        0
+── B. Failure domain (10 racks × 12 disks, 100,000 objects) ──
+   scheme · where the fragments are     unreadable when down:   1 rack  2 racks  3 racks
+   3 copies · random disks                                        89      718    2,541
+   3 copies · each on a different rack                             0        0      860
+   EC 6+3 · random disks                                         611    8,021   26,556
+   EC 6+3 · each on a different rack                               0        0        0
 ```
 
 `npm run inspect` — প্রতিটা অংশে দেখার কথা: (১) পুরনো মান ফেরত `0 / 200`; (২) `workspaces/12/tasks/` একটা "folder"

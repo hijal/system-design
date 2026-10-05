@@ -1,10 +1,10 @@
 import { performance } from 'node:perf_hooks';
 import { sequelize } from './db';
 
-// TaskFlow এর একটা বাস্তবসম্মত tasks table — ১০ লাখ row।
-// Status এর বণ্টন ইচ্ছা করে অসমান (বাস্তবেও তাই): বেশিরভাগ task শেষ হয়ে যায়।
+// A realistic TaskFlow tasks table — 1,000,000 rows.
+// The status distribution is deliberately uneven (as in reality): most tasks get finished.
 //   done 70% · todo 22% · doing 7% · blocked 1%
-// এই অসমতাটাই Lab এর selectivity ধাপের (৫) মূল।
+// This unevenness is the core of the lab's selectivity step (5).
 export const TASKS = 1_000_000;
 export const PROJECTS = 2_000;
 export const USERS = 5_000;
@@ -13,8 +13,8 @@ async function main(): Promise<void> {
 	const started = performance.now();
 
 	await sequelize.query('DROP TABLE IF EXISTS tasks');
-	// Schema টা raw SQL এ, কারণ এই lab এ আমরা index নিজের হাতে যোগ-বিয়োগ করব —
-	// Sequelize এর sync যেন নিজে থেকে কিছু যোগ না করে।
+	// The schema is in raw SQL, because in this lab we add and remove indexes by hand —
+	// so Sequelize's sync must not add anything by itself.
 	await sequelize.query(`
 		CREATE TABLE tasks (
 			id          serial PRIMARY KEY,
@@ -26,8 +26,8 @@ async function main(): Promise<void> {
 		)
 	`);
 
-	// generate_series দিয়ে seed — ১০ লাখ row JS object হিসেবে বানালে অনেক ধীর হতো।
-	// setseed() দিয়ে random() কে নির্দিষ্ট করা, যাতে প্রতিবার একই data তৈরি হয়।
+	// seeding with generate_series — building 1,000,000 rows as JS objects would be much slower.
+	// setseed() fixes random(), so the same data is produced every time.
 	await sequelize.query(`
 		SELECT setseed(0.42);
 		INSERT INTO tasks ("projectId", "assigneeId", title, status, "createdAt")
@@ -45,8 +45,8 @@ async function main(): Promise<void> {
 		FROM (SELECT g, random() AS r FROM generate_series(1, ${TASKS}) g) s
 	`);
 
-	// VACUUM: visibility map তৈরি করে — এটা ছাড়া Postgres "Index Only Scan" করতে পারে না
-	// (Lab এর ধাপ ৬)। ANALYZE: planner এর জন্য statistics (ধাপ ৫)।
+	// VACUUM: builds the visibility map — without it Postgres cannot do an "Index Only Scan"
+	// (step 6 of the lab). ANALYZE: statistics for the planner (step 5).
 	await sequelize.query('VACUUM ANALYZE tasks');
 
 	const seconds = ((performance.now() - started) / 1000).toFixed(1);

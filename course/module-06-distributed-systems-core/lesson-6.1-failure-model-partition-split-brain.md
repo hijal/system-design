@@ -95,9 +95,9 @@ Failover (5.7), load balancer এর health check (3.4), lock এর মেয�
 Exercise এর `npm run detector` একটা primary কে ২৪ ঘণ্টা চালায়। Primary পুরো সময় **জীবিত** — একবারও crash করে না। শুধু মাঝে মাঝে চুপ থাকে: ১% heartbeat network এ হারায়, আর গড়ে প্রতি ~২০০ সেকেন্ডে একবার process থেমে যায় (বেশিরভাগ বার ছোট, GC এর মতো; কখনো কখনো ১–৮ সেকেন্ড, VM বা disk এর সমস্যার মতো):
 
 ```
-   heartbeat পৌঁছেছে 852,617 টা; দুটোর মধ্যে সবচেয়ে লম্বা নীরবতা 7.75 s
+   heartbeats arrived: 852,617; the longest silence between two: 7.75 s
 
-   timeout     ভুল "মৃত" ঘোষণা / দিন     আসল crash টের পেতে (p50 / p99)
+   timeout     false "dead" calls / day     time to notice a real crash (p50 / p99)
      150 ms           8751                101 ms /   151 ms
      300 ms            241                251 ms /   301 ms
      500 ms            102                451 ms /   501 ms
@@ -145,21 +145,21 @@ Exercise এ এটাই বানানো হয়েছে। দুটো 
 A leader হয়, batch 3 এ cursor পড়ার ঠিক পরে ২.৫ সেকেন্ডের জন্য থেমে যায় (একটা synchronous busy loop — event loop আটকানোর হুবহু নকল)। `npm run split-brain`:
 
 ```
-     703 ms  A      cursor = 3 পড়লাম … তারপর process থেমে গেল (2500 ms, stop-the-world)
+     703 ms  A      read cursor = 3 … then the process stopped (2500 ms, stop-the-world)
     1793 ms  lock   lease → B (token 2)
-    1796 ms  email  batch 3 পাঠাল B
+    1796 ms  email  batch 3 sent by B
     1798 ms  store  cursor 3 → 4  (B, token 2)
-      …              (B batch 4 থেকে 9 পাঠায়)
+      …              (B sends batches 4 to 9)
     3025 ms  store  cursor 9 → 10  (B, token 2)
-    3203 ms  A      আবার চলছি — আমার কাছে মনে হচ্ছে কিছুই হয়নি, batch 3 পাঠাচ্ছি
-    3204 ms  email  batch 3 পাঠাল A   ← আবার! duplicate
-    3206 ms  store  cursor 10 → 4  (A, token 1)   ← পিছনে গেল!
-    3228 ms  email  batch 4 পাঠাল B   ← আবার! duplicate
-      …              (B বিশ্বস্তভাবে 5, 6, 7, 8 আবার পাঠায়)
-    3408 ms  A      lease renew হলো না — অন্য কেউ leader, আমি follower
+    3203 ms  A      running again — as far as I can tell nothing happened, sending batch 3
+    3204 ms  email  batch 3 sent by A   ← again! duplicate
+    3206 ms  store  cursor 10 → 4  (A, token 1)   ← went backwards!
+    3228 ms  email  batch 4 sent by B   ← again! duplicate
+      …              (B faithfully sends 5, 6, 7, 8 again)
+    3408 ms  A      lease not renewed — someone else is leader, I am a follower
 
-   reminder batch পাঠানো হয়েছে: 16 বার, আলাদা batch 10 টা
-   একাধিকবার গেছে: 6 টা batch  (3: B+A, 4: B+B, 5: B+B, 6: B+B, 7: B+B, 8: B+B)
+   reminder batches sent: 16 times, 10 distinct batches
+   sent more than once: 6 batches  (3: B+A, 4: B+B, 5: B+B, 6: B+B, 7: B+B, 8: B+B)
 ```
 
 ধীরে পড়ো, কারণ এখানে পুরো lesson টা আছে:
@@ -243,13 +243,13 @@ Lease crash সামলায় সুন্দরভাবে — holder ম�
 `npm run fenced` — একই গল্প, storage এবার token যাচাই করে:
 
 ```
-    3201 ms  A      আবার চলছি — আমার কাছে মনে হচ্ছে কিছুই হয়নি, batch 3 পাঠাচ্ছি
-    3202 ms  email  batch 3 পাঠাল A   ← আবার! duplicate
-    3203 ms  store  ✗ A এর লেখা প্রত্যাখ্যাত: token 1 < 2
-    3204 ms  A      storage লেখা ফিরিয়ে দিল: আমার token 1 < 2 — আমি আর leader না, থামলাম
+    3201 ms  A      running again — as far as I can tell nothing happened, sending batch 3
+    3202 ms  email  batch 3 sent by A   ← again! duplicate
+    3203 ms  store  ✗ A's write rejected: token 1 < 2
+    3204 ms  A      storage rejected the write: my token 1 < 2 — I am no longer leader, stopping
 
-   একাধিকবার গেছে: 1 টা batch  (3: B+A)
-   storage এ প্রত্যাখ্যাত লেখা: 1
+   sent more than once: 1 batches  (3: B+A)
+   writes rejected by storage: 1
 ```
 
 Cursor অক্ষত, B এর কাজ নিরাপদ, আর একটা বোনাস: প্রত্যাখ্যান থেকেই A **জানতে পারল** যে সে পুরনো, আর নিজে থামল। Fencing কোনো timeout, কোনো ঘড়ি, কোনো pause এর দৈর্ঘ্যের উপর নির্ভর করে না — শুধু সংখ্যার তুলনা।
@@ -257,13 +257,13 @@ Cursor অক্ষত, B এর কাজ নিরাপদ, আর একট�
 TaskFlow এ Postgres দিয়ে এটা বানানো সহজ — Lesson 5.5 এর শর্তসহ atomic update ই:
 
 ```typescript
-// token না কমলে তবেই লেখো — এক statement এ, তাই দুজন একসাথে এলেও race নেই
+// write only if the token hasn't gone down — in one statement, so no race even if two arrive together
 const [affected] = await ReminderCursor.update(
 	{ value: cursor + 1, fenceToken: token },
 	{ where: { id: 1, fenceToken: { [Op.lte]: token } } }
 );
 if (affected === 0) {
-	// নতুন কেউ বড় token নিয়ে লিখেছে — আমি আর leader না
+	// someone new has written with a bigger token — I'm no longer leader
 	throw new Error(`stale leader: token ${token} rejected`);
 }
 ```

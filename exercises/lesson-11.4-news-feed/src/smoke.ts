@@ -22,14 +22,14 @@ const store = new FeedStore(3, 800);
 let step = 0;
 const show = (what: string, result: string): void => {
 	step++;
-	console.log(padEnd(step, 4) + padEnd(what, 52) + result);
+	console.log(padEnd(step, 4) + padEnd(what, 60) + result);
 };
 
 async function main(): Promise<void> {
 	const server: Server = createFeedApp(store).listen(0);
 	await new Promise<void>((resolve) => server.once('listening', () => resolve()));
 	const address = server.address();
-	if (address === null || typeof address === 'string') throw new Error('port পাওয়া গেল না');
+	if (address === null || typeof address === 'string') throw new Error('could not get the port');
 	const base = `http://127.0.0.1:${address.port}`;
 
 	const call = async (method: string, path: string, body?: unknown): Promise<unknown> => {
@@ -44,57 +44,57 @@ async function main(): Promise<void> {
 	const feed = async (user: string, query = ''): Promise<Page> =>
 		Page.parse(await call('GET', `/users/${user}/feed${query}`));
 	const describe = (page: Page): string =>
-		page.items.length === 0 ? '(খালি)' : page.items.map((i) => `${i.text}[${i.via}]`).join(' ');
+		page.items.length === 0 ? '(empty)' : page.items.map((i) => `${i.text}[${i.via}]`).join(' ');
 
 	for (const fan of ['amy', 'bob', 'cat', 'dan']) await call('POST', `/users/${fan}/follow/star`);
 	for (const fan of ['bob', 'cat']) await call('POST', `/users/${fan}/follow/alice`);
 
 	heading(
-		'একটা feed service: celebrity এর সীমা ৩ follower; star এর ৪ জন (pull), alice এর ২ জন (push)'
+		'one feed service: celebrity threshold 3 followers; star has 4 (pull), alice has 2 (push)'
 	);
-	console.log(padEnd('#', 4) + padEnd('ধাপ', 52) + 'ফল');
+	console.log(padEnd('#', 4) + padEnd('step', 60) + 'result');
 
 	await post('alice', 'a1');
 	show(
-		'alice post করল a1; fan-out এর queue এখনও চলেনি',
-		`bob: ${describe(await feed('bob'))}; queue এ ${store.queue.length}টা`
+		"alice posted a1; the fan-out queue hasn't run yet",
+		`bob: ${describe(await feed('bob'))}; ${store.queue.length} in the queue`
 	);
 	store.drain();
 	show(
-		'fan-out worker চলল',
-		`bob: ${describe(await feed('bob'))}; timeline লেখা ${store.stats.timelineWrites}`
+		'the fan-out worker ran',
+		`bob: ${describe(await feed('bob'))}; ${store.stats.timelineWrites} timeline writes`
 	);
 
 	const s1 = await post('star', 's1');
 	show(
-		'star post করল s1 (৪ follower → push হয় না)',
-		`queue এ ${store.queue.length}টা; amy: ${describe(await feed('amy'))}`
+		'star posted s1 (4 followers → not pushed)',
+		`${store.queue.length} in the queue; amy: ${describe(await feed('amy'))}`
 	);
-	show('bob এর feed: push আর pull মিশিয়ে, id এর ক্রমে', describe(await feed('bob')));
+	show("bob's feed: push and pull merged, in id order", describe(await feed('bob')));
 
 	for (let i = 2; i <= 7; i++) await post('alice', `a${i}`);
 	store.drain();
 	const page1 = await feed('cat', '?limit=3');
-	show('cat, প্রথম page (limit 3)', describe(page1));
+	show('cat, first page (limit 3)', describe(page1));
 	await post('alice', 'a8');
 	await post('alice', 'a9');
 	store.drain();
 	const byOffset = await feed('cat', '?limit=3&offset=3');
 	const byCursor = await feed('cat', `?limit=3&cursor=${page1.nextCursor ?? 0}`);
-	show('এর মধ্যে a8, a9 এলো; দ্বিতীয় page ?offset=3', describe(byOffset));
-	show(`দ্বিতীয় page ?cursor=${page1.nextCursor ?? 0}`, describe(byCursor));
+	show('meanwhile a8, a9 arrived; second page ?offset=3', describe(byOffset));
+	show(`second page ?cursor=${page1.nextCursor ?? 0}`, describe(byCursor));
 
 	await call('DELETE', '/users/bob/follow/alice');
 	show(
-		'bob alice কে unfollow (timeline এ id গুলো রয়ে গেছে)',
+		'bob unfollows alice (the ids remain in his timeline)',
 		`bob: ${describe(await feed('bob', '?limit=5'))}`
 	);
 	await call('DELETE', `/posts/${s1}`);
-	show('s1 মুছে ফেলা হলো', `amy: ${describe(await feed('amy'))}`);
+	show('s1 deleted', `amy: ${describe(await feed('amy'))}`);
 
 	show(
-		'হিসাব',
-		`timeline লেখা ${store.stats.timelineWrites} (সবাইকে push হলে ${store.stats.wouldPushAll}), pull এ পড়া ${store.stats.pullReads}`
+		'the counts',
+		`${store.stats.timelineWrites} timeline writes (${store.stats.wouldPushAll} if everyone were pushed), ${store.stats.pullReads} pull reads`
 	);
 	server.close();
 }

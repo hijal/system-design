@@ -61,60 +61,60 @@ npm run abuse
 অন্যের ৫৯,৯৭০টা board দেয়, আর matrix test ঠিক সেই তিনটা ঘর ধরে:
 
 ```
-alg: none, signature খালি                    200 (admin)   401 alg none allowlist এ নেই
-HS256, public key কে secret ধরে sign         200 (admin)   401 alg HS256 allowlist এ নেই
-naive গ্রহণ করল 6/8, strict 1/8
+alg: none, empty signature                 200 (admin)  401 alg none not in the allowlist
+HS256, signed using the public key as the secret  200 (admin)  401 alg HS256 not in the allowlist
+naive accepted 6/8, strict 1/8
 
 GET    /boards/:id/export                   59,970          59,970
 DELETE /boards/:id                          59,970          59,970
 
-এলোমেলো UUID অনুমান                     1,000,000          0
-ফাঁস হওয়া support log থেকে পাওয়া id           340        340
+guessing random UUIDs              1,000,000          0
+ids from a leaked support log          340        340
 
-3টা ঘর ব্যর্থ — CI তে এই test থাকলে merge এর আগে ধরা পড়ত
+3 cells failed — with this test in CI it would have been caught before merge
 ```
 
 `npm run sessions` — মেয়াদ ছোট করলে revoke দ্রুত, কিন্তু identity তে call বাড়ে; denylist দুটো আলাদা করে:
 
 ```
-JWT ২৪ ঘ, revoke নেই                     0.0     0.0%     19.6 ঘ    24.0 ঘ    24.0 ঘ
-প্রতি request এ session lookup         299.9   100.0%        0 s       0 s       0 s
-access ১৫ মি + refresh                  43.7    14.6%     4.8 মি     15 মি     15 মি
-access ১৫ মি + refresh + denylist       43.7    14.6%        5 s       5 s     15 মি
+JWT 24 h, no revoke                     0.0     0.0%     19.6 h    24.0 h    24.0 h
+session lookup on every request      299.9   100.0%        0 s       0 s       0 s
+access 15 min + refresh                43.7    14.6%     4.8 min   15 min  15 min
+access 15 min + refresh + denylist     43.7    14.6%        5 s       5 s   15 min
 
-চুরি সোমবার ১০:০০, alice কাজে আছে
-rotation নেই                       29.6 দিন     0     0
-rotation + reuse detection           15 মি     1     1
+stolen Monday 10:00, alice at work
+no rotation                       29.6 days   0     0
+rotation + reuse detection           15 min   1     1
 ```
 
 `npm run oauth` — redirect_uri এর টোপ শুধু exact match এ আটকায়, PKCE তে না:
 
 ```
-Code চুরি (mobile scheme / log), mallory আগে redeem    সফল ✗   সফল ✗   আটকানো   আটকানো   আটকানো
-redirect_uri টোপ (prefix match), mallory এর নিজের PKCE  সফল ✗   সফল ✗   সফল ✗    সফল ✗    আটকানো
+Code theft (mobile scheme / log), mallory redeems first  succeeded ✗  succeeded ✗  blocked  blocked  blocked
+redirect_uri bait (prefix match), mallory's own PKCE  succeeded ✗  succeeded ✗  succeeded ✗  succeeded ✗  blocked
 ```
 
 `npm run secrets` — HEAD এ শূন্য, history তে তিনটা আসল secret; rotation একা ফাঁসের সময় খুব একটা কমায় না:
 
 ```
-আসল production secret: history তে 3টা, HEAD এ 0টা — "oops remove .env" commit কিছুই মোছেনি
+real production secrets: 3 in history, 0 at HEAD — the "oops remove .env" commit deleted nothing
 
-স্থির secret, কখনো বদলায় না          1,000     19.1 দিন    117.3 দিন     76.6%     46,312
-প্রতি 90 দিনে rotate                1,000     13.5 দিন     54.5 দিন     70.5%     21,256
-dynamic credential (60 মি lease)    1,000        30 মি        54 মি      0.0%         21
+static secret, never changes    1,000     19.1 days  117.3 days   76.6%     46,312
+rotate every 90 days            1,000     13.5 days   54.5 days   70.5%     21,256
+dynamic credential (60 min lease)  1,000        30 min      54 min    0.0%         21
 ```
 
 `npm run abuse` — 9.5 এর login limit একটা bot কেও থামায় না, কিন্তু বৈধ office user থামায়:
 
 ```
-প্রতি IP গড়ে ঘণ্টায় 5.3 চেষ্টা, প্রতি email গড়ে ১বার; তালিকার 3,547টা account এর password সত্যিই মেলে
-9.5: IP ২০/ঘ + email ১০/ঘ               1,200,000    3,547      946 (4.7%)        0     —
-9.5 + failure ratio → challenge           123,183      395    1,104 (5.5%)    4,935   1 মি
-সব + MFA (25% user)                       123,183       46    1,104 (5.5%)    6,137   1 মি
+5.3 attempts per IP per hour on average, once per email on average; the password really matches for 3,547 accounts on the list
+9.5: IP 20/h + email 10/h               1,200,000    3,547      946 (4.7%)        0     —
+9.5 + failure ratio → challenge           123,183      395    1,104 (5.5%)    4,935  1 min
+all + MFA (25% of users)                  123,183       46    1,104 (5.5%)    6,137  1 min
 
-ফাঁস IP + origin firewall এ CDN allowlist     300.8 Gbps     3.3%
-CDN cache, কিন্তু ?x=এলোমেলো দিয়ে cache ভাঙা      60,080     3.3%
-cache key normalize (অজানা query বাদ)             105   100.0%
+leaked IP + CDN allowlist on origin firewall  300.8 Gbps     3.3%
+CDN cache, but busted with ?x=random    60,080     3.3%
+normalized cache key (unknown query dropped)   105   100.0%
 ```
 
 ## কী দেখার জন্য এটা বানানো

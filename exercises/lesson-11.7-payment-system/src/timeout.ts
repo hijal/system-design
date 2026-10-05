@@ -16,21 +16,21 @@ type Outcome = 'charged' | 'declined' | 'timeout-charged' | 'timeout-not';
 type Policy = { name: string; mode: 'fail' | 'retry-new' | 'retry-key' | 'unknown' };
 
 const policies: Policy[] = [
-	{ name: 'timeout = ব্যর্থ, user আবার চেষ্টা করুক', mode: 'fail' },
-	{ name: 'নিজে আবার পাঠাও, নতুন request', mode: 'retry-new' },
-	{ name: 'নিজে আবার পাঠাও, একই idempotency key', mode: 'retry-key' },
-	{ name: '"unknown" রাখো: webhook, না এলে status জিজ্ঞেস', mode: 'unknown' }
+	{ name: 'timeout = failed, let the user try again', mode: 'fail' },
+	{ name: 'resend it ourselves, a new request', mode: 'retry-new' },
+	{ name: 'resend it ourselves, the same idempotency key', mode: 'retry-key' },
+	{ name: 'keep "unknown": webhook, else ask for the status', mode: 'unknown' }
 ];
 
 heading(
-	`অংশ ক — ${n(PAYMENTS)} payment: ${DECLINE * 100}% decline, ${TIMEOUT * 100}% timeout (তার ${CHARGED_ON_TIMEOUT * 100}% আসলে কাটা হয়েছিল)`
+	`Part A — ${n(PAYMENTS)} payments: ${DECLINE * 100}% declined, ${TIMEOUT * 100}% time out (${CHARGED_ON_TIMEOUT * 100}% of those were actually charged)`
 );
 console.log(
 	row([
-		['নীতি', 48],
-		['দুবার কাটা', 12],
-		['কাটা, order নেই', 16],
-		['অপেক্ষা p99', 13]
+		['policy', 52],
+		['charged twice', 15],
+		['charged, no order', 19],
+		['wait p99', 13]
 	])
 );
 for (const policy of policies) {
@@ -65,28 +65,28 @@ for (const policy of policies) {
 	waits.sort((a, b) => a - b);
 	console.log(
 		row([
-			[policy.name, 48],
-			[n(doubles), 12],
-			[n(orphans), 16],
+			[policy.name, 52],
+			[n(doubles), 15],
+			[n(orphans), 19],
 			[waits.length === 0 ? '—' : `${percentile(waits, 99).toFixed(0)} s`, 13]
 		])
 	);
 }
 console.log(
-	'"কাটা, order নেই" = customer এর টাকা কাটা হয়েছে, কিন্তু আমরা payment কে ব্যর্থ ধরেছি — কেউ খুঁজে না পেলে এটা চুরি।'
+	'"charged, no order" = the customer\'s money was taken, but we treated the payment as failed — unless someone finds it, this is theft.'
 );
 
-heading(`অংশ খ — process মরে যায় (প্রতি ধাপে ${CRASH * 100}%): কোন ক্রমে লিখব`);
+heading(`Part B — the process dies (${CRASH * 100}% at each step): which order to write in`);
 console.log(
 	row([
-		['ক্রম', 56],
-		['কাটা, আমাদের কোনো রেকর্ড নেই', 28],
-		['recovery খুঁজে পায়', 20]
+		['order', 60],
+		['charged, we have no record', 28],
+		['recovery finds', 20]
 	])
 );
 for (const [name, intentFirst] of [
-	['PSP তে charge → তারপর DB তে payment লেখো', false],
-	['DB তে intent (created) → PSP → DB তে ফল', true]
+	['charge at the PSP → then write the payment to the DB', false],
+	['intent in the DB (created) → PSP → the result in the DB', true]
 ] as const) {
 	const random = mulberry32(SEED + 3);
 	let invisible = 0;
@@ -102,13 +102,15 @@ for (const [name, intentFirst] of [
 	}
 	console.log(
 		row([
-			[name, 56],
+			[name, 60],
 			[n(invisible), 28],
 			[n(recovered), 20]
 		])
 	);
 }
 console.log(
-	'"recovery" = একটা job যা "created" অবস্থায় পড়ে থাকা payment গুলো PSP তে idempotency key (payment id) দিয়ে জিজ্ঞেস করে।'
+	'"recovery" = a job that asks the PSP, by idempotency key (payment id), about payments left in the "created" state.'
 );
-console.log('এর পরেও যা বাকি থাকে, সেটা ধরে দিনশেষের reconciliation — `npm run reconcile`।');
+console.log(
+	'whatever is still left after that is caught by the end-of-day reconciliation — `npm run reconcile`.'
+);

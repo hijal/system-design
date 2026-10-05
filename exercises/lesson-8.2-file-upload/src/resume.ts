@@ -15,16 +15,16 @@ import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { emptyBucket, env, mb, mulberry32, prepareBucket, s3, sendPut } from './common';
 
-// Lesson 8.2 §১.৩ — বড় file, ভাঙা network। একটা ২০০ MB এর screen recording, এমন network এ যেখানে গড়ে
-// প্রতি DROP_EVERY_MB পাঠানোর পরে connection ছিঁড়ে যায় (train, lift, wifi থেকে mobile data)।
+// Lesson 8.2 §1.3 — a big file, a broken network. A 200 MB screen recording, on a network where the connection
+// tears on average after every DROP_EVERY_MB sent (a train, a lift, wifi to mobile data).
 //
-//   একটা PUT: ছিঁড়লে পুরোটা আবার শুরু থেকে
-//   multipart: file টা PART_MB এর টুকরোয়; ছিঁড়লে শুধু সেই টুকরো আবার; মাঝপথে tab বন্ধ হলে
-//              ListParts দিয়ে কোনগুলো আছে জেনে বাকিটা
+//   one PUT: when it tears, start the whole thing again from the beginning
+//   multipart: the file in PART_MB pieces; when it tears, only that piece again; if the tab closes midway,
+//              ListParts tells which ones exist and the rest are sent
 //
-// Upload গুলো আসল — presigned URL, আসল object storage, আর connection আসলেই মাঝপথে কাটা হয়। কোন byte এ
-// ছিঁড়বে সেটা seed দেওয়া — প্রতিবার একই। "সময়" হলো একটা হিসাব: পাঠানো byte ÷ NET_MBPS + প্রতিটা request এ
-// RTT_MS (mobile এ একটা round trip) — local network এ আসল সময় অর্থহীন দ্রুত।
+// The uploads are real — presigned URLs, real object storage, and the connection really is cut midway. Which byte it
+// tears at is seeded — the same every time. "Time" is a calculation: bytes sent ÷ NET_MBPS + RTT_MS per
+// request (one round trip on mobile) — real time on a local network is meaninglessly fast.
 
 const cfg = z
 	.object({
@@ -41,7 +41,7 @@ const cfg = z
 const B = env.BUCKET;
 const MB = 1024 * 1024;
 
-// ভাঙা network: কত byte পরে পরের বার ছিঁড়বে (exponential, গড় DROP_EVERY_MB) — request পার হয়েও চলতে থাকে
+// the broken network: after how many bytes it tears next (exponential, mean DROP_EVERY_MB) — keeps going across requests
 class FlakyNetwork {
 	private readonly random: () => number;
 	private untilDrop: number;
@@ -95,7 +95,7 @@ async function singlePut(name: string, file: Buffer, drops: boolean): Promise<Ro
 	const net = new FlakyNetwork(drops);
 	const key = `recordings/single-${drops ? 'flaky' : 'clean'}`;
 	for (let attempt = 1; attempt <= cfg.MAX_ATTEMPTS; attempt++) {
-		// প্রতিবার নতুন URL (app থেকে) — ছিঁড়লে শুরু থেকে আবার, পুরো file
+		// a new URL every time (from the app) — when it tears, start again from the beginning, the whole file
 		const url = await getSignedUrl(
 			s3,
 			new PutObjectCommand({ Bucket: B, Key: key, ContentLength: file.length }),
@@ -110,7 +110,7 @@ async function singlePut(name: string, file: Buffer, drops: boolean): Promise<Ro
 				name,
 				done: true,
 				net,
-				note: `${attempt} বার চেষ্টা`,
+				note: `attempts: ${attempt}`,
 				etag: r.etag,
 				intact: await verify(key, file)
 			};
@@ -119,7 +119,7 @@ async function singlePut(name: string, file: Buffer, drops: boolean): Promise<Ro
 		name,
 		done: false,
 		net,
-		note: `${cfg.MAX_ATTEMPTS} বার চেষ্টার পরে হাল ছাড়ল`,
+		note: `gave up after ${cfg.MAX_ATTEMPTS} attempts`,
 		etag: '',
 		intact: false
 	};
@@ -135,17 +135,17 @@ async function multipart(
 	const key = `recordings/multipart-${partMb}mb`;
 	const partSize = partMb * MB;
 	const count = Math.ceil(file.length / partSize);
-	// ১. app: upload শুরু — একটা UploadId (database এর pending row এ রাখা হয়)
+	// 1. app: start the upload — one UploadId (kept in the database's pending row)
 	const { UploadId } = await s3.send(
 		new CreateMultipartUploadCommand({ Bucket: B, Key: key, ContentType: 'video/mp4' })
 	);
 	if (!UploadId) throw new Error('no UploadId');
-	let done = new Map<number, string>(); // browser এর memory: কোন part শেষ, তার ETag
+	let done = new Map<number, string>(); // the browser's memory: which parts are done, and their ETags
 	let retries = 0;
 	let resumedWith = 0;
 	for (let n = 1; n <= count; n++) {
 		if (closeTabAt !== null && n === Math.floor(count * closeTabAt) + 1 && resumedWith === 0) {
-			// tab বন্ধ, laptop ঘুমাল — browser এর memory শেষ। ফিরে এসে app কে জিজ্ঞেস: কোনগুলো পৌঁছেছে?
+			// the tab closed, the laptop slept — the browser's memory is gone. Coming back it asks the app: which ones arrived?
 			done = new Map();
 			const listed = await s3.send(new ListPartsCommand({ Bucket: B, Key: key, UploadId }));
 			for (const p of listed.Parts ?? [])
@@ -154,7 +154,7 @@ async function multipart(
 		}
 		if (done.has(n)) continue;
 		const body = file.subarray((n - 1) * partSize, Math.min(file.length, n * partSize));
-		// ২. প্রতিটা part এর নিজের presigned URL — app sign করে, browser সরাসরি পাঠায়
+		// 2. each part gets its own presigned URL — the app signs, the browser sends directly
 		const url = await getSignedUrl(
 			s3,
 			new UploadPartCommand({
@@ -175,9 +175,9 @@ async function multipart(
 			} else retries++;
 		}
 		if (!ok)
-			return { name, done: false, net, note: `part ${n} এ হাল ছাড়ল`, etag: '', intact: false };
+			return { name, done: false, net, note: `gave up at part ${n}`, etag: '', intact: false };
 	}
-	// ৩. app: সব part এর নম্বর আর ETag দিয়ে জোড়া লাগানো
+	// 3. app: stitch together with every part's number and ETag
 	const parts: CompletedPart[] = [...done.entries()]
 		.sort(([a], [b]) => a - b)
 		.map(([PartNumber, ETag]) => ({ PartNumber, ETag }));
@@ -189,7 +189,7 @@ async function multipart(
 			MultipartUpload: { Parts: parts }
 		})
 	);
-	const note = `${count} টা part, ${retries} টা আবার${resumedWith ? ` · tab বন্ধের পরে ${resumedWith} টা আগে থেকেই ছিল` : ''}`;
+	const note = `${count} parts, ${retries} resent${resumedWith ? ` · after closing the tab ${resumedWith} were already there` : ''}`;
 	return { name, done: true, net, note, etag: res.ETag ?? '', intact: await verify(key, file) };
 }
 
@@ -208,21 +208,21 @@ async function abandoned(file: Buffer): Promise<void> {
 			})
 		);
 	}
-	// user চলে গেল, আর কখনো ফিরল না
+	// the user left, and never came back
 	const objects = await s3.send(new ListObjectsV2Command({ Bucket: B, Prefix: key }));
 	const uploads = await s3.send(new ListMultipartUploadsCommand({ Bucket: B, Prefix: key }));
 	const parts = await s3.send(new ListPartsCommand({ Bucket: B, Key: key, UploadId }));
 	const held = (parts.Parts ?? []).reduce((sum, p) => sum + (p.Size ?? 0), 0);
-	console.log('── অসমাপ্ত upload (৩টা part পাঠিয়ে user চলে গেল) ──');
+	console.log('── Unfinished upload (3 parts sent, then the user left) ──');
 	console.log(
-		`   LIST objects এ দেখা যায়: ${objects.KeyCount ?? 0} টা · অসমাপ্ত multipart upload: ${uploads.Uploads?.length ?? 0} টা, part গুলোর জায়গা ${mb(held)}`
+		`   visible in LIST objects: ${objects.KeyCount ?? 0} · unfinished multipart uploads: ${uploads.Uploads?.length ?? 0}, space used by parts ${mb(held)}`
 	);
 	await s3.send(new AbortMultipartUploadCommand({ Bucket: B, Key: key, UploadId }));
 	const after = await s3.send(new ListMultipartUploadsCommand({ Bucket: B, Prefix: key }));
-	console.log(`   AbortMultipartUpload এর পরে অসমাপ্ত upload: ${after.Uploads?.length ?? 0} টা\n`);
+	console.log(`   unfinished uploads after AbortMultipartUpload: ${after.Uploads?.length ?? 0}\n`);
 }
 
-// একই ভাঙা network এর model, IO ছাড়া — MODEL_RUNS টা আলাদা seed এ, যাতে একটা run এর ভাগ্য না, গড় দেখা যায়
+// the same broken-network model, without IO — on MODEL_RUNS different seeds, so you see the average, not one run's luck
 function modelRun(
 	seed: number,
 	partMb: number | null,
@@ -260,13 +260,13 @@ function modelRun(
 
 function modelTable(fileBytes: number): void {
 	console.log(
-		`── Model: একই network, ${cfg.MODEL_RUNS} টা আলাদা seed (IO ছাড়া, শুধু byte এর হিসাব) ──`
+		`── Model: the same network, ${cfg.MODEL_RUNS} different seeds (no IO, just byte accounting) ──`
 	);
 	console.log(
-		'   পদ্ধতি                    শেষ হলো    পাঠানো (গড়, file এর গুণ)   সময় গড়      সময় p95      request গড়'
+		'   method                       done    sent (avg, × file size)     time avg     time p95     requests'
 	);
 	for (const [name, partMb] of [
-		['একটা PUT', null],
+		['one PUT', null],
 		['multipart, 5 MB part', 5],
 		['multipart, 16 MB part', 16],
 		['multipart, 64 MB part', 64]
@@ -281,13 +281,13 @@ function modelTable(fileBytes: number): void {
 		const avg = (xs: number[]): number =>
 			xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
 		const p95 = secs[Math.min(secs.length - 1, Math.floor(0.95 * secs.length))] ?? 0;
-		const minutes = (x: number): string => (done.length ? `${(x / 60).toFixed(1)} মিনিট` : '—');
+		const minutes = (x: number): string => (done.length ? `${(x / 60).toFixed(1)} min` : '—');
 		console.log(
 			`   ${name.padEnd(25)} ${`${((100 * done.length) / runs.length).toFixed(0)}%`.padStart(7)} ${(done.length ? (avg(done.map((r) => r.sent)) / fileBytes).toFixed(2) : '—').padStart(26)} ${minutes(avg(secs)).padStart(12)} ${minutes(p95).padStart(12)} ${(done.length ? avg(done.map((r) => r.requests)).toFixed(0) : '—').padStart(12)}`
 		);
 	}
 	console.log(
-		`   (শেষ না হওয়া = কোনো একটা টুকরো ${cfg.MAX_ATTEMPTS} বার চেষ্টাতেও পৌঁছায়নি; সময় শুধু শেষ হওয়া গুলোর)\n`
+		`   (not finished = some piece didn't arrive even after ${cfg.MAX_ATTEMPTS} attempts; times only for the finished ones)\n`
 	);
 }
 
@@ -296,22 +296,22 @@ async function main(): Promise<void> {
 	await emptyBucket();
 	const file = randomBytes(Math.round(cfg.FILE_MB * MB));
 	console.log(
-		`\n   ${mb(file.length)} এর file · network গড়ে প্রতি ${cfg.DROP_EVERY_MB} MB এ ছিঁড়ে যায় · সময়ের হিসাব ${cfg.NET_MBPS} MB/s আর প্রতি request এ ${cfg.RTT_MS} ms\n`
+		`\n   a ${mb(file.length)} file · on average the network tears every ${cfg.DROP_EVERY_MB} MB · time computed at ${cfg.NET_MBPS} MB/s plus ${cfg.RTT_MS} ms per request\n`
 	);
 	const rows = [
-		await singlePut('একটা PUT, network ঠিক থাকলে', file, false),
-		await singlePut('একটা PUT, ভাঙা network', file, true),
+		await singlePut('one PUT, network fine', file, false),
+		await singlePut('one PUT, broken network', file, true),
 		await multipart('multipart, 5 MB part', file, 5, null),
 		await multipart('multipart, 16 MB part', file, 16, null),
 		await multipart('multipart, 64 MB part', file, 64, null),
-		await multipart('multipart, 16 MB, মাঝপথে tab বন্ধ', file, 16, 0.5)
+		await multipart('multipart, 16 MB, tab closed midway', file, 16, 0.5)
 	];
 	console.log(
-		'   পদ্ধতি                               শেষ হলো?   পাঠানো      file এর কত গুণ   request   ছিঁড়েছে   আনুমানিক সময়   MD5 মিলেছে   ETag'
+		'   method                                  done?        sent    × file size  requests      torn      est. time   MD5 match   ETag'
 	);
 	for (const r of rows) {
 		console.log(
-			`   ${r.name.padEnd(36)} ${(r.done ? 'হ্যাঁ' : 'না').padStart(8)} ${mb(r.net.sent).padStart(11)} ${(r.net.sent / file.length).toFixed(2).padStart(14)} ${String(r.net.requests).padStart(9)} ${String(r.net.drops).padStart(9)} ${`${(r.net.seconds() / 60).toFixed(1)} মিনিট`.padStart(14)} ${(r.done ? (r.intact ? 'হ্যাঁ' : 'না') : '—').padStart(11)}   ${r.etag}`
+			`   ${r.name.padEnd(36)} ${(r.done ? 'yes' : 'no').padStart(8)} ${mb(r.net.sent).padStart(11)} ${(r.net.sent / file.length).toFixed(2).padStart(14)} ${String(r.net.requests).padStart(9)} ${String(r.net.drops).padStart(9)} ${`${(r.net.seconds() / 60).toFixed(1)} min`.padStart(14)} ${(r.done ? (r.intact ? 'yes' : 'no') : '—').padStart(11)}   ${r.etag}`
 		);
 		console.log(`   ${''.padEnd(36)} ${r.note}`);
 	}

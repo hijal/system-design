@@ -95,7 +95,7 @@ const rtt = (random: () => number): number => lognormal(random, RTT_MS, RTT_SIGM
 
 function leaseStrategy(size: number): Strategy {
 	return {
-		name: `token lease (${size}টা একসাথে, না পেলে অপেক্ষা)`,
+		name: `token lease (${size} at a time, wait if not granted)`,
 		run: (arrivals, random) => {
 			const s = new Scheduler();
 			const central = new TokenBucket(LIMIT, BURST);
@@ -171,7 +171,7 @@ function leaseStrategy(size: number): Strategy {
 
 const strategies: Strategy[] = [
 	{
-		name: 'প্রতি server এর নিজের bucket (পুরো সীমা)',
+		name: 'each server its own bucket (full limit)',
 		run: (arrivals) => {
 			const buckets = Array.from({ length: SERVERS }, () => new TokenBucket(LIMIT, BURST));
 			const admitted: number[] = [];
@@ -189,7 +189,7 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		name: 'সীমা ভাগ করে (প্রতি server এ সীমা / N)',
+		name: 'split the limit (limit / N on each server)',
 		run: (arrivals) => {
 			const buckets = Array.from(
 				{ length: SERVERS },
@@ -210,7 +210,7 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		name: 'কেন্দ্রে, প্রতি request এ, atomic (Lua)',
+		name: 'central, every request, atomic (Lua)',
 		run: (arrivals, random) => {
 			const s = new Scheduler();
 			const central = new TokenBucket(LIMIT, BURST);
@@ -230,7 +230,7 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		name: 'কেন্দ্রে, GET তারপর SET (atomic না)',
+		name: 'central, GET then SET (not atomic)',
 		run: (arrivals, random) => {
 			const s = new Scheduler();
 			const central = new TokenBucket(LIMIT, BURST);
@@ -257,7 +257,7 @@ const strategies: Strategy[] = [
 	},
 	leaseStrategy(LEASE),
 	{
-		name: `local + প্রতি ${SYNC_MS} ms এ sync (async)`,
+		name: `local + sync every ${SYNC_MS} ms (async)`,
 		run: (arrivals) => {
 			const slots = Math.round(1_000 / SYNC_MS);
 			const history: number[] = [];
@@ -294,39 +294,43 @@ const strategies: Strategy[] = [
 ];
 
 const scenarios: Scenario[] = [
-	{ name: `চাহিদা সীমার ২ গুণ, ${SERVERS}টা server এ সমান ভাগে`, demand: LIMIT * 2, skewed: false },
 	{
-		name: `চাহিদা সীমার ২ গুণ, ${pct(HOT_SHARE, 1, 0)} traffic ${HOT_SERVERS}টা server এ`,
+		name: `demand 2× the limit, spread evenly over ${SERVERS} servers`,
+		demand: LIMIT * 2,
+		skewed: false
+	},
+	{
+		name: `demand 2× the limit, ${pct(HOT_SHARE, 1, 0)} of traffic on ${HOT_SERVERS} servers`,
 		demand: LIMIT * 2,
 		skewed: true
 	},
 	{
-		name: `আক্রমণ: চাহিদা সীমার ২০ গুণ, ${SERVERS}টা server এ সমান ভাগে`,
+		name: `attack: demand 20× the limit, spread evenly over ${SERVERS} servers`,
 		demand: LIMIT * 20,
 		skewed: false
 	},
 	{
-		name: `চাহিদা সীমার ৮০% (কাউকে আটকানো উচিত না), ${pct(HOT_SHARE, 1, 0)} traffic ${HOT_SERVERS}টা server এ`,
+		name: `demand at 80% of the limit (nobody should be blocked), ${pct(HOT_SHARE, 1, 0)} of traffic on ${HOT_SERVERS} servers`,
 		demand: LIMIT * 0.8,
 		skewed: true
 	}
 ];
 
 console.log(
-	`একটা API key, সীমা ${n(LIMIT)}/s (burst ${n(BURST)}), ${SERVERS}টা API server, ${SECONDS} s; কেন্দ্রের RTT median ${RTT_MS} ms`
+	`one API key, limit ${n(LIMIT)}/s (burst ${n(BURST)}), ${SERVERS} API servers, ${SECONDS} s; the centre's RTT median ${RTT_MS} ms`
 );
 for (const scenario of scenarios) {
 	heading(scenario.name);
 	console.log(
 		row([
-			['কৌশল', 44],
-			['গৃহীত/s', 10],
-			['সীমার', 8],
-			['সবচেয়ে বেশি ১ s এ', 18],
-			['আটকানো', 9],
-			['কেন্দ্রে op/s', 14],
-			['বাড়তি p50', 11],
-			['বাড়তি p99', 11]
+			['strategy', 48],
+			['accepted/s', 12],
+			['of limit', 10],
+			['highest in 1 s', 18],
+			['blocked', 9],
+			['centre op/s', 14],
+			['extra p50', 11],
+			['extra p99', 11]
 		])
 	);
 	for (const strategy of strategies) {
@@ -336,9 +340,9 @@ for (const scenario of scenarios) {
 		const perSecond = outcome.admitted / SECONDS;
 		console.log(
 			row([
-				[strategy.name, 44],
-				[n(perSecond), 10],
-				[`${(perSecond / LIMIT).toFixed(2)}x`, 8],
+				[strategy.name, 48],
+				[n(perSecond), 12],
+				[`${(perSecond / LIMIT).toFixed(2)}x`, 10],
 				[`${(outcome.maxWindow / LIMIT).toFixed(2)}x`, 18],
 				[pct(outcome.rejected, arrivals.length, 1), 9],
 				[n(outcome.centralOps / SECONDS), 14],
@@ -349,18 +353,20 @@ for (const scenario of scenarios) {
 	}
 }
 console.log(
-	'\n"সবচেয়ে বেশি ১ s এ" = যেকোনো এক সেকেন্ডের জানালায় সবচেয়ে বেশি গৃহীত — token bucket এ ঠিক থাকলে ~১.২x (সীমা + burst)।'
+	'\n"highest in 1 s" = the most accepted in any one-second window — ~1.2x (limit + burst) when a token bucket holds.'
 );
 
-heading(`lease এর আকার: ${SERVERS}টা server, burst ${n(BURST)} — lease × server যখন burst ছাড়ায়`);
+heading(
+	`lease size: ${SERVERS} servers, burst ${n(BURST)} — when lease × servers passes the burst`
+);
 console.log(
 	row([
 		['lease', 8],
 		['lease × server', 16],
-		['২x, ৫টা server: গৃহীত', 24],
-		['কেন্দ্রে op/s', 14],
-		['৮০%: ভুল আটকানো', 18],
-		['কেন্দ্রে op/s', 14]
+		['2x, 5 servers: accepted', 25],
+		['centre op/s', 14],
+		['80%: wrongly blocked', 22],
+		['centre op/s', 14]
 	])
 );
 for (const size of [1, 2, 4, 10, 20, 50]) {
@@ -376,9 +382,9 @@ for (const size of [1, 2, 4, 10, 20, 50]) {
 		row([
 			[size, 8],
 			[n(size * SERVERS), 16],
-			[`${(b.admitted / SECONDS / LIMIT).toFixed(2)}x`, 24],
+			[`${(b.admitted / SECONDS / LIMIT).toFixed(2)}x`, 25],
 			[n(b.centralOps / SECONDS), 14],
-			[pct(c.rejected, calmArrivals.length, 1), 18],
+			[pct(c.rejected, calmArrivals.length, 1), 22],
 			[n(c.centralOps / SECONDS), 14]
 		])
 	);

@@ -4,12 +4,12 @@ import { httpGet } from './http';
 import { ms, pad, percentile } from './random';
 import { signInternal, signJwt } from './token';
 
-// Lesson 9.2 §১.৪–১.৫ — API Gateway: সব বাইরের request এর একটা দরজা।
+// Lesson 9.2 §1.4–1.5 — API Gateway: one door for every outside request.
 //
-// ক. বাড়তি hop এর দাম: tasks service সরাসরি, বনাম gateway এর ভেতর দিয়ে (token যাচাই + proxy)
-// খ. পরিচয়: gateway token যাচাই করে user id বসায়। কিন্তু কেউ gateway এড়িয়ে service এ সরাসরি পৌঁছালে?
-//    দুই mode: trust (service x-user-id বিশ্বাস করে) আর signed (gateway এর sign যাচাই করে)
-// গ. Canary / strangler fig: thumbnail এর route — পুরনো পথ (monolith) বনাম নতুন files service, user ধরে ভাগ
+// a. The cost of the extra hop: the tasks service directly, vs through the gateway (token check + proxy)
+// b. Identity: the gateway checks the token and sets the user id. But what if someone bypasses the gateway and reaches the service directly?
+//    two modes: trust (the service trusts x-user-id) and signed (it verifies the gateway's signature)
+// c. Canary / strangler fig: the thumbnail route — the old path (monolith) vs the new files service, split by user
 
 const cfg = z
 	.object({
@@ -62,10 +62,10 @@ async function hopCost(): Promise<void> {
 	});
 	try {
 		console.log(
-			`\n── ক. বাড়তি hop: tasks service সরাসরি বনাম gateway এর ভেতর দিয়ে (token যাচাই + proxy) ──`
+			`\n── a. Extra hop: tasks service directly vs through the gateway (token check + proxy) ──`
 		);
 		console.log(
-			`   ${'পথ'.padEnd(34)} একা ১ জন p50   ব্যস্ত (${cfg.CONCURRENCY} জন): req/s        p50        p99   gateway এর CPU / request`
+			`   ${'path'.padEnd(34)} 1 client p50  ${cfg.CONCURRENCY} clients: req/s        p50        p99   gateway CPU / request`
 		);
 		const rows: {
 			name: string;
@@ -74,7 +74,7 @@ async function hopCost(): Promise<void> {
 			gw: Proc | null;
 		}[] = [
 			{
-				name: 'client → tasks (সরাসরি)',
+				name: 'client → tasks (direct)',
 				url: (i) => `${tasks.url}/tasks/${(i % 2000) + 1}?requireViewer=1`,
 				headers: { 'x-user-id': '42' },
 				gw: null
@@ -105,7 +105,9 @@ async function hopCost(): Promise<void> {
 }
 
 async function identity(): Promise<void> {
-	console.log('\n── খ. কে পাঠাল? — gateway এর যাচাই, আর gateway এড়িয়ে সরাসরি service এ ──');
+	console.log(
+		"\n── b. Who sent it? — the gateway's check, and bypassing the gateway to the service directly ──"
+	);
 	console.log(`   ${'request'.padEnd(58)} ${'trust mode'.padEnd(32)} signed mode`);
 	const results = new Map<string, string[]>();
 	const cases: {
@@ -113,28 +115,28 @@ async function identity(): Promise<void> {
 		via: 'gateway' | 'direct';
 		headers: (mode: string) => Record<string, string> | null;
 	}[] = [
-		{ name: 'gateway, token ছাড়া', via: 'gateway', headers: () => ({}) },
-		{ name: 'gateway, user 42 এর বৈধ token', via: 'gateway', headers: () => bearer(42) },
+		{ name: 'gateway, no token', via: 'gateway', headers: () => ({}) },
+		{ name: 'gateway, valid token for user 42', via: 'gateway', headers: () => bearer(42) },
 		{
-			name: 'gateway, বৈধ token + নিজে বসানো x-user-id: 1',
+			name: 'gateway, valid token + self-set x-user-id: 1',
 			via: 'gateway',
 			headers: () => ({ ...bearer(42), 'x-user-id': '1' })
 		},
-		{ name: 'gateway, মেয়াদ পেরোনো token', via: 'gateway', headers: () => bearer(42, -60) },
+		{ name: 'gateway, expired token', via: 'gateway', headers: () => bearer(42, -60) },
 		{
-			name: 'gateway, অন্য secret এ বানানো token (sub: 1)',
+			name: 'gateway, token made with another secret (sub: 1)',
 			via: 'gateway',
 			headers: () => ({
 				authorization: `Bearer ${signJwt({ sub: 1, exp: Date.now() / 1000 + 3600 }, 'guessed-secret')}`
 			})
 		},
 		{
-			name: 'service সরাসরি (gateway এড়িয়ে), x-user-id: 1',
+			name: 'service directly (bypassing gateway), x-user-id: 1',
 			via: 'direct',
 			headers: () => ({ 'x-user-id': '1' })
 		},
 		{
-			name: 'service সরাসরি, ৭০ s আগের আসল x-internal-auth (user 42)',
+			name: 'service directly, real x-internal-auth 70 s old (user 42)',
 			via: 'direct',
 			headers: (mode) =>
 				mode === 'signed' ? { 'x-internal-auth': signInternal(42, Date.now() - 70_000) } : null
@@ -173,16 +175,16 @@ async function identity(): Promise<void> {
 	}
 	for (const c of cases) {
 		const [trust, signed] = results.get(c.name) ?? [];
-		const trustCell = trust === '200 · user 1' ? `${trust} ← অন্যের পরিচয়ে` : (trust ?? '');
+		const trustCell = trust === '200 · user 1' ? `${trust} ← impersonated` : (trust ?? '');
 		console.log(`   ${c.name.padEnd(58)} ${trustCell.padEnd(32)} ${signed ?? ''}`);
 	}
 }
 
 async function canary(): Promise<void> {
 	console.log(
-		`\n── গ. Thumbnail এর route: পুরনো পথ (monolith) বনাম নতুন files service — ${cfg.USERS} জন user, প্রত্যেকে ২ বার ──`
+		`\n── c. The thumbnail route: old path (monolith) vs new files service — ${cfg.USERS} users, 2 times each ──`
 	);
-	console.log('   canary %   নতুন service এ   পুরনো পথে   একই user দুবার একই দিকে');
+	console.log('   canary %   to new service    old path     same side both times');
 	const oldFiles = await start('files-old', { ROLE: 'files-old' });
 	const newFiles = await start('files-new', { ROLE: 'files-new' });
 	try {
@@ -212,7 +214,9 @@ async function canary(): Promise<void> {
 	} finally {
 		await Promise.all([stop(oldFiles), stop(newFiles)]);
 	}
-	console.log('   (ভাগ user id এর hash ধরে — তাই একজন user এর অভিজ্ঞতা request ভেদে লাফায় না)\n');
+	console.log(
+		"   (split by a hash of the user id — so a user's experience doesn't jump between requests)\n"
+	);
 }
 
 async function main(): Promise<void> {

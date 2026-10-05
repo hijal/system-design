@@ -52,9 +52,9 @@ TaskFlow এর board খুললে যে query চলে আর finance এ�
 Exercise এর `npm run olap` — ৩০ লাখ `task_events` এর একটা Postgres (২টা CPU তে সীমিত, production database এর মতো — তার core ও সীমিত)। প্রথম ১০ সেকেন্ড ৮টা client শুধু board এর query চালায়; পরের ১০ সেকেন্ড একই সাথে চারটা finance এর query:
 
 ```
-   ধাপ                          OLTP query/s   OLTP p50    OLTP p99    OLTP max   analytics শেষ হলো (গড়)
-   শুধু OLTP                          15222     0.6 ms      1.1 ms    20.2 ms                       —
-   OLTP + 4টা analytics                4330     0.6 ms     68.5 ms    77.1 ms       47 বার (868.8 ms)
+   phase                           OLTP q/s   OLTP p50    OLTP p99   OLTP max    analytics done (avg)
+   OLTP only                          15222     0.6 ms      1.1 ms    20.2 ms                       —
+   OLTP + 4 analytics                  4330     0.6 ms     68.5 ms    77.1 ms     47 times (868.8 ms)
 ```
 
 Board এর query নিজে একটুও বদলায়নি — একই index, একই plan। তবু p99 **১.১ ms থেকে ৬৮.৫ ms**, আর প্রতি সেকেন্ডে query ১৫ হাজার থেকে ৪ হাজারে। কারণ Lesson 7.1 এর cascading failure এর একটা নরম রূপ: ভাগ করা resource। Analytics query গুলো দুটো CPU দখল করে রাখে, disk থেকে পুরো table টানে আর memory এর cache (shared buffers) থেকে board এর গরম page গুলো সরিয়ে দেয়। Board এর ছোট query গুলো লাইনে দাঁড়ায়। (Experiment ১: একটা analytics query তে p99 প্রায় একই থাকে, কিন্তু throughput ~৩৫% কমে। "একটা report তো ক্ষতি করে না" — যতক্ষণ না কেউ চারটা tab খোলে।)
@@ -66,12 +66,12 @@ Board এর query নিজে একটুও বদলায়নি — এ
 Finance এর প্রশ্নটা Postgres এ একা চললে (কেউ আর চলছে না), আর একই data একটা column store এ — একই দুটো CPU তে:
 
 ```
-   একই analytics প্রশ্ন (মাসিক usage, workspace ধরে), কেউ আর চলছে না, তিনবার করে:
-     Postgres (row store, ২ CPU):       255.9 ms, 257.6 ms, 258.7 ms
-     DuckDB   (column store, ২ thread):  28.6 ms, 21.1 ms, 21.4 ms
-     ফল মিলেছে: হ্যাঁ ✓
+   the same analytics question (monthly usage, per workspace), nothing else running, three times each:
+     Postgres (row store, 2 CPUs):       255.9 ms, 257.6 ms, 258.7 ms
+     DuckDB   (column store, 2 threads):  28.6 ms, 21.1 ms, 21.4 ms
+     results match: yes ✓
 
-   Postgres এর plan থেকে:
+   from Postgres's plan:
      ->  Seq Scan on task_events  (… rows=750000 loops=1)
      Buffers: shared hit=11011 read=19917
 ```
@@ -150,15 +150,15 @@ Watermark একটা অনুমান — আর Lesson 6.1 থেকে জ
 Exercise এর `npm run stream` — এক দিনে ~৫০ হাজার `task.completed` (কাজের সময়ে তিন গুণ বেশি); ৯০% খবর প্রায় সাথে সাথে, ৮% ১–১০ মিনিট দেরিতে (mobile), ২% ১–৬ ঘণ্টা দেরিতে (offline laptop) — আর শুক্রবারের মতো ১টা–২টা একটা pipeline outage, সেই ঘণ্টার খবর ২টা থেকে ২টা ১০ এর মধ্যে একসাথে:
 
 ```
-   পদ্ধতি                                   প্রথম ফল পেতে (p50 / সর্বোচ্চ)   প্রথম ফলে ভুল   খারাপতম ঘণ্টা   শেষে ভুল   বাদ পড়ল   সংশোধন
-   batch (রাত ২টায়, আগের দিন)                    14.0 h / 25.0 h            0.10%          2.01%      0.10%        51        0
+   approach                                  first result p50/max      first error     worst hour  end error   dropped  updates
+   batch (2 a.m., previous day)                   14.0 h / 25.0 h            0.10%          2.01%      0.10%        51        0
    stream, processing time                          0.0 s / 0.0 s           15.22%        100.86%     15.22%         0        0
    stream, event time, lateness 0                   2.7 s / 1.0 h            9.82%         99.78%      9.82%      4869        0
    stream, event time, lateness 1 min             1.0 min / 1.0 h            9.03%         90.43%      9.03%      4474        0
    stream, event time, lateness 10 min           10.0 min / 1.0 h            2.12%          2.88%      2.12%      1050        0
    stream, event time, lateness 1 h                 1.0 h / 2.0 h            1.87%          2.70%      1.87%       925        0
-   stream 10 min + দেরির সংশোধন                  10.0 min / 1.0 h            2.12%          2.88%      0.00%         0     1050
-   stream 10 min + রাতের batch                   10.0 min / 1.0 h            2.12%          2.88%      0.10%        51        0
+   stream 10 min + late corrections              10.0 min / 1.0 h            2.12%          2.88%      0.00%         0     1050
+   stream 10 min + nightly batch                 10.0 min / 1.0 h            2.12%          2.88%      0.10%        51        0
 ```
 
 ("ভুল" = প্রতিটা ঘণ্টার গোনা আর আসল সংখ্যার পার্থক্যের যোগফল, দিনের মোট ঘটনার অনুপাতে; "খারাপতম ঘণ্টা" = সবচেয়ে ভুল ঘণ্টাটা তার আসল সংখ্যার কত শতাংশ ভুল।)

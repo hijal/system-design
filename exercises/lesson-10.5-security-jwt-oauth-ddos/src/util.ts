@@ -31,9 +31,9 @@ export const pct = (part: number, whole: number, digits = 1): string =>
 
 export const duration = (minutes: number): string => {
 	if (minutes < 1) return `${Math.round(minutes * 60)} s`;
-	if (minutes < 60) return `${minutes.toFixed(minutes < 10 ? 1 : 0)} মি`;
-	if (minutes < 48 * 60) return `${(minutes / 60).toFixed(1)} ঘ`;
-	return `${(minutes / 1_440).toFixed(1)} দিন`;
+	if (minutes < 60) return `${minutes.toFixed(minutes < 10 ? 1 : 0)} min`;
+	if (minutes < 48 * 60) return `${(minutes / 60).toFixed(1)} h`;
+	return `${(minutes / 1_440).toFixed(1)} days`;
 };
 
 const segmenter = new Intl.Segmenter('bn', { granularity: 'grapheme' });
@@ -42,12 +42,12 @@ const cells = (value: string): number => [...segmenter.segment(value)].length;
 
 export const padEnd = (value: string | number, width: number): string => {
 	const text = String(value);
-	return text + ' '.repeat(Math.max(1, width - cells(text)));
+	return text + ' '.repeat(Math.max(2, width - cells(text)));
 };
 
 export const padLeft = (value: string | number, width: number): string => {
 	const text = String(value);
-	return ' '.repeat(Math.max(1, width - cells(text))) + text;
+	return ' '.repeat(Math.max(2, width - cells(text))) + text;
 };
 
 export function row(columns: [string | number, number][]): string {

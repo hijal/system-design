@@ -31,7 +31,7 @@ function matrix(title: string, handlers: Handlers, fault: Fault): void {
 	heading(title);
 	console.log(
 		row([
-			[fault === 'down' ? 'মরা dependency' : 'ধীর dependency', 18],
+			[fault === 'down' ? 'dead dependency' : 'slow dependency', 18],
 			...JOURNEYS.map((j): [string, number] => [j, COLUMN])
 		])
 	);
@@ -50,7 +50,7 @@ function matrix(title: string, handlers: Handlers, fault: Fault): void {
 	const healthy = new Map<Dep, Fault>();
 	console.log(
 		row([
-			['(সব সুস্থ)', 18],
+			['(all healthy)', 18],
 			...JOURNEYS.map((journey): [string, number] => [
 				`${run(handlers[journey], healthy).elapsed} ms`,
 				COLUMN
@@ -84,7 +84,7 @@ type Tally = { ok: number; degraded: number; failed: number };
 
 function availability(): void {
 	heading(
-		`ঘ. ${YEARS} বছরের simulated outage (প্রতিটা dependency স্বাধীনভাবে মরে) — প্রতিটা journey কত সময় চলেছে`
+		`D. ${YEARS} years of simulated outages (each dependency dies independently) — how long each journey worked`
 	);
 	const timeline = outageTimeline();
 	const depDown = DEPS.map(() => 0);
@@ -117,7 +117,7 @@ function availability(): void {
 	console.log(
 		row([
 			['dependency', 18],
-			['লক্ষ্য', 10],
+			['target', 10],
 			['simulated', 12]
 		])
 	);
@@ -134,17 +134,17 @@ function availability(): void {
 	console.log(
 		row([
 			['journey', 13],
-			['hard dep (আগের)', 16],
-			['সূত্র', 10],
-			['আগের code', 11],
-			['বন্ধ/বছর', 11],
-			['hard dep (নতুন)', 17],
-			['চলেছে', 10],
-			['পুরোটা', 10],
-			['বন্ধ/বছর', 11]
+			['hard dep (old)', 16],
+			['formula', 10],
+			['old code', 11],
+			['down/year', 11],
+			['hard dep (new)', 17],
+			['worked', 10],
+			['in full', 10],
+			['down/year', 11]
 		])
 	);
-	const minutesPerYear = (failed: number): string => `${n(failed / YEARS)} মি`;
+	const minutesPerYear = (failed: number): string => `${n(failed / YEARS)} min`;
 	for (const journey of JOURNEYS) {
 		const before = tallies.get(`w:${journey}`) ?? { ok: 0, degraded: 0, failed: 0 };
 		const after = tallies.get(`d:${journey}`) ?? { ok: 0, degraded: 0, failed: 0 };
@@ -165,15 +165,15 @@ function availability(): void {
 		);
 	}
 	console.log(
-		`   "সূত্র" = আগের code এর hard dependency গুলোর availability এর গুণফল; "চলেছে" = degraded সহ, "পুরোটা" = কিছু বাদ না দিয়ে`
+		`   "formula" = the product of the availabilities of the old code's hard dependencies; "worked" = including degraded, "in full" = with nothing left out`
 	);
 }
 
 console.log(
-	`TaskFlow — ${JOURNEYS.length}টা user journey, ${DEPS.length}টা dependency। ✓ = ঠিক, ~ = কিছু বাদ দিয়ে চলেছে, ✗ = ব্যর্থ, ✗! = লেখা হয়ে গেছে কিন্তু user error দেখেছে, Ns = এত সেকেন্ড লেগেছে`
+	`TaskFlow — ${JOURNEYS.length} user journeys, ${DEPS.length} dependencies. ✓ = fine, ~ = worked with something left out, ✗ = failed, ✗! = written but the user saw an error, Ns = took this many seconds`
 );
-matrix('ক. একটা dependency মরা (connection refused) — আগের code', asWritten, 'down');
-matrix('খ. একটা dependency মরা — degradation মাথায় রেখে লেখা code', designed, 'down');
-matrix('গ. একটা dependency ধীর (৩ s এ উত্তর) — আগের code', asWritten, 'slow');
-matrix('গ২. একটা dependency ধীর — নতুন code (প্রতিটা call এ timeout)', designed, 'slow');
+matrix('A. One dependency dead (connection refused) — old code', asWritten, 'down');
+matrix('B. One dependency dead — code written with degradation in mind', designed, 'down');
+matrix('C. One dependency slow (answers in 3 s) — old code', asWritten, 'slow');
+matrix('C2. One dependency slow — new code (a timeout on every call)', designed, 'slow');
 availability();

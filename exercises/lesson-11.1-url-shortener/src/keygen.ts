@@ -16,21 +16,21 @@ const REAL_FILL = env('REAL_FILL', 0.00341);
 const K = keyspace(LENGTH);
 const yearsToFill = (fill: number, length: number): string => {
 	const years = (fill * keyspace(length)) / PER_YEAR;
-	if (years < 1) return `${(years * 12).toFixed(1)} মাস`;
-	return `${years < 100 ? years.toFixed(1) : n(years)} বছর`;
+	if (years < 1) return `${(years * 12).toFixed(1)} months`;
+	return `${years < 100 ? years.toFixed(1) : n(years)} years`;
 };
 
 heading(
-	`অংশ ক — random code + "নেওয়া কিনা" check: keyspace ছোট করে ${LENGTH} অক্ষর (${n(K)}), ভরা অনুযায়ী ${n(PROBES)}টা নতুন code`
+	`Part A — random code + "is it taken" check: keyspace shrunk to ${LENGTH} chars (${n(K)}), ${n(PROBES)} new codes at each fill level`
 );
 console.log(
 	row([
-		['ভরা', 10],
-		['গড় চেষ্টা', 12],
-		['retry লাগল', 13],
-		['সর্বোচ্চ চেষ্টা', 15],
-		['৬ অক্ষরে কবে', 15],
-		['৭ অক্ষরে কবে', 15]
+		['full', 10],
+		['avg attempts', 13],
+		['needed retry', 13],
+		['max attempts', 15],
+		['when at 6 chars', 17],
+		['when at 7 chars', 15]
 	])
 );
 {
@@ -67,19 +67,19 @@ console.log(
 		);
 	}
 }
-console.log('প্রতিটা চেষ্টা = database এ একটা INSERT ... ON CONFLICT DO NOTHING এর round trip।');
+console.log('each attempt = one INSERT ... ON CONFLICT DO NOTHING round trip to the database.');
 
 heading(
-	`অংশ খ — URL এর hash (MD5) এর প্রথম ${LENGTH} অক্ষর: আলাদা আলাদা URL, collision হলে salt যোগ করে আবার hash`
+	`Part B — first ${LENGTH} chars of the URL's hash (MD5): distinct URLs, on collision add a salt and hash again`
 );
 console.log(
 	row([
-		['ভরা', 10],
+		['full', 10],
 		['link', 12],
-		['collision হলো', 15],
+		['collisions', 15],
 		['% insert', 10],
-		['birthday আন্দাজ', 17],
-		['গড় চেষ্টা', 12]
+		['birthday estimate', 19],
+		['avg attempts', 12]
 	])
 );
 {
@@ -118,16 +118,16 @@ console.log(
 		);
 	}
 	console.log(
-		'"birthday আন্দাজ" = N² / 2K — N টা জিনিস K টা ঘরে ফেললে মোটামুটি কয়টা জোড়া একই ঘরে পড়ে।'
+		'"birthday estimate" = N² / 2K — throw N things into K slots and roughly this many pairs land in the same slot.'
 	);
 	const real = REAL_FILL * keyspace(7);
 	console.log(
-		`৭ অক্ষরে ১০ বছরে (${n(real)} link): আন্দাজে ${n((real * real) / (2 * keyspace(7)))}টা link এর collision সামলাতে হবে।`
+		`At 7 chars in 10 years (${n(real)} links): an estimated ${n((real * real) / (2 * keyspace(7)))} links will hit a collision.`
 	);
 }
 
 heading(
-	`অংশ গ — অনুমান করে খোঁজা: ${share(REAL_FILL, 3)} ভরা (৭ অক্ষরে ১০ বছরের সমান), নিজের code এর আগের ১০,০০০টা আর ১০,০০০টা random চেষ্টা`
+	`Part C — finding by guessing: ${share(REAL_FILL, 3)} full (equal to 10 years at 7 chars), the 10,000 codes before your own and 10,000 random attempts`
 );
 {
 	const count = Math.round(REAL_FILL * K);
@@ -136,14 +136,14 @@ heading(
 	const strategies: { name: string; codeOf: (id: number) => number }[] = [
 		{ name: 'counter → base62', codeOf: (id) => id },
 		{ name: 'random', codeOf: () => Math.floor(random() * K) },
-		{ name: 'counter → গোপন permutation → base62', codeOf: (id) => perm.apply(id) }
+		{ name: 'counter → secret permutation → base62', codeOf: (id) => perm.apply(id) }
 	];
 	console.log(
 		row([
-			['কৌশল', 40],
-			['শেষ ৫টা code', 34],
-			['আগেরগুলোয় মিলল', 17],
-			['random এ মিলল', 15]
+			['strategy', 40],
+			['last 5 codes', 34],
+			['hits before', 17],
+			['hits random', 15]
 		])
 	);
 	for (const s of strategies) {
@@ -173,15 +173,15 @@ heading(
 }
 
 heading(
-	`অংশ ঘ — counter কে ভাগ করা (range allocation): ${SERVERS}টা app server, দিনে ${n(CREATES_PER_DAY)} link, প্রতিটা server দিনে ${RESTARTS_PER_DAY} বার restart`
+	`Part D — sharing out the counter (range allocation): ${SERVERS} app servers, ${n(CREATES_PER_DAY)} links a day, each server restarts ${RESTARTS_PER_DAY}× a day`
 );
 console.log(
 	row([
 		['block', 8],
-		['sequence call / দিন', 21],
-		['নষ্ট id / দিন', 16],
-		['নষ্ট / বছর, ৭ অক্ষরের', 24],
-		['সময়ের উল্টো ক্রম', 18]
+		['sequence calls / day', 21],
+		['wasted ids / day', 18],
+		['wasted / year, 7 chars', 24],
+		['out of time order', 18]
 	])
 );
 for (const block of [1, 100, 1_000, 10_000]) {
@@ -224,10 +224,10 @@ for (const block of [1, 100, 1_000, 10_000]) {
 	);
 }
 console.log(
-	'"সময়ের উল্টো ক্রম" = পরের link এর id আগের link এর চেয়ে ছোট — code দিয়ে সময় ধরে সাজানো যায় না।'
+	'"out of time order" = the next link\'s id is smaller than the previous link\'s — codes cannot be sorted by time.'
 );
 
-heading('অংশ ঙ — গোপন permutation (Feistel + cycle walking) সত্যিই এক-এক কিনা');
+heading('Part E — is the secret permutation (Feistel + cycle walking) really one-to-one');
 {
 	const small = keyspace(3);
 	const perm = new Permutation(small, SECRET);
@@ -239,13 +239,13 @@ heading('অংশ ঙ — গোপন permutation (Feistel + cycle walking) �
 		seen[out] = 1;
 	}
 	console.log(
-		`৩ অক্ষরের পুরো domain (${n(small)}টা id): আলাদা output ${n(unique)}টা — ${unique === small ? 'কোনো collision নেই' : 'COLLISION!'}; বাড়তি round: ${n(perm.walks)} (${pct(perm.walks, small, 1)})`
+		`whole 3-char domain (${n(small)} ids): ${n(unique)} distinct outputs — ${unique === small ? 'no collisions' : 'COLLISION!'}; extra rounds: ${n(perm.walks)} (${pct(perm.walks, small, 1)})`
 	);
 	const full = new Permutation(keyspace(7), SECRET);
 	const codes = [1, 2, 3, 4, 5].map((id) => `${encode(id, 7)} → ${encode(full.apply(id), 7)}`);
-	console.log(`৭ অক্ষরে id ১–৫:  ${codes.join('   ')}`);
+	console.log(`7 chars, ids 1–5:  ${codes.join('   ')}`);
 	const back = decode(encode(full.apply(42), 7));
 	console.log(
-		`decode(code) একটা সংখ্যা ফেরত দেয় (${n(back)}), কিন্তু সেটা id না — id জানতে secret লাগে।`
+		`decode(code) returns a number (${n(back)}), but it is not the id — recovering the id needs the secret.`
 	);
 }

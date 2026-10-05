@@ -1,12 +1,12 @@
-# শুধু PostgreSQL container এ — script গুলো তোমার মেশিনে সাধারণ Node process হিসেবে চলবে।
-# Port 5437, যাতে তোমার মেশিনের নিজস্ব Postgres (5432) বা আগের exercise গুলোর
-# (4.4 → 5433, 5.2 → 5434, 5.4 → 5435, 5.5 → 5436) সাথে সংঘাত না লাগে।
+# Only PostgreSQL in a container — the scripts run as ordinary Node processes on your machine.
+# Port 5437, so it doesn't clash with your machine's own Postgres (5432) or the earlier exercises
+# (4.4 → 5433, 5.2 → 5434, 5.4 → 5435, 5.5 → 5436).
 services:
   postgres:
     image: postgres:17-alpine
-    # Database server কে ইচ্ছা করে ২টা CPU core এ সীমিত রাখা — যাতে pool size এর পরীক্ষা
-    # (npm run pool, ধাপ ২) যেকোনো মেশিনে একই রকম ফল দেয়। Production এ এই সংখ্যা তোমার
-    # database server এর core সংখ্যা।
+    # The database server is deliberately limited to 2 CPU cores — so the pool size test
+    # (npm run pool, step 2) gives the same kind of result on any machine. In production this number is
+    # your database server's core count.
     cpus: '2'
     environment:
       POSTGRES_USER: taskflow

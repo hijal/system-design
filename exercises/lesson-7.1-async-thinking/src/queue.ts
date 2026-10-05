@@ -1,8 +1,8 @@
-// Lesson 7.1 §১.৫ — সবচেয়ে ছোট job queue: একটা array, আর নির্দিষ্ট সংখ্যক worker।
+// Lesson 7.1 §1.5 — the smallest job queue: an array, and a fixed number of workers.
 //
-// ইচ্ছা করে in-memory — আজকের প্রশ্ন "request এর পথ থেকে কাজ সরালে কী বদলায়", "queue কীভাবে
-// টেকসই করব" না। এই queue এর বড় দুর্বলতা (process মরলে সব job হারায়) README এর experiment এ
-// নিজে দেখবে; টেকসই queue (Redis এ রাখা BullMQ) Lesson 7.3 এ।
+// Deliberately in-memory — today's question is "what changes when work moves off the request path", not
+// "how to make a queue durable". You will see this queue's big weakness (every job is lost when the process dies)
+// yourself in the README experiment; a durable queue (BullMQ, kept in Redis) is in Lesson 7.3.
 
 export interface QueueStats {
 	waiting: number;
@@ -24,7 +24,7 @@ export class JobQueue<T> {
 		private readonly handler: (data: T) => Promise<void>
 	) {}
 
-	// Producer এর দিক: শুধু খাতায় লেখা — কাজ করা না। তাই সবসময় তাৎক্ষণিক।
+	// The producer side: only writing it down — not doing the work. So always instant.
 	add(data: T): void {
 		this.#jobs.push(data);
 		this.#peakWaiting = Math.max(this.#peakWaiting, this.#jobs.length);
@@ -41,7 +41,7 @@ export class JobQueue<T> {
 		};
 	}
 
-	// Consumer এর দিক: একসাথে `concurrency` টার বেশি কাজ কখনো না — downstream যত ধীরই হোক
+	// The consumer side: never more than `concurrency` jobs at once — however slow the downstream is
 	#pump(): void {
 		while (this.#active < this.concurrency) {
 			const job = this.#jobs.shift();
@@ -52,7 +52,7 @@ export class JobQueue<T> {
 					this.#completed++;
 				})
 				.catch(() => {
-					// retry, backoff, DLQ — Lesson 7.4 এর বিষয়; এখানে শুধু গুনে রাখা
+					// retry, backoff, DLQ — the topic of Lesson 7.4; here they are only counted
 					this.#failed++;
 				})
 				.finally(() => {

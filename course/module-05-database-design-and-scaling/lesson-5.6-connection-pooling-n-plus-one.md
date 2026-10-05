@@ -55,8 +55,8 @@ App                                           PostgreSQL
 Exercise এর `npm run pool` এর ধাপ ১ — একটা একটা করে ২০০টা `SELECT 1`:
 
 ```
-প্রতিবার নতুন connection      5.78 ms / query
-pool থেকে                      0.13 ms / query   (~44x দ্রুত)
+new connection every time      5.78 ms / query
+from the pool                  0.13 ms / query   (~44x faster)
 ```
 
 আর এটা **একই মেশিনে**, TLS ছাড়া। App আর database আলাদা machine এ থাকলে প্রতিটা নতুন connection এ network round trip আর TLS handshake যোগ হয়।
@@ -140,8 +140,8 @@ Lesson 1.6 এ শিখেছিলে horizontal scaling এর জন্য a
 Exercise এর ধাপ ৩: ৫টা instance × pool max ২৫ = ১২৫টা connection চাওয়া:
 
 ```
-সফল: 75টা
-ব্যর্থ: 50টা → "sorry, too many clients already"
+succeeded: 75
+failed: 50 → "sorry, too many clients already"
 ```
 
 (কতগুলো ব্যর্থ হয় সেটা প্রতিবার বদলায় — তিনবার চালিয়ে ৪৬, ৬৬, ৫০ — কারণ কে কখন slot পায় সেটা timing এর উপর নির্ভর করে। কিন্তু ব্যর্থতা প্রতিবার আসে।)
@@ -149,7 +149,7 @@ Exercise এর ধাপ ৩: ৫টা instance × pool max ২৫ = ১২৫
 আর একটা ভিন্ন ব্যর্থতাও আছে — database এর limit না, **নিজের pool ফুরিয়ে যাওয়া**। **Pool exhaustion** — pool এর সব connection ব্যস্ত, আর নতুন query গুলো `acquire` সময়সীমা পর্যন্ত অপেক্ষা করে ব্যর্থ হয়। Exercise এ max ২, acquire সীমা ১ সেকেন্ড, আর ১০টা ০.৮ সেকেন্ডের query:
 
 ```
-সফল: 4টা, ConnectionAcquireTimeoutError: 6টা
+succeeded: 4, ConnectionAcquireTimeoutError: 6
 ```
 
 Pool exhaustion এর সবচেয়ে সাধারণ কারণ ধীর query না — **লম্বা transaction**। Lesson 5.5 এ বলেছিলাম transaction এর ভেতরে network call কোরো না। কারণ: transaction যতক্ষণ খোলা, ততক্ষণ একটা connection আটকে থাকে। একটা transaction এর ভেতরে ২ সেকেন্ডের payment API call মানে ওই ২ সেকেন্ড একটা connection কেউ ব্যবহার করতে পারবে না। এমন ১০টা একসাথে হলে ১০ connection এর pool শেষ।
@@ -168,11 +168,11 @@ Pool exhaustion এর সবচেয়ে সাধারণ কারণ ধ
 ```typescript
 async function nPlusOne(): Promise<Row[]> {
 	const rows: Row[] = [];
-	const projects = await Project.findAll({ order: [['id', 'ASC']] }); // ১টা query
+	const projects = await Project.findAll({ order: [['id', 'ASC']] }); // 1 query
 	for (const project of projects) {
-		const tasks = await Task.findAll({ where: { projectId: project.id }, order: [['id', 'ASC']] }); // N টা
+		const tasks = await Task.findAll({ where: { projectId: project.id }, order: [['id', 'ASC']] }); // N
 		for (const task of tasks) {
-			const assignee = await User.findByPk(task.assigneeId); // আরও N×M টা
+			const assignee = await User.findByPk(task.assigneeId); // N×M more
 			rows.push({ project: project.name, task: task.title, assignee: assignee?.name ?? '?' });
 		}
 	}
@@ -185,10 +185,10 @@ async function nPlusOne(): Promise<Row[]> {
 Exercise এর `npm run nplusone` একই dashboard (৫০টা project, ১০০০টা task, প্রতিটার assignee) তিনভাবে আনে, আর প্রতিটা SQL গোনে:
 
 ```
-পদ্ধতি                          query     rows   মাপা সময়   +1ms RTT হলে*
-ক. N+1 (loop এ findByPk)         1051    2,050     210.0 ms      1261 ms
-খ. include (একটা JOIN)              1    1,000       7.2 ms         8 ms
-গ. batching (IN দিয়ে ৩টা)          3    1,250       3.7 ms         7 ms
+approach                      queries     rows     measured   +1 ms RTT*
+a. N+1 (findByPk in a loop)      1051    2,050     210.0 ms      1261 ms
+b. include (one JOIN)               1    1,000       7.2 ms         8 ms
+c. batching (3 with IN)             3    1,250       3.7 ms         7 ms
 ```
 
 \* শেষ কলামটা **হিসাব, মাপা না**: `মাপা সময় + query সংখ্যা × ১ ms`।
@@ -225,8 +225,8 @@ async function eager(): Promise<Row[]> {
 **Cartesian explosion।** Project এর সাথে **দুটো** hasMany একসাথে include করলে — tasks (প্রতি project এ ২০টা) আর members (প্রতি project এ ১০টা):
 
 ```
-পদ্ধতি                          query     rows   মাপা সময়
-include, একটা JOIN                  1   10,000      28.2 ms
+approach                      queries     rows     measured
+include, one JOIN                   1   10,000      28.2 ms
 include, separate: true             3    1,550       8.7 ms
 ```
 
@@ -238,7 +238,7 @@ include, separate: true             3    1,550       8.7 ms
 async function twoHasManySeparate(): Promise<number> {
 	const projects = await Project.findAll({
 		include: [
-			{ model: Task, as: 'tasks', separate: true }, // আলাদা query: WHERE projectId IN (...)
+			{ model: Task, as: 'tasks', separate: true }, // separate query: WHERE projectId IN (...)
 			{ model: Member, as: 'members', separate: true }
 		]
 	});
@@ -255,9 +255,9 @@ async function twoHasManySeparate(): Promise<number> {
 Query database এ দ্রুত চললেও খরচ শেষ হয় না — data আসার পর Sequelize প্রতিটা row কে একটা পূর্ণ Model instance এ রূপ দেয় (getter, setter, কী বদলেছে তার হিসাব রাখা)। একে বলে hydration। অল্প row এ চোখে পড়ে না; অনেক row এ পড়ে। Exercise এর `npm run hydration` — একই ১ লাখ task:
 
 ```
-Model instance (default)              200 ms   (100,000 row, 1.0x)
-raw: true                              96 ms   (100,000 row, 2.1x)
-raw: true + শুধু দরকারি column         68 ms   (100,000 row, 2.9x)
+Model instance (default)              200 ms   (100,000 rows, 1.0x)
+raw: true                              96 ms   (100,000 rows, 2.1x)
+raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 ```
 
 - **`raw: true`** — Model instance না বানিয়ে সাধারণ JS object ফেরত দেয়। পরে `.save()` বা association method দরকার না থাকলে (যেমন একটা report বা export), এটাই যথেষ্ট — আর দ্বিগুণ দ্রুত।

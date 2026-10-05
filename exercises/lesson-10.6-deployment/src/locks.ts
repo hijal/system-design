@@ -79,11 +79,11 @@ async function measure(label: string, action: () => Promise<string>): Promise<Re
 function print(results: Result[]): void {
 	console.log(
 		row([
-			['পরিবর্তন', 46],
-			['সময়', 10],
+			['change', 46],
+			['time', 10],
 			['app op', 9],
-			['read সর্বোচ্চ', 14],
-			['write সর্বোচ্চ', 14],
+			['read max', 14],
+			['write max', 14],
 			[`> ${SLOW_MS} ms`, 11],
 			['error', 7]
 		])
@@ -142,10 +142,12 @@ async function main(): Promise<void> {
 	const version = await setup.query<{ server_version: string }>('SHOW server_version');
 	await setup.end();
 	console.log(
-		`Postgres ${version.rows[0]?.server_version ?? '?'}, tasks এ ${n(ROWS)}টা row; app: ${WORKERS}টা worker, অর্ধেক SELECT অর্ধেক UPDATE, id ধরে`
+		`Postgres ${version.rows[0]?.server_version ?? '?'}, ${n(ROWS)} rows in tasks; app: ${WORKERS} workers, half SELECT half UPDATE, by id`
 	);
 
-	heading('অংশ ক — কলাম যোগ: কোনটা মুহূর্তে, কোনটা পুরো table আটকায়, আর lock এর লাইন');
+	heading(
+		'Part A — adding a column: which is instant, which locks the whole table, and the lock queue'
+	);
 	const partA: Result[] = [];
 	partA.push(
 		await measure('ADD COLUMN archived boolean DEFAULT false', async () => {
@@ -161,18 +163,18 @@ async function main(): Promise<void> {
 	);
 	partA.push(
 		await measure(
-			`ADD COLUMN priority int, সামনে ${LONG_QUERY_MS / 1_000} s এর query`,
+			`ADD COLUMN priority int, behind a ${LONG_QUERY_MS / 1_000} s query`,
 			async () => {
 				const { done: longDone } = await holdLongQuery();
 				await sleep(300);
 				const took = await ddl('ALTER TABLE tasks ADD COLUMN priority int');
 				await longDone;
-				return `ALTER নিজে অপেক্ষা করল ${ms(took)} — আর তার পেছনে সবাই`;
+				return `the ALTER itself waited ${ms(took)} — and everyone behind it`;
 			}
 		)
 	);
 	partA.push(
-		await measure(`একই, lock_timeout ${LOCK_TIMEOUT_MS} ms + retry`, async () => {
+		await measure(`the same, lock_timeout ${LOCK_TIMEOUT_MS} ms + retry`, async () => {
 			const { done: longDone } = await holdLongQuery();
 			await sleep(300);
 			let attempts = 0;
@@ -191,12 +193,12 @@ async function main(): Promise<void> {
 				}
 			}
 			await longDone;
-			return `${attempts}বার চেষ্টা, প্রতিবার ${LOCK_TIMEOUT_MS} ms পরে হাল ছেড়ে সরে দাঁড়াল`;
+			return `${attempts} attempts, each giving up and stepping aside after ${LOCK_TIMEOUT_MS} ms`;
 		})
 	);
 	print(partA);
 
-	heading('অংশ খ — index তৈরি: board_id এর উপর');
+	heading('Part B — building an index: on board_id');
 	const partB: Result[] = [];
 	partB.push(
 		await measure('CREATE INDEX', async () => {
@@ -213,10 +215,10 @@ async function main(): Promise<void> {
 	);
 	print(partB);
 
-	heading(`অংশ গ — backfill: priority = 0, ${n(ROWS)}টা row`);
+	heading(`Part C — backfill: priority = 0, ${n(ROWS)} rows`);
 	const partC: Result[] = [];
 	partC.push(
-		await measure('একটা UPDATE এ সব', async () => {
+		await measure('all in one UPDATE', async () => {
 			await ddl('UPDATE tasks SET priority = 0');
 			return '';
 		})
@@ -224,7 +226,7 @@ async function main(): Promise<void> {
 	await ddl('UPDATE tasks SET priority = NULL');
 	await ddl('VACUUM tasks');
 	partC.push(
-		await measure(`batch এ (${n(BATCH)}টা করে, মাঝে ২০ ms)`, async () => {
+		await measure(`in batches (${n(BATCH)} each, 20 ms apart)`, async () => {
 			const client = await connect();
 			let batches = 0;
 			for (let from = 0; from < ROWS; from += BATCH) {
@@ -236,15 +238,15 @@ async function main(): Promise<void> {
 				await sleep(20);
 			}
 			await client.end();
-			return `${batches}টা ছোট transaction`;
+			return `${batches} small transactions`;
 		})
 	);
 	print(partC);
 
-	heading('অংশ ঘ — NOT NULL বসানো: priority');
+	heading('Part D — adding NOT NULL: priority');
 	const partD: Result[] = [];
 	partD.push(
-		await measure('SET NOT NULL (সরাসরি)', async () => {
+		await measure('SET NOT NULL (directly)', async () => {
 			await ddl('ALTER TABLE tasks ALTER COLUMN priority SET NOT NULL');
 			return '';
 		})
@@ -258,7 +260,7 @@ async function main(): Promise<void> {
 			const b = await ddl('ALTER TABLE tasks VALIDATE CONSTRAINT priority_not_null');
 			const c = await ddl('ALTER TABLE tasks ALTER COLUMN priority SET NOT NULL');
 			const d = await ddl('ALTER TABLE tasks DROP CONSTRAINT priority_not_null');
-			return `NOT VALID ${ms(a)}, VALIDATE ${ms(b)} (lock: SHARE UPDATE EXCLUSIVE), SET NOT NULL ${ms(c)} (scan বাদ), DROP CHECK ${ms(d)}`;
+			return `NOT VALID ${ms(a)}, VALIDATE ${ms(b)} (lock: SHARE UPDATE EXCLUSIVE), SET NOT NULL ${ms(c)} (scan skipped), DROP CHECK ${ms(d)}`;
 		})
 	);
 	print(partD);

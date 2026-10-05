@@ -1,19 +1,19 @@
 import { mulberry32 } from './random';
 import { Replica, shuffled, type LagModel } from './replica';
 
-// Lesson 6.3 §১.৩–১.৪ — একটা primary, তিনটা async replica, আর পাঁচ রকম read routing।
+// Lesson 6.3 §1.3–1.4 — one primary, three async replicas, and five kinds of read routing.
 //
-// TaskFlow এর একটা ব্যস্ত workspace: team এর সবাই মিলে সেকেন্ডে ~২০০টা লেখা (task, comment, status)।
-// প্রতিটা লেখা primary তে একটা LSN পায় (Lesson 5.7), আর প্রতিটা replica নিজের lag এ সেটা পায় —
-// ক্রমানুসারে (একটা আটকে গেলে পেছনের সবাই আটকায়)।
+// A busy TaskFlow workspace: the whole team together makes ~200 writes a second (tasks, comments, statuses).
+// Every write gets an LSN on the primary (Lesson 5.7), and every replica receives it at its own lag —
+// in order (when one stalls, everything behind it stalls).
 //
-// ৪০০ জন user, প্রত্যেকের দুটো device (phone, laptop)। ২০০০ বার একজন user একটা task বানায়, তারপর
-// পড়ে: redirect এ (+5 ms), তারপর +30 ms, +300 ms, +1 s, +3 s এ। প্রথম দুটো পড়া একই device এ,
-// বাকিগুলোর অর্ধেক অন্য device এ।
+// 400 users, each with two devices (phone, laptop). 2000 times a user creates a task, then
+// reads: on the redirect (+5 ms), then at +30 ms, +300 ms, +1 s, +3 s. The first two reads are on the same device,
+// half of the rest on the other device.
 //
-// প্রতিটা পড়ায় দুটো প্রশ্ন:
-//   read-your-writes — user এর নিজের শেষ লেখা এই পড়ায় আছে? (একই device / অন্য device আলাদা গুনি)
-//   monotonic read   — এই পড়া কি user এর আগের কোনো পড়ার চেয়ে **পুরনো**? (সময় পেছনে গেল)
+// Two questions on every read:
+//   read-your-writes — is the user's own last write in this read? (same device / other device counted separately)
+//   monotonic read   — is this read **older** than one of the user's earlier reads? (time went backwards)
 
 const SIM_MS = 120_000;
 const BACKGROUND_WRITES_PER_S = 200;
@@ -22,9 +22,9 @@ const SESSIONS = 2000;
 const READ_OFFSETS_MS = [5, 30, 300, 1000, 3000];
 
 const REPLICAS: LagModel[] = [
-	{ base: 1, mean: 2, stallPerWrite: 0, stallMs: 0 }, // r1 — দ্রুত, কখনো আটকায় না
+	{ base: 1, mean: 2, stallPerWrite: 0, stallMs: 0 }, // r1 — fast, never stalls
 	{ base: 3, mean: 8, stallPerWrite: 0.00005, stallMs: 1500 }, // r2
-	{ base: 5, mean: 20, stallPerWrite: 0.0002, stallMs: 3000 } // r3 — ধীর, মাঝে মাঝে কয়েক সেকেন্ড আটকায়
+	{ base: 5, mean: 20, stallPerWrite: 0.0002, stallMs: 3000 } // r3 — slow, stalls for a few seconds now and then
 ];
 
 type Strategy = 'random' | 'sticky' | 'cookie' | 'token-device' | 'token-user';
@@ -66,15 +66,15 @@ type Result = {
 };
 
 function run(strategy: Strategy, actions: Action[]): Result {
-	const lagRandom = mulberry32(64); // প্রতিটা strategy তে হুবহু একই lag
+	const lagRandom = mulberry32(64); // exactly the same lag for every strategy
 	const routeRandom = mulberry32(65);
 	const replicas = REPLICAS.map((model) => new Replica(model, lagRandom));
 	let lsn = 0;
 
-	const lastWriteAt = new Map<string, number>(); // device → শেষ লেখার সময় (cookie)
-	const sessionWrite = new Map<number, number>(); // session → সেই session এর লেখার LSN
-	const userLastSeen = new Map<number, number>(); // user → আগের পড়াগুলোর সবচেয়ে নতুন LSN
-	const token = new Map<string, number>(); // device বা user → দেখা/লেখা সবচেয়ে নতুন LSN
+	const lastWriteAt = new Map<string, number>(); // device → time of the last write (cookie)
+	const sessionWrite = new Map<number, number>(); // session → the LSN of that session's write
+	const userLastSeen = new Map<number, number>(); // user → the newest LSN of the earlier reads
+	const token = new Map<string, number>(); // device or user → the newest LSN seen/written
 
 	const result: Result = {
 		sameDeviceReads: 0,
@@ -107,7 +107,7 @@ function run(strategy: Strategy, actions: Action[]): Result {
 				return replayed(h % REPLICAS.length, at);
 			}
 			case 'cookie':
-				// Lesson 5.7 এর সমাধান: এই device গত ৫ সেকেন্ডে লিখে থাকলে primary থেকে
+				// Lesson 5.7's fix: if this device wrote in the last 5 seconds, from the primary
 				if (at - (lastWriteAt.get(device) ?? -Infinity) < 5000) {
 					result.onPrimary++;
 					return lsn;
@@ -119,9 +119,9 @@ function run(strategy: Strategy, actions: Action[]): Result {
 				const need = token.get(key) ?? 0;
 				for (const r of order) {
 					const seen = replayed(r, at);
-					if (seen >= need) return seen; // এই replica যথেষ্ট এগিয়ে
+					if (seen >= need) return seen; // this replica is far enough ahead
 				}
-				result.onPrimary++; // কোনো replica এগিয়ে নেই → primary
+				result.onPrimary++; // no replica is ahead → primary
 				return lsn;
 			}
 		}
@@ -142,7 +142,7 @@ function run(strategy: Strategy, actions: Action[]): Result {
 		}
 		const seen = route(action.user, action.device, action.at);
 		result.reads++;
-		const mine = sessionWrite.get(action.session) ?? 0; // এই session এ user নিজে যা লিখেছে
+		const mine = sessionWrite.get(action.session) ?? 0; // what the user wrote themselves in this session
 		if (action.device === action.writer) {
 			result.sameDeviceReads++;
 			if (seen < mine) result.sameDeviceMissed++;
@@ -165,25 +165,27 @@ function pct(part: number, whole: number): string {
 function main(): void {
 	const actions = workload();
 	const labels: Record<Strategy, string> = {
-		random: 'ক. যেকোনো replica (random)',
-		sticky: 'খ. device প্রতি একটা নির্দিষ্ট replica',
-		cookie: 'গ. cookie: ৫ s এর মধ্যে লিখলে primary',
-		'token-device': 'ঘ. version token — device এ (cookie)',
-		'token-user': 'ঙ. version token — user এর (server এ)'
+		random: 'A. any replica (random)',
+		sticky: 'B. one fixed replica per device',
+		cookie: 'C. cookie: primary if written within 5 s',
+		'token-device': 'D. version token — on the device (cookie)',
+		'token-user': 'E. version token — per user (on the server)'
 	};
 	console.log(
-		`\n   primary + ${REPLICAS.length} async replica; ${SIM_MS / 1000} s, সেকেন্ডে ~${BACKGROUND_WRITES_PER_S} লেখা; ${SESSIONS} বার "লেখো, তারপর ${READ_OFFSETS_MS.length} বার পড়ো"`
+		`\n   primary + ${REPLICAS.length} async replicas; ${SIM_MS / 1000} s, ~${BACKGROUND_WRITES_PER_S} writes a second; ${SESSIONS} times "write, then read ${READ_OFFSETS_MS.length} times"`
 	);
-	console.log('   (seed দেওয়া — প্রতিবার একই ফল; lag এর সংখ্যা ধরে নেওয়া মডেল)\n');
+	console.log('   (seeded — the same result every time; the lag numbers are an assumed model)\n');
 	console.log(
-		'                                              নিজের লেখা দেখেনি              সময় পেছনে    read primary তে'
+		"                                                  didn't see own write          time went     reads on primary"
 	);
-	console.log('   কৌশল                                       একই device    অন্য device      গেছে');
+	console.log(
+		'   strategy                                       same device   other device    back'
+	);
 	for (const strategy of Object.keys(labels) as Strategy[]) {
-		// Object.keys এর type string[] — labels এর key গুলোই Strategy, তাই assertion নিরাপদ
+		// Object.keys has type string[] — the keys of labels are exactly Strategy, so the assertion is safe
 		const r = run(strategy, actions);
 		console.log(
-			`   ${labels[strategy].padEnd(40)}  ${pct(r.sameDeviceMissed, r.sameDeviceReads)}       ${pct(r.otherDeviceMissed, r.otherDeviceReads)}       ${pct(r.wentBack, r.reads)}       ${pct(r.onPrimary, r.reads)}`
+			`   ${labels[strategy].padEnd(44)}  ${pct(r.sameDeviceMissed, r.sameDeviceReads)}       ${pct(r.otherDeviceMissed, r.otherDeviceReads)}       ${pct(r.wentBack, r.reads)}       ${pct(r.onPrimary, r.reads)}`
 		);
 	}
 	console.log('');

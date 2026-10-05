@@ -2,21 +2,21 @@ import http from 'node:http';
 import { z } from 'zod';
 import { invalidate, keys, redis } from './cache';
 
-// Lesson 4.6 — cache stampede চোখে দেখার script.
-// একটা জনপ্রিয় key এর TTL শেষ হওয়ার মুহূর্তে যদি N টা request একসাথে আসে,
-// তাহলে N টাই miss করে, আর N টাই DB তে ঝাঁপিয়ে পড়ে। সেটাই এখানে মাপা হয়।
+// Lesson 4.6 — a script to see a cache stampede with your own eyes.
+// If N requests arrive together at the moment a popular key's TTL expires,
+// all N miss, and all N rush to the DB. That is what is measured here.
 const HOST = process.env.HOST ?? 'localhost';
 const PORT = Number(process.env.PORT ?? 3000);
 const USER_ID = 7;
 const CONCURRENCY = 50;
-// একটা "দামি query" নকল — নাহলে stampede এর জানালাটাই থাকে না (নিচে ব্যাখ্যা)
+// imitating an "expensive query" — otherwise there's no stampede window at all (explained below)
 const QUERY_MS = 200;
 
-// গুরুত্বপূর্ণ: Node এর built-in fetch (undici) origin প্রতি অল্প কয়েকটা
-// connection খোলে, তাই Promise.all দিয়ে ৫০টা fetch পাঠালেও সেগুলো আসলে
-// ৫-৬টা করে ধাপে যায় — অর্থাৎ সত্যিকারের একসাথে না। তখন প্রথম batch এর
-// উত্তর cache এ বসে যায় আর stampede টা ঘটেই না।
-// তাই এখানে নিজের agent, maxSockets বাড়িয়ে — যাতে ৫০টা সত্যিই একসাথে যায়।
+// Important: Node's built-in fetch (undici) opens only a few connections per origin,
+// so even 50 fetches sent with Promise.all actually go in steps of
+// 5-6 — that is, not truly at once. Then the first batch's
+// response lands in the cache and the stampede never happens.
+// Hence our own agent here, with more maxSockets — so all 50 really go at once.
 const agent = new http.Agent({ keepAlive: true, maxSockets: CONCURRENCY * 2 });
 
 function get(path: string): Promise<string> {
@@ -50,16 +50,16 @@ async function dbCount(): Promise<number> {
 }
 
 async function burst(singleFlight: boolean): Promise<{ dbQueries: number; ms: number }> {
-	// key মুছে দেওয়া = TTL শেষ হওয়ার মুহূর্তটা নকল করা
+	// deleting the key = imitating the moment the TTL expires
 	await invalidate(keys.tasksByUser(USER_ID));
 	await post('/api/_stats/reset');
-	// TCP connection গুলো আগেই খুলে নাও, যাতে burst এর সময় connection
-	// setup টা critical path এ না থাকে
+	// open the TCP connections beforehand, so connection setup is not on the
+	// critical path during the burst
 	await Promise.all(Array.from({ length: CONCURRENCY }, () => get('/api/_stats')));
 
 	const path = `/api/tasks?userId=${USER_ID}&delay=${QUERY_MS}${singleFlight ? '&sf=1' : ''}`;
 	const started = Date.now();
-	// ঠিক একই মুহূর্তে CONCURRENCY টা request — এটাই stampede
+	// CONCURRENCY requests at exactly the same moment — this is the stampede
 	await Promise.all(Array.from({ length: CONCURRENCY }, () => get(path)));
 	const ms = Date.now() - started;
 
@@ -67,20 +67,22 @@ async function burst(singleFlight: boolean): Promise<{ dbQueries: number; ms: nu
 }
 
 async function main(): Promise<void> {
-	console.log(`\n  ${CONCURRENCY} টা request একসাথে, cache সদ্য খালি, DB query ~${QUERY_MS}ms:\n`);
+	console.log(
+		`\n  ${CONCURRENCY} requests at once, cache just emptied, DB query ~${QUERY_MS}ms:\n`
+	);
 
 	const naive = await burst(false);
 	console.log(
-		`  single-flight ছাড়া : DB query ${String(naive.dbQueries).padStart(3)} টা   (${naive.ms} ms)`
+		`  without single-flight : DB queries ${String(naive.dbQueries).padStart(3)}   (${naive.ms} ms)`
 	);
 
 	const guarded = await burst(true);
 	console.log(
-		`  single-flight সহ   : DB query ${String(guarded.dbQueries).padStart(3)} টা   (${guarded.ms} ms)`
+		`  with single-flight    : DB queries ${String(guarded.dbQueries).padStart(3)}   (${guarded.ms} ms)`
 	);
 
 	console.log(
-		`\n  বাঁচানো গেল       : ${naive.dbQueries - guarded.dbQueries} টা অপ্রয়োজনীয় DB query\n`
+		`\n  saved                 : ${naive.dbQueries - guarded.dbQueries} unnecessary DB queries\n`
 	);
 
 	agent.destroy();

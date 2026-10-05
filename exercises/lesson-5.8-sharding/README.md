@@ -26,7 +26,7 @@ npm install
 ## Run
 
 ```bash
-npm run partition   # ১২ লাখ row দুটো table এ — ~১০ সেকেন্ড
+npm run partition   # 1.2 million rows in two tables — ~10 seconds
 npm run shard
 npm run keys
 ```
@@ -41,17 +41,17 @@ npm run keys
 **১. `npm run partition`**
 
 ```
-  12 মাস × 100,000 = 1,200,000টা activity, দুটো table এ (7.9s)
+  12 months × 100,000 = 1,200,000 activities, in two tables (7.9s)
 
-১. Partition pruning — query কোন partition ছোঁয়?
-   query                                  সাধারণ table               partitioned
-   project 42, শেষ ৭ দিন                  0.03 ms                    0.04 ms — activity_2026_09
-   project 42, সব সময় (সময়ের শর্ত নেই)  0.22 ms                    0.62 ms — 12টা partition
-   পুরো মাসের সব event (আগস্ট)            22.41 ms                   9.14 ms — activity_2026_08
+1. Partition pruning — which partitions does a query touch?
+   query                                    plain table                partitioned
+   project 42, last 7 days                  0.03 ms                    0.04 ms — activity_2026_09
+   project 42, all time (no time condition) 0.22 ms                    0.62 ms — 12 partitions
+   every event of a whole month (August)    22.41 ms                   9.14 ms — activity_2026_08
 
-২. Retention — সবচেয়ে পুরনো মাস (অক্টোবর ২০২৫) মুছে ফেলা
-   সাধারণ table: DELETE (103,334 row)       99 ms   WAL   11.5 MB   table এর আকার 142.2 MB → 142.2 MB
-   partitioned:  DETACH + DROP partition        8 ms   WAL    0.1 MB   (পুরো file টাই মুছে গেল)
+2. Retention — deleting the oldest month (October 2025)
+   plain table: DELETE (103,334 rows)         99 ms   WAL   11.5 MB   table size 142.2 MB → 142.2 MB
+   partitioned: DETACH + DROP partition        8 ms   WAL    0.1 MB   (the whole file is gone)
 ```
 
 DELETE এর সময় রান ভেদে বেশ বদলায় (আমার দুটো রানে ৯৯ আর ২০২ ms); WAL আর আকার প্রতিবার একই।
@@ -59,39 +59,39 @@ DELETE এর সময় রান ভেদে বেশ বদলায় (
 **২. `npm run shard`**
 
 ```
-১. 300টা workspace, 300,000টা task — shard key: hash(workspaceId) % 3
-   shard0:  94টা workspace   175,986টা task  ███████████████████████  ← workspace 7 (৪০%) এখানে
-   shard1: 106টা workspace    63,812টা task  █████████
-   shard2: 100টা workspace    60,200টা task  ████████
+1. 300 workspaces, 300,000 tasks — shard key: hash(workspaceId) % 3
+   shard0:  94 workspaces   175,986 tasks  ███████████████████████  ← workspace 7 (40%) is here
+   shard1: 106 workspaces    63,812 tasks  █████████
+   shard2: 100 workspaces    60,200 tasks  ████████
 
-২. Shard key সহ query — "workspace 42 এ কয়টা খোলা task?"
-   → শুধু shard0 এ যায়: 201টা, 0.27 ms
+2. A query with the shard key — "how many open tasks in workspace 42?"
+   → goes only to shard0: 201, 0.27 ms
 
-৩. Shard key ছাড়া query — "সবচেয়ে বেশি খোলা task কোন ১০টা workspace এ?"
-   → 3টা shard এ একসাথে (scatter), app এ মিলিয়ে সাজানো (gather): মোট 11.0 ms
-     shard0: 11.0 ms, shard1: 4.8 ms, shard2: 4.6 ms — মোট সময় সবচেয়ে ধীরটার সমান
+3. A query without the shard key — "which 10 workspaces have the most open tasks?"
+   → sent to all 3 shards at once (scatter), merged and sorted in the app (gather): 11.0 ms total
+     shard0: 11.0 ms, shard1: 4.8 ms, shard2: 4.6 ms — the total equals the slowest one
 
-৪. দুই shard জুড়ে কাজ — project কে অন্য workspace এ সরানো (আলাদা shard এ)
+4. Work across two shards — moving a project to another workspace (on a different shard)
    project 8: workspace 8 (shard0) → workspace 5 (shard2)
-   ধাপ ১: shard2 তে project লেখা হলো — COMMIT ✓
-   ধাপ ২: shard0 থেকে মুছে ফেলার আগেই app crash করল ✗
-   → project 8 এখন shard0 এ 1টা, shard2 এ 1টা — দুই জায়গাতেই! কোনো একক transaction এটা আটকাতে পারেনি
+   step 1: project written to shard2 — COMMIT ✓
+   step 2: the app crashed before deleting it from shard0 ✗
+   → project 8 is now on shard0 (1) and on shard2 (1) — in both places! No single transaction could prevent it
 ```
 
 **৩. `npm run keys`**
 
 ```
-ক. আজকের 1,000,000টা write, 4টা shard — কোন shard key তে কোথায় জমে?
-   shard key                      প্রতিটা shard এ write এর ভাগ     সবচেয়ে ব্যস্ত   workspace 7 এর data কয়টা shard এ
-   hash(workspaceId)               14%  16%  15%  55%                   55%        1টা
-   hash(taskId)                    25%  25%  25%  25%                   25%        4টা
-   range(createdAt) — ত্রৈমাসিক     0%   0%   0% 100%                  100%        1টা
-   hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        4টা
+a. Today's 1,000,000 writes, 4 shards — where do writes pile up under each shard key?
+   shard key                      share of writes per shard        busiest   shards holding workspace 7's data
+   hash(workspaceId)               14%  16%  15%  55%                   55%        1
+   hash(taskId)                    25%  25%  25%  25%                   25%        4
+   range(createdAt) — quarterly     0%   0%   0% 100%                  100%        1
+   hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        4
 
-খ. Shard ৩ থেকে ৪ করা — 100,000টা workspace এর কতগুলো অন্য shard এ সরাতে হবে?
-   hash % N               74.9%   (74,874টা)
-   consistent hashing     26.3%   (26,274টা)
-   আদর্শ (শুধু নতুন shard এর ভাগটুকু = ১/৪)    25.0%
+b. Going from 3 to 4 shards — how many of 100,000 workspaces must move to another shard?
+   hash % N               74.9%   (74,874)
+   consistent hashing     26.3%   (26,274)
+   ideal (only the new shard's share = 1/4)    25.0%
 ```
 
 ## কী দেখার জন্য এটা বানানো

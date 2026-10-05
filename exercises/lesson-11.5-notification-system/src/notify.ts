@@ -91,7 +91,7 @@ export class NotificationService {
 		};
 		this.notifications.set(n.id, n);
 		this.byKey.set(key, n.id);
-		this.log(n, `গৃহীত (${n.priority})`);
+		this.log(n, `accepted (${n.priority})`);
 		if (body.type === 'like') {
 			const windowKey = `${body.userId}:like`;
 			const open = this.windows.get(windowKey);
@@ -99,12 +99,12 @@ export class NotificationService {
 				open.members.push(n.id);
 				n.status = { kind: 'merged', into: open.lead };
 				this.stats.merged++;
-				this.log(n, `#${open.lead} এর সাথে মেশানো`);
+				this.log(n, `merged into #${open.lead}`);
 			} else {
 				const until = this.now() + this.windowMs;
 				this.windows.set(windowKey, { lead: n.id, members: [n.id], until });
 				n.status = { kind: 'aggregating', until };
-				this.log(n, `জানালা খোলা, ${this.windowMs / 1_000} s`);
+				this.log(n, `window open, ${this.windowMs / 1_000} s`);
 			}
 			return { id: n.id, duplicate: false };
 		}
@@ -131,30 +131,30 @@ export class NotificationService {
 	private text(n: Notification, extra: number): string {
 		switch (n.body.type) {
 			case 'otp':
-				return `কোড: ${n.body.data['code'] ?? '------'}`;
+				return `code: ${n.body.data['code'] ?? '------'}`;
 			case 'order':
-				return `অর্ডার ${n.body.data['order'] ?? ''} পাঠানো হয়েছে`;
+				return `order ${n.body.data['order'] ?? ''} has shipped`;
 			case 'like':
 				return extra > 0
-					? `${n.body.data['from'] ?? 'কেউ'} আর আরও ${extra} জন like করেছে`
-					: `${n.body.data['from'] ?? 'কেউ'} like করেছে`;
+					? `${n.body.data['from'] ?? 'someone'} and ${extra} others liked this`
+					: `${n.body.data['from'] ?? 'someone'} liked this`;
 			case 'marketing':
-				return n.body.data['title'] ?? 'নতুন অফার';
+				return n.body.data['title'] ?? 'new offer';
 		}
 	}
 
 	private deliver(n: Notification, extra = 0): void {
 		const user = n.body.userId;
 		if (n.body.type === 'marketing' && this.preferences.get(user)?.marketing === false) {
-			n.status = { kind: 'suppressed', reason: 'marketing বন্ধ' };
-			this.log(n, 'বাদ: user marketing বন্ধ রেখেছে');
+			n.status = { kind: 'suppressed', reason: 'marketing off' };
+			this.log(n, 'skipped: the user has turned marketing off');
 			return;
 		}
 		if (n.priority !== 'critical') {
 			const until = this.quiet(user);
 			if (until !== undefined) {
 				n.status = { kind: 'deferred', until };
-				this.log(n, `রাতের নীরবতা, ${new Date(until).toISOString().slice(11, 16)} পর্যন্ত`);
+				this.log(n, `night-time quiet, until ${new Date(until).toISOString().slice(11, 16)}`);
 				return;
 			}
 		}
@@ -170,11 +170,11 @@ export class NotificationService {
 					if (result.kind === 'unregistered') {
 						this.devices.get(user)?.delete(token);
 						this.stats.staleTokensRemoved++;
-						this.log(n, `push: token ${token} মৃত, মুছে ফেলা`);
+						this.log(n, `push: token ${token} dead, deleted`);
 					} else if (result.kind === 'sent') {
 						this.stats.sent++;
 						n.status = { kind: 'sent', channel, attempts };
-						this.log(n, `push পাঠানো (${token})`);
+						this.log(n, `push sent (${token})`);
 						return;
 					}
 				}
@@ -194,8 +194,8 @@ export class NotificationService {
 				}
 			}
 		}
-		n.status = { kind: 'failed', reason: 'কোনো channel এ পৌঁছানো গেল না' };
-		this.log(n, 'ব্যর্থ');
+		n.status = { kind: 'failed', reason: 'could not reach any channel' };
+		this.log(n, 'failed');
 	}
 
 	tick(budget: number): number {

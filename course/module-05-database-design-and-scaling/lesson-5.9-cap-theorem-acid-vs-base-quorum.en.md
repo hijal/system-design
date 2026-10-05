@@ -81,10 +81,10 @@ The exercise's `npm run partition` — 5 nodes, 3 in Dhaka (n1 n2 n3), 2 in Sing
 **CP — a strict quorum:** a write or read needs at least 3 of the 5 nodes (a majority) to succeed.
 
 ```
-Rahim (Dhaka, 3 nodes)        wrote "Fix login"   → success ✓
-Karim (Singapore, 2 nodes)    wrote "Fix signup"  → failed ✗ — saw an error, must try again
-reads during the partition: Dhaka → "Fix login",  Singapore → ✗ no answer (no quorum)
-after the network heals, everyone reads: "Fix login"
+   Rahim (Dhaka, 3 nodes)         wrote "Fix login"   → success ✓
+   Karim (Singapore, 2 nodes)     wrote "Fix signup"  → failed ✗ — saw an error, has to try again
+   reads during the partition: Dhaka → "Fix login",  Singapore → ✗ no answer (no quorum)
+   after the network heals, everyone reads: "Fix login"
 ```
 
 Everyone always saw the same truth — but users in Singapore couldn't do anything for three minutes. The side with the majority keeps going, the other stops — and because of this rule, the two sides can never write different things at the same time.
@@ -92,11 +92,11 @@ Everyone always saw the same truth — but users in Singapore couldn't do anythi
 **AP — any node accepts writes, merged later with last-write-wins (LWW).** And as in real life, Singapore's n4 has a clock 300 ms behind:
 
 ```
-reads during the partition: Dhaka → "Fix login",  Singapore → "Fix signup"  ← two truths on two sides
-the network healed — two versions found:
-  "Fix login" (Rahim), timestamp 100 ms
-  "Fix signup" (Karim), timestamp -100 ms
-LWW winner: "Fix login" (Rahim)
+   reads during the partition: Dhaka → "Fix login",  Singapore → "Fix signup"  ← two truths on two sides
+   the network healed — two versions found:
+     "Fix login" (Rahim), timestamp 100 ms
+     "Fix signup" (Karim), timestamp -100 ms
+   LWW winner: "Fix login" (Rahim)
 ```
 
 Both kept working, both saw "saved". But once the network came back, Karim's write — which actually happened **later** — **was silently lost**, because "later" was decided by n4's wrong clock. No error, no log. (Tie it to Lesson 5.7's multi-leader conflicts — and why wall clocks can't be trusted is Lesson 6.4.)
@@ -145,13 +145,13 @@ read (R=2):   ·      ✓      ✓      ← read from any 2...
 It's just a counting argument — put four balls in three boxes and some box gets two. Now let's measure it. The exercise's `npm run quorum` — N = 3, two replicas in the same data center, one in another (slow); and as in real life, any replica occasionally (on 5% of writes) falls 50 ms behind (a GC pause, a disk stall). For each pair, 100,000 rounds of "write, then read immediately after success":
 
 ```
-W  R  W+R>N?   stale reads             write p50 / p99      read p50 / p99
-1  1  no       10827/100000 (10.83%)     2.3 /   7.0 ms     2.3 /   5.6 ms
-1  2  no         227/100000 ( 0.23%)     2.3 /   7.0 ms     4.1 /  11.1 ms
-2  1  no        3707/100000 ( 3.71%)     4.4 /  53.1 ms     2.3 /   5.6 ms
-2  2  yes          0/100000 ( 0.00%)     4.4 /  53.1 ms     4.1 /  11.1 ms
-3  1  yes          0/100000 ( 0.00%)    39.6 / 103.1 ms     2.3 /   5.6 ms
-1  3  yes          0/100000 ( 0.00%)     2.3 /   7.0 ms    36.8 /  86.4 ms
+   W  R  W+R>N?   stale read              write p50 / p99      read p50 / p99
+   1  1  no       10827/100000 (10.83%)     2.3 /   7.0 ms     2.3 /   5.6 ms
+   1  2  no         227/100000 ( 0.23%)     2.3 /   7.0 ms     4.1 /  11.1 ms
+   2  1  no        3707/100000 ( 3.71%)     4.4 /  53.1 ms     2.3 /   5.6 ms
+   2  2  yes          0/100000 ( 0.00%)     4.4 /  53.1 ms     4.1 /  11.1 ms
+   3  1  yes          0/100000 ( 0.00%)    39.6 / 103.1 ms     2.3 /   5.6 ms
+   1  3  yes          0/100000 ( 0.00%)     2.3 /   7.0 ms    36.8 /  86.4 ms
 ```
 
 Three lessons:
@@ -163,11 +163,11 @@ Three lessons:
 **The availability side** — from the same exercise:
 
 ```
-W  R   │ 0 dead         │ 1 dead         │ 2 dead
-1  1   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✓ read ✓
-2  2   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✗ read ✗
-3  1   │ write ✓ read ✓ │ write ✗ read ✓ │ write ✗ read ✓
-1  3   │ write ✓ read ✓ │ write ✓ read ✗ │ write ✓ read ✗
+   W  R   │ 0 dead         │ 1 dead         │ 2 dead
+   1  1   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✓ read ✓
+   2  2   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✗ read ✗
+   3  1   │ write ✓ read ✓ │ write ✗ read ✓ │ write ✗ read ✓
+   1  3   │ write ✓ read ✓ │ write ✓ read ✗ │ write ✓ read ✗
 ```
 
 `W = R = 2` (N = 3) — everything keeps working even if one replica dies, and consistency holds too. That's why it's the most common choice. The general rule: with N replicas, `W = R = ⌊N/2⌋ + 1` (a majority) — for `N = 5` that's 3, and then it survives 2 dead replicas.

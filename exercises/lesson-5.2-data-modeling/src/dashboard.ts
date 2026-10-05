@@ -5,8 +5,8 @@ import { sequelize } from './db';
 import { Project } from './models/good';
 import { reconcile } from './reconcile';
 
-// Lesson 5.2 §১.৪ — denormalization এর লাভটা মেপে দেখা।
-// একই প্রশ্ন দুইভাবে: (ক) প্রতিবার tasks table থেকে গুনে, (খ) projects.openTaskCount পড়ে।
+// Lesson 5.2 §1.4 — measuring denormalization's benefit.
+// The same question two ways: (a) counting from the tasks table every time, (b) reading projects.openTaskCount.
 
 const PROJECTS = 500;
 const TASKS_PER_PROJECT = 800;
@@ -20,8 +20,8 @@ type CountRow = z.infer<typeof countRows>[number];
 
 async function seed(): Promise<void> {
 	await sequelize.sync({ force: true });
-	// ৪ লাখ row Sequelize এর bulkCreate দিয়ে ঢোকাতে অনেক সময় লাগে (প্রতিটা row একটা JS
-	// object)। তাই seed টা Postgres এর generate_series দিয়ে — এটা শুধু test data বানানো।
+	// Inserting 400,000 rows with Sequelize's bulkCreate takes a long time (every row is a JS
+	// object). So the seed uses Postgres's generate_series — this only builds test data.
 	await sequelize.query(
 		`INSERT INTO users (name, email)
 		 SELECT 'User ' || g, 'user' || g || '@taskflow.app' FROM generate_series(1, ${USERS}) g`
@@ -29,8 +29,8 @@ async function seed(): Promise<void> {
 	await sequelize.query(
 		`INSERT INTO projects (name) SELECT 'Project ' || lpad(g::text, 3, '0') FROM generate_series(1, ${PROJECTS}) g`
 	);
-	// Status: ~৬০% done, বাকিটা todo/doing। কিছু project কে ইচ্ছা করে বেশি ব্যস্ত বানানো
-	// (id % 7 = 0 হলে done কম), যাতে "সবচেয়ে ব্যস্ত project" প্রশ্নের একটা অর্থ থাকে।
+	// Status: ~60% done, the rest todo/doing. Some projects are made busier on purpose
+	// (fewer done when id % 7 = 0), so the "busiest project" question means something.
 	await sequelize.query(
 		`INSERT INTO tasks (title, status, "projectId", "assigneeId")
 		 SELECT 'Task ' || t,
@@ -47,9 +47,9 @@ async function seed(): Promise<void> {
 	await sequelize.query('ANALYZE');
 }
 
-// (ক) Normalized, সরল query — প্রতিবার গুনে। Sequelize এর include + group + limit একসাথে
-// জটিল SQL বানায়, তাই aggregate report এর জন্য raw SQL, আর ফলাফল Zod দিয়ে parse।
-// ফাঁদ: LIMIT 20 থাকলেও Postgres আগে **সব** ৫০০ project এর count বানায়, তারপর ২০টা নেয়।
+// (a) Normalized, a plain query — counting every time. Sequelize's include + group + limit together
+// build complicated SQL, so raw SQL for the aggregate report, with the result parsed by Zod.
+// The trap: even with LIMIT 20, Postgres first builds the count for **all** 500 projects, then takes 20.
 async function pageComputed(): Promise<CountRow[]> {
 	return countRows.parse(
 		await sequelize.query(
@@ -62,9 +62,9 @@ async function pageComputed(): Promise<CountRow[]> {
 	);
 }
 
-// (ক২) Normalized, ভালো করে লেখা — আগে ২০টা project বাছো, তারপর শুধু তাদের task গোনো।
-// LATERAL মানে "বাম দিকের প্রতিটা row এর জন্য ডান দিকের subquery টা চালাও"।
-// (projectId, status) index থাকায় প্রতিটা count শুধু index পড়েই হয়ে যায়।
+// (a2) Normalized, written well — pick 20 projects first, then count only their tasks.
+// LATERAL means "for every row on the left, run the subquery on the right".
+// With the (projectId, status) index every count is done by reading the index alone.
 async function pageComputedLateral(): Promise<CountRow[]> {
 	return countRows.parse(
 		await sequelize.query(
@@ -80,8 +80,8 @@ async function pageComputedLateral(): Promise<CountRow[]> {
 	);
 }
 
-// "সবচেয়ে ব্যস্ত" প্রশ্নে এই কৌশল কাজ করে না — কোন ১০টা সবচেয়ে ব্যস্ত সেটা জানতে হলে
-// আগে সবগুলো গুনতেই হবে। Derived মান দিয়ে sort/filter — এখানেই denormalization এর আসল জায়গা।
+// This trick does not work for the "busiest" question — to know which 10 are busiest
+// you have to count them all first. Sorting/filtering by a derived value — that is denormalization's real place.
 async function busiestComputed(): Promise<CountRow[]> {
 	return countRows.parse(
 		await sequelize.query(
@@ -94,7 +94,7 @@ async function busiestComputed(): Promise<CountRow[]> {
 	);
 }
 
-// (খ) Denormalized — শুধু projects table পড়া, কোনো join বা count নেই
+// (b) Denormalized — reading only the projects table, no join or count
 async function pageStored(): Promise<CountRow[]> {
 	const rows = await Project.findAll({ order: [['name', 'ASC']], limit: 20 });
 	return rows.map((p) => ({ id: p.id, name: p.name, open: p.openTaskCount }));
@@ -112,7 +112,7 @@ async function busiestStored(): Promise<CountRow[]> {
 }
 
 async function medianMs(fn: () => Promise<CountRow[]>): Promise<number> {
-	for (let i = 0; i < 3; i++) await fn(); // warm-up — buffer pool গরম করা (Lesson 4.1)
+	for (let i = 0; i < 3; i++) await fn(); // warm-up — warming the buffer pool (Lesson 4.1)
 	const samples: number[] = [];
 	for (let i = 0; i < ROUNDS; i++) {
 		const started = performance.now();
@@ -134,7 +134,7 @@ async function main(): Promise<void> {
 		`\n  seeded         : ${PROJECTS} projects × ${TASKS_PER_PROJECT} tasks = ${(PROJECTS * TASKS_PER_PROJECT).toLocaleString('en-US')} tasks (${((performance.now() - seedStarted) / 1000).toFixed(1)}s)`
 	);
 
-	// আগে correctness — দ্রুত কিন্তু ভুল উত্তরের কোনো দাম নেই
+	// correctness first — a fast but wrong answer is worth nothing
 	const pageStoredRows = await pageStored();
 	const pageSame =
 		sameResult(await pageComputed(), pageStoredRows) &&
@@ -149,10 +149,14 @@ async function main(): Promise<void> {
 	const busyB = await medianMs(busiestStored);
 
 	const ms = (n: number): string => `${n.toFixed(2).padStart(7)} ms`;
-	console.log('  প্রশ্ন                          গুনে (সরল)   গুনে (LATERAL)   counter পড়ে');
-	console.log(`  ২০টা project এর পাতা           ${ms(pageA)}     ${ms(pageL)}      ${ms(pageB)}`);
-	console.log(`  সবচেয়ে ব্যস্ত ১০টা project      ${ms(busyA)}          —          ${ms(busyB)}`);
-	console.log(`\n  (median of ${ROUNDS} runs, Sequelize overhead সহ)\n`);
+	console.log('  question                     counted (simple)   counted (LATERAL)   read counter');
+	console.log(
+		`  page of 20 projects                ${ms(pageA)}          ${ms(pageL)}     ${ms(pageB)}`
+	);
+	console.log(
+		`  10 busiest projects                ${ms(busyA)}                —        ${ms(busyB)}`
+	);
+	console.log(`\n  (median of ${ROUNDS} runs, including Sequelize overhead)\n`);
 
 	await sequelize.close();
 }

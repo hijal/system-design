@@ -1,5 +1,5 @@
-// একটা ছোট discrete-event simulator: সময় আসলে চলে না, শুধু পরের event এর সময়ে লাফায়।
-// তাই দুই মিনিটের TaskFlow এক পলকে চলে, আর seed দেওয়া থাকায় প্রতিবার হুবহু একই।
+// A small discrete-event simulator: time doesn't really pass, it just jumps to the next event's time.
+// So two minutes of TaskFlow run in a blink, and with a seed it is exactly the same every time.
 
 type Scheduled = { at: number; seq: number; run: () => void };
 
@@ -10,7 +10,7 @@ export class Sim {
 
 	at(time: number, run: () => void): void {
 		const item: Scheduled = { at: Math.max(time, this.now), seq: this.#seq++, run };
-		// binary search insert — এখানে কয়েক হাজার event একসাথে অপেক্ষায় থাকে
+		// binary search insert — thousands of events wait here at once
 		let lo = 0;
 		let hi = this.#queue.length;
 		while (lo < hi) {

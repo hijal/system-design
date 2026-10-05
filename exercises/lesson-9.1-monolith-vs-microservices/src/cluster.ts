@@ -2,8 +2,8 @@ import { type ChildProcess, fork } from 'node:child_process';
 import path from 'node:path';
 import { z } from 'zod';
 
-// Service process চালানো, থামানো, আর তাদের CPU এর হিসাব। প্রতিটা process আলাদা Node — নিজের event loop,
-// নিজের memory — যেমন আসল deploy এ আলাদা container।
+// Starting and stopping the service processes, and accounting for their CPU. Each process is a separate Node — its own event loop,
+// its own memory — like separate containers in a real deploy.
 
 const readySchema = z.object({ type: z.literal('ready'), port: z.number() });
 const cpuSchema = z.object({ type: z.literal('cpu'), micros: z.number() });
@@ -30,7 +30,7 @@ export function stop(proc: Proc): Promise<void> {
 	if (proc.child.exitCode !== null || proc.child.signalCode !== null) return Promise.resolve();
 	return new Promise((resolve) => {
 		proc.child.once('exit', () => resolve());
-		proc.child.kill('SIGKILL'); // crash এর মতো — graceful shutdown না
+		proc.child.kill('SIGKILL'); // like a crash — not a graceful shutdown
 	});
 }
 
@@ -53,7 +53,7 @@ export async function totalCpuMicros(procs: Proc[]): Promise<number> {
 
 export type Topology = { entry: Proc; procs: Proc[] };
 
-// monolith: একটা process। microservices: users, comments, আর tasks (board এর route) — tasks বাকি দুটোর URL জানে
+// monolith: one process. microservices: users, comments, and tasks (the board's route) — tasks knows the other two's URLs
 export async function monolith(extra: Record<string, string> = {}): Promise<Topology> {
 	const entry = await start('monolith', { ROLE: 'monolith', ...extra });
 	return { entry, procs: [entry] };

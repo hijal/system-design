@@ -47,19 +47,19 @@ npm run quorum
 **১. `npm run session`**
 
 ```
-                                              নিজের লেখা দেখেনি              সময় পেছনে    read primary তে
-   কৌশল                                       একই device    অন্য device      গেছে
-   ক. যেকোনো replica (random)                 29.1%         0.9%         4.0%         0.0%
-   খ. device প্রতি একটা নির্দিষ্ট replica     29.6%         1.0%         0.6%         0.0%
-   গ. cookie: ৫ s এর মধ্যে লিখলে primary       0.0%         0.9%         0.3%        73.4%
-   ঘ. version token — device এ (cookie)        0.0%         0.8%         0.4%         3.4%
-   ঙ. version token — user এর (server এ)       0.0%         0.0%         0.0%         3.4%
+                                                  didn't see own write          time went     reads on primary
+   strategy                                       same device   other device    back
+   A. any replica (random)                        29.1%         0.9%         4.0%         0.0%
+   B. one fixed replica per device                29.6%         1.0%         0.6%         0.0%
+   C. cookie: primary if written within 5 s        0.0%         0.9%         0.3%        73.4%
+   D. version token — on the device (cookie)       0.0%         0.8%         0.4%         3.4%
+   E. version token — per user (on the server)     0.0%         0.0%         0.0%         3.4%
 ```
 
 **২. `npm run prefix`**
 
 ```
-   shard key       উত্তর দেখা গেছে     উত্তর আছে কিন্তু প্রশ্ন নেই
+   shard key       answer seen         answer present but question missing
    commentId            65426             250
    taskId               66059               0
 ```
@@ -67,9 +67,9 @@ npm run quorum
 **৩. `npm run quorum`**
 
 ```
-   read repair    "ব্যর্থ" v1 দেখেছে      v1 দেখার পরে আবার v0     মান ওঠানামা করেছে এমন user    শেষ অবস্থা
-   বন্ধ             325/500                 84                      58                A=v1 B=v0 C=v0
-   চালু             500/500                  0                       0                A=v1 B=v1 C=v1
+   read repair    saw the "failed" v1      back to v0 after v1      users whose value flipped    final state
+   off              325/500                 84                      58                A=v1 B=v0 C=v0
+   on               500/500                  0                       0                A=v1 B=v1 C=v1
 ```
 
 ## কী দেখার জন্য এটা বানানো

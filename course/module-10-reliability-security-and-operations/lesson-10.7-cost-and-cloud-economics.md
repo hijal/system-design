@@ -54,32 +54,34 @@ Cloud এর প্রায় প্রতিটা দাম চারটা 
 Design এর প্রতিটা সিদ্ধান্ত এই চারটার কোনো একটা বা একাধিক সংখ্যা বদলায়। Exercise এর `npm run bill` TaskFlow এর পরিমাণ (৩০০ req/s, ৬০,০০০ MAU, ১৮ TB attachment, আগের lesson গুলোর সংখ্যা) আর একটা বড় public cloud এর আনুমানিক তালিকা মূল্য দিয়ে মাসিক বিল বানায়। দাম গুলো 8.1 এর সংখ্যার সাথে মেলানো, আর env দিয়ে বদলানো যায়। দাম বদলায়, তাই ডলারের চেয়ে লাইনগুলোর **অনুপাত** দেখো:
 
 ```
-লাইন                                     এখন    এখন %      পরে     বাঁচল   কী বদলাল
-staging + dev (prod এর মাপে, ২৪/৭)        $4,701   17.9%     $420   $4,281   ¼ মাপ, শুধু কাজের সময়
-NAT gateway (ঘণ্টা + প্রতি GB)            $3,001   11.4%     $139   $2,862   S3 gateway endpoint, image endpoint
-app instance (peak এর মাপে, 20টা ২৪/৭)    $2,803   10.7%     $869   $1,934   autoscale (গড় 7.6), 5টা commit
-cross-AZ: service → service              $1,866    7.1%     $280   $1,586   AZ-aware routing
-metric series                            $1,800    6.8%     $900     $900   label পরিষ্কার (10.4)
-internet egress: API এর JSON             $1,750    6.7%     $350   $1,400   gzip/br (~৫ গুণ ছোট)
-Postgres primary (Multi-AZ)              $1,460    5.6%     $949     $511   commit
-Postgres read replica ×২                 $1,460    5.6%     $949     $511   commit
-Postgres storage (২ TB × ৪ কপি)            $920    3.5%     $414     $506   ৯০ দিনের পুরনো activity S3 এ
-log ingest + ৯০ দিন রাখা                   $846    3.2%   $23.13     $823   debug বন্ধ, সফল request sample, ১৪ দিন
-gateway + BFF + billing + files            $771    2.9%     $501     $270   commit (সারাক্ষণ চলে)
-S3: attachment + পুরনো version             $736    2.8%     $314     $422   lifecycle: version ৩০ দিন, IA
-Redis (cache ৩ + queue ২)                  $730    2.8%     $475     $256   commit
-blue-green এর না-মোছা pool                 $691    2.6%   $17.28     $674   teardown ঠিক; canary +৩, দিনে ১ ঘ
-internet egress: attachment                $675    2.6%     $660   $15.00   CDN (দামে প্রায় একই)
-backup snapshot                            $570    2.2%     $285     $285   ৩০ → ১৪ দিন রাখা
-background worker                          $561    2.1%     $196     $364   spot (job idempotent, 7.4)
-cross-AZ: app → database                   $415    1.6%   $82.94     $332   প্রতি AZ এ read replica
-trace collector                            $280    1.1%     $140     $140   মাপ ঠিক করা
-load balancer · S3 request · trace জমা      $254    1.0%     $254       $0   —
-VPC interface endpoint (image pull)          $0    0.0%   $57.90  −$57.90   NAT এর বদলে
-মোট                                     $26,290    100%   $8,276  $18,014   69% কম
+line                                             now   now %     after     saved                                      what changed
+staging + dev (prod-sized, 24/7)              $4,701   17.9%      $420    $4,281                        ¼ size, working hours only
+NAT gateway (hourly + per GB)                 $3,001   11.4%      $139    $2,862               S3 gateway endpoint, image endpoint
+app instances (sized for peak, 20 24/7)       $2,803   10.7%      $869    $1,934                  autoscale (avg 7.6), 5 committed
+cross-AZ: service → service                   $1,866    7.1%      $280    $1,586                                  AZ-aware routing
+metric series                                 $1,800    6.8%      $900      $900                          labels cleaned up (10.4)
+internet egress: API JSON                     $1,750    6.7%      $350    $1,400                             gzip/br (~5× smaller)
+Postgres primary (Multi-AZ)                   $1,460    5.6%      $949      $511                                            commit
+Postgres read replica ×2                      $1,460    5.6%      $949      $511                                            commit
+Postgres storage (2 TB × 4 copies)              $920    3.5%      $414      $506                 activity older than 90 days in S3
+log ingest + keep 90 days                       $846    3.2%    $23.13      $823    debug off, sample successful requests, 14 days
+gateway + BFF + billing + files                 $771    2.9%      $501      $270                           commit (always running)
+S3: attachments + old versions                  $736    2.8%      $314      $422                   lifecycle: versions 30 days, IA
+Redis (cache 3 + queue 2)                       $730    2.8%      $475      $256                                            commit
+undeleted blue-green pool                       $691    2.6%    $17.28      $674              teardown fixed; canary +3, 1 h a day
+internet egress: attachment                     $675    2.6%      $660    $15.00                        CDN (about the same price)
+backup snapshot                                 $570    2.2%      $285      $285                                 keep 30 → 14 days
+background worker                               $561    2.1%      $196      $364                        spot (job idempotent, 7.4)
+cross-AZ: app → database                        $415    1.6%    $82.94      $332                        a read replica in every AZ
+trace collector                                 $280    1.1%      $140      $140                                       right-sized
+load balancer                                   $200    0.8%      $200        $0                                                 —
+S3 request                                    $45.00    0.2%    $45.00        $0                                                 —
+trace storage (tail sampling)                  $9.00    0.0%     $9.00        $0                                                 —
+VPC interface endpoint (image pull)               $0    0.0%    $57.90   −$57.90                                    instead of NAT
+total                                        $26,290    100%    $8,276   $18,014                                          69% less
 
-ভাগ ধরে:   compute 18% · database 20% · network 30% · storage 3% · observability 11% · other (staging) 18%
-একক ধরে:  প্রতি workspace $13.15 → $4.14 · প্রতি MAU $0.438 → $0.138 · প্রতি ১০ লাখ request $33.81 → $10.64
+by category:  compute 18% · database 20% · network 30% · storage 3% · observability 11% · other (staging) 18%
+per unit:  per workspace $13.15 → $4.14 · per MAU $0.438 → $0.138 · per 1 million requests $33.81 → $10.64
 ```
 
 তিনটা জিনিস চোখে পড়ার মতো:
@@ -101,11 +103,11 @@ TaskFlow এর প্রতি workspace মাসে $১৩.১৫। কি�
 **Cost Allocation** — যে খরচ ভাগ করা (shared) আর কোনো একজনের নামে লেখা না, তাকে চালক ধরে দল, product, plan বা customer এর মধ্যে ভাগ করা। Cloud এ resource এর tag (`team=billing`, `env=staging`) এর ভিত্তি। ভাগ দেখানো হলে **showback**, আসলে টাকা কাটা হলে **chargeback**।
 
 ```
-plan                         workspace    seat        আয়       খরচ   margin   খরচ / seat   খরচ / workspace
-free                             1,399  25,000         $0    $8,161        —       $0.326            $5.83
-free: একটা school district            1   3,000         $0    $1,528        —       $0.509           $1,528
-pro                                500  15,000    $90,000    $7,695      91%       $0.513           $15.39
-business                           100  17,000   $170,000    $8,907      95%       $0.524           $89.07
+plan                          workspace    seat   revenue      cost    margin  cost / seat  cost / workspace
+free                             1,399  25,000        $0    $8,161         —      $0.326             $5.83
+free: one school district            1   3,000        $0    $1,528         —      $0.509            $1,528
+pro                                500  15,000   $90,000    $7,695       91%      $0.513            $15.39
+business                           100  17,000  $170,000    $8,907       95%      $0.524            $89.07
 ```
 
 Pro আর business এর margin ৯০% এর উপরে। SaaS এর পক্ষে এটা স্বাস্থ্যকর, আর বিল আয়ের ১০%। আসল প্রশ্নগুলো অন্য জায়গায়:
@@ -117,11 +119,11 @@ Pro আর business এর margin ৯০% এর উপরে। SaaS এর প
 **Endpoint ধরে।** একই প্রশ্ন আরও সূক্ষ্মভাবে। অংশ গ তে প্রতিটা endpoint এর একটা call এর পরিবর্তনশীল খরচ: CPU এর ms, DB এর ms, বাইরে যাওয়া bytes, ভেতরের call এর bytes, NAT দিয়ে S3:
 
 ```
-endpoint                    call / মাস    প্রতি call    প্রতি ১০ লাখ     মাসে   call এর %   খরচের %
-GET /boards/:id            400,000,000   $0.0000047        $4.74    $1,895     85.096%       71%
-POST /tasks                 50,000,000   $0.0000012        $1.16    $58.21     10.637%        2%
-GET /search                 20,000,000   $0.0000025        $2.55    $50.96      4.255%        2%
-POST /boards/:id/export         60,000       $0.011       $10,920      $655      0.013%       25%
+endpoint                    calls / month    per call   per million   monthly  % of calls  % of cost
+GET /boards/:id              400,000,000  $0.0000047         $4.74    $1,895    85.096%       71%
+POST /tasks                   50,000,000  $0.0000012         $1.16    $58.21    10.637%        2%
+GET /search                   20,000,000  $0.0000025         $2.55    $50.96     4.255%        2%
+POST /boards/:id/export           60,000      $0.011       $10,920      $655     0.013%       25%
 ```
 
 Export: call এর ০.০১৩%, পরিবর্তনশীল খরচের ২৫%। একটা export এর খরচ একটা board খোলার **২,৩০০ গুণ**, কারণ সে ২০০টা file S3 থেকে NAT দিয়ে আনে, zip করে, আর ৮০ MB বাইরে পাঠায়। এর মানে এই না যে export খারাপ। এর মানে export এর জন্য আলাদা নিয়ম লাগে: rate limit (9.5 এ export ছিল দিনে ৩টা), background job (7.3), আর NAT এর বদলে endpoint (১.৫)। আর interview এ "এই feature এর দাম কত হবে" প্রশ্নের উত্তর এভাবেই শুরু হয়: একটা call এর resource, গুণ call এর সংখ্যা।
@@ -133,11 +135,11 @@ Export: call এর ০.০১৩%, পরিবর্তনশীল খরচ�
 `npm run capacity` এক সপ্তাহের traffic এক মিনিট করে চালায়। দিনে দুপুর ২টায় চূড়া, রাতে আর সপ্তাহান্তে নিচু, বুধবার সকাল ১০টায় একটা marketing email (+৭০০ req/s), আর কিছু এলোমেলো ওঠানামা। গড় ৩০০ req/s, peak ১,১৫০। প্রতিটা instance ৭৫ req/s পর্যন্ত সামলায়, আর নতুন instance চালু হয়ে traffic নিতে ৫ মিনিট লাগে (10.6 এর readiness):
 
 ```
-নীতি                              গড় instance   খরচ / মাস   গড় ব্যবহার   চাপে মিনিট   উপচানো request    spike এ   spot হারাল
-স্থির: peak + ২৫%, ২৪/৭                  20.0      $2,803          20%           0      0 (0.00%)          0           0
-reactive autoscale (লক্ষ্য 60%)            7.6      $1,072          53%           4  15,252 (0.01%)     15,252           0
-scheduled (জানা ছক) + reactive             8.0      $1,121          50%           3   8,713 (0.00%)      8,713           0
-reactive, 70% spot                         7.6        $942          53%           4  15,252 (0.01%)     15,252           2
+policy                                    avg instances  cost / month     avg use  strained min  overflowing req  overflow in spike  spot lost
+fixed: peak + 25%, 24/7                            20.0        $2,803         20%             0       0 (0.00%)                  0          0
+reactive autoscale (target 60%)                     7.6        $1,072         53%             4  15,252 (0.01%)             15,252          0
+scheduled (known pattern) + reactive                8.0        $1,121         50%             3   8,713 (0.00%)              8,713          0
+reactive, 70% spot                                  7.6          $942         53%             4  15,252 (0.01%)             15,252          2
 ```
 
 - **স্থির fleet এর গড় ব্যবহার ২০%।** কেনা capacity এর ৮০% অলস। আর এর বিনিময়ে একটাও request উপচায়নি। এটাই এর দাম: নিশ্চয়তা।
@@ -156,11 +158,11 @@ Spot এ খরচ আরও ১২% কম। Experiment ২ এ interruption �
 অংশ খ তে reactive এর ঘণ্টা ধরে ব্যবহার, ছাড় ৩৫% (এক বছরের আন্দাজ):
 
 ```
-commit (instance)   খরচ / মাস   on-demand এর তুলনায়   ঘণ্টার কত % ব্যবহার ≥ commit   অব্যবহৃত commit
+commit (instance)   cost / month  vs on-demand        % of hours with use ≥ commit  unused commit
 0                      $1,072                  0.0%                          100%                $0
 3                        $925                 13.7%                          100%                $0
 4                        $894                 16.6%                           85%            $11.86
-5  ← সবচেয়ে কম           $869                 18.9%                           79%            $27.97
+5  ← lowest            $869                 18.9%                           79%            $27.97
 6                        $875                 18.3%                           54%            $63.56
 8                        $943                 12.0%                           34%              $171
 12                     $1,164                 −8.6%                           20%              $443
@@ -188,12 +190,7 @@ instance
 `npm run storage` অংশ ক, ২৪ মাস: শুরুতে ১৮ TB attachment আর ১৪ TB পুরনো version (8.1 এর versioning, lifecycle ছাড়া), মাসে ১.২ TB নতুন (+৩%/মাস)। File গুলো প্রথম মাসে অনেক পড়া হয়, তারপর প্রায় না। গুনতিতে ৬০% ছোট object (thumbnail, avatar, ~৪০ KB), কিন্তু bytes এ মাত্র ২.৯%:
 
 ```
-নীতি                                          মাস ১    মাস ২৪    ২৪ মাসে মোট   transition fee   retrieval fee
-সব Standard, পুরনো version চিরকাল               $775    $2,066       $32,424               $0              $0
-+ পুরনো version ৩০ দিনে মোছা                    $453    $1,386       $20,859               $0              $0
-+ ৩০ দিনে সব IA (ছোট সহ)                        $280      $877       $13,336             $473            $240
-+ শুধু ≥১২৮ KB IA, ১৮০ দিনে Glacier IR          $126      $479        $7,445             $462            $364
-একই, মাস ১৮ এ ৩ TB পুরনো file export            $126      $479        $7,533             $462            $452
+
 ```
 
 - **পুরনো version এর lifecycle একাই এক তৃতীয়াংশ।** Versioning (8.1 এ ভুল মোছা থেকে বাঁচতে) চালু, কিন্তু পুরনো version কখনো মোছা হয় না। ২৪ মাসে ৩০.৫ TB পুরনো version, যা কেউ কখনো পড়বে না। একটা rule: "পুরনো version ৩০ দিন পরে মোছো।"
@@ -203,11 +200,11 @@ instance
 কিন্তু তৃতীয় আর চতুর্থ সারির পার্থক্যটা দেখো: একটায় সব object IA তে যায়, আরেকটায় শুধু বড়গুলো। কেন? অংশ খ:
 
 ```
-১ TB শুধু ৪০ KB এর object, এক বছর
-class                         object      বিলের আকার   এক বছরে
-Standard                  25,000,000          1.0 TB      $276
-IA (transition সহ)        25,000,000          3.2 TB      $730
-Glacier IR (transition সহ) 25,000,000          3.2 TB      $654
+1 TB of only 40 KB objects, one year
+class                                 object   billed size  in one year
+Standard                          25,000,000        1.0 TB        $276
+IA (with transition)              25,000,000        3.2 TB        $730
+Glacier IR (with transition)      25,000,000        3.2 TB        $654
 ```
 
 **"সস্তা" class এ ছোট object বেশি দামি।** IA আর Glacier IR প্রতিটা object কে অন্তত ১২৮ KB ধরে বিল করে, তাই ৪০ KB এর file ৩.২ গুণ বড় হিসাবে গোনা হয়। আর প্রতিটা object সরানো একটা request: ২.৫ কোটি transition × $০.০১/হাজার = $২৫০, একবারে। দুটো মিলিয়ে, সস্তা class এ ছোট file রাখা Standard এর চেয়ে ২.৬ গুণ দামি। Experiment ৩: object ২০০ KB হলে ফাঁদ উধাও (IA $২০০, Glacier IR $১৪৮, Standard $২৭৬)। Lifecycle rule এ তাই একটা আকারের ফিল্টার লাগে (`ObjectSizeGreaterThan`)। এই ধরনের নিয়ম শুধু "দাম প্রতি GB" দেখলে চোখে পড়ে না। এজন্য একটা model চালাতে হয়।
@@ -215,10 +212,10 @@ Glacier IR (transition সহ) 25,000,000          3.2 TB      $654
 **Log: দাম কোথায়?** অংশ গ, 10.4 এর log:
 
 ```
-প্রতিদিন                              GB/দিন   ঢোকানো/মাস   রাখা: ১৪ দিন   ৯০ দিন   ৩৬৫ দিন   ১৪ দিন + ১ বছর S3 এ
-প্রতি request এ একটা লাইন (10.4)        2.8      $42.00        $1.18      $7.56    $30.66          $2.77
-+ তিনটা service এ debug               47.8        $717       $20.08       $129      $523         $47.34
-সফল request এর ১০% sample              1.5      $22.50        $0.63      $4.05    $16.43          $1.49
+per day                               GB/day  ingest / month         keep: 14 days         keep: 90 days        keep: 365 days  keep: 14 days + 1 year in S3
+one line per request (10.4)              2.8          $42.00                 $1.18                 $7.56                $30.66                 $2.77
++ debug in three services               47.8            $717                $20.08                  $129                  $523                $47.34
+10% sample of successful requests        1.5          $22.50                $0.630                 $4.05                $16.43                 $1.49
 ```
 
 Log এর দাম **ঢোকানোয়**, রাখায় না। প্রতিটা GB index করা, parse করা আর খোঁজার যোগ্য বানানোর দাম ($০.৫০) সেই GB এক মাস রাখার দামের ($০.০৩) ১৬ গুণ। ১৪ দিন থেকে ৯০ দিনে retention বাড়ালে মাসে $৬। একটা debug log ভুলে চালু রাখলে মাসে $৬৭৫। তাই 10.4 এর নিয়মগুলো (প্রতি request এ একটা ভরা লাইন, debug শুধু flag দিয়ে আর সময় বেঁধে, সফল request এর sample) cost এর নিয়মও। আর লম্বা রাখা দরকার হলে (audit, আইন) সস্তা পথ হলো ১৪ দিন খোঁজার জায়গায়, বাকি সংকুচিত করে S3 এ।
@@ -226,9 +223,9 @@ Log এর দাম **ঢোকানোয়**, রাখায় না। 
 **Database এর disk।** অংশ ঘ, 5.8 এর activity table: মাসে ৬০ GB বাড়ে, আর Postgres এ প্রতিটা GB থাকে চার জায়গায় (primary, standby, দুটো replica) আর backup এ:
 
 ```
-নকশা                                    মাস ১    মাস ২৪   ২৪ মাসে মোট   মাস ২৪ এ DB তে
-সব Postgres এ (৪ কপি + backup)             $644    $1,410       $24,642            2.5 TB
-৯০ দিন Postgres এ, বাকি S3 এ Parquet       $102      $105        $2,481            180 GB
+design                                           month 1  month 24  total, 24 months  in DB, month 24
+all in Postgres (4 copies + backup)                 $644    $1,410           $24,642           2.5 TB
+90 days in Postgres, the rest in S3 Parquet         $102      $105            $2,481           180 GB
 ```
 
 ৫.৮ এর partition আর ৭.৬ এর OLAP এর যুক্তি, এবার টাকায়: ৯০ দিনের পুরনো partition `DETACH` করে Parquet এ (৬ গুণ সংকুচিত) S3 এ, আর DuckDB বা Athena এর মতো কিছু দিয়ে পড়া। দাম দশ ভাগের এক ভাগ, আর database ছোট থাকে। ছোট database মানে দ্রুত backup, দ্রুত restore, দ্রুত replica তৈরি (10.3)। Cost আর reliability এখানে একই দিকে।
@@ -240,12 +237,12 @@ Log এর দাম **ঢোকানোয়**, রাখায় না। 
 `npm run traffic` অংশ ক, egress:
 
 ```
-নকশা                                           GB / মাস   খরচ / মাস   নোট
-API JSON, compression নেই                        19.4 TB     $1,750    গড় 25 KB
-API JSON, gzip/br (~5 গুণ)                         3.9 TB       $350    CPU এর দাম সামান্য
-attachment সরাসরি S3 থেকে                          7.5 TB       $687    S3 egress + GET
-attachment CDN দিয়ে (hit 90%)                      7.5 TB       $661    S3 → CDN একই provider এ ধরা বিনা মূল্যে
-CDN + board এ ছোট preview (৪০% bytes)              3.0 TB       $279    resize একবার, upload এর সময় (8.2)
+design                                        GB / month  cost / month  note
+API JSON, no compression                        19.4 TB     $1,750  25 KB on average
+API JSON, gzip/br (~5×)                           3.9 TB       $350  the CPU cost is tiny
+attachments straight from S3                   7.5 TB       $687    S3 egress + GET
+attachments through a CDN (hit 90%)              7.5 TB       $661  S3 → CDN assumed free within one provider
+CDN + small previews on the board (40% bytes)     3.0 TB       $279   resize once, at upload time (8.2)
 ```
 
 - **Compression: এক লাইনের config এ $১,৪০০।** JSON অনেক পুনরাবৃত্তিময় (একই key বারবার), তাই gzip বা brotli এ ৪–১০ গুণ ছোট হয়। Express এ `compression` middleware, বা gateway/CDN এ। CPU এর দাম আছে, কিন্তু সাধারণত সেটা bytes এর দামের চেয়ে অনেক কম।
@@ -255,13 +252,13 @@ CDN + board এ ছোট preview (৪০% bytes)              3.0 TB       $279
 **NAT gateway, অংশ খ।** Private subnet এর instance (যাদের সরাসরি internet এ যাওয়ার পথ নেই, যেটা নিরাপত্তার জন্য সঠিক) বাইরে যায় NAT gateway দিয়ে। আর NAT প্রতি GB process করার দাম নেয়, গন্তব্য যা-ই হোক। **এমনকি একই region এর S3 এর জন্যও।**
 
 ```
-নকশা                                         GB / মাস   খরচ / মাস   নোট
-সব NAT দিয়ে, প্রতি AZ এ একটা NAT               64.5 TB     $3,001    আজকের TaskFlow
-+ S3 gateway endpoint                           4.5 TB       $301    gateway endpoint বিনা মূল্যে
-+ image এর জন্য interface endpoint                900 GB       $197    ঘণ্টা + প্রতি GB, NAT এর চেয়ে কম
-+ image ছোট করা (৫০০ → ১৫০ MB)                    900 GB       $172    multi-stage build, শুধু runtime
-সব NAT দিয়ে, কিন্তু তিন AZ এ একটাই NAT           64.5 TB     $3,795    NAT এর ঘণ্টা কম, cross-AZ বেশি, এক AZ এ SPOF
-endpoint সহ, তিন AZ এ একটাই NAT                   900 GB       $143    সস্তা — কিন্তু সেই AZ মরলে বাইরে যাওয়া বন্ধ
+design                                      GB / month  cost / month  note
+everything through NAT, one NAT per AZ    64.5 TB     $3,001  today's TaskFlow
++ S3 gateway endpoint                           4.5 TB       $301  the gateway endpoint is free
++ an interface endpoint for images               900 GB       $197  hourly + per GB, less than NAT
++ smaller images (500 → 150 MB)                 900 GB       $172  multi-stage build, runtime only
+everything through NAT, but one NAT for three AZs  64.5 TB     $3,795  fewer NAT hours, more cross-AZ, a SPOF in one AZ
+with endpoints, one NAT for three AZs           900 GB       $143  cheap — but if that AZ dies, nothing gets out
 ```
 
 S3 এর জন্য একটা **gateway endpoint** (VPC এর route table এ একটা লাইন, বিনা মূল্যে) মাসে ~$২,৭০০ বাঁচায়। TaskFlow এর বিলের সবচেয়ে সস্তা জয়। আর শেষ দুটো সারি একটা ফাঁদ দেখায়। "তিনটা NAT এর বদলে একটা" শুনতে সাশ্রয়ী, কিন্তু অন্য দুই AZ এর traffic কে NAT এর AZ এ যেতে হয় (cross-AZ এর দাম), তাই বেশি traffic এ সেটা **বেশি** দামি ($৩,৭৯৫)। Endpoint এর পরে traffic কম, তখন একটা NAT সত্যিই সস্তা ($১৪৩ বনাম $১৯৭)। কিন্তু 10.3 এর ভাষায়, সেই AZ মরলে বাকি দুই AZ এর বাইরে যাওয়ার পথ বন্ধ: Stripe, email provider, সব। মাসে $৫৪ বাঁচাতে একটা AZ এর outage কে পুরো system এর outage বানানো। এটা cost আর reliability এর একটা খাঁটি বিনিময়, আর উত্তর নির্ভর করে বাইরের call গুলো hard না soft dependency কিনা তার উপর।
@@ -269,11 +266,11 @@ S3 এর জন্য একটা **gateway endpoint** (VPC এর route table
 **AZ জুড়ে, অংশ গ।** প্রতিটা request এ ৬টা ভেতরের call (৩০ KB করে) আর DB তে ৪০ KB, তিনটা AZ:
 
 ```
-নকশা                                    GB / মাস   খরচ / মাস   নোট
-monolith: ভেতরের call function এ           20.7 TB       $415    শুধু app → primary
-service, যেকোনো AZ এ পাঠানো              114.0 TB     $2,281    ভেতরের call এর 67% অন্য AZ এ
-service, একই AZ আগে (AZ-aware)            34.7 TB       $695    ১০% অন্য AZ এ (fallback)
-+ প্রতি AZ এ একটা read replica            18.1 TB       $363    পড়া নিজের AZ এ, লেখা primary তে
+design                                 GB / month  cost / month  note
+monolith: internal calls are function calls  20.7 TB       $415  only app → primary
+services, sent to any AZ           114.0 TB     $2,281  67% of internal calls to another AZ
+services, same AZ first (AZ-aware)       34.7 TB       $695  10% to another AZ (fallback)
++ a read replica in every AZ           18.1 TB       $363  reads in their own AZ, writes to the primary
 ```
 
 9.1 এর "network call function call না" এর আরেকটা মাত্রা: সে টাকাও নেয়। Load balancer যদি AZ না দেখে পাঠায়, তিনটা AZ এ দুই-তৃতীয়াংশ call অন্য AZ এ যায়, আর প্রতি GB দুই দিকেই দাম। Experiment ৪: প্রতি request এ ২০টা call হলে $৬,৬৩৬, monolith এর ১৬ গুণ। **AZ-aware routing** (একই AZ এর instance আগে, না থাকলে অন্য AZ) এটা দুই-তৃতীয়াংশ কাটে। Kubernetes এ topology-aware routing, service mesh এ locality-weighted load balancing। আর এর একটা reliability এর দামও আছে: এক AZ এ traffic বেশি এলে সেই AZ এর instance গুলো চাপে পড়ে, যদিও অন্য AZ খালি। তাই এই routing এর সাথে প্রতিটা AZ এর আলাদা autoscale আর একটা সীমা লাগে ("নিজের AZ এর instance ৮০% এর বেশি ব্যস্ত হলে অন্য AZ এ পাঠাও")। (Latency ও কমে, কারণ একই AZ এর ভেতরে round trip সাধারণত কম। এখানে মাপা না।)
@@ -287,11 +284,11 @@ service, একই AZ আগে (AZ-aware)            34.7 TB       $695    ১�
 **DDoS এর বিল।** 10.5 এর L7 flood: ৬০,০০০ req/s, ৪ ঘণ্টা, প্রতি উত্তর ৩০ KB। `npm run capacity` অংশ গ:
 
 ```
-কোথায় থামল                               বাড়তি instance   compute   data transfer   request এর fee      মোট
-origin এ autoscale, কোনো সীমা নেই                1,334    $1,025         $2,333              $0    $3,357
-origin এ autoscale, সীমা ৪০                         40    $30.72           $117              $0      $147
-CDN cache থেকে উত্তর (cache key ঠিক)                  0        $0         $2,203            $648    $2,851
-edge এ block / challenge (১ KB উত্তর)                0        $0         $73.44            $648      $721
+where it stopped                                extra instances   compute  data transfer   request fees     total
+autoscale at the origin, no limit                         1,334    $1,025        $2,333             $0    $3,357
+autoscale at the origin, limit 40                            40    $30.72          $117             $0      $147
+answered from CDN cache (cache key fixed)                     0        $0        $2,203           $648    $2,851
+block / challenge at the edge (1 KB answer)                   0        $0        $73.44           $648      $721
 ```
 
 একটা চার ঘণ্টার আক্রমণ, বিল $৭২১ থেকে $৩,৩৫৭, নির্ভর করে কোথায় থামালে। Autoscale এর সীমা ছাড়া system টা আক্রমণকে **খুশি মনে সেবা দেয়**, আর বিল পাঠায়। (বাস্তবে database অনেক আগেই ভেঙে পড়ত, 10.3।) সীমা ৪০ এ বিল $১৪৭, কিন্তু origin আক্রমণে ভরা, তাই বৈধ user দের বেশিরভাগ request ও ব্যর্থ (10.5 এর অংশ গ)। CDN cache থেকে উত্তর দিলে origin বাঁচে, কিন্তু CDN এর egress আর request এর fee দিতে হয়। সবচেয়ে সস্তা হলো আক্রমণকে **ছোট** উত্তর দেওয়া, edge এ। আর একটা জিনিস এখানে তালিকা মূল্যে ধরা নেই: অনেক CDN আর DDoS সুরক্ষার service আক্রমণের traffic এর বিল মাফ করে বা আলাদা চুক্তিতে রাখে। তাদের শর্ত দেখো (এখানে যাচাই করা না)। শিক্ষা: **autoscaling এর একটা উপরের সীমা একটা cost এর নিয়ন্ত্রণ**, যেমন 10.3 এর bulkhead একটা reliability এর নিয়ন্ত্রণ।
@@ -303,11 +300,11 @@ TaskFlow এর budget alert ছিল: মাসের বিল $৩০,০০
 `npm run bill` অংশ ঘ তে ৬০ দিনের দৈনিক বিল, ভাগ ধরে (compute, database, network, storage, log, …)। প্রতিটার নিজের দৈনিক ওঠানামা আর ধীর বৃদ্ধি আছে, আর "পরে" এর পরিষ্কার অবস্থা থেকে শুরু (দিনে ~$২৮৭)। দিন ৪২ এ কেউ তিনটা service এ debug log চালু করে ভুলে যায় (+$২২.৫০/দিন, মোটের ৭.৮%)। দিন ৫১ এ একটা bug এ export একটা loop এ পড়ে (+$২৭০/দিন, NAT আর egress এ)। চারটা detector:
 
 ```
-detector                                       debug log ধরল   export loop ধরল   মিথ্যা alarm (দিন ১–৪০)
-মাসের budget ছাড়ালে (আগের মাস +১০%)                 ধরেনি         6 দিন পরে                        0
-মাস শেষের forecast > budget                       9 দিন পরে         1 দিন পরে                        0
-মোট দৈনিক > ৭ দিনের গড় × ১.২                         ধরেনি         1 দিন পরে                        0
-প্রতি ভাগ দৈনিক > নিজের ৭ দিনের গড় × ১.৫           1 দিন পরে         1 দিন পরে                        0
+detector                                       caught debug logs  caught export loop  false alarms (days 1–40)
+over the monthly budget (last month +10%)    missed      6 days later                   0
+end-of-month forecast > budget                 9 days later    1 day later                    0
+total daily > 7-day average × 1.2               missed      1 day later                    0
+each category daily > its own 7-day average × 1.5  1 day later     1 day later                    0
 ```
 
 **Cost Anomaly Detection** — বিলকে মাসের শেষে একটা সংখ্যা হিসেবে না দেখে, দৈনিক (বা ঘণ্টায়) একটা সময়-সারি হিসেবে দেখা, ভাগ ধরে (service, team, লাইন), আর প্রতিটাকে তার নিজের ইতিহাসের সাথে তুলনা করা। মোট বিলে ছোট একটা লাফ হারিয়ে যায়; তার নিজের ভাগে সেটা দশ গুণ।

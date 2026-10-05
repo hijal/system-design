@@ -63,12 +63,12 @@ In 3.4 you saw the idea of graceful shutdown, and I said we would go deep on it 
 The exercise's `npm run drain` runs a real small load balancer (round-robin, with health checks) and four real `node:http` instances on localhost. With 200 req/s flowing (80% GET, 20% POST), it replaces the four instances one at a time. Each new instance takes 800 ms to start, and stays "cold" for the first 1.5 seconds (+400 ms per request). The LB's health check runs every 500 ms, and an instance is removed after two consecutive failures. Five designs:
 
 ```
-design                                     requests   GET failed   POST failed   failed total     > 300 ms     p99
-no health check, sudden kill                3,090        130          35   165 (5.34%)        289   485 ms
-health check, sudden kill                   3,084         88          21   109 (3.53%)        250   482 ms
-health check, sudden kill, LB GET retry     3,132          0          20    20 (0.64%)        254   482 ms
-health check, only close() on SIGTERM       3,146        111          36   147 (4.67%)        264   484 ms
-graceful: readiness → wait → close          4,252          0           0     0 (0.00%)          3   157 ms
+design                                  request   GET fails  POST fails  total failed  > 300 ms     p99
+no health check, abrupt kill              3,090        130          35   165 (5.34%)        289   485 ms
+health check, abrupt kill                  3,084         88          21   109 (3.53%)        250   482 ms
+health check, abrupt kill, LB GET retry    3,132          0          20    20 (0.64%)        254   482 ms
+health check, only close() on SIGTERM     3,146        111          36   147 (4.67%)        264   484 ms
+graceful: readiness → wait → close       4,252          0           0     0 (0.00%)          3   157 ms
 ```
 
 (In a second run the failures were 167, 107, 20, 137, 0. It is real HTTP, so the numbers wobble a little, but the order and the zero do not. The graceful run is longer, because each instance waits before stopping, so there are more requests.)
@@ -149,29 +149,29 @@ One instance can be replaced safely. Now the question is in what order to replac
 
 ```
 2% errors for everyone
-strategy                                    bad requests   affected users     caught   who caught it       fully reverted
-big-bang (all at once)                             5,556      5,305 (9%)     1.0 min   alert → human       16 min
-rolling (1 every 2 minutes)                        4,873      4,669 (8%)      12 min   alert → human       27 min
-blue-green                                         4,212      4,061 (7%)     1.0 min   alert → human       11 min
-canary, gate: errors, random requests                  4          4 (0%)     2.0 min   gate, at 1%        2.5 min
-canary, gate: errors, sticky by user                   8          8 (0%)     1.0 min   gate, at 1%        1.5 min
-canary, gate: errors + latency + segment               8          8 (0%)     1.0 min   gate, at 1%        1.5 min
+strategy                                  bad requests  users hit    caught   caught by    reverted
+big-bang (all at once)                           5,556      5,305 (9%)     1.0 min  alert → human   16 min
+rolling (one per 2 minutes)                     4,873      4,669 (8%)      12 min  alert → human   27 min
+blue-green                                         4,212      4,061 (7%)     1.0 min  alert → human   11 min
+canary, gate: error, random per request              4          4 (0%)     2.0 min  gate, at 1%      2.5 min
+canary, gate: error, sticky per user                   8          8 (0%)     1.0 min  gate, at 1%      1.5 min
+canary, gate: error + latency + segment                 8          8 (0%)     1.0 min  gate, at 1%      1.5 min
 
 20% errors on big business boards (1% of traffic)
-big-bang (all at once)                             4,164        582 (1%)      missed   —                    —
-rolling (1 every 2 minutes)                        3,784        581 (1%)      missed   —                    —
-blue-green                                         4,174        582 (1%)      missed   —                    —
-canary, gate: errors, random requests                  8          7 (0%)      12 min   gate, at 5%         13 min
-canary, gate: errors, sticky by user                   5          5 (0%)      11 min   gate, at 5%         12 min
-canary, gate: errors + latency + segment               5          5 (0%)      11 min   gate, at 5%         12 min
+big-bang (all at once)                           4,164        582 (1%)      missed  —                    —
+rolling (one per 2 minutes)                     3,784        581 (1%)      missed  —                    —
+blue-green                                         4,174        582 (1%)      missed  —                    —
+canary, gate: error, random per request              8          7 (0%)      12 min  gate, at 5%       13 min
+canary, gate: error, sticky per user                   5          5 (0%)      11 min  gate, at 5%       12 min
+canary, gate: error + latency + segment                 5          5 (0%)      11 min  gate, at 5%       12 min
 
 10% of requests slow (> 1 s), no errors
-big-bang (all at once)                            27,589    22,021 (37%)     1.0 min   alert → human       16 min
-rolling (1 every 2 minutes)                       29,220    23,126 (39%)      14 min   alert → human       30 min
-blue-green                                        20,440    17,207 (29%)     1.0 min   alert → human       11 min
-canary, gate: errors, random requests             28,134    22,501 (38%)      32 min   alert → human       42 min
-canary, gate: errors, sticky by user              28,010    21,751 (36%)      32 min   alert → human       42 min
-canary, gate: errors + latency + segment              24         23 (0%)     1.0 min   gate, at 1%        1.5 min
+big-bang (all at once)                          27,589    22,021 (37%)     1.0 min  alert → human   16 min
+rolling (one per 2 minutes)                    29,220    23,126 (39%)      14 min  alert → human   30 min
+blue-green                                        20,440    17,207 (29%)     1.0 min  alert → human   11 min
+canary, gate: error, random per request         28,134    22,501 (38%)      32 min  alert → human   42 min
+canary, gate: error, sticky per user              28,010    21,751 (36%)      32 min  alert → human   42 min
+canary, gate: error + latency + segment               24         23 (0%)     1.0 min  gate, at 1%      1.5 min
 ```
 
 **The first bug (2% for everyone).** Big-bang and blue-green catch it in one minute. The alert fires immediately, because everyone is on the new version. But "caught" and "damage stopped" are different. After it is caught, 10 minutes for the human, then the rollback. Blue-green's rollback takes 30 seconds (flip the switch back), big-bang's 5 minutes (deploy again), hence 11 versus 16 minutes. For the whole time **everyone** is on the new version: 4–5 thousand bad requests, 7–9% of users. Rolling is caught slowly (12 minutes), because total errors pass 1% only when about half the instances (6 of 12) are on the new version, and the alert's 5-minute window has to notice it. And reverting takes time too. The canary's damage is **four to eight requests**, before any human knows. This is the canary's core point: it does not make finding the bug faster, **it keeps the bug small while it is being found.**
@@ -183,11 +183,11 @@ canary, gate: errors + latency + segment              24         23 (0%)     1.0
 **The cost of a good version.** The same strategies, with no bug:
 
 ```
-strategy                                    reaches 100%    extra instances   wrong rollback
-big-bang (all at once)                            1.0 min               0            no
-rolling (1 every 2 minutes)                        22 min              −1            no
-blue-green                                          0 s             +12            no
-canary (all three)                                 30 min              +3            no
+strategy                                   reaches 100%  extra capacity  bad rollback
+big-bang (all at once)                           1.0 min             0           no
+rolling (one per 2 minutes)                     22 min            −1           no
+blue-green                                          0 s             +12           no
+canary (all three)                                  30 min              +3            no
 ```
 
 Every strategy buys safety with something. Big-bang gives nothing, so it gets nothing. Rolling gives time (and one instance less capacity during the deploy). Blue-green gives money (double the machines, at least for a while). Canary gives time (30 minutes), a few extra instances, and above all, **the effort of building a good gate**. And they do not exclude each other. In practice, traffic is often moved between blue-green's two pools in canary-like steps, or a gate is placed at every step of a rolling deploy.
@@ -197,16 +197,16 @@ Every strategy buys safety with something. Big-bang gives nothing, so it gets no
 A canary's gate answers a statistical question: "is the canary's error ratio higher than the baseline's, or is it luck?" The exercise's gate is a two-proportion z-test (the difference between two ratios divided by its expected random fluctuation). z > 3 means "a real difference". In `npm run rollout` part C, baseline errors are 0.1%, and each cell is run 400 times:
 
 ```
-canary   time   canary requests   catches +0.2%   catches +1%   false alarm   if checked every minute   damage at +1%
-1%       5 min            900        25%      100%        1.5%               2.8%             9
-1%      10 min          1,800        41%      100%        1.3%               4.8%            18
-1%      30 min          5,400        80%      100%        1.0%               5.5%            54
-5%       5 min          4,500        72%      100%        0.0%               1.0%            45
-5%      10 min          9,000        95%      100%        0.5%               2.8%            90
-5%      30 min         27,000       100%      100%        0.5%               4.3%           270
-25%      5 min         22,500       100%      100%        0.3%               0.5%           225
-25%     10 min         45,000       100%      100%        0.0%               0.5%           450
-25%     30 min        135,000       100%      100%        0.0%               1.8%         1,350
+canary   time  canary request   +0.2% hit  +1% hit  false pos.  checked per minute  +1% damage
+1%       5 min           900        25%      100%        1.5%               2.8%             9
+1%      10 min         1,800        41%      100%        1.3%               4.8%            18
+1%      30 min         5,400        80%      100%        1.0%               5.5%            54
+5%       5 min         4,500        72%      100%        0.0%               1.0%            45
+5%      10 min         9,000        95%      100%        0.5%               2.8%            90
+5%      30 min        27,000       100%      100%        0.5%               4.3%           270
+25%      5 min        22,500       100%      100%        0.3%               0.5%           225
+25%     10 min        45,000       100%      100%        0.0%               0.5%           450
+25%     30 min       135,000       100%      100%        0.0%               1.8%         1,350
 ```
 
 Three lessons:
@@ -220,9 +220,9 @@ Three lessons:
 **Whom to send to the canary.** In `npm run rollout` part D, the canary stays at 5% for an hour:
 
 ```
-routing              touched the new version   jumped between versions
-random requests           35,663 (59%)            35,663 (59%)
-sticky by user             2,963 (5%)                  0 (0%)
+routing              saw the new version  switched between versions
+random per request     35,663 (59%)            35,663 (59%)
+sticky per user           2,963 (5%)                  0 (0%)
 ```
 
 Split requests at random and a 5% canary actually touches **59% of users**. Each user makes ~18 requests an hour, and it only takes one of them landing on the canary. And those 59% jump between the two versions: the new UI once, the old one on the next click. If there is a bug, complaints come from almost everyone, and debugging is hard, because the same user has two different experiences. Choose the canary by a hash of the user's (or workspace's) id, and 5% really is 5% of people, the same people every time. The blast radius (10.3) can be measured, and behaviour stays stable for people.
@@ -240,10 +240,10 @@ But Friday showed that three things about flags are easy to get wrong. `npm run 
 **(a) How to split.** 60,000 users, each viewing 20 pages a day, two separate flags at 10% each:
 
 ```
-how split                  saw the new one   saw both (jumped)    in both flags
-random per request           52,705 (88%)              52,705             46,134
-hash(user)                    5,869 (10%)                   0              5,869
-hash(flag + user)             6,041 (10%)                   0                616
+how it splits          saw the new  saw both (flip)  in both flags
+random per request      52,705 (88%)              52,705             46,134
+hash(user)                   5,869 (10%)                   0              5,869
+hash(flag + user)            6,041 (10%)                   0                616
 ```
 
 Friday's `Math.random() < 0.1`: a 10% flag shows the new editor to **88%** of users, and all of them jump between the two editors. `hash(user)` stops the jumping, but there is another subtle trap. The **same 5,869 people** land in both flags. The same people are guinea pigs in every 10% experiment, and the two experiments' results mix with each other. Mix the flag's name into the hash (`hash(flag + user)`) and each flag's 10% is independent: 616 people are in both, close to the expected 1%.
@@ -266,11 +266,11 @@ And one more benefit: going from 10% to 25%, everyone in the earlier 10% stays i
 **(b) How fast the kill switch is.** 12 instances, 100 req/s on the new feature, 20% of them failing. After the decision to "turn it off":
 
 ```
-how it's turned off                all instances off (avg)   worst case   bad requests (avg)
-flag, polled every 5 minutes                 4.6 min          5.0 min              2,998
-flag, polled every 30 s                         28 s            30 s                300
-flag, streaming push                             3 s             3 s                 40
-no flag: rollback deploy                      11 min           11 min              9,900
+how it turns off           all off (avg)          worst    bad requests (avg)
+flag, poll every 5 minutes                4.6 min        5.0 min            2,998
+flag, poll every 30 s                          28 s            30 s                300
+flag, streaming push                            3 s             3 s                 40
+no flag: rollback deploy                     11 min          11 min            9,900
 ```
 
 Without a flag, turning it off means a rollback deploy (a 5-minute pipeline + rolling). 9,900 bad requests. With streaming push, 40. The two middle rows show where the poll interval costs you. And remember 10.3's static stability: if the flag service dies, instances keep running on the last known values. So it is good to keep a second path for kill switches (say environment config that can be changed without a deploy), so a feature can be turned off even at the very moment the flag service is also dead.
@@ -278,11 +278,11 @@ Without a flag, turning it off means a rollback deploy (a 5-minute pipeline + ro
 **(c) Two services, one decision.** The BFF shows the new UI, the API returns the new-shaped response. 10 minutes, with the flag going from 10% to 50% at minute 5:
 
 ```
-who decides how                                   requests   UI and API mismatched
-both hash(user), config at the same moment        180,000        0 (0.00%)
-BFF hash(user), API hash(session)                 180,000   61,331 (34.07%)
-both hash(user), each polling itself every 30 s   180,000    1,154 (0.64%)
-BFF decides once, sends it in a header            180,000        0 (0.00%)
+who decides, how                          request  UI/API mismatch
+both hash(user), config at the same moment  180,000        0 (0.00%)
+BFF hash(user), API hash(session)               180,000   61,331 (34.07%)
+both hash(user), each polls every 30 s   180,000    1,154 (0.64%)
+BFF decides once, sends it in a header     180,000        0 (0.00%)
 ```
 
 Friday's second row: one hashed by session, the other by user. On **a third of requests** the UI and the API were on two different versions. And even with the same hash (the third row), the two services learn the new percentage at different moments, so there is a mismatch for a few seconds after 10%→50%. In experiment 3, with a 5-minute poll, 6.53%. The way out is the last row: **make the decision once, then send it along.** The BFF (or gateway) checks the flag and tells the downstream services in a header (`x-flags: task-api-v2`). The same reasoning as 10.4's trace id: anything that has to stay the same across a whole request is decided once and travels with it. And remember 10.5's lesson: the gateway drops any `x-flags` the client sends, otherwise anyone could turn flags on for themselves.
@@ -322,13 +322,13 @@ app SELECT                             ⏳ ………………………………�
 `npm run locks` runs on a real Postgres 17, with a million rows in the `tasks` table, and alongside it 8 workers continuously doing `SELECT` and `UPDATE` by id (the running app). What the app experienced during each change:
 
 ```
-change                                         time     app ops  read max     write max     > 500 ms
+change                                      time   app op   read max     write max     > 500 ms
 ADD COLUMN archived boolean DEFAULT false      10 ms       15          2 ms           3 ms          0
 ADD COLUMN score float DEFAULT random()       669 ms       38        646 ms         646 ms          8
-ADD COLUMN priority int, with a 6 s query ahead 6.05 s     476        5.70 s         5.70 s          8
+ADD COLUMN priority int, behind a 6 s query  6.05 s      476        5.70 s         5.70 s          8
    the ALTER itself waited 5.71 s — and everyone behind it
 the same, lock_timeout 200 ms + retry         6.38 s    7,421        200 ms         202 ms          0
-   6 attempts, each giving up after 200 ms and stepping aside
+   6 attempts, each giving up and stepping aside after 200 ms
 ```
 
 - **`ADD COLUMN` with a constant default: 10 ms.** Since Postgres 11 a constant default is written only to the catalog; rows are not touched.
@@ -339,11 +339,11 @@ the same, lock_timeout 200 ms + retry         6.38 s    7,421        200 ms     
 **Indexes and backfills:**
 
 ```
-change                                         time     app ops  read max     write max     > 500 ms
+change                                      time   app op   read max     write max     > 500 ms
 CREATE INDEX                                  209 ms       22          0 ms         198 ms          0
 CREATE INDEX CONCURRENTLY                     332 ms      455          1 ms           3 ms          0
-everything in one UPDATE                      4.92 s      483          0 ms         4.83 s          8
-in batches (10,000 each, 20 ms in between)    6.16 s    8,271          0 ms          36 ms          0
+all in one UPDATE                            4.92 s      483          0 ms         4.83 s          8
+in batches (10,000 each, 20 ms apart)     6.16 s    8,271          0 ms          36 ms          0
 ```
 
 - **`CREATE INDEX` blocks writes, not reads.** It takes a SHARE lock: reads run, writes wait (at most 198 ms). At a million rows that sounds small. In 5.4 I said that at 100 million it is minutes. `CONCURRENTLY` is slower (332 ms), but writes wait at most 3 ms. It has two costs: it cannot run inside a transaction, and if it fails halfway it leaves an `INVALID` index behind, which has to be dropped and run again.
@@ -353,8 +353,8 @@ in batches (10,000 each, 20 ms in between)    6.16 s    8,271          0 ms     
 **NOT NULL:**
 
 ```
-SET NOT NULL (directly)                        153 ms       23        140 ms         140 ms          0
-CHECK NOT VALID → VALIDATE → SET NOT NULL      111 ms      156          2 ms           4 ms          0
+SET NOT NULL (directly)                     153 ms       23        140 ms         140 ms          0
+CHECK NOT VALID → VALIDATE → SET NOT NULL     111 ms      156          2 ms           4 ms          0
    NOT VALID 5 ms, VALIDATE 78 ms (lock: SHARE UPDATE EXCLUSIVE), SET NOT NULL 5 ms (scan skipped), DROP CHECK 5 ms
 ```
 
@@ -418,12 +418,12 @@ v2   = reads and writes only name                     (the end goal)
 **In one step (Wednesday):**
 
 ```
-step                                         running       ops    errors   wrong reads
-migration first, then deploy                 v1 → v2   9,544    4,223          0
+step                                        running   op    error  misreads
+migration first, then deploy               v1 → v2   9,544    4,223          0
    v1: column "title" of relation "boards" does not exist
-deploy first, then migration                 v1 → v2   9,905    4,193          0
+deploy first, then migration               v1 → v2   9,905    4,193          0
    v2: column "name" of relation "boards" does not exist
-then rollback (migration not reverted)       v2 → v1   8,306    4,219          0
+then rollback (migration not reverted)  v2 → v1   8,306    4,219          0
    v1: column "title" does not exist
 ```
 
@@ -444,17 +444,17 @@ step  schema                              code (rolling)            rollback saf
 And the measured results:
 
 ```
-step                                          running         ops    errors   wrong reads
-1. expand: add name, drop title's NOT NULL    v1           4,946       0          0
-2. deploy: write both                         v1 → v1.5    9,883       0          0
+step                                        running      op    error  misreads
+1. expand: add name, drop title's NOT NULL  v1           4,946       0          0
+2. deploy: write to both                 v1 → v1.5    9,883       0          0
 3. backfill: name = title, in batches         v1.5         6,607       0          0
-   backfill (name IS DISTINCT FROM title): 11 batches, changed 18,287 rows; now name ≠ title: 0
-4. deploy: read from name                     v1.5 → v2r   9,929       0          0
-   rollback test                              v2r → v1.5   9,916       0          0
-   forward again                              v1.5 → v2r   9,951       0          0
-5. deploy: write only name                    v2r → v2     9,885       0          0
-6. contract: drop title                       v2           4,959       0          0
-   at the end, rows with an empty name: 0
+   backfill (name IS DISTINCT FROM title): 11 batches, 18,287 rows changed; name ≠ title now: 0
+4. deploy: read from name                  v1.5 → v2r   9,929       0          0
+   rollback test                           v2r → v1.5   9,916       0          0
+   forward again                          v1.5 → v2r   9,951       0          0
+5. deploy: write only to name             v2r → v2     9,885       0          0
+6. contract: drop title                     v2           4,959       0          0
+   rows with an empty name at the end: 0
 ```
 
 Zero errors and zero wrong reads at every step. And a rollback in the middle, also zero. The cost is **four deploys and two migrations** for one change, spread over days or weeks. That is the real cost of zero downtime: time and patience, not a tool.
@@ -464,16 +464,16 @@ Notice the line after step 5. At step 5, v2 writes only to `name`, and `title` g
 **Four familiar mistakes**, each measured:
 
 ```
-step                                             running         ops    errors   wrong reads
-dual-write skipped: expand + backfill → straight to v2  v1 → v2   9,942       0        278
-   now rows where name and title differ: 3,711
-contract too early: v1.5 still running           v1.5 → v2    9,944     880          1
+step                                        running      op    error  misreads
+no dual-write: expand + backfill → v2       v1 → v2      9,942       0        278
+   rows where name and title now differ: 3,711
+contract too early: v1.5 still running    v1.5 → v2    9,944     880          1
    v1.5: column "title" of relation "boards" does not exist
-title's NOT NULL not dropped in expand           v2r → v2     9,961     321          0
+expand didn't drop title's NOT NULL        v2r → v2     9,961     321          0
    v2: null value in column "title" of relation "boards" violates not-null constraint
-backfill condition name IS NULL                  v1 → v1.5    9,897       0          0
-   then read from name                           v1.5 → v2r   9,858       0          3
-   backfill (name IS NULL): 11 batches, changed 18,276 rows; now name ≠ title: 6
+backfill condition name IS NULL              v1 → v1.5    9,897       0          0
+   then reading from name                v1.5 → v2r   9,858       0          3
+   backfill (name IS NULL): 11 batches, 18,276 rows changed; name ≠ title now: 6
 ```
 
 1. **Skipping the dual-write gives no errors, and that is the danger.** Straight to v2 after the backfill. During the rolling deploy, v1 instances write to `title` and v2 instances to `name`. 278 wrong reads in six seconds, and 3,711 rows with two different values in the two columns. No alert would fire. A user would see the board name they had just changed as it was before. And after the contract, the changes in `title` would be lost forever.

@@ -53,24 +53,24 @@ Video শুরু হতে কতক্ষণ?                        ~১-২
 `npm run estimate`:
 
 ```
-── অংশ ক — দেখা: 20 কোটি DAU, দিনে গড়ে 60 মিনিট, গড় 3 Mbps ──
-দিনে বের হওয়া data (egress)                                   270 PB
-গড় bandwidth                                             25 Tbps
-peak bandwidth (2.5×)                                    63 Tbps   কোনো একটা data center এর বাইরে
-একসাথে দেখছে (peak)                                           2.1 কোটি
+── Part A — watching: 200 million DAU, 60 minutes a day on average, 3 Mbps on average ──
+data out per day (egress)                                       270 PB
+average bandwidth                                              25 Tbps
+peak bandwidth (2.5×)                                          63 Tbps   beyond any single data center
+watching at once (peak)                                   20.8 million
 
-── অংশ খ — upload: প্রতি মিনিটে 300 ঘণ্টার video ──
-দিনে upload                                             432,000 ঘণ্টা
-জমা (মূল 20 + সব resolution 10.4 Mbps)                   5.9 PB/দিন   বছরে 2157 PB
-transcoding (ঘণ্টায় 4 CPU-ঘণ্টা)                           72,000 core   সারাক্ষণ চালু
+── Part B — uploads: 300 hours of video every minute ──
+uploaded per day                                         432,000 hours
+stored (original 20 + all resolutions 10.4 Mbps)            5.9 PB/day   2157 PB a year
+transcoding (4 CPU-hours per hour)                        72,000 cores   running all the time
 
-── অংশ গ — মাসিক খরচ (আনুমানিক দাম) ──
+── Part C — monthly cost (approximate prices) ──
 CDN egress ($0.01/GB)                                $81,000,000     78.2%
-storage, এক বছরের জমা ($0.01/GB-মাস)                    $21,570,624     20.8%
-transcoding ($0.02/CPU-ঘণ্টা)                            $1,036,800      1.0%
+storage, one year's accumulation ($0.01/GB-month)          $21,570,624     20.8%
+transcoding ($0.02/CPU-hour)                                $1,036,800      1.0%
 
-একটা ঘণ্টা দেখার খরচ: $0.0135 egress — প্রতিটা দর্শক প্রতিবার।
-একটা ঘণ্টা transcode এর খরচ: $0.08 — একবার। 6 ঘণ্টা দেখা = এক ঘণ্টা transcode।
+the cost of watching one hour: $0.0135 egress — for every viewer, every time.
+the cost of transcoding one hour: $0.08 — once. 6 hours watched = one hour transcoded.
 ```
 
 1. **Egress বিলের ৭৮%।** **Egress** — data center বা CDN থেকে বাইরে (দর্শকের কাছে) যাওয়া data, যার প্রতি GB এর দাম দিতে হয়; video তে প্রতিটা দর্শক প্রতিবার দেখায় পুরো দাম। দিনে ২৭০ PB, peak এ ৬৩ Tbps, যা কোনো একটা data center এর network থেকে বের করা অসম্ভব। তাই CDN এখানে optimization না, বাধ্যতামূলক, আর অনেক বড় platform নিজেদের cache server ISP এর ভেতরে বসায় (Netflix এর Open Connect এর কথা তাদের প্রকাশিত লেখায় আছে)।
@@ -106,11 +106,11 @@ transcoding ($0.02/CPU-ঘণ্টা)                            $1,036,800   
 Upload এর মূল file (প্রায়ই ১৫-২০ Mbps এর বড় file) থেকে ladder এর পাঁচটা সংস্করণ বানানো, এক ঘণ্টার video তে ৪ CPU-ঘণ্টা। `npm run transcode`: ৪০টা এক ঘণ্টার upload, **spot worker** (10.7: অনেক সস্তা, কিন্তু cloud যেকোনো সময় কেড়ে নিতে পারে; এখানে CPU-ঘণ্টায় গড়ে ০.২ বার), আর কেড়ে নিলে worker আবার চালু হতে ২০ s:
 
 ```
-পরিকল্পনা                                               publish p50        p99    360p দেখা যায়    নষ্ট CPU
-একটা worker, পুরো video, একটার পর একটা resolution              4.0 ঘ     10.6 ঘ        27.3 মি    13.72%
-resolution প্রতি একটা worker (5টা)                             2.1 ঘ      3.0 ঘ        18.1 মি    13.72%
-4 s এর টুকরো, 100টা worker                                   2.9 মি      3.0 মি          38 s     0.02%
-একই, কিন্তু 360p এর টুকরো আগে                                    2.9 মি      3.0 মি          32 s     0.02%
+plan                                                        publish p50        p99  360p watchable  wasted CPU
+one worker, the whole video, one resolution after another          4.0 h     10.6 h        27.3 min      13.72%
+one worker per resolution (5)                                     2.1 h      3.0 h        18.1 min      13.72%
+4 s pieces, 100 workers                                         2.9 min    3.0 min            38 s       0.02%
+the same, but 360p pieces first                                 2.9 min    3.0 min            32 s       0.02%
 ```
 
 - **পুরো video একটা কাজ:** চার ঘণ্টা, আর spot এর একটা বাধায় সেই resolution এর পুরো কাজ নষ্ট। p99 **১০.৬ ঘণ্টা**, CPU এর ১৪% আবর্জনা। Experiment ২: বাধা ঘণ্টায় ১ বার হলে p99 ২৫ ঘণ্টা, নষ্ট ৬০%।
@@ -127,12 +127,12 @@ Ladder আর টুকরো থাকলে, কোন quality দেখাব
 `npm run abr`: ৩০০টা session, ১০ মিনিটের video, ৪ s এর টুকরো, একটা mobile network যা ০.৪ থেকে ১২ Mbps এর মধ্যে ওঠানামা করে:
 
 ```
-নীতি                                                     শুরুর দেরি     আটকে থাকা  গড় bitrate quality বদল
-সবসময় 1080p                                             5.4 s     32.63%   5.00 Mbps         0.0
-সবসময় 240p                                              0.4 s      0.00%   0.40 Mbps         0.0
-throughput: শেষ ৩টার হারের 80% এর নিচে সর্বোচ্চ                    0.8 s      0.22%   2.35 Mbps        32.9
-buffer: 8 s এর নিচে সর্বনিম্ন, 24 s এ সর্বোচ্চ                      0.4 s      0.40%   3.06 Mbps        46.9
-মিশ্র: throughput, buffer কম হলে নামো, ধাপে ধাপে ওঠো               0.4 s      0.08%   2.32 Mbps        34.5
+policy                                                                start-up delay    stalled  avg bitrate  quality switches
+always 1080p                                                                   5.4 s     32.63%   5.00 Mbps               0.0
+always 240p                                                                    0.4 s      0.00%   0.40 Mbps               0.0
+throughput: the highest under 80% of the last 3 rates                          0.8 s      0.22%   2.35 Mbps              32.9
+buffer: lowest below 8 s, highest at 24 s                                      0.4 s      0.40%   3.06 Mbps              46.9
+mixed: throughput, drop when the buffer is low, climb step by step             0.4 s      0.08%   2.32 Mbps              34.5
 ```
 
 - **সবসময় সর্বোচ্চ:** দেখার সময়ের **এক-তৃতীয়াংশ** থেমে থাকে। ১৫ GB এর file সরাসরি দেওয়ার ফল এটাই।
@@ -148,13 +148,13 @@ buffer: 8 s এর নিচে সর্বনিম্ন, 24 s এ সর্�
 11.1 আর 11.4 এর মতো, জনপ্রিয়তা তীক্ষ্ণ। `npm run cdn`: ১০ কোটি video (গড়ে ১০ মিনিট), মাসে ৬০০ কোটি ঘণ্টা দেখা, Zipf (s = ১.২):
 
 ```
-সবচেয়ে জনপ্রিয়                              video      দেখার ভাগ  edge এ জায়গা (সব resolution)
+most popular                           video  share of watching  space at the edge (all resolutions)
 0.1%                                 103,359       92.4%                     80.6 TB
 1%                                 1,023,965       96.1%                      799 TB
-10%                                   1.0 কোটি       98.5%                      7.9 PB
+10%                             10.1 million              98.5%                               7.9 PB
 
-মাসে একবারও দেখা হয় না এমন video (আনুমানিক): 4.0%
-যাদের মাসের দেখার egress খরচ তাদের transcode এর খরচের চেয়ে কম: 62.1%
+videos not watched even once a month (approx.): 4.0%
+videos whose monthly watching egress costs less than their transcode: 62.1%
 ```
 
 - **০.১% video তে ৯২% দেখা,** আর তাদের সব resolution মিলে মাত্র ৮১ TB। এটা প্রতিটা বড় edge location এ ধরে। তাই CDN এর hit rate video তে খুব উঁচু হয়, আর origin এর চাপ ছোট। (এটা "সবচেয়ে জনপ্রিয় গুলো রাখলে" এর আদর্শ হিসাব; আসল LRU একটু কম পায়, আর নতুন জনপ্রিয় video এর প্রথম কয়েক মিনিট origin থেকে আসে, 4.5 এর origin shield সেই ঢেউ শোষে।)
@@ -163,13 +163,13 @@ buffer: 8 s এর নিচে সর্বনিম্ন, 24 s এ সর্�
 **Popularity-Tiered Encoding** — video এর জনপ্রিয়তা অনুযায়ী encode এর খরচ বাছা: সবাই একটা সস্তা, দ্রুত codec (H.264) পায়; জনপ্রিয় হয়ে উঠলে সেটাকে দামি কিন্তু দক্ষ codec এ (যেমন AV1, একই quality তে প্রায় ৩০% কম bit, কিন্তু encode অনেক গুণ দামি) আবার encode করা। কারণ ১.২: encode একবার, egress প্রতিবার। অংশ খ:
 
 ```
-একটা 10 মিনিটের video এর বাড়তি encode: $0.120; প্রতি ঘণ্টা দেখায় বাঁচে $0.00405
-লাভ শুরু: মাসে ~30 ঘণ্টা দেখা হলে (এক মাসে শোধ ধরে)
+extra encode for a 10-minute video: $0.120; saved per hour watched $0.00405
+break-even: at ~30 hours watched a month (assuming it pays back within a month)
 
-নীতি                                         video     বাড়তি encode/মাস     egress বাঁচল/মাস            নিট
-সব video                                   10 কোটি       $12,000,000       $24,300,000   $12,300,000
-মাসে 30 ঘণ্টার বেশি                           2,235,202          $268,224       $23,589,440   $23,321,215
-মাসে 296 ঘণ্টার বেশি                            333,367           $40,004       $22,971,363   $22,931,359
+policy                                     video  extra encode/month  egress saved/month           net
+all videos                           100 million         $12,000,000         $24,300,000   $12,300,000
+over 30 hours a month                  2,235,202            $268,224         $23,589,440   $23,321,215
+over 296 hours a month                   333,367             $40,004         $22,971,363   $22,931,359
 ```
 
 সব video কে AV1 এ নিলেও লাভ (নিট $১.২৩ কোটি)। কিন্তু শুধু মাসে ৩০ ঘণ্টার বেশি দেখা ২২ লাখ video (২.২%) কে নিলে **প্রায় দ্বিগুণ লাভ** ($২.৩৩ কোটি), কারণ তারা প্রায় সব সাশ্রয় দেয় আর বাড়তি encode এর মাত্র ২%। Experiment ৪: encode ৩০ গুণ দামি হলে সব video তে AV1 **ক্ষতি** (−$১.৪৪ কোটি), কিন্তু জনপ্রিয়তে এখনও +$২.৩ কোটি। আর বাস্তবে আরেকটা দিক: AV1 সব device decode করতে পারে না, তাই H.264 এর কপি সবসময় থাকে, আর AV1 একটা বাড়তি কপি শুধু যাদের device পারে।
@@ -179,12 +179,12 @@ buffer: 8 s এর নিচে সর্বনিম্ন, 24 s এ সর্�
 `npm run smoke` একটা Express service চালায়: upload এর পরে টুকরো × resolution এর কাজ queue তে, worker হাতে চালানো, অবস্থা (`uploaded → processing → playable → ready`), আর আসল HLS এর master আর media playlist:
 
 ```
-#   ধাপ                                                  ফল
-1   upload শেষ, pipeline এ কাজ                            id 1; queue এ 75টা কাজ (১৫ টুকরো × ৫)
-2   master playlist, কিছুই তৈরি হয়নি                       404
-3   ৩০টা কাজ (360p আর 240p আগে)                          playable (30/75)
-4   master playlist এখন                               240p/index.m3u8, 360p/index.m3u8; Cache-Control: public, max-age=2
-5   বাকি কাজ; 720p এর টুকরো ৩ এর worker মরল                ready; ব্যর্থ 1, চালানো 76
+#   step                                            result
+1   upload done, jobs in the pipeline          id 1; 75 jobs in the queue (15 pieces × 5)
+2   master playlist, nothing built yet                    404
+3   30 jobs (360p and 240p first)                         playable (30/75)
+4   the master playlist now                               240p/index.m3u8, 360p/index.m3u8; Cache-Control: public, max-age=2
+5   the remaining jobs; the worker on 720p piece 3 died   ready; failed 1, ran 76
 6   master playlist (ready)                           Cache-Control: public, max-age=86400
                                                       #EXTM3U
                                                       #EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=427x240
@@ -192,12 +192,12 @@ buffer: 8 s এর নিচে সর্বনিম্ন, 24 s এ সর্�
                                                       …
                                                       #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
                                                       1080p/index.m3u8
-7   480p এর playlist (প্রথম ৫ লাইন)                      #EXTM3U | #EXT-X-TARGETDURATION:4 | #EXT-X-PLAYLIST-TYPE:VOD | #EXTINF:4.0, | 0.ts
-8   player, network 1 Mbps (৮০% নিয়ম)                  360p; প্রথম টুকরো 400 B
-9   player, network 3 Mbps (৮০% নিয়ম)                  480p; প্রথম টুকরো 700 B
-10  player, network 8 Mbps (৮০% নিয়ম)                  1080p; প্রথম টুকরো 2500 B
-11  একটা টুকরোর Cache-Control                            public, max-age=31536000, immutable
-12  queue একই কাজ আবার দিল (at-least-once)               নতুন লেখা 75টা মোট, বাদ দেওয়া 1
+7   480p's playlist (first 5 lines)                       #EXTM3U | #EXT-X-TARGETDURATION:4 | #EXT-X-PLAYLIST-TYPE:VOD | #EXTINF:4.0, | 0.ts
+8   player, network 1 Mbps (80% rule)                     360p; first piece 400 B
+9   player, network 3 Mbps (80% rule)                     480p; first piece 700 B
+10  player, network 8 Mbps (80% rule)                     1080p; first piece 2500 B
+11  a piece's Cache-Control                               public, max-age=31536000, immutable
+12  the queue handed out the same job again (at-least-once)  75 new writes in total, 1 skipped
 ```
 
 **Spaced repetition এর উত্তর:** নাম না বদলে content বদলালে CDN এর edge গুলো পুরনোটা দিতে থাকে TTL শেষ না হওয়া পর্যন্ত, আর purge (4.5) ধীর আর অনিশ্চিত। সমাধান: content বদলালে নামও বদলাও (version বা hash), আর সেই নামের জিনিস `immutable`, চিরকাল cache। এখানে প্রতিটা টুকরো তৈরির পরে কখনো বদলায় না, তাই এক বছর আর `immutable` (ধাপ ১১)। কিন্তু master playlist processing এর সময় বদলায় (প্রথমে দুটো quality, পরে পাঁচটা), তাই তখন `max-age=2` (ধাপ ৪), আর `ready` হলে এক দিন (ধাপ ৬)। ভুলটা হতো processing এর সময়ের master কে এক দিন cache করা: দর্শকেরা এক দিন 360p এর বেশি পেত না।

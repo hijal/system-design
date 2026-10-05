@@ -46,8 +46,8 @@ docker compose up -d --wait
 ## Run
 
 ```bash
-npm run twopc   # ~১৫ সেকেন্ড
-npm run saga    # ~১০ সেকেন্ড
+npm run twopc   # ~15 seconds
+npm run saga    # ~10 seconds
 ```
 
 Teardown:
@@ -61,45 +61,45 @@ docker compose down -v
 `npm run twopc` (এই machine এ):
 
 ```
-── ক. 3000 টা "task তৈরি", 100 টা workspace, 83 টায় প্রথম লেখার পরে crash (3%), 8 টা একসাথে ──
-   পথ                                    সফল   ব্যর্থ  task row  counter  অমিল ws   ফল                    ops/s      p50
-   monolith: একটা transaction (9.1)       2917     83     2917     2917        0   মেলে                   2775   2.3 ms
-   services: দুটো আলাদা লেখা (9.1)        2917     83     3000     2917       57   83 টা task বিনা বিলে   1594   4.4 ms
-   services: 2PC                          2917     83     2917     2917        0   মেলে                   1027   7.1 ms
+── A. 3000 "create task", 100 workspaces, crash after the first write in 83 (3%), 8 concurrent ──
+   path                                     ok failed    tasks  counter   bad ws   result                  ops/s      p50
+   monolith: one transaction (9.1)        2917     83     2917     2917        0   they match               2775   2.3 ms
+   services: two separate writes (9.1)    2917     83     3000     2917       57   83 tasks with no bill    1594   4.4 ms
+   services: 2PC                          2917     83     2917     2917        0   they match               1027   7.1 ms
 
-── খ. Coordinator মারা গেল PREPARE এর পরে, COMMIT এর আগে — 5 টা workspace এর transaction "in doubt" ──
-   prepared হয়ে পড়ে আছে: tasks_svc এ 5 টা, billing_svc এ 5 টা · coordinator এর log এ "commit": 2 টা
-   workspace 1 এর task_count পড়া (SELECT): 0 — 0.4 ms, আটকায়নি (MVCC: commit হওয়া পুরনো মান)
-   তারপর 3 s ধরে 8 জন client নতুন task বানাচ্ছে (2PC, 100 টা workspace এ random):
-   billing এর lock_timeout    সফল   ops/s   lock এ ব্যর্থ       p99   শেষে আটকে থাকা client   সবাই আটকে গেল
-   নেই (Postgres default)       90      30             0   23.9 ms              8 / 8   156.8 ms এ
+── B. The coordinator died after PREPARE, before COMMIT — 5 workspaces' transactions "in doubt" ──
+   left prepared: 5 in tasks_svc, 5 in billing_svc · "commit" in the coordinator's log: 2
+   reading workspace 1's task_count (SELECT): 0 — 0.4 ms, not blocked (MVCC: the committed old value)
+   then 8 clients creating new tasks for 3 s (2PC, random among 100 workspaces):
+   billing's lock_timeout       ok   ops/s    lock fails       p99       stuck at end   all stuck at
+   none (Postgres default)      90      30             0   23.9 ms              8 / 8   at 156.8 ms
    200 ms                     1348     449            57  317.8 ms              0 / 8   —
 
-── গ. তারপর: in-doubt transaction গুলোর সিদ্ধান্ত ──
-   কে সিদ্ধান্ত নিল                             tasks_svc              billing_svc            অমিল ws   ফল
-   coordinator ফিরে এসে, log ধরে (নেই → rollback) commit 2 · rollback 3  commit 2 · rollback 3       0   মেলে
-   billing অপেক্ষা না করে নিজে ROLLBACK, তারপর coordinator commit 2 · rollback 3  commit 0 · rollback 5       2   2 টা task বিনা বিলে
+── C. What next: deciding the in-doubt transactions ──
+   who decided                                  tasks_svc              billing_svc            bad ws   result
+   coordinator, from its log (none → rollback)  commit 2 · rollback 3  commit 2 · rollback 3       0   they match
+   billing rolled back alone, then coordinator  commit 2 · rollback 3  commit 0 · rollback 5       2   2 tasks with no bill
 ```
 
 মিলতে হবে: অংশ ক তে 2PC এর অমিল ০, আর ops/s monolith এর চেয়ে অনেক কম (এই machine এ পাঁচ run এ ১০২৭–১১৬৫, monolith
-১৯৭৩–৩৬৬৬)। অংশ খ তে `lock_timeout` ছাড়া শেষে ৮ জনের ৮ জনই আটকে, আর "সফল" ৯০ এর কাছাকাছি; ২০০ ms দিয়ে কেউ আটকে থাকে না,
+১৯৭৩–৩৬৬৬)। অংশ খ তে `lock_timeout` ছাড়া শেষে ৮ জনের ৮ জনই আটকে, আর "ok" ৯০ এর কাছাকাছি; ২০০ ms দিয়ে কেউ আটকে থাকে না,
 কিন্তু কিছু request ব্যর্থ। অংশ গ তে প্রথম সারিতে অমিল ০, দ্বিতীয়তে ২।
 
 `npm run saga`:
 
 ```
-── ক. 3000 টা "task তৈরি" — 83 টায় billing এ লেখার পরে crash (3%), 44 টার project archived, 8 টা একসাথে ──
-   পথ                                        সম্পন্ন  archived  crash  অসমাপ্ত  task row  counter  অমিল ws   ফল                    ops/s      p50
-   দুটো লেখা, saga ছাড়া                      2873        44     83         —     2873     3000       58   127 টা বিল, task নেই   1979   3.9 ms
-   saga (idempotent ধাপ)                      2873        44     83        83     2873     2956       57   83 টা বিল, task নেই     966   7.9 ms
-     … recovery: log পড়ে এগোনো (234.1 ms)    2955        45      —         0     2955     2955        0   মেলে                      —        —
-   saga, ধাপ idempotent না                    2873        44     83        83     2873     2956       57   83 টা বিল, task নেই     992   7.7 ms
-     … recovery: log পড়ে এগোনো (282.5 ms)    2955        45      —         0     2955     3038       57   83 টা বিল, task নেই       —        —
+── A. 3000 "create task" — crash after writing to billing in 83 (3%), 44 with an archived project, 8 concurrent ──
+   path                                       done  archived  crash   pending    tasks  counter   bad ws   result                  ops/s      p50
+   two writes, no saga                        2873        44     83         —     2873     3000       58   127 bills with no task   1979   3.9 ms
+   saga (idempotent steps)                    2873        44     83        83     2873     2956       57   83 bills with no task     966   7.9 ms
+     … recovery from the log (234.1 ms)       2955        45      —         0     2955     2955        0   they match                  —        —
+   saga, steps not idempotent                 2873        44     83        83     2873     2956       57   83 bills with no task     992   7.7 ms
+     … recovery from the log (282.5 ms)       2955        45      —         0     2955     3038       57   83 bills with no task       —        —
 
-── খ. সীমার কাছে: 50 টা workspace, সীমা 10, আগে থেকে 8 টা task — প্রতিটায় 4 টা "task তৈরি" একসাথে, 41 টার project archived ──
-   নিয়ম                                     তৈরি  ফেরানো  "সীমা শেষ"  সীমা পেরোনো ws  বাড়তি task  ভুল "সীমা শেষ"
-   আগে সংরক্ষণ → task → দরকারে ফেরত (saga)     75      25         100              0           0              25
-   আগে দেখা → task → শেষে usage বাড়ানো       159       —           0             42          61               0
+── B. Near the limit: 50 workspaces, limit 10, 8 tasks already — 4 concurrent "create task" in each, 41 with an archived project ──
+   rule                                      made  undone     refused  ws over limit       extra  false refusals
+   reserve → task → release (saga)             75      25         100              0           0              25
+   check → task → count usage at end          159       —           0             42          61               0
 ```
 
 মিলতে হবে: idempotent saga তে recovery এর পরে অসমাপ্ত ০ আর অমিল ০; idempotent না হলে recovery এর পরেও ঠিক ৮৩টা বাড়তি বিল।

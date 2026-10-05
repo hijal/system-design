@@ -65,8 +65,8 @@ flags এর disk ভরা   →    flag পড়তে গিয়ে except
 CTO এর প্রথম প্রশ্নের উত্তর খোঁজার সরাসরি পথ: প্রতিটা dependency কে একটা একটা করে মেরে দেখা, আর প্রতিটা user journey চালিয়ে দেখা। Exercise এর `npm run matrix` ঠিক তাই করে — TaskFlow এর সাতটা journey (`src/journeys.ts`) আসল TypeScript function, আর একটা harness প্রতিটা dependency কে "মরা" (সাথে সাথে connection refused) বানিয়ে প্রতিটা journey চালায়। টেবিলটা হাতে লেখা না, code চালিয়ে **আবিষ্কার** করা:
 
 ```
-── ক. একটা dependency মরা (connection refused) — আগের code ──
-মরা dependency            login       board create-task     comment      search      upload  share-link
+── A. One dependency dead (connection refused) — old code ──
+dead dependency          login       board  create-task     comment      search      upload  share-link
 pg-primary                   ✗           ✓           ✗           ✗           ✓           ✗           ✓
 pg-replica                   ✓           ✗           ✓           ✓           ✗           ✓           ✓
 redis-cache                  ✓           ✓          ✗!           ✓           ✓           ✓           ✓
@@ -103,14 +103,14 @@ board (আগের code):  flags × replica × billing = 0.995 × 0.999 × 0.99
 `npm run matrix`, অংশ ঘ — প্রতিটা dependency কে তার availability অনুযায়ী এলোমেলো সময়ে মেরে ১০ বছর simulate করা, আর প্রতি মিনিটে প্রতিটা journey চালানো:
 
 ```
-journey        hard dep (আগের)        সূত্র   আগের code     বন্ধ/বছর   hard dep (নতুন)       চলেছে       পুরোটা     বন্ধ/বছর
-login                       3   99.351%    99.368%    3,320 মি                2   99.861%   99.861%      731 মি
-board                       3   99.301%    99.300%    3,680 মি                0  100.000%   99.791%        0 মি
-create-task                 3   99.351%    99.353%    3,399 মি                1   99.948%   99.733%      274 মি
-comment                     3   99.351%    99.346%    3,440 মি                1   99.948%   99.948%      274 মি
-search                      2   99.401%    99.412%    3,093 মি                1   99.904%   99.904%      505 মি
-upload                      3   99.440%    99.438%    2,952 মি                2   99.931%   99.931%      360 মি
-share-link                  1   99.500%    99.507%    2,592 মি                0  100.000%  100.000%        0 মি
+journey        hard dep (old)   formula   old code  down/year   hard dep (new)    worked   in full  down/year
+login                       3   99.351%    99.368%  3,320 min                2   99.861%   99.861%    731 min
+board                       3   99.301%    99.300%  3,680 min                0  100.000%   99.791%      0 min
+create-task                 3   99.351%    99.353%  3,399 min                1   99.948%   99.733%    274 min
+comment                     3   99.351%    99.346%  3,440 min                1   99.948%   99.948%    274 min
+search                      2   99.401%    99.412%  3,093 min                1   99.904%   99.904%    505 min
+upload                      3   99.440%    99.438%  2,952 min                2   99.931%   99.931%    360 min
+share-link                  1   99.500%    99.507%  2,592 min                0  100.000%  100.000%      0 min
 ```
 
 - **সূত্র আর simulation প্রায় হুবহু মেলে** (board: ৯৯.৩০১% বনাম ৯৯.৩০০%)। গুণফলটা কোনো তাত্ত্বিক আন্দাজ না — স্বাধীন failure এ এটাই হয়।
@@ -128,8 +128,8 @@ share-link                  1   99.500%    99.507%    2,592 মি              
 নতুন code এর matrix (`npm run matrix`, অংশ খ) এর বদলানো সারিগুলো:
 
 ```
-── খ. একটা dependency মরা — degradation মাথায় রেখে লেখা code ──
-মরা dependency            login       board create-task     comment      search      upload  share-link
+── B. One dependency dead — code written with degradation in mind ──
+dead dependency          login       board  create-task     comment      search      upload  share-link
 pg-replica                   ✓           ~           ✓           ✓           ✗           ✓           ✓
 redis-cache                  ✓           ✓           ~           ✓           ✓           ✓           ✓
 redis-queue                  ✓           ✓           ✓           ✓           ✓           ✓           ✓
@@ -152,8 +152,8 @@ flags                        ✓           ✓           ✓           ✓      
 **ধীর, মরার চেয়ে খারাপ।** Matrix এর অংশ গ একই টেবিল, কিন্তু dependency মরা না, ৩ সেকেন্ডে উত্তর দেয়:
 
 ```
-── গ. একটা dependency ধীর (৩ s এ উত্তর) — আগের code ──
-ধীর dependency            login       board create-task     comment      search      upload  share-link
+── C. One dependency slow (answers in 3 s) — old code ──
+slow dependency          login       board  create-task     comment      search      upload  share-link
 redis-cache                  ✓        3.0s        3.0s           ✓           ✓           ✓        3.0s
 redis-limiter             3.0s        3.0s        3.0s        3.0s        3.0s           ✓           ✓
 flags                     3.0s        3.0s        3.0s        3.0s        3.0s        3.1s        3.0s
@@ -178,11 +178,11 @@ k = 3  →  বছরে ০.০১১ সেকেন্ড বন্ধ
 তিনটা copy, আর বছরে এক সেকেন্ডের শতভাগের এক ভাগ — প্রায় অবিনাশী। এবার `npm run redundancy` — billing service, ৪০ বছর simulate করা, তিন ধরনের fault নিয়ে: instance মরে (গড়ে ৩০ দিনে একবার), একটা পুরো AZ (availability zone — একটা data center এর দল, 8.1 এর failure domain) মরে বছরে আধাবার, দুই ঘণ্টা, আর deploy সপ্তাহে তিনটা, যার ৩% খারাপ:
 
 ```
-নকশা                                    সূত্রে বন্ধ/বছর         মাপা        ব্যর্থ মিনিট/বছর  instance      AZ   deploy       পুরো বন্ধ
-১টা instance                                365 মি    99.905%               497       343      82       72       461 মি
-৩টা, একই AZ, একসাথে deploy                  0.011 সে    99.970%               160         6      82       72       117 মি
-৩টা, ৩টা AZ, একসাথে deploy                   0.011 সে    99.985%                78         6       0       72        35 মি
-৩টা, ৩টা AZ, একটা একটা করে                    0.011 সে    99.992%                43         6       0       37         0 মি
+design                          formula down/year   measured   failed min/year  instance      AZ   deploy  full outage
+1 instance                                365 min    99.905%               497       343      82       72     461 min
+3, same AZ, deployed together              0.011 s    99.970%               160         6      82       72     117 min
+3, 3 AZs, deployed together               0.011 s    99.985%                78         6       0       72      35 min
+3, 3 AZs, one at a time                   0.011 s    99.992%                43         6       0       37       0 min
 ```
 
 - **সূত্র বলে ০.০১১ সেকেন্ড, মাপা ১৬০ মিনিট** — প্রায় ৯ লাখ গুণ বেশি। Instance এর আলাদা আলাদা মৃত্যু সূত্র ঠিকই সামলেছে (৩৪৩ → ৬ মিনিট)। কিন্তু বাকি দুটো কারণ তিনটা copy কে **একসাথে** মারে: AZ মরলে তিনটাই সেখানে, আর একটা খারাপ deploy তিনটাতেই একসাথে যায়।
@@ -199,19 +199,19 @@ Google এর SRE বই এর একটা প্রায়ই উদ্ধ�
 এবার সোমবার সকাল। এখানে কোনো dependency মরেনি; সমস্যা হলো **নিজের ক্ষমতা**। `npm run brownout` — ৪৮টা worker, স্বাভাবিক ৬০০ req/s, সকাল ৯টায় আড়াই গুণ (১,৫০০ req/s) সাত মিনিট, আর client ৩ সেকেন্ড পরে চলে যায়। একটা পুরো board page এর worker সময়:
 
 ```
-পুরো page = task তালিকা 8 ms + comment সংখ্যা 5 ms + activity panel 12 ms + "এরকম আরও board" 25 ms = 50 ms
-ক্ষমতা: পুরো page এ 960 req/s; বাদ দিতে দিতে 25 ms → 1,920 req/s, 13 ms → 3,692 req/s, 8 ms → 6,000 req/s
+full page = task list 8 ms + comment counts 5 ms + activity panel 12 ms + "more boards like this" 25 ms = 50 ms
+capacity: 960 req/s with the full page; at the brownout levels 25 ms → 1,920 req/s, 13 ms → 3,692 req/s, 8 ms → 6,000 req/s
 ```
 
 পুরো page এ ক্ষমতা ৯৬০ req/s, আর এসেছে ১,৫০০। কিন্তু core কাজটা — task তালিকা — মোট খরচের মাত্র ১৬%। চাপের সাত মিনিটে আসা request গুলোর কী হলো:
 
 ```
-নীতি                       board পেল    পুরো page      503   timeout       p50       p99     নষ্ট কাজ        চাপ শেষে সারতে
-কিছু না                         0.0%       0.0%     0.0%    100.0%         —         —    100.0%        ১৫ মিনিটেও না
-+ deadline check            34.1%      34.1%     0.0%     65.9%    2.99 s    3.00 s     59.1%            সাথে সাথে
-load shedding (7.4)         64.0%      64.0%    36.0%      0.0%    348 ms    373 ms      0.0%            সাথে সাথে
-brownout                   100.0%       2.9%     0.0%      0.0%     18 ms    360 ms      0.0%            সাথে সাথে
-brownout + shedding         99.7%       3.1%     0.3%      0.0%     18 ms    315 ms      0.0%            সাথে সাথে
+policy                  got board  full page      503   timeout       p50       p99  wasted work  recovery after load
+nothing                      0.0%       0.0%     0.0%    100.0%         —         —      100.0%  not even in 15 minutes
++ deadline check            34.1%      34.1%     0.0%     65.9%    2.99 s    3.00 s       59.1%          immediately
+load shedding (7.4)         64.0%      64.0%    36.0%      0.0%    348 ms    373 ms        0.0%          immediately
+brownout                   100.0%       2.9%     0.0%      0.0%     18 ms    360 ms        0.0%          immediately
+brownout + shedding         99.7%       3.1%     0.3%      0.0%     18 ms    315 ms        0.0%          immediately
 ```
 
 **কিছু না:** কেউ board পায়নি। শূন্য। আর চাপ চলে যাওয়ার পরেও সারে না — ১৫ মিনিটের run শেষ হওয়া পর্যন্ত কেউ সময়মতো উত্তর পায়নি। কেন: queue তে লাখখানেক request জমেছে, worker গুলো সেগুলো ক্রমানুসারে শেষ করছে — আর প্রতিটার client অনেক আগে চলে গেছে। **নষ্ট কাজ ১০০%**: প্রতিটা worker মুহূর্ত এমন request এর পেছনে যার উত্তর কেউ পড়বে না। এটাই সোমবারের "৯:০৮ এ ভিড় কমল, কিন্তু site ঠিক হলো না।"
@@ -236,7 +236,7 @@ brownout:       খরচ কমাও    →  সবাই কিছু পা�
 Brownout এর ধাপগুলো মিনিট ধরে (`npm run brownout`, অংশ খ) — ০ মানে পুরো page, ৩ মানে শুধু task তালিকা:
 
 ```
-মিনিট        req/s     গড় ধাপ  brownout p99     কিছু না: p99      কিছু না: সময়মতো
+minute     req/s  avg level  brownout p99  nothing: p99  nothing: on time
 2            598      0.00         74 ms         74 ms           100.0%
 3          1,048      0.84        187 ms        2.90 s            63.4%
 4          1,495      1.49        350 ms             —             0.0%
@@ -273,12 +273,12 @@ data plane     —  আসল request সামলায়, প্রতি ম
 `npm run static` — `flags` মিনিট ৩০ থেকে ৭৫ পর্যন্ত মরা; মিনিট ৫০ থেকে ৮০ এ traffic ৬০০ থেকে ১,০০০ req/s (autoscaler নতুন instance তোলে); আর instance মাঝে মাঝে crash করে restart নেয়। চারটা নকশা:
 
 ```
-নকশা                              ব্যর্থ request        সবচেয়ে খারাপ মিনিট      ঘাটতির মিনিট     ব্যর্থ boot      config এর বয়স (সর্বোচ্চ)
-প্রতি request এ জিজ্ঞেস                     44.05%              100.0%            45           0                        —
-cache, TTL 5 মিনিট                     40.82%              100.0%            40         463                    5 মিনিট
-last-known-good                      12.08%               50.0%            25         463                   45 মিনিট
-last-known-good + snapshot            0.24%               20.0%             1           0                   45 মিনিট
-   এই run এ: crash/restart 9টা, autoscaler নতুন instance তুলেছে 6টা; ব্যর্থ request = পুরো 120 মিনিটের মোটের %
+design                        failed requests        worst minute  short minutes  failed boots         config age (max)
+ask on every request                   44.05%              100.0%            45             0                        —
+cache, TTL 5 minutes                   40.82%              100.0%            40           463                5 minutes
+last-known-good                        12.08%               50.0%            25           463               45 minutes
+last-known-good + snapshot              0.24%               20.0%             1             0               45 minutes
+   in this run: 9 crash/restarts, the autoscaler brought up 6 new instances; failed requests = % of the total over all 120 minutes
 ```
 
 - **প্রতি request এ জিজ্ঞেস:** outage এর পুরো ৪৫ মিনিট সব ব্যর্থ।
@@ -323,20 +323,20 @@ Matrix টা exercise এ code চালিয়ে বের হয়েছ�
 ধরো board এর code এ এখনো একটা লুকানো hard dependency আছে (১.২ এর plan badge)। Billing এ ২ সেকেন্ড দেরি ঢোকানো হচ্ছে। Traffic এর কত % এ ঢোকাবে? `npm run chaos` — ৫০০ req/s, স্বাভাবিক ভুল ০.০৫%, দুটো উপায়ে থামানো: **global alarm** (শেষ ৬০ সেকেন্ডে পুরো site এর ভুল ০.২% পেরোলে থামাও — সাধারণ SLO alert), আর **control group** (experiment এর সমান আকারের একটা না-ছোঁয়া দল রাখো, দুই দলের ভুলের পার্থক্য পরিসংখ্যানগতভাবে স্পষ্ট হলে থামাও)। প্রতিটা অবস্থা ২০০ বার, median:
 
 ```
-── ক. জোরালো bug — ঢোকানো request এর 60% ব্যর্থ (সব paid board এ plan badge, timeout নেই) ──
-blast radius    global: ধরল       কখন       ক্ষতি  control: ধরল       কখন       ক্ষতি
+── A. A loud bug — 60% of injected requests fail (plan badge on every paid board, no timeout) ──
+blast radius     global: caught      when     harm  control: caught      when     harm
 0.1%                     3%      10 s      540         100%      30 s        8
 1%                     100%      10 s       29         100%      10 s       29
 5%                     100%      10 s      149         100%      10 s      149
-100% (সবাই)             100%      10 s    2,997            —         —        —
+100% (all)                 100%      10 s    2,997                —         —        —
 
-── খ. সূক্ষ্ম bug — ঢোকানো request এর 5% ব্যর্থ (শুধু ৫০০+ task এর board এ) ──
-blast radius    global: ধরল       কখন       ক্ষতি  control: ধরল       কখন       ক্ষতি
-0.1%                     0%         —       45         100%     6.2 মি        9
+── B. A subtle bug — 5% of injected requests fail (only on boards with 500+ tasks) ──
+blast radius     global: caught      when     harm  control: caught      when     harm
+0.1%                         0%         —       45             100%   6.2 min        9
 1%                       2%      10 s      447         100%      40 s       11
 5%                     100%      10 s       14         100%      10 s       14
 25%                    100%      10 s       61         100%      10 s       61
-100% (সবাই)             100%      10 s      250            —         —        —
+100% (all)                 100%      10 s      250                —         —        —
 ```
 
 ("ক্ষতি" = থামার আগে fault এর কারণে ব্যর্থ হওয়া user request; না ধরলে পুরো ৩০ মিনিটের।)
@@ -350,8 +350,8 @@ blast radius    global: ধরল       কখন       ক্ষতি  control
 **আর উল্টো ভুলটা — অকারণে থামানো।** একই experiment, কিন্তু code ঠিক আছে (fault নিরীহ):
 
 ```
-── গ. Code ঠিক আছে, fault নিরীহ — তবু ভুল করে থামানো, কত % run এ ──
-blast radius       global: ভুল থামা     control: ভুল থামা
+── C. The code is fine, the fault harmless — yet stopped by mistake, in what % of runs ──
+blast radius    global: false stop  control: false stop
 1%                          0.0%               0.0%
 5%                          0.0%               0.5%
 50%                         0.0%               1.5%

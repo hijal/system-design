@@ -19,10 +19,10 @@ type Cause = 'instance' | 'az' | 'deploy';
 type Config = { name: string; instances: number; spreadAz: boolean; rolling: boolean };
 
 const CONFIGS: Config[] = [
-	{ name: '১টা instance', instances: 1, spreadAz: false, rolling: false },
-	{ name: '৩টা, একই AZ, একসাথে deploy', instances: 3, spreadAz: false, rolling: false },
-	{ name: '৩টা, ৩টা AZ, একসাথে deploy', instances: 3, spreadAz: true, rolling: false },
-	{ name: '৩টা, ৩টা AZ, একটা একটা করে', instances: 3, spreadAz: true, rolling: true }
+	{ name: '1 instance', instances: 1, spreadAz: false, rolling: false },
+	{ name: '3, same AZ, deployed together', instances: 3, spreadAz: false, rolling: false },
+	{ name: '3, 3 AZs, deployed together', instances: 3, spreadAz: true, rolling: false },
+	{ name: '3, 3 AZs, one at a time', instances: 3, spreadAz: true, rolling: true }
 ];
 
 function intervals(seed: number, meanUp: number, meanDown: number): [number, number][] {
@@ -133,25 +133,25 @@ function simulate(config: Config): Result {
 }
 
 heading(
-	`ক. Billing service, ${YEARS} বছর simulate করা — instance মরে (গড়ে ${INSTANCE_MTBF_DAYS} দিনে একবার, ${INSTANCE_REPAIR} মিনিট), AZ মরে (বছরে ${AZ_OUTAGES_PER_YEAR}বার, ${AZ_OUTAGE} মিনিট), deploy (সপ্তাহে ${DEPLOYS_PER_WEEK}টা, ${BAD_DEPLOY * 100}% খারাপ)`
+	`A. The billing service, ${YEARS} years simulated — instances die (once every ${INSTANCE_MTBF_DAYS} days on average, ${INSTANCE_REPAIR} minutes), AZs die (${AZ_OUTAGES_PER_YEAR} times a year, ${AZ_OUTAGE} minutes), deploys (${DEPLOYS_PER_WEEK} a week, ${BAD_DEPLOY * 100}% bad)`
 );
 const perInstance =
 	(INSTANCE_MTBF_DAYS * 24 * 60) / (INSTANCE_MTBF_DAYS * 24 * 60 + INSTANCE_REPAIR);
 console.log(
 	row([
-		['নকশা', 30],
-		['সূত্রে বন্ধ/বছর', 18],
-		['মাপা', 11],
-		['ব্যর্থ মিনিট/বছর', 18],
+		['design', 30],
+		['formula down/year', 19],
+		['measured', 11],
+		['failed min/year', 18],
 		['instance', 10],
 		['AZ', 8],
 		['deploy', 9],
-		['পুরো বন্ধ', 12]
+		['full outage', 12]
 	])
 );
 function formulaDowntime(availability: number): string {
 	const minutes = (1 - availability) * 525_600;
-	return minutes >= 1 ? `${n(minutes)} মি` : `${(minutes * 60).toFixed(3)} সে`;
+	return minutes >= 1 ? `${n(minutes)} min` : `${(minutes * 60).toFixed(3)} s`;
 }
 
 let lastEvents: Record<Cause, number> = { instance: 0, az: 0, deploy: 0 };
@@ -164,19 +164,19 @@ for (const config of CONFIGS) {
 	console.log(
 		row([
 			[config.name, 30],
-			[formulaDowntime(formula), 18],
+			[formulaDowntime(formula), 19],
 			[pct(MINUTES - totalFailed, MINUTES, 3), 11],
 			[perYear(totalFailed), 18],
 			[perYear(failed.instance), 10],
 			[perYear(failed.az), 8],
 			[perYear(failed.deploy), 9],
-			[`${perYear(fullOutage)} মি`, 12]
+			[`${perYear(fullOutage)} min`, 12]
 		])
 	);
 }
 console.log(
-	`   এক instance এর availability a = ${(perInstance * 100).toFixed(3)}%। "ব্যর্থ মিনিট" = প্রতি মিনিটে ব্যর্থ request এর ভগ্নাংশের যোগ (৩টার ১টা ভুল উত্তর দিলে ⅓ মিনিট)`
+	`   one instance's availability a = ${(perInstance * 100).toFixed(3)}%. "failed min" = the sum of the fraction of failed requests in each minute (one of 3 answering wrong is ⅓ of a minute)`
 );
 console.log(
-	`   ${YEARS} বছরে ঘটেছে: instance crash ${n(lastEvents.instance)}টা (৩টা মিলে), AZ outage ${n(lastEvents.az)}টা (৩টা AZ মিলে), খারাপ deploy ${n(lastEvents.deploy)}টা`
+	`   in ${YEARS} years: ${n(lastEvents.instance)} instance crashes (across the 3), ${n(lastEvents.az)} AZ outages (across the 3 AZs), ${n(lastEvents.deploy)} bad deploys`
 );

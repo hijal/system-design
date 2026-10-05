@@ -64,12 +64,12 @@ CTO এর উত্তর: "ভাঙার আগে বলো — ভাঙ�
 Exercise এর `npm run latency`: TaskFlow এর board — একটা project এর ৫০টা task, প্রতিটার assignee আর comment এর সংখ্যা। একই code, তিনভাবে। Microservices এ tasks service বাকি দুটোকে ডাকে — হয় প্রতিটা task এর জন্য আলাদা (**chatty** — ORM এর lazy load এর মতো সরল code), নয়তো সব একবারে (**batched**):
 
 ```
-── Board খোলা — সব process একই machine এ ──
-                                                        একা ১ জন   ব্যস্ত: 16 জন একসাথে, 5 s
-   পথ                                       ভেতরের call        p50    board/s        p99   CPU / board (সব process)
+── Opening the board — all processes on one machine ──
+                                                    1 user alone  busy: 16 concurrent, 5 s
+   path                                         calls        p50   boards/s        p99   CPU / board (all processes)
    monolith (function call)                         0     0.3 ms       6234     5.0 ms   0.1 ms
-   microservices, chatty (task প্রতি call)        100    11.3 ms         86   203.6 ms   24.4 ms
-   microservices, batched (২টা call)                2     0.8 ms       2206    11.1 ms   0.8 ms
+   microservices, chatty (call per task)          100    11.3 ms         86   203.6 ms   24.4 ms
+   microservices, batched (2 calls)                 2     0.8 ms       2206    11.1 ms   0.8 ms
 ```
 
 - **Chatty:** একটা board = ১০০টা HTTP call। একজন user এর চোখে ১১ ms (১০০টা call একসাথে পাঠানো, তাই মাত্র এটুকু) — কিন্তু system এর CPU তে board প্রতি **২৪ ms**, monolith এর দুশো গুণের বেশি। ১৬ জন একসাথে এলে প্রতি সেকেন্ডে মাত্র ৮৬টা board, p99 ২০০ ms। এটা Lesson 5.6 এর N+1 — এবার database এর query না, network call। আর monolith এ একই "lazy" code নির্দোষ ছিল, কারণ function call প্রায় বিনামূল্যে।
@@ -89,12 +89,12 @@ Lesson 6.1 এর partial failure — "কিছু অংশ কাজ কর�
 প্রথম প্রশ্ন: আলাদা process মানে কি আলাদা ব্যর্থতা? ঘটনা ২ কে মাপি। Exercise এর `npm run failure`: board খোলা হচ্ছে, আর একই সময়ে কেউ "সব comment এর export" চালাচ্ছে — প্রতিটা ~৩০০ ms এর CPU এর কাজ, পরপর:
 
 ```
-── ক. ভারী প্রতিবেশী: board খোলা (8 client) আর একই সময়ে export (প্রতিটা ~300 ms CPU, পরপর) ──
-   পথ                                           সফল board/s     p50        p99    পুরো   comments ছাড়া   error
-   monolith, export ছাড়া (তুলনার জন্য)            5979     1.3 ms     3.2 ms     100%           0%      0%
-   monolith, export একই process এ                    28   301.4 ms   302.8 ms     100%           0%      0%
-   microservices, timeout ছাড়া                      28   301.8 ms   306.5 ms     100%           0%      0%
-   microservices, timeout 50 ms + fallback          154    51.7 ms    58.1 ms       1%          99%      0%
+── A. Heavy neighbour: opening the board (8 clients) while an export runs (~300 ms CPU each, back to back) ──
+   path                                         boards/s ok        p50        p99     full  no comments   error
+   monolith, no export (for comparison)                5979     1.3 ms     3.2 ms     100%           0%      0%
+   monolith, export in the same process                  28   301.4 ms   302.8 ms     100%           0%      0%
+   microservices, no timeout                             28   301.8 ms   306.5 ms     100%           0%      0%
+   microservices, timeout 50 ms + fallback              154    51.7 ms    58.1 ms       1%          99%      0%
 ```
 
 - **Monolith:** export আর board একই event loop এ — board ১.৩ ms থেকে ৩০১ ms। ঘটনা ২, হুবহু।
@@ -106,12 +106,12 @@ Lesson 6.1 এর partial failure — "কিছু অংশ কাজ কর�
 এবার crash — export এর একটা bug process মেরে ফেলল (OOM এর মতো):
 
 ```
-── খ. Crash: export এর bug এ process মারা গেল — তারপর 5 s board খোলা ──
-   পথ                                           সফল board/s     p50        p99    পুরো   comments ছাড়া   error
-   monolith (একমাত্র process মারা গেল)                0     1.2 ms     3.9 ms       0%           0%    100%
-   microservices, comments মারা গেল, timeout ছাড়া       0     3.6 ms     7.8 ms       0%           0%    100%
-   microservices, comments মারা গেল, + fallback    1759     4.2 ms     8.3 ms       0%         100%      0%
-      … তারপর users ও মারা গেল (তার fallback নেই)       0     3.1 ms     7.0 ms       0%           0%    100%
+── B. Crash: a bug in the export killed the process — then 5 s of opening boards ──
+   path                                         boards/s ok        p50        p99     full  no comments   error
+   monolith (the only process died)                       0     1.2 ms     3.9 ms       0%           0%    100%
+   microservices, comments died, no timeout               0     3.6 ms     7.8 ms       0%           0%    100%
+   microservices, comments died, + fallback            1759     4.2 ms     8.3 ms       0%         100%      0%
+      … then users died (no fallback)                     0     3.1 ms     7.0 ms       0%           0%    100%
 ```
 
 এখানে microservices এর আসল সুবিধা দেখা যায়: monolith এ export এর bug **পুরো** TaskFlow বন্ধ করে (বাস্তবে ৬টা instance, কিন্তু একই bug সবগুলোতে)। Microservices এ শুধু comments — আর fallback থাকলে board চলে। কিন্তু দেখো শেষ দুটো সারি: fallback না থাকলে ১০০% error, আর fallback **প্রতিটা নির্ভরতার জন্য আলাদা করে** design করতে হয় — users এর ছিল না।
@@ -119,12 +119,12 @@ Lesson 6.1 এর partial failure — "কিছু অংশ কাজ কর�
 **আর availability এর গুণ।** Spaced repetition এর উত্তর: serial এ দুটো 99.9% মানে 0.999 × 0.999 = 99.8%। Board এর পথে যত service, তত গুণ:
 
 ```
-── গ. হিসাব: board এর পথে k টা service, প্রতিটা আলাদাভাবে 99.9% available ──
-   k   পুরো পথের availability   মাসে বন্ধ (৩০ দিন)
-   1                   99.90%       43 মিনিট
-   3                   99.70%      129 মিনিট
-   5                   99.50%      216 মিনিট
-  10                   99.00%      430 মিনিট
+── C. Arithmetic: k services on the board's path, each independently 99.9% available ──
+   k        path availability   downtime per 30 days
+   1                   99.90%       43 minutes
+   3                   99.70%      129 minutes
+   5                   99.50%      216 minutes
+  10                   99.00%      430 minutes
 ```
 
 প্রস্তাবের ১২টা service এর অর্ধেকও যদি board এর পথে থাকে, প্রতিটা ভালো হলেও (99.9%) board মাসে সাড়ে তিন ঘণ্টা বন্ধ — monolith এর ৪৩ মিনিটের জায়গায়। Fallback থাকলে সেই service পথ থেকে বাদ যায় (parallel এর মতো) — তাই fallback শুধু সুন্দর UX না, availability এর গণিত।
@@ -142,12 +142,12 @@ Microservices এর নিয়ম: প্রতিটা service নিজে
 TaskFlow এ "task তৈরি" মানে দুটো জিনিস: tasks table এ row, আর billing এর workspace এ `task_count + 1` (plan এর সীমা আর বিল এই সংখ্যা থেকে)। Exercise এর `npm run transaction`: ৩০০০টা task তৈরি, আর ৩% এ প্রথম লেখার পরে process মারা যায় (deploy, OOM, timeout):
 
 ```
-── 3000 টা "task তৈরি", 100 টা workspace, 83 টায় প্রথম লেখার পরে crash (3%), 8 টা একসাথে ──
-   পথ                                              সফল   ব্যর্থ  task row  counter  অমিল ws   ফল                     ops/s      p50
-   monolith: একটা transaction                       2917     83     2917     2917         0   মেলে                     2917   2.6 ms
-   services: task আগে, তারপর billing                2917     83     3000     2917        57   83 টা task বিনা বিলে     1516   5.2 ms
-   services: billing আগে, তারপর task                2917     83     2917     3000        57   83 টা task এর বিল, task নেই   1513   5.2 ms
-   services: task আগে + user আবার চেষ্টা            3000      0     3083     3000        57   83 টা task বিনা বিলে     1477   5.2 ms
+── 3000 "create task", 100 workspaces, crash after the first write in 83 of them (3%), 8 concurrent ──
+   path                                               ok failed    tasks  counter    bad ws   result                  ops/s      p50
+   monolith: one transaction                        2917     83     2917     2917         0   they match               2917   2.6 ms
+   services: task first, then billing               2917     83     3000     2917        57   83 tasks with no bill    1516   5.2 ms
+   services: billing first, then task               2917     83     2917     3000        57   83 bills with no task    1513   5.2 ms
+   services: task first + the user retried          3000      0     3083     3000        57   83 tasks with no bill    1477   5.2 ms
 ```
 
 - **Monolith:** crash মানে পুরো transaction বাতিল। User error দেখে, কিন্তু কিছু অর্ধেক থাকে না — অমিল ০।
@@ -212,15 +212,15 @@ src/modules/
 ```
 
 ```typescript
-// src/modules/work/index.ts — work module এর public interface
+// src/modules/work/index.ts — the work module's public interface
 import type { Transaction } from 'sequelize';
 import { billing } from '../billing';
 import { Task } from './models/task';
 
 export async function createTask(input: NewTask, tx: Transaction): Promise<TaskDto> {
 	const task = await Task.create(input, { transaction: tx });
-	// অন্য module কে ডাকা — তার public function দিয়ে, তার table এ সরাসরি না।
-	// কিন্তু এখনো একই process, একই database, একই transaction — ১.৪ এর অমিল এখানে হয় না।
+	// calling another module — through its public function, never its table directly.
+	// But still the same process, the same database, the same transaction — 1.4's mismatch can't happen here.
 	await billing.recordTaskCreated(tx, input.workspaceId);
 	return toDto(task);
 }

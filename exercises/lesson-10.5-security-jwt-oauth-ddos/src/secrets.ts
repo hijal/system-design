@@ -66,11 +66,11 @@ function entropy(value: string): number {
 
 const RULES: Rule[] = [
 	{
-		name: 'tfsk key এর ধরন',
+		name: 'tfsk key pattern',
 		test: (line) => /tfsk_(live|test)_[A-Za-z0-9]{24}/.exec(line)?.[0] ?? null
 	},
 	{
-		name: 'URL এ password',
+		name: 'password in a URL',
 		test: (line) => {
 			const match = /[a-z]+:\/\/[^:\s/]+:([^@\s]+)@/.exec(line);
 			const password = match?.[1];
@@ -78,14 +78,14 @@ const RULES: Rule[] = [
 		}
 	},
 	{
-		name: 'SECRET/KEY = উচ্চ entropy',
+		name: 'SECRET/KEY = high entropy',
 		test: (line) => {
 			const value = /(?:SECRET|TOKEN|PASSWORD|_KEY)[A-Z_]*\s*=\s*(\S{16,})/.exec(line)?.[1];
 			return value && entropy(value) > 3.5 ? value : null;
 		}
 	},
 	{
-		name: 'যেকোনো লম্বা উচ্চ entropy string',
+		name: 'any long high-entropy string',
 		test: (line) => {
 			const value = /[A-Za-z0-9+/=_-]{40,}/.exec(line)?.[0];
 			return value && entropy(value) > 4.5 ? value : null;
@@ -120,29 +120,29 @@ for (const commit of HISTORY)
 	}
 
 const verdict = (value: string): string => {
-	if (value === stripeLive) return 'আসল — live payment key';
-	if (value === jwtSecret) return 'আসল — token sign করার secret';
-	if (value === dbPassword) return 'আসল — production DB';
-	if (value === stripeTest) return 'test key — কম ঝুঁকি, তবু সরাও';
+	if (value === stripeLive) return 'real — live payment key';
+	if (value === jwtSecret) return 'real — the token signing secret';
+	if (value === dbPassword) return 'real — production DB';
+	if (value === stripeTest) return 'test key — low risk, remove it anyway';
 	return 'false positive (lockfile hash)';
 };
 
-heading('অংশ ক — secret scanner: শুধু HEAD বনাম পুরো history');
+heading('Part A — secret scanner: HEAD only vs the whole history');
 const headFindings = scan(
 	[...head.entries()].map(([file, [commit, content]]) => [commit, file, content])
 );
 const historyFindings = scan(everything);
-console.log(`শুধু HEAD (আজকের code):    ${headFindings.length}টা finding`);
-console.log(`পুরো git history:          ${historyFindings.length}টা finding\n`);
-console.log(`${padEnd('commit', 10)}${padEnd('file', 20)}${padEnd('rule', 32)}মূল্যায়ন`);
+console.log(`HEAD only (today's code):  ${headFindings.length} findings`);
+console.log(`whole git history:         ${historyFindings.length} findings\n`);
+console.log(`${padEnd('commit', 10)}${padEnd('file', 20)}${padEnd('rule', 32)}verdict`);
 for (const f of historyFindings)
 	console.log(
 		`${padEnd(f.commit, 10)}${padEnd(f.file, 20)}${padEnd(f.rule, 32)}${verdict(f.value)}`
 	);
-const real = historyFindings.filter((f) => verdict(f.value).startsWith('আসল')).length;
-const headReal = headFindings.filter((f) => verdict(f.value).startsWith('আসল')).length;
+const real = historyFindings.filter((f) => verdict(f.value).startsWith('real')).length;
+const headReal = headFindings.filter((f) => verdict(f.value).startsWith('real')).length;
 console.log(
-	`\nআসল production secret: history তে ${real}টা, HEAD এ ${headReal}টা — "oops remove .env" commit কিছুই মোছেনি`
+	`\nreal production secrets: ${real} in history, ${headReal} at HEAD — the "oops remove .env" commit deleted nothing`
 );
 
 type Leak = {
@@ -180,32 +180,32 @@ const leaks: Leak[] = Array.from({ length: LEAKS }, () => {
 
 type Policy = { name: string; exposure: (leak: Leak) => number };
 const POLICIES: Policy[] = [
-	{ name: 'স্থির secret, কখনো বদলায় না', exposure: (l) => l.detectDays },
+	{ name: 'static secret, never changes', exposure: (l) => l.detectDays },
 	{
-		name: `প্রতি ${ROTATE_DAYS} দিনে rotate`,
+		name: `rotate every ${ROTATE_DAYS} days`,
 		exposure: (l) => Math.min(l.detectDays, l.rotationPhase)
 	},
 	{
-		name: `${ROTATE_DAYS} দিন + push protection`,
+		name: `${ROTATE_DAYS} days + push protection`,
 		exposure: (l) => (l.blocked ? 0 : Math.min(l.detectDays, l.rotationPhase))
 	},
 	{
-		name: `dynamic credential (${LEASE_MINUTES} মি lease)`,
+		name: `dynamic credential (${LEASE_MINUTES} min lease)`,
 		exposure: (l) => Math.min(l.detectDays, l.leaseLeft)
 	}
 ];
 
 heading(
-	`অংশ খ — ${n(LEAKS)}টা ফাঁস, ধরা পড়তে median ${DETECT_MEDIAN_DAYS} দিন (ধরে নেওয়া): ফাঁস হওয়া secret কতদিন কাজ করে`
+	`Part B — ${n(LEAKS)} leaks, median ${DETECT_MEDIAN_DAYS} days to detect (assumed): how long a leaked secret keeps working`
 );
 console.log(
 	row([
-		['নীতি', 34],
-		['কাজ করা ফাঁস', 14],
+		['policy', 34],
+		['working leaks', 15],
 		['median', 12],
 		['p90', 12],
-		['> ৭ দিন', 10],
-		['মোট attacker-দিন', 18]
+		['> 7 days', 10],
+		['total attacker-days', 21]
 	])
 );
 for (const policy of POLICIES) {
@@ -216,11 +216,11 @@ for (const policy of POLICIES) {
 	console.log(
 		row([
 			[policy.name, 34],
-			[n(usable.length), 14],
+			[n(usable.length), 15],
 			[duration(percentile(sorted, 50) * 1_440), 12],
 			[duration(percentile(sorted, 90) * 1_440), 12],
 			[pct(usable.filter((d) => d > 7).length, LEAKS), 10],
-			[n(total), 18]
+			[n(total), 21]
 		])
 	);
 }
@@ -235,13 +235,13 @@ const SERVICES: Record<string, string[]> = {
 };
 const allSecrets = new Set(Object.values(SERVICES).flat());
 
-heading('অংশ গ — একটা service এর ভেতরে কেউ ঢুকলে কয়টা secret তার হাতে');
+heading('Part C — how many secrets someone holds after getting inside one service');
 console.log(
 	row([
-		['ঢুকেছে', 12],
-		['একটা ভাগ করা .env', 22],
-		['service ধরে আলাদা', 22],
-		['যা হাতে গেল', 44]
+		['got into', 12],
+		['one shared .env', 22],
+		['separate per service', 23],
+		['what they got', 44]
 	])
 );
 for (const [service, scoped] of Object.entries(SERVICES))
@@ -249,13 +249,13 @@ for (const [service, scoped] of Object.entries(SERVICES))
 		row([
 			[service, 12],
 			[allSecrets.size, 22],
-			[scoped.length, 22],
+			[scoped.length, 23],
 			[
 				scoped.includes('STRIPE_KEY')
-					? 'STRIPE_KEY সহ'
+					? 'incl. STRIPE_KEY'
 					: scoped.includes('DATABASE_URL')
-						? 'DATABASE_URL সহ'
-						: 'payment/DB না',
+						? 'incl. DATABASE_URL'
+						: 'no payment/DB',
 				44
 			]
 		])

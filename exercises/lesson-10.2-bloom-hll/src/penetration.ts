@@ -127,20 +127,20 @@ function simulate(strategy: Strategy): Outcome {
 function enumeration(): void {
 	const seconds = REQUESTS / RPS;
 	heading(
-		`ক. ${LINKS.toLocaleString('en-US')}টা share link, ${RPS.toLocaleString('en-US')} req/s এর ${pct(BOT, 1, 0)} bot এলোমেলো slug আন্দাজ করছে — cache ${CACHE.toLocaleString('en-US')} entry`
+		`A. ${LINKS.toLocaleString('en-US')} share links, ${pct(BOT, 1, 0)} of ${RPS.toLocaleString('en-US')} req/s are bots guessing random slugs — cache ${CACHE.toLocaleString('en-US')} entries`
 	);
 	console.log(
 		row([
-			['পদ্ধতি', 26],
+			['approach', 26],
 			['DB query/s', 12],
-			['তার মধ্যে "নেই"', 17],
-			['আসল user এর hit', 17],
-			['cache এ "নেই" entry', 20],
+			['of which "none"', 17],
+			['real user hits', 17],
+			['negative entries', 20],
 			['evict', 10]
 		])
 	);
 	const cases: [string, Strategy][] = [
-		['শুধু cache', 'plain'],
+		['cache only', 'plain'],
 		[`+ negative cache ${NEGATIVE_TTL} s`, 'negative'],
 		[`+ bloom filter ${RATE * 100}%`, 'bloom']
 	];
@@ -159,7 +159,7 @@ function enumeration(): void {
 	}
 	const filter = BloomFilter.forCapacity(LINKS, RATE);
 	console.log(
-		`   filter: ${Math.round(filter.size / 8 / 1024).toLocaleString('en-US')} KB, k = ${filter.hashes} — একবার বানানো, প্রতিটা app instance এর memory তে`
+		`   filter: ${Math.round(filter.size / 8 / 1024).toLocaleString('en-US')} KB, k = ${filter.hashes} — built once, in every app instance's memory`
 	);
 }
 
@@ -207,19 +207,19 @@ function freshness(upkeep: Upkeep): { wrong404: number; newRequests: number } {
 
 function staleFilter(): void {
 	heading(
-		`খ. প্রতি সেকেন্ডে ${NEW_PER_SECOND}টা নতুন link তৈরি হয়, আর ৫% request গত ${RECENT.toLocaleString('en-US')}টা নতুন link এ — filter কি জানে?`
+		`B. ${NEW_PER_SECOND} new links are created every second, and 5% of requests go to the latest ${RECENT.toLocaleString('en-US')} — does the filter know?`
 	);
 	console.log(
 		row([
-			['filter রাখার নিয়ম', 30],
-			['সত্যিকারের link এ 404', 23],
-			['নতুন link এর request এর', 24]
+			['filter upkeep', 30],
+			['404 on a real link', 23],
+			['of new-link requests', 24]
 		])
 	);
 	const cases: [string, Upkeep][] = [
-		['শুরুতে একবার বানানো', 'never'],
-		[`প্রতি ${REBUILD} s এ DB থেকে নতুন করে`, 'rebuild'],
-		['তৈরির সাথে সাথে filter এ add', 'on-create']
+		['built once at startup', 'never'],
+		[`rebuilt from the DB every ${REBUILD} s`, 'rebuild'],
+		['add to the filter on create', 'on-create']
 	];
 	for (const [label, upkeep] of cases) {
 		const { wrong404, newRequests } = freshness(upkeep);
@@ -232,7 +232,7 @@ function staleFilter(): void {
 		);
 	}
 	console.log(
-		'   (404 এখানে false negative — filter বলল "নেই", অথচ DB তে আছে। Bloom নিজে কখনো এটা করে না)'
+		'   (404 here is a false negative — the filter said "none" while it is in the DB. Bloom itself never does this)'
 	);
 }
 

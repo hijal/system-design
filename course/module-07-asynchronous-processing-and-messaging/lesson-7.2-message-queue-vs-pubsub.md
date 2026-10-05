@@ -82,11 +82,11 @@ Lesson 7.1 এর queue টা API process এর নিজের memory তে 
 Exercise এর `npm run fanout` দেখায় ভুল উত্তর বাছলে কী হয়। ১০৬৯টা ঘটনা; email, search আর analytics তিনজনেরই সবগুলো দরকার:
 
 ```
-   broker                            email পেল   search পেল   analytics পেল
-   queue — একটাই queue, সবাই মিলে         40%          40%             20%
-   queue — service প্রতি queue           100%         100%            100%
+   broker                           email got   search got   analytics got
+   queue — one shared queue               40%          40%             20%
+   queue — one queue per service         100%         100%            100%
    pub/sub                               100%         100%            100%
-   log — service প্রতি group             100%         100%            100%
+   log — one group per service           100%         100%            100%
 ```
 
 প্রথম সারিটা পড়ো: তিনটা service এর worker একটা queue তে (email এর ২টা, search এর ২টা, analytics এর ১টা) — broker তাদের মধ্যে round-robin এ ভাগ করে দেয়। প্রতিটা comment **একজনের** কাছে যায়, তাই search index এ ৬০% comment নেই, analytics এ ৮০% নেই। Queue ঠিক তার কাজ করছে — "প্রতিটা message একবার" — আর এখানে সেটাই ভুল।
@@ -111,11 +111,11 @@ Kafka তে এই দুই স্তর একটা ধারণাতেই
 মঙ্গলবারের incident এর প্রশ্ন। `npm run crash` — search service ২০ থেকে ৩০ সেকেন্ড বন্ধ (deploy), বাকিরা চলছে:
 
 ```
-   broker                          হারাল   দুবার প্রক্রিয়া   দেরি p99    দেরি max
+   broker                           lost  processed twice  delay p99  delay max
    pub/sub                           193                0      36 ms      43 ms
-   queue (ack প্রতি message)           0                0      9.6 s      9.8 s
-   log (commit প্রতি 5.0 s)            0              110     10.6 s     11.0 s
-   log (commit প্রতি 100 ms)           0                2      9.6 s      9.8 s
+   queue (ack per message)             0                0      9.6 s      9.8 s
+   log (commit every 5.0 s)            0              110     10.6 s     11.0 s
+   log (commit every 100 ms)           0                2      9.6 s      9.8 s
 ```
 
 **Pub/Sub এর সারি:** ১৯৩টা comment search কখনো পায়নি — আর তার দেরি মাত্র ৩৬ ms! দুটো একই কারণে: Redis Pub/Sub message **জমা রাখে না**। Publish এর মুহূর্তে যে subscriber connected, সে পায়; যে নেই, তার জন্য message টা কোথাও নেই — কখনো না। দেরি কম কারণ যা দেরিতে আসতে পারত, সেগুলো আসেইনি। এটা ত্রুটি না, এটাই design: Redis Pub/Sub একটা "এখন যারা শুনছে তাদের বলে দাও" এর tool — **সর্বোচ্চ একবার (at-most-once)**।
@@ -143,7 +143,7 @@ Kafka তে এই দুই স্তর একটা ধারণাতেই
 **এবার ধীর consumer** — বৃহস্পতিবারের incident। `npm run slow` — analytics এর একটা worker প্রতি ঘটনায় ৬০–১০০ ms নেয় (≈১২.৫/s), আর ঘটনা আসে ≈১৭.৮/s। Lesson 7.1 এর ভাষায়: consumer এর গতি আসার গতির চেয়ে কম, backlog বাড়বেই। প্রশ্ন হলো backlog টা **কোথায়** থাকে:
 
 ```
-   broker     analytics হারাল   জমা (সর্বোচ্চ)   analytics দেরি max   email দেরি p99
+   broker      analytics lost    backlog (max)  analytics delay max  email delay p99
    pubsub                 367              101                6.0 s           171 ms
    queue                    0              375               32.1 s           199 ms
    log                      0              334               27.7 s           271 ms
@@ -187,10 +187,10 @@ Search একটা group, analytics একটা group — প্রত্য�
 `npm run replay` — নতুন `search-v2` service যোগ দিল ৬০ সেকেন্ডে, আর তার আগের সব ঘটনাও চায়:
 
 ```
-   broker                   আগের ঘটনা পেল    পরের ঘটনা পেল
+   broker                  earlier events     later events
    pub/sub                       0 / 1069        551 / 551
    queue                         0 / 1069        551 / 551
-   log (retention 7 দিন)      1069 / 1069        551 / 551
+   log (retention 7 days)     1069 / 1069        551 / 551
    log (retention 30 s)        566 / 1069        551 / 551
 ```
 
@@ -214,11 +214,11 @@ Log এর উত্তর: **partition** আর **key**। Lesson 5.8 এর sh
 `npm run ordering` — notifier service, প্রতিটা ঘটনায় ২০–১২০ ms, কিন্তু ১% ঘটনায় ৩ সেকেন্ড (provider এর একটা ধীর মুহূর্ত):
 
 ```
-   broker                           ক্রম ভাঙা task   দেরি p50   দেরি p99   দেরি max   কাজ পাওয়া consumer
+   broker                      tasks out of order  delay p50  delay p99  delay max   consumers with work
    queue, 4 worker                             11      76 ms      3.0 s      3.1 s   4
    log, key = task, 4 partition                 0      94 ms      4.8 s      7.0 s   4
    log, key = random, 4 partition              69      97 ms      4.2 s      4.7 s   4
-   log, key = task, 8 consumer                  0      94 ms      4.8 s      7.0 s   4 (4 জন বসে থাকে)
+   log, key = task, 8 consumer                  0      94 ms      4.8 s      7.0 s   4 (4 idle)
 ```
 
 চারটা শিক্ষা, প্রতিটা সারিতে একটা:

@@ -36,17 +36,17 @@ const gbPerHour = (mbps: number): number => (3_600 * mbps) / 8 / 1_000;
 const videoHours = VIDEO_MIN / 60;
 
 heading(
-	`অংশ ক — জনপ্রিয়তা: ${big(VIDEOS)} video (গড়ে ${VIDEO_MIN} মিনিট), মাসে ${big(WATCH_HOURS)} ঘণ্টা দেখা, Zipf (s = ${ZIPF_S})`
+	`Part A — popularity: ${big(VIDEOS)} videos (${VIDEO_MIN} minutes on average), ${big(WATCH_HOURS)} hours watched a month, Zipf (s = ${ZIPF_S})`
 );
 let seen = 0;
 let acc = 0;
 const targets = [0.001, 0.01, 0.1];
 console.log(
 	row([
-		['সবচেয়ে জনপ্রিয়', 30],
+		['most popular', 30],
 		['video', 14],
-		['দেখার ভাগ', 12],
-		['edge এ জায়গা (সব resolution)', 28]
+		['share of watching', 19],
+		['space at the edge (all resolutions)', 37]
 	])
 );
 for (const b of bins) {
@@ -59,8 +59,8 @@ for (const b of bins) {
 			row([
 				[`${t * 100}%`, 30],
 				[big(seen), 14],
-				[pct(acc, WATCH_HOURS, 1), 12],
-				[bytes(seen * videoHours * gbPerHour(LADDER_MBPS) * 1e9), 28]
+				[pct(acc, WATCH_HOURS, 1), 19],
+				[bytes(seen * videoHours * gbPerHour(LADDER_MBPS) * 1e9), 37]
 			])
 		);
 	}
@@ -72,36 +72,38 @@ for (const b of bins) {
 	if (b.hours < (H264_PER_HOUR * videoHours) / (gbPerHour(AVG_MBPS) * CDN_PER_GB))
 		underSix += b.count;
 }
-console.log(`\nমাসে একবারও দেখা হয় না এমন video (আনুমানিক): ${pct(idle, VIDEOS, 1)}`);
+console.log(`\nvideos not watched even once a month (approx.): ${pct(idle, VIDEOS, 1)}`);
 console.log(
-	`যাদের মাসের দেখার egress খরচ তাদের transcode এর খরচের চেয়ে কম: ${pct(underSix, VIDEOS, 1)}`
+	`videos whose monthly watching egress costs less than their transcode: ${pct(underSix, VIDEOS, 1)}`
 );
 
 heading(
-	`অংশ খ — কোন video কে AV1 এ আবার encode করব: ${AV1_SAVING * 100}% কম bit, encode ${AV1_COST_X} গুণ দামি`
+	`Part B — which videos to re-encode in AV1: ${AV1_SAVING * 100}% fewer bits, encoding ${AV1_COST_X}× as expensive`
 );
 const extraEncode = H264_PER_HOUR * (AV1_COST_X - 1) * videoHours;
 const savingPerWatchHour = gbPerHour(AVG_MBPS) * CDN_PER_GB * AV1_SAVING;
 const breakEven = extraEncode / savingPerWatchHour;
 console.log(
-	`একটা ${VIDEO_MIN} মিনিটের video এর বাড়তি encode: $${extraEncode.toFixed(3)}; প্রতি ঘণ্টা দেখায় বাঁচে $${savingPerWatchHour.toFixed(5)}`
+	`extra encode for a ${VIDEO_MIN}-minute video: $${extraEncode.toFixed(3)}; saved per hour watched $${savingPerWatchHour.toFixed(5)}`
 );
-console.log(`লাভ শুরু: মাসে ~${n(breakEven)} ঘণ্টা দেখা হলে (এক মাসে শোধ ধরে)\n`);
+console.log(
+	`break-even: at ~${n(breakEven)} hours watched a month (assuming it pays back within a month)\n`
+);
 console.log(
 	row([
-		['নীতি', 34],
+		['policy', 34],
 		['video', 14],
-		['বাড়তি encode/মাস', 18],
-		['egress বাঁচল/মাস', 18],
-		['নিট', 14]
+		['extra encode/month', 20],
+		['egress saved/month', 20],
+		['net', 14]
 	])
 );
 const baseEgress = WATCH_HOURS * gbPerHour(AVG_MBPS) * CDN_PER_GB;
 for (const [name, threshold] of [
-	['কোনোটাই না', Number.POSITIVE_INFINITY],
-	['সব video', 0],
-	[`মাসে ${n(breakEven)} ঘণ্টার বেশি`, breakEven],
-	[`মাসে ${n(breakEven * 10)} ঘণ্টার বেশি`, breakEven * 10]
+	['none', Number.POSITIVE_INFINITY],
+	['all videos', 0],
+	[`over ${n(breakEven)} hours a month`, breakEven],
+	[`over ${n(breakEven * 10)} hours a month`, breakEven * 10]
 ] as const) {
 	let count = 0;
 	let hours = 0;
@@ -116,12 +118,12 @@ for (const [name, threshold] of [
 		row([
 			[name, 34],
 			[big(count), 14],
-			[`$${n(cost)}`, 18],
-			[`$${n(saved)}`, 18],
+			[`$${n(cost)}`, 20],
+			[`$${n(saved)}`, 20],
 			[`$${n(saved - cost)}`, 14]
 		])
 	);
 }
 console.log(
-	`\nমোট egress মাসে $${n(baseEgress)}। নতুন video এর এক মাসের encode ধরা হয়েছে, পুরনো catalog এর একবারের খরচ না।`
+	`\ntotal egress $${n(baseEgress)} a month. One month of encoding new videos is counted, not the one-off cost of the old catalogue.`
 );

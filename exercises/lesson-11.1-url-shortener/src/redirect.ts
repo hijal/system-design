@@ -1,4 +1,4 @@
-import { bytes, env, heading, mulberry32, n, pct, row, share } from './util';
+import { big, bytes, env, heading, mulberry32, n, pct, row, share } from './util';
 
 const SEED = env('SEED', 11);
 const LINKS = env('LINKS', 2_000_000);
@@ -94,25 +94,25 @@ const sample = (u: number): number => {
 };
 
 heading(
-	`অংশ ক — redirect এর cache: ${n(LINKS)}টা link, ${n(REQUESTS)}টা redirect, জনপ্রিয়তা Zipf (s = ${ZIPF_S}), LRU`
+	`Part A — the redirect cache: ${n(LINKS)} links, ${n(REQUESTS)} redirects, Zipf popularity (s = ${ZIPF_S}), LRU`
 );
 console.log(
 	row([
 		['cache', 40],
 		['entry', 12],
 		['hit rate', 11],
-		[`DB পড়া/s (peak ${n(PEAK_RPS)})`, 26],
-		[`memory, ${n(ACTIVE_LINKS / 1e7)} কোটি link এ`, 24]
+		[`DB reads/s (peak ${n(PEAK_RPS)})`, 26],
+		[`memory, at ${big(ACTIVE_LINKS)} links`, 24]
 	])
 );
 const warmup = Math.floor(REQUESTS / 5);
 const layouts: { name: string; fraction: number; servers: number }[] = [
-	{ name: 'শেয়ার করা cache (Redis), link এর 0.1%', fraction: 0.001, servers: 1 },
-	{ name: 'শেয়ার করা cache (Redis), link এর 1%', fraction: 0.01, servers: 1 },
-	{ name: 'শেয়ার করা cache (Redis), link এর 5%', fraction: 0.05, servers: 1 },
-	{ name: 'শেয়ার করা cache (Redis), link এর 20%', fraction: 0.2, servers: 1 },
+	{ name: 'shared cache (Redis), 0.1% of links', fraction: 0.001, servers: 1 },
+	{ name: 'shared cache (Redis), 1% of links', fraction: 0.01, servers: 1 },
+	{ name: 'shared cache (Redis), 5% of links', fraction: 0.05, servers: 1 },
+	{ name: 'shared cache (Redis), 20% of links', fraction: 0.2, servers: 1 },
 	{
-		name: `প্রতি app server এ local 0.1% (${APP_SERVERS}টা)`,
+		name: `local 0.1% on each app server (${APP_SERVERS})`,
 		fraction: 0.001,
 		servers: APP_SERVERS
 	}
@@ -151,28 +151,28 @@ for (const layout of layouts) {
 }
 const top = cdf[0] ?? 0;
 console.log(
-	`\nসবচেয়ে জনপ্রিয় link: সব redirect এর ${share(top, 1)} → peak এ ${n(top * PEAK_RPS)}/s, সব একটা cache node এ (key একটাই)।`
+	`\nMost popular link: ${share(top, 1)} of all redirects → ${n(top * PEAK_RPS)}/s at peak, all on one cache node (it is one key).`
 );
 console.log(
-	`Viral link ${n(VIRAL_RPS)}/s: শেয়ার করা cache এ এক node এ ${n(VIRAL_RPS)}/s; local cache এ প্রতি app server এ ${n(VIRAL_RPS / APP_SERVERS)}/s, cache node এ ~০।`
+	`Viral link at ${n(VIRAL_RPS)}/s: with a shared cache, ${n(VIRAL_RPS)}/s on one node; with a local cache, ${n(VIRAL_RPS / APP_SERVERS)}/s per app server and ~0 on the cache node.`
 );
 
 heading(
-	`অংশ খ — 301 বনাম 302: ${n(USERS)} জন একটা link এ click করে, গড়ে আরও ${REPEAT_MEAN} বার ফেরে (মাঝে গড়ে ${GAP_HOURS} ঘণ্টা), ${share(HONOR_CACHE, 0)} browser cache রাখে; দিন ${TAKEDOWN_DAY} এ link বন্ধ`
+	`Part B — 301 vs 302: ${n(USERS)} people click a link, come back ${REPEAT_MEAN} more times on average (${GAP_HOURS} hours apart on average), ${share(HONOR_CACHE, 0)} of browsers keep the cache; the link is disabled on day ${TAKEDOWN_DAY}`
 );
 console.log(
 	row([
-		['নীতি', 34],
+		['policy', 34],
 		['click', 12],
-		['server দেখল', 13],
-		['analytics এ নেই', 17],
-		['বন্ধের পরে click', 17],
-		['তবুও গন্তব্যে গেল', 18]
+		['server saw', 13],
+		['not in analytics', 18],
+		['clicks after off', 17],
+		['still reached dest', 18]
 	])
 );
 type Policy = { name: string; cacheHours: number };
 const policies: Policy[] = [
-	{ name: '301 (স্থায়ী, browser মনে রাখে)', cacheHours: Number.POSITIVE_INFINITY },
+	{ name: '301 (permanent, browser remembers)', cacheHours: Number.POSITIVE_INFINITY },
 	{ name: '302 + Cache-Control: max-age=3600', cacheHours: 1 },
 	{ name: '302 + Cache-Control: private, no-store', cacheHours: 0 }
 ];
@@ -214,11 +214,11 @@ for (const policy of policies) {
 	);
 }
 console.log(
-	'"তবুও গন্তব্যে গেল" = link বন্ধ করার পরেও browser এর cache থেকে পুরনো গন্তব্যে চলে যাওয়া click।'
+	'"still reached dest" = clicks that went to the old destination from the browser cache even after the link was disabled.'
 );
 
 heading(
-	`অংশ গ — প্রতি link এ unique visitor: মাসে ${n(MONTHLY_CLICKS / 1e7)} কোটি click, ${n(ACTIVE_LINKS / 1e7)} কোটি link এ Zipf, click এর ${share(UNIQUE_SHARE, 0)} unique`
+	`Part C — unique visitors per link: ${big(MONTHLY_CLICKS)} clicks a month, Zipf over ${big(ACTIVE_LINKS)} links, ${share(UNIQUE_SHARE, 0)} of clicks unique`
 );
 {
 	let harmonic = 0;
@@ -256,35 +256,35 @@ heading(
 	}
 	console.log(
 		row([
-			['পদ্ধতি', 52],
+			['method', 52],
 			['memory', 12]
-		]) + '   মন্তব্য'
+		]) + '   note'
 	);
 	console.log(
 		row([
-			['প্রতি link এ exact set (visitor hash, ' + SET_BYTES + ' B)', 52],
+			['exact set per link (visitor hash, ' + SET_BYTES + ' B)', 52],
 			[bytes(exact), 12]
-		]) + '   নির্ভুল; জনপ্রিয় link এ বড়'
+		]) + '   exact; big on popular links'
 	);
 	console.log(
 		row([
-			['প্রতি click করা link এ dense HLL (12 KB)', 52],
+			['dense HLL (12 KB) per clicked link', 52],
 			[bytes(dense), 12]
-		]) + `   ${n(clicked / 1e7)} কোটি link এ click — বেশিরভাগ ছোট`
+		]) + `   ${big(clicked)} links clicked — most of them small`
 	);
 	console.log(
 		row([
-			['ছোট হলে set, বড় হলে HLL (Redis এর sparse → dense)', 52],
+			['set when small, HLL when big (Redis sparse → dense)', 52],
 			[bytes(hybrid), 12]
-		]) + `   মাত্র ${n(bigLinks)}টা link এ ${n(threshold)} এর বেশি unique`
+		]) + `   only ${n(bigLinks)} links have more than ${n(threshold)} unique`
 	);
 	console.log(
 		row([
-			['click event জমিয়ে রাতে batch এ গোনা (7.6)', 52],
+			['collect click events, count in a nightly batch (7.6)', 52],
 			['0 RAM', 12]
-		]) + `   disk এ ~${bytes(MONTHLY_CLICKS * 100)}/মাস raw event; দেরি কয়েক ঘণ্টা`
+		]) + `   ~${bytes(MONTHLY_CLICKS * 100)}/month of raw events on disk; hours of delay`
 	);
 	console.log(
-		`\nসবচেয়ে জনপ্রিয় link এ মাসে ~${n(MONTHLY_CLICKS / harmonic)} click; ${n(ACTIVE_LINKS / 1e7)} কোটির মধ্যে মাঝের link এ ~${(MONTHLY_CLICKS / (Math.pow(ACTIVE_LINKS / 2, ZIPF_S) * harmonic)).toFixed(1)}টা।`
+		`\nThe most popular link gets ~${n(MONTHLY_CLICKS / harmonic)} clicks a month; the median of the ${big(ACTIVE_LINKS)} links gets ~${(MONTHLY_CLICKS / (Math.pow(ACTIVE_LINKS / 2, ZIPF_S) * harmonic)).toFixed(1)}.`
 	);
 }

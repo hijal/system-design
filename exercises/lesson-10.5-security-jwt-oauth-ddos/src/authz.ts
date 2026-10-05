@@ -25,30 +25,33 @@ const identityKey = newSigningKey('2026-10');
 const keyring = new Map([[identityKey.kid, identityKey.publicKey]]);
 const pem = publicPem(identityKey);
 
-heading('অংশ ক — JWT যাচাই: naive বনাম strict');
+heading('Part A — JWT verification: naive vs strict');
 const alice = claimsFor('alice', 'member', NOW);
 const valid = signRs256(alice, identityKey);
 const cases: [string, string][] = [
-	['বৈধ token', valid],
-	['payload এ role → admin (signature আগেরটা)', tamperPayload(valid, { role: 'admin' })],
-	['alg: none, signature খালি', forgeUnsigned({ ...alice, role: 'admin' })],
+	['valid token', valid],
+	['role → admin in the payload (old signature)', tamperPayload(valid, { role: 'admin' })],
+	['alg: none, empty signature', forgeUnsigned({ ...alice, role: 'admin' })],
 	[
-		'HS256, public key কে secret ধরে sign',
+		'HS256, signed using the public key as the secret',
 		forgeHs256({ ...alice, role: 'admin' }, pem, identityKey.kid)
 	],
-	['মেয়াদ ২ ঘণ্টা আগে শেষ', signRs256(claimsFor('alice', 'member', NOW - 8_100), identityKey)],
-	['aud = billing-api (অন্য service এর)', signRs256({ ...alice, aud: 'billing-api' }, identityKey)],
+	['expired 2 hours ago', signRs256(claimsFor('alice', 'member', NOW - 8_100), identityKey)],
 	[
-		'iss = staging (একই key ভাগ করা)',
+		"aud = billing-api (another service's)",
+		signRs256({ ...alice, aud: 'billing-api' }, identityKey)
+	],
+	[
+		'iss = staging (sharing the same key)',
 		signRs256({ ...alice, iss: 'https://id.staging.taskflow.test' }, identityKey)
 	],
-	['অন্য key দিয়ে sign (attacker এর নিজের)', signRs256(alice, newSigningKey('2026-10'))]
+	["signed with another key (the attacker's own)", signRs256(alice, newSigningKey('2026-10'))]
 ];
 console.log(
 	row([
-		['token', 46],
-		['naive', 22],
-		['strict', 30]
+		['token', 52],
+		['naive', 24],
+		['strict', 36]
 	])
 );
 let naiveAccepted = 0;
@@ -61,14 +64,14 @@ for (const [label, token] of cases) {
 	const show = (r: typeof a): string => (r.ok ? `200 (${r.claims.role})` : `401 ${r.reason}`);
 	console.log(
 		row([
-			[label, 46],
-			[show(a), 22],
-			[show(b), 30]
+			[label, 52],
+			[show(a), 24],
+			[show(b), 36]
 		])
 	);
 }
 console.log(
-	`\nnaive গ্রহণ করল ${naiveAccepted}/${cases.length}, strict ${strictAccepted}/${cases.length}`
+	`\nnaive accepted ${naiveAccepted}/${cases.length}, strict ${strictAccepted}/${cases.length}`
 );
 
 type Board = { id: string; ws: string };
@@ -134,17 +137,17 @@ function routes(boards: ReadonlyMap<string, Board>, existence: 'leak' | 'hide'):
 const token = (u: User): Claims => claimsFor(u.id, u.role, NOW);
 const ok = (status: number): boolean => status >= 200 && status < 300;
 
-heading('অংশ খ — BOLA: mallory এর বৈধ token, sequential board id 1..N');
+heading("Part B — BOLA: mallory's valid token, sequential board ids 1..N");
 const sequential = buildBoards((i) => String(i + 1));
 const malloryClaims = token(mallory);
 console.log(
-	`${n(WORKSPACES)} workspace × ${BOARDS_PER_WORKSPACE} board = ${n(sequential.size)} board; mallory নিজের free workspace (${mallory.ws}) এর admin\n`
+	`${n(WORKSPACES)} workspaces × ${BOARDS_PER_WORKSPACE} boards = ${n(sequential.size)} boards; mallory is admin of their own free workspace (${mallory.ws})\n`
 );
 console.log(
 	row([
 		['route', 32],
-		['অন্যের board পেল', 18],
-		['অস্তিত্ব জানল', 16]
+		["got others' boards", 20],
+		['learned existence', 19]
 	])
 );
 const leakTable = routes(sequential, 'leak');
@@ -160,13 +163,13 @@ for (const route of leakTable) {
 	console.log(
 		row([
 			[route.name, 32],
-			[n(stolen), 18],
-			[n(revealed), 16]
+			[n(stolen), 20],
+			[n(revealed), 19]
 		])
 	);
 }
 
-heading('অংশ গ — id কে UUID করলে কি সমাধান?');
+heading('Part C — does making the id a UUID fix it?');
 const uuidBoards = buildBoards(() => randomUUID());
 const exportRoute = routes(uuidBoards, 'hide').find((r) => r.name.includes('export'));
 if (exportRoute) {
@@ -180,36 +183,36 @@ if (exportRoute) {
 	).length;
 	console.log(
 		row([
-			['mallory এর চেষ্টা', 44],
-			['চেষ্টা', 12],
-			['অন্যের board পেল', 18]
+			["mallory's attempt", 44],
+			['attempts', 12],
+			["got others' boards", 20]
 		])
 	);
 	console.log(
 		row([
-			['এলোমেলো UUID অনুমান', 44],
+			['guessing random UUIDs', 44],
 			[n(UUID_GUESSES), 12],
-			[n(guessedHits), 18]
+			[n(guessedHits), 20]
 		])
 	);
 	console.log(
 		row([
-			['ফাঁস হওয়া support log থেকে পাওয়া id', 44],
+			['ids from a leaked support log', 44],
 			[n(leaked.length), 12],
-			[n(leakedHits), 18]
+			[n(leakedHits), 20]
 		])
 	);
 }
 
-heading('অংশ ঘ — authorization matrix test (প্রতিটা route × প্রতিটা actor)');
+heading('Part D — authorization matrix test (every route × every actor)');
 const target = [...sequential.values()].find((b) => b.ws === 'ws-0042');
 const actors: [string, Claims | null, number[]][] = [
-	['মালিক', token({ id: 'owner-ws-0042', ws: 'ws-0042', role: 'admin' }), [200, 201, 204]],
-	['অন্য ws এর member', token(viewer), [404]],
-	['অন্য ws এর admin', malloryClaims, [404]],
-	['token ছাড়া', null, [401]]
+	['owner', token({ id: 'owner-ws-0042', ws: 'ws-0042', role: 'admin' }), [200, 201, 204]],
+	['member of another ws', token(viewer), [404]],
+	['admin of another ws', malloryClaims, [404]],
+	['no token', null, [401]]
 ];
-console.log(padEnd('route', 32) + actors.map(([name]) => padEnd(name, 20)).join('') + 'ফল');
+console.log(padEnd('route', 32) + actors.map(([name]) => padEnd(name, 23)).join('') + 'result');
 let failures = 0;
 if (target) {
 	for (const route of routes(sequential, 'hide')) {
@@ -219,10 +222,12 @@ if (target) {
 			const status = route.handle({ principal, boardId: target.id });
 			const pass = expected.includes(status);
 			if (!pass) routeFails++;
-			line += padEnd(`${status}${pass ? '' : ' ✗'}`, 20);
+			line += padEnd(`${status}${pass ? '' : ' ✗'}`, 23);
 		}
 		failures += routeFails;
 		console.log(line + (routeFails === 0 ? 'pass' : 'FAIL'));
 	}
 }
-console.log(`\n${failures}টা ঘর ব্যর্থ — CI তে এই test থাকলে merge এর আগে ধরা পড়ত`);
+console.log(
+	`\n${failures} cells failed — with this test in CI it would have been caught before merge`
+);

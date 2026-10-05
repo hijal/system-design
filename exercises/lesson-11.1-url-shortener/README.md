@@ -73,36 +73,36 @@ curl -s localhost:3000/api/links/<code>/stats
 এই মাপে দামি:
 
 ```
-নতুন link (লেখা) / s                           38.6           116
-redirect (পড়া) / s                          3,858        11,574
-6                 5,680 কোটি            47         21.1%               21.1%         21.1%
-7               3.52 লাখ কোটি         2,935        0.341%              0.341%        0.341%
-Bloom filter, সব 1,200 কোটি code, ১% ভুল                      14.4 GB
-HyperLogLog (dense, 12 KB) প্রতি link এ                        147 TB
+new links (writes) / s                      38.6           116
+redirects (reads) / s                      3,858        11,574
+6             56.8 billion              47           21.1%               21.1%         21.1%
+7            3.52 trillion           2,935          0.341%              0.341%        0.341%
+Bloom filter, all 12 billion codes, 1% error               14.4 GB
+HyperLogLog (dense, 12 KB) per link                          147 TB
 ```
 
 `npm run keygen` — random এ retry = যতটা ভরা; hash এ collision birthday এর আন্দাজে মেলে; counter অনুমানযোগ্য, permutation না;
 permutation এক-এক:
 
 ```
-0.341%          1.0035        0.35%              2         1.9 মাস       10.0 বছর
+0.341%          1.0035        0.35%              2     1.9 months     10.0 years
 21.1%        3,117,807        329,366   10.564%          328,929      1.1234
 counter → base62                                  0d6C 0d6D 0d6E 0d6F 0d6G          100.00%          0.34%
-counter → গোপন permutation → base62                f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
+counter → secret permutation → base62             f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
 1,000                   3,354          10,161                0.00011%             47.5%
-৩ অক্ষরের পুরো domain (238,328টা id): আলাদা output 238,328টা — কোনো collision নেই
+whole 3-char domain (238,328 ids): 238,328 distinct outputs — no collisions
 ```
 
 `npm run redirect` — ছোট cache অনেক দেয়, তারপর ধীরে; 301 analytics আর link বন্ধ করা দুটোই ভাঙে; per-link HLL exact এর চেয়েও
 দামি:
 
 ```
-শেয়ার করা cache (Redis), link এর 1%              20,000      60.4%                     4,578                  2.5 GB
-শেয়ার করা cache (Redis), link এর 20%            400,000      84.8%                     1,757                 50.0 GB
-301 (স্থায়ী, browser মনে রাখে)                300,664        43.2%            56.8%          189,422             62.6%
+shared cache (Redis), 1% of links             20,000      60.4%                     4,578                  2.5 GB
+shared cache (Redis), 20% of links           400,000      84.8%                     1,757                 50.0 GB
+301 (permanent, browser remembers)       300,664        43.2%            56.8%          189,422             62.6%
 302 + Cache-Control: private, no-store      300,664       100.0%             0.0%          189,422              0.0%
-প্রতি link এ exact set (visitor hash, 16 B)                 96.0 GB
-প্রতি click করা link এ dense HLL (12 KB)                      8.1 TB
+exact set per link (visitor hash, 16 B)                   96.0 GB
+dense HLL (12 KB) per clicked link                         8.1 TB
 ```
 
 `npm run smoke` — ১৮টা ধাপ, প্রতিটার status ঠিক; ১০,০০০ link এ ১০,০০০টা আলাদা code আর sequence এ মাত্র ১০ বার:
@@ -110,12 +110,12 @@ counter → গোপন permutation → base62                f6sF 5OVy JR1Y iG
 ```
 3   GET /cOoEtMq                                          302     Location: https://example.com/blog/system-design?ref=newsletter
 5   POST /api/links  url: javascript:alert(1)             400     unsupported_scheme
-10  POST /api/links  alias: abcDEF1 (৭ অক্ষর base62)        400     alias_reserved
-14  GET /yhc3OjR  (২ ঘণ্টা পরে)                               410     expired
+10  POST /api/links  alias: abcDEF1 (7-char base62)       400     alias_reserved
+14  GET /yhc3OjR  (2 hours later)                         410     expired
 16  GET /cOoEtMq                                          410     disabled
-18  GET /api/links/BnqHDLC/stats  (flush এর পরে)           200     clicks 5, unique 3
-আলাদা code: 10,000 / 10,000
-sequence (database) এ যেতে হলো: 10 বার
+18  GET /api/links/BnqHDLC/stats  (after flush)           200     clicks 5, unique 3
+distinct codes: 10,000 / 10,000
+trips to the sequence (database): 10
 ```
 
 ## কী দেখার জন্য এটা বানানো

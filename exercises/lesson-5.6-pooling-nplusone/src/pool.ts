@@ -3,17 +3,17 @@ import { Client } from 'pg';
 import { ConnectionAcquireTimeoutError } from 'sequelize';
 import { DATABASE_URL, createSequelize, percentile } from './db';
 
-// Lesson 5.6 — connection pool এর তিনটা প্রশ্ন, মেপে:
-//   ১. একটা connection খোলার দাম কত?
-//   ২. Pool যত বড়, তত দ্রুত?
-//   ৩. কয়েকটা app instance মিলে database এর connection limit ছাড়ালে কী হয়?
+// Lesson 5.6 — the connection pool's three questions, measured:
+//   1. what does opening one connection cost?
+//   2. is a bigger pool faster?
+//   3. what happens when several app instances together exceed the database's connection limit?
 
-// ── ১. নতুন connection বনাম pool ─────────────────────────────────────────────
+// ── 1. A new connection vs the pool ─────────────────────────────────────────
 async function connectionCost(): Promise<void> {
 	const QUERIES = 200;
-	console.log(`\n১. একটা একটা করে ${QUERIES}টা "SELECT 1"`);
+	console.log(`\n1. ${QUERIES} "SELECT 1" one at a time`);
 
-	// প্রতিটা query তে নতুন connection — TCP handshake + Postgres auth + নতুন backend process
+	// a new connection for every query — TCP handshake + Postgres auth + a new backend process
 	let started = performance.now();
 	for (let i = 0; i < QUERIES; i++) {
 		const client = new Client({ connectionString: DATABASE_URL });
@@ -23,24 +23,24 @@ async function connectionCost(): Promise<void> {
 	}
 	const fresh = (performance.now() - started) / QUERIES;
 
-	// Pool — connection একবার খোলা, তারপর বারবার ব্যবহার (Lesson 1.4 এর keep-alive এর মতো)
+	// Pool — the connection is opened once, then reused again and again (like Lesson 1.4's keep-alive)
 	const sequelize = createSequelize({ max: 1 });
-	await sequelize.query('SELECT 1'); // pool এ connection টা একবার খুলে রাখা
+	await sequelize.query('SELECT 1'); // open the connection in the pool once
 	started = performance.now();
 	for (let i = 0; i < QUERIES; i++) await sequelize.query('SELECT 1');
 	const pooled = (performance.now() - started) / QUERIES;
 	await sequelize.close();
 
-	console.log(`   প্রতিবার নতুন connection   ${fresh.toFixed(2).padStart(7)} ms / query`);
+	console.log(`   new connection every time   ${fresh.toFixed(2).padStart(7)} ms / query`);
 	console.log(
-		`   pool থেকে                   ${pooled.toFixed(2).padStart(7)} ms / query   (~${(fresh / pooled).toFixed(0)}x দ্রুত)`
+		`   from the pool               ${pooled.toFixed(2).padStart(7)} ms / query   (~${(fresh / pooled).toFixed(0)}x faster)`
 	);
 }
 
-// ── ২. Pool size sweep ───────────────────────────────────────────────────────
-// ৬৪টা "request" একসাথে, মোট ৩২০টা query। দুই ধরনের query:
-//   CPU   — database কে সত্যিই হিসাব করতে হয় (Postgres container এ মাত্র ২টা core)
-//   WAIT  — database শুধু অপেক্ষা করে (pg_sleep) — lock বা ধীর disk এর মতো
+// ── 2. Pool size sweep ──────────────────────────────────────────────────────
+// 64 "requests" at once, 320 queries in total. Two kinds of query:
+//   CPU   — the database really has to compute (the Postgres container has only 2 cores)
+//   WAIT  — the database just waits (pg_sleep) — like a lock or a slow disk
 const CALLERS = 64;
 const TOTAL = 320;
 const CPU_SQL = 'SELECT count(*) FROM generate_series(1, 400000)';
@@ -58,7 +58,7 @@ async function sweep(poolMax: number, sql: string): Promise<SweepResult> {
 		while (remaining > 0) {
 			remaining--;
 			const started = performance.now();
-			await sequelize.query(sql); // pool এ অপেক্ষার সময়ও এর ভেতরে — user এর চোখে যা দেখায়
+			await sequelize.query(sql); // includes the time waiting for the pool — what the user sees
 			latencies.push(performance.now() - started);
 		}
 	};
@@ -73,7 +73,7 @@ async function sweep(poolMax: number, sql: string): Promise<SweepResult> {
 
 async function poolSizes(): Promise<void> {
 	console.log(
-		`\n২. Pool size — ${CALLERS}টা request একসাথে, মোট ${TOTAL}টা query (database: ২টা CPU core)`
+		`\n2. Pool size — ${CALLERS} requests at once, ${TOTAL} queries in total (database: 2 CPU cores)`
 	);
 	console.log(
 		'   pool max │   CPU query: q/s    p50 ms    p99 ms │  WAIT query: q/s    p50 ms    p99 ms'
@@ -87,12 +87,12 @@ async function poolSizes(): Promise<void> {
 	}
 }
 
-// ── ৩. Connection limit ──────────────────────────────────────────────────────
+// ── 3. Connection limit ─────────────────────────────────────────────────────
 async function connectionLimit(): Promise<void> {
 	const INSTANCES = 5;
 	const PER_POOL = 25;
 	console.log(
-		`\n৩. ${INSTANCES}টা app instance × pool max ${PER_POOL} = ${INSTANCES * PER_POOL} connection চাই (Postgres max_connections = 100)`
+		`\n3. ${INSTANCES} app instances × pool max ${PER_POOL} = ${INSTANCES * PER_POOL} connections wanted (Postgres max_connections = 100)`
 	);
 	const instances = Array.from({ length: INSTANCES }, () => createSequelize({ max: PER_POOL }));
 	const errors = new Map<string, number>();
@@ -110,13 +110,13 @@ async function connectionLimit(): Promise<void> {
 			})
 		)
 	);
-	console.log(`   সফল: ${ok}টা`);
-	for (const [message, count] of errors) console.log(`   ব্যর্থ: ${count}টা → "${message}"`);
+	console.log(`   succeeded: ${ok}`);
+	for (const [message, count] of errors) console.log(`   failed: ${count} → "${message}"`);
 	await Promise.all(instances.map((s) => s.close()));
 
-	// Pool নিজে শেষ হয়ে গেলে: max ২, অথচ ১০টা ধীর query একসাথে, আর অপেক্ষার সীমা ১ সেকেন্ড
+	// When the pool itself runs out: max 2, yet 10 slow queries at once, and a 1 second wait limit
 	console.log(
-		'\n   একটা instance এর pool নিজেই ফুরিয়ে গেলে (max 2, acquire timeout 1s, ১০টা ০.৮s এর query):'
+		"\n   when one instance's own pool runs out (max 2, acquire timeout 1s, 10 queries of 0.8s):"
 	);
 	const small = createSequelize({ max: 2, acquire: 1_000 });
 	let served = 0;
@@ -133,7 +133,7 @@ async function connectionLimit(): Promise<void> {
 		})
 	);
 	await small.close();
-	console.log(`   সফল: ${served}টা, ConnectionAcquireTimeoutError: ${timedOut}টা`);
+	console.log(`   succeeded: ${served}, ConnectionAcquireTimeoutError: ${timedOut}`);
 }
 
 async function main(): Promise<void> {

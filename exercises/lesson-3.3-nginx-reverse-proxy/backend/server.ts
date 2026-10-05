@@ -15,9 +15,9 @@ interface HealthResponse {
 	instance: string;
 }
 
-// Docker Compose থেকে environment variable দিয়ে প্রতিটা instance কে
-// একটা নাম দেওয়া হবে, যাতে আমরা দেখতে পারি Nginx কোন instance এ
-// request পাঠাচ্ছে (Round Robin verify করার জন্য এটাই key trick)
+// Docker Compose gives every instance a name through an environment
+// variable, so we can see which instance Nginx is sending the
+// request to (this is the key trick for verifying Round Robin)
 const INSTANCE_ID: string = process.env.INSTANCE_ID ?? 'unknown-instance';
 
 const tasks: Task[] = [

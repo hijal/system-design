@@ -45,13 +45,13 @@ npm install
 ## Run
 
 ```bash
-npm run scenario                                # কেউ মরে না — baseline
-CRASH=api npm run scenario                      # ধীর phase এর মাঝখানে API SIGKILL
+npm run scenario                                # nobody dies — baseline
+CRASH=api npm run scenario                      # API SIGKILL in the middle of the slow phase
 CRASH=worker-kill npm run scenario              # worker SIGKILL
 CRASH=worker-term npm run scenario              # worker SIGTERM (graceful)
-FAIL_RATE=0.3 npm run scenario                  # provider ৩০% সময় 503
-DOUBLE_SUBMIT=1 npm run scenario                # প্রতিটা assign দুবার পাঠানো
-npm run inspect                                 # Redis এর ভেতরে BullMQ
+FAIL_RATE=0.3 npm run scenario                  # provider returns 503 30% of the time
+DOUBLE_SUBMIT=1 npm run scenario                # every assign sent twice
+npm run inspect                                 # BullMQ inside Redis
 ```
 
 Teardown:
@@ -65,18 +65,18 @@ docker compose down -v
 **১. `npm run scenario`** (baseline):
 
 ```
-   phase            API p50 / p99     API ব্যর্থ
-   স্বাভাবিক          22 ms / 53 ms            0
-   provider ধীর       30 ms / 53 ms            0
-   সেরে ওঠার পর       29 ms / 35 ms            0
+   phase            API p50 / p99     API failed
+   normal             22 ms / 53 ms            0
+   provider slow      30 ms / 53 ms            0
+   after recovery     29 ms / 35 ms            0
 
-   API 202 দিয়েছে: 477 বার, আলাদা job: 477
-   queue এ সর্বোচ্চ: waiting 127, delayed (retry এর অপেক্ষায়) 0
-   job: completed 477, failed 0   · চেষ্টা লেগেছে: 1 বার → 477
-   provider: আলাদা email পৌঁছেছে 477, 503 দিয়েছে 0 বার
-   email পৌঁছাতে (job যোগ থেকে): p50 194 ms, p99 6.8 s, max 6.8 s
-   "202 পেল, email যায়নি": 0
-   একই email দুবার (বা বেশি) পৌঁছেছে: 0
+   API returned 202: 477 times, distinct jobs: 477
+   most in the queue: waiting 127, delayed (waiting to retry) 0
+   jobs: completed 477, failed 0   · attempts needed: 1 → 477
+   provider: distinct emails delivered 477, returned 503 0 times
+   email delivery (from job added): p50 194 ms, p99 6.8 s, max 6.8 s
+   "got 202, the email never went": 0
+   the same email delivered twice (or more): 0
 ```
 
 মিলতে হবে: provider ধীর হলেও API এর p99 কয়েক দশ ms; waiting এর সর্বোচ্চ ~১২৫–১৩০; সব email পৌঁছায়।
@@ -94,19 +94,19 @@ docker compose down -v
 **৩. `npm run inspect`** — এই আকৃতির output:
 
 ```
-   job এর অবস্থা (BullMQ API):
+   job states (BullMQ API):
      demo-waiting       → waiting
      demo-delayed       → delayed
      demo-prioritized   → prioritized
      demo-completed     → completed
      demo-failed        → failed
 
-   Redis এর key (bull:inspect-demo:*):
+   Redis keys (bull:inspect-demo:*):
      completed            zset    demo-completed
      delayed              zset    demo-delayed
      demo-completed       hash
      …
-     events               stream  16 টা event
+     events               stream  16 events
      failed               zset    demo-failed
      prioritized          zset    demo-prioritized
      wait                 list    demo-waiting

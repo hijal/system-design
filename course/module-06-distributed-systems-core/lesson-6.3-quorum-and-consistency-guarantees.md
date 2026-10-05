@@ -84,10 +84,10 @@ Ticket ১ কীভাবে হয়:
 Exercise এর `npm run session` — ২০০০ বার "একটা task বানাও, তারপর পাঁচবার পড়ো" (redirect এ +5 ms, তারপর +30 ms, +300 ms, +1 s, +3 s; প্রথম দুটো একই device এ, বাকিগুলোর অর্ধেক অন্য device এ):
 
 ```
-                                              নিজের লেখা দেখেনি              সময় পেছনে    read primary তে
-   কৌশল                                       একই device    অন্য device      গেছে
-   ক. যেকোনো replica (random)                 29.1%         0.9%         4.0%         0.0%
-   খ. device প্রতি একটা নির্দিষ্ট replica     29.6%         1.0%         0.6%         0.0%
+                                                  didn't see own write          time went     reads on primary
+   strategy                                       same device   other device    back
+   A. any replica (random)                        29.1%         0.9%         4.0%         0.0%
+   B. one fixed replica per device                29.6%         1.0%         0.6%         0.0%
 ```
 
 Sticky replica "সময় পেছনে" ৪% থেকে ০.৬% এ নামিয়েছে — কিন্তু শূন্যে না। বাকি ০.৬% কোথা থেকে? একই **user** এর দুটো **device** দুটো ভিন্ন replica তে sticky — phone r1 এ, laptop r3 এ। User এর চোখে সময় তবু পেছনে যায়। আর sticky এর আরও দুটো দুর্বলতা:
@@ -100,7 +100,7 @@ Sticky replica "সময় পেছনে" ৪% থেকে ০.৬% এ ন
 5.7 এ read-your-writes এর তিনটা সমাধান দেখেছিলে। TaskFlow বেছেছিল সবচেয়ে ব্যবহারিকটা: সদ্য লিখেছে এমন device এর read primary তে। এর দাম আর সীমা মাপো:
 
 ```
-   গ. cookie: ৫ s এর মধ্যে লিখলে primary       0.0%         0.9%         0.3%        73.4%
+   C. cookie: primary if written within 5 s        0.0%         0.9%         0.3%        73.4%
 ```
 
 নিজের device এ নিখুঁত — কিন্তু দুটো সমস্যা। প্রথমত, **অন্য device এর কলাম (০.৯%) random এর মতোই** — laptop phone এর cookie দেখে না (ticket ২)। দ্বিতীয়ত, **৭৩% read primary তে।** এই workload এ প্রতিটা লেখার পরে ৫টা পড়া ৫ সেকেন্ডের মধ্যে — তাই প্রায় সব পড়াই "সদ্য লেখার পরে"। Cookie জানে না replica **আসলে** পিছিয়ে কিনা; সে শুধু সময় দেখে, আর সাবধান থাকতে প্রায় সব primary তে পাঠায়। Replica রাখার লাভ প্রায় পুরোটাই শেষ।
@@ -121,8 +121,8 @@ Sticky replica "সময় পেছনে" ৪% থেকে ০.৬% এ ন
 এখন শুধু প্রশ্ন: token কোথায় থাকবে?
 
 ```
-   ঘ. version token — device এ (cookie)        0.0%         0.8%         0.4%         3.4%
-   ঙ. version token — user এর (server এ)       0.0%         0.0%         0.0%         3.4%
+   D. version token — on the device (cookie)       0.0%         0.8%         0.4%         3.4%
+   E. version token — per user (on the server)     0.0%         0.0%         0.0%         3.4%
 ```
 
 দুটোর code প্রায় হুবহু এক, primary এর চাপ ও এক (৩.৪% — cookie এর ৭৩.৪% এর তুলনায়)। একমাত্র পার্থক্য: (ঘ) token রাখে device এর cookie তে, তাই laptop phone এর token জানে না। (ঙ) রাখে **server এ, user এর নামে** — যেমন Redis এ `rw-token:{userId}` — তাই যেকোনো device এর যেকোনো পড়া সেই token দেখে। তিনটা কলামই শূন্য।
@@ -148,7 +148,7 @@ Ticket ৩ একটু আলাদা, কারণ এখানে কোন�
 Exercise এর `npm run prefix` — ৫০০০টা প্রশ্ন-উত্তর, প্রতিটা thread ২০ বার পড়া:
 
 ```
-   shard key       উত্তর দেখা গেছে     উত্তর আছে কিন্তু প্রশ্ন নেই
+   shard key       answer seen         answer present but question missing
    commentId            65426             250
    taskId               66059               0
 ```
@@ -166,9 +166,9 @@ Leaderless store এ একটা লেখা ব্যর্থ হওয়�
 Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শুধু A তে পৌঁছেছে, B আর C timeout — client কে বলা হয়েছে "ব্যর্থ"। তারপর ১০০ জন user × ৫ বার পড়া, প্রতিটা পড়া random দুটো replica থেকে:
 
 ```
-   read repair    "ব্যর্থ" v1 দেখেছে      v1 দেখার পরে আবার v0     মান ওঠানামা করেছে এমন user    শেষ অবস্থা
-   বন্ধ             325/500                 84                      58                A=v1 B=v0 C=v0
-   চালু             500/500                  0                       0                A=v1 B=v1 C=v1
+   read repair    saw the "failed" v1      back to v0 after v1      users whose value flipped    final state
+   off              325/500                 84                      58                A=v1 B=v0 C=v0
+   on               500/500                  0                       0                A=v1 B=v1 C=v1
 ```
 
 প্রথম সারিটা unread count এর bug হুবহু। যে পড়া A কে জিজ্ঞেস করে, সে v1 দেখে; যে B আর C কে জিজ্ঞেস করে, সে v0। ৫৮ জন user মান ওঠানামা করতে দেখেছে — ৫, ৪, ৫। `R + W > N` আছে, তবু **monotonic read নেই**।

@@ -1,9 +1,9 @@
 import http from 'node:http';
 
-// ছোট একটা GET client — node:http, keep-alive সহ।
-// কেন fetch না: Node 26 এর built-in fetch (undici) এ এই machine এ একটা অদ্ভুততা পাওয়া গেছে — অল্প বিরতির
-// (১০ ms) পরে পরের request প্রায়ই ~৫০০ ms দেরি করে, localhost এও। এই exercise এ browser এর round trip এর
-// ফাঁক গুলো ঠিক এমন বিরতি, তাই সংখ্যা নষ্ট হতো। node:http এ একই request ~১ ms।
+// A small GET client — node:http, with keep-alive.
+// Why not fetch: Node 26's built-in fetch (undici) showed an oddity on this machine — after a short pause
+// (10 ms) the next request is often ~500 ms late, even on localhost. In this exercise the gaps between the browser's round trips
+// are exactly such pauses, so the numbers would be ruined. With node:http the same request takes ~1 ms.
 
 const agent = new http.Agent({ keepAlive: true, maxSockets: 64 });
 

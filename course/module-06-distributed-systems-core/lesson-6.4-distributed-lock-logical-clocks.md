@@ -46,12 +46,12 @@ Lesson 5.7, 5.9, 6.1, 6.3 — চারবার আমরা বলেছি "�
 সবচেয়ে সাধারণ bug:
 
 ```typescript
-// ✗ ভুল — NTP ঘড়ি পেছনে ঠেললে elapsed ঋণাত্মক, সামনে ঠেললে হঠাৎ বিশাল
+// ✗ wrong — if NTP pushes the clock back, elapsed is negative; forward, suddenly huge
 const start = Date.now();
 await doWork();
 const elapsed = Date.now() - start;
 
-// ✓ দৈর্ঘ্য মাপতে সবসময় monotonic
+// ✓ always monotonic for measuring durations
 const t0 = performance.now();
 await doWork();
 const elapsedMs = performance.now() - t0;
@@ -83,9 +83,9 @@ Ticket ১ এর যন্ত্র: প্রতিটা লেখার স�
 Exercise এর `npm run lww` — TaskFlow এর pilot এর মতো: তিনটা replica, n3 (সিঙ্গাপুর) এর ঘড়ি ৪০০ ms পিছিয়ে, n2 ৩০ ms এগিয়ে। ৬ জন মানুষ আর ২টা automation bot দুই মিনিট ধরে একই title edit করে — একটা replica থেকে পড়ে, ভাবে (মানুষ গড়ে ৩ s, bot ৫০–৩০০ ms), তারপর কোনো একটা replica তে লেখে। Simulation প্রতিটা লেখার **সত্যিকারের** কার্যকারণ জানে (কোন version দেখে লেখা হয়েছিল), আর প্রতিটা বাদ পড়া লেখাকে দুই ভাগে গোনে:
 
 ```
-   নিয়ম                 মোট edit   পরে-করা edit আগেরটার    একসাথে-করা edit    app কে মেলাতে    শেষ title এর    replica
-                                     কাছে হারল            নীরবে বাদ          বলা হলো         ইতিহাসে নেই       এক?
-   LWW — ঘড়ির সময়          164               10                   43               0               100       হ্যাঁ
+   rule                   total edits   later edit lost to   concurrent edit   app asked to   not in final     replicas
+                                       the earlier one       silently dropped  merge           title history    agree?
+   LWW — wall clock          164               10                   43               0               100       yes
 ```
 
 **"পরে-করা edit আগেরটার কাছে হারল" — ১০টা।** মানে: bot title টা **দেখল**, তারপর `[DONE]` লাগিয়ে লিখল — তার লেখা আসলেই পরে, আর আগেরটা জেনেই — তবু আগেরটা জিতল। মেপে দেখা হয়েছে: ১০টাই bot এর, ১০টাই n3 তে। Bot ২০০ ms এ প্রতিক্রিয়া দেয়, n3 এর ঘড়ি ৪০০ ms পিছিয়ে, তাই bot এর লেখার timestamp সে যে লেখা দেখে লিখেছে, **তার চেয়েও পুরনো**। Ticket ১ হুবহু।
@@ -127,17 +127,17 @@ Happens-before কে একটা সংখ্যায় ধরার সব�
 **Lamport clock** — প্রতিটা process এর একটা counter: প্রতিটা ঘটনায় এক বাড়ায়; message পাঠানোর সময় counter সাথে পাঠায়; message পেলে নিজের counter = max(নিজের, পাওয়া) + 1।
 
 ```
-   ঘটনা  process  ধরন       Lamport   কী হলো
-   a1    A        local        1      রহিম title লিখল
-   c1    C        local        1      করিম offline এ একটা comment লিখল
-   a2    A        send m1      2      title server এ পাঠাল
-   b1    B        recv m1      3      server title পেল            ← max(0, 2) + 1
-   a3    A        local        3      রহিম description বদলাল
-   b2    B        send m2      4      server করিমকে notify করল
-   b3    B        local        5      server audit log লিখল
-   c2    C        recv m2      5      করিম notification পেল       ← max(1, 4) + 1
-   c3    C        send m3      6      করিম উত্তর দিল রহিমকে
-   a4    A        recv m3      7      রহিম উত্তর পেল              ← max(3, 6) + 1
+   event process  kind      Lamport   what happened
+   a1    A        local        1      Rahim wrote the title
+   c1    C        local        1      Karim wrote a comment offline
+   a2    A        send m1      2      sent the title to the server
+   b1    B        recv m1      3      the server got the title        ← max(0, 2) + 1
+   a3    A        local        3      Rahim changed the description
+   b2    B        send m2      4      the server notified Karim
+   b3    B        local        5      the server wrote an audit log
+   c2    C        recv m2      5      Karim got the notification      ← max(1, 4) + 1
+   c3    C        send m3      6      Karim replied to Rahim
+   a4    A        recv m3      7      Rahim got the reply             ← max(3, 6) + 1
 ```
 
 নিশ্চয়তাটা: **a → b হলে L(a) < L(b)।** যে ঘটনা অন্যটাকে প্রভাবিত করতে পারত, তার সংখ্যা সবসময় ছোট। আর সমান সংখ্যা হলে process এর নাম দিয়ে ভাঙলে (`(L, process)` জোড়া) সব ঘটনার একটা **সম্পূর্ণ ক্রম** পাওয়া যায়, যেটা কার্যকারণের সাথে কখনো বিরোধ করে না।
@@ -145,7 +145,7 @@ Happens-before কে একটা সংখ্যায় ধরার সব�
 তাই Lamport clock দিয়ে LWW করলে ticket ১ এর সমস্যা যায়:
 
 ```
-   LWW — Lamport clock       164                0                   45               0               101       হ্যাঁ
+   LWW — Lamport clock       164                0                   45               0               101       yes
 ```
 
 "পরে-করা edit হারল" — **০।** Bot যে version দেখে লিখেছে, তার Lamport সংখ্যা bot এর replica তে পৌঁছায় (পড়ার সাথে), তাই bot এর লেখার সংখ্যা সবসময় বড় — কোনো ঘড়ির দরকার নেই।
@@ -153,9 +153,9 @@ Happens-before কে একটা সংখ্যায় ধরার সব�
 কিন্তু "একসাথে-করা edit নীরবে বাদ" — এখনো **৪৫।** কারণ Lamport এর নিশ্চয়তা **একমুখী**: a → b হলে L(a) < L(b) — কিন্তু L(a) < L(b) হলে a → b, এমন **না**। `clocks` এর শেষ অংশ:
 
 ```
-   জোড়া       Lamport বলে       Vector clock বলে
-   c1, a2      c1 < a2           concurrent — কেউ কারো কথা জানত না
-   a3, b3      a3 < b3           concurrent — কেউ কারো কথা জানত না
+   pair       Lamport says      vector clock says
+   c1, a2      c1 < a2           concurrent — neither knew about the other
+   a3, b3      a3 < b3           concurrent — neither knew about the other
 ```
 
 Lamport ৩ < ৫ দেখে a3 কে "আগে" বলে, অথচ a3 আর b3 একে অপরের কথা জানত না। Lamport clock concurrent ঘটনাকেও একটা ক্রমে বসিয়ে দেয় — আর LWW সেই ক্রম দেখে একটা ফেলে দেয়। Ticket ২ থাকে।
@@ -183,7 +183,7 @@ Concurrent চিনতে একটা সংখ্যা যথেষ্ট �
 **Sibling** — concurrent দুটো (বা বেশি) version, যাদের কেউ অন্যটাকে ঢাকে না; database দুটোই রাখে আর পরের পাঠককে দুটোই দেয়, মেলানোর দায়িত্ব application এর।
 
 ```
-   Vector clock (sibling)    164                0                    0              48                 0       হ্যাঁ
+   Vector clock (sibling)    164                0                    0              48                 0       yes
 ```
 
 কিছুই হারায়নি — দুটো ক্ষতির কলামই শূন্য, শেষ title এর ইতিহাসে সব edit আছে। কিন্তু **৪৮ বার** app কে বলা হয়েছে "এই দুটো (বা তিনটা) মান আছে — তুমি মেলাও।" দাম উধাও হয়নি, সরে গেছে: database থেকে application এ। আর মেলানো সবসময় সহজ না: দুটো title কীভাবে মেলাবে? (User কে দেখিয়ে জিজ্ঞেস করা — Git এর merge conflict এর মতো।) কিছু data তে এটা স্বাভাবিক: task এর label এর **set** — দুটো sibling এর union নাও। Amazon এর Dynamo paper (2007) এর বিখ্যাত উদাহরণ ঠিক এটা — shopping cart এর sibling এর union। (দাম: মুছে ফেলা item কখনো কখনো ফিরে আসে — 5.9 এর label এর উদাহরণ মনে করো। আর এই ধরনের "নিজেই মিলে যায়" এমন data type এর নাম CRDT।)

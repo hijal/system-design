@@ -2,9 +2,9 @@ import { QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { sequelize } from './db';
 
-// EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) এর output একটা গাছ — প্রতিটা node এর নিচে
-// আরও node (Plans)। এটাও runtime input, তাই Zod দিয়ে parse (main.md §৬)।
-// Recursive schema এর জন্য TypeScript এর type আগে লিখে দিতে হয়, z.lazy দিয়ে।
+// The output of EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) is a tree — under every node
+// more nodes (Plans). This is runtime input too, so it is parsed with Zod (main.md §6).
+// A recursive schema needs the TypeScript type written first, with z.lazy.
 type PlanNode = {
 	'Node Type': string;
 	'Index Name'?: string | undefined;
@@ -36,10 +36,10 @@ const explainRows = z
 	.length(1);
 
 export type PlanSummary = {
-	shape: string; // যেমন "Limit → Index Scan Backward [tasks_project_created]"
-	ms: number; // কয়েকবার চালানোর median execution time
-	pages: number; // মোট কতগুলো page (৮ KB) ছুঁয়েছে — cache বা disk থেকে
-	rows: number; // সবচেয়ে উপরের node কতগুলো row ফেরত দিল
+	shape: string; // e.g. "Limit → Index Scan Backward [tasks_project_created]"
+	ms: number; // the median execution time over several runs
+	pages: number; // how many pages (8 KB) were touched in total — from cache or disk
+	rows: number; // how many rows the topmost node returned
 };
 
 function describe(node: PlanNode): string {
@@ -48,7 +48,7 @@ function describe(node: PlanNode): string {
 	return `${node['Node Type']}${direction}${index}`;
 }
 
-// গাছটাকে এক লাইনে: প্রথম শাখা ধরে নিচে নামা। এই lab এর query গুলোতে এটাই যথেষ্ট।
+// The tree on one line: walking down the first branch. That is enough for this lab's queries.
 function shape(node: PlanNode): string {
 	const parts: string[] = [];
 	let current: PlanNode | undefined = node;
@@ -65,15 +65,15 @@ async function runOnce(sql: string): Promise<{ plan: PlanNode; ms: number }> {
 			type: QueryTypes.SELECT
 		})
 	);
-	// .length(1) এর পরেও TypeScript জানে না index 0 আছে (noUncheckedIndexedAccess) —
-	// তাই এখানে সৎভাবে যাচাই করা হচ্ছে, `!` দিয়ে চাপা দেওয়া হচ্ছে না।
+	// Even after .length(1) TypeScript doesn't know index 0 exists (noUncheckedIndexedAccess) —
+	// so it is checked honestly here, not silenced with `!`.
 	const top = result[0]?.['QUERY PLAN'][0];
 	if (!top) throw new Error('unexpected EXPLAIN output');
 	return { plan: top.Plan, ms: top['Execution Time'] };
 }
 
 export async function explain(sql: string, runs = 5): Promise<PlanSummary> {
-	await runOnce(sql); // warm-up — page গুলো buffer pool এ আনা (Lesson 4.1, 5.3)
+	await runOnce(sql); // warm-up — bringing the pages into the buffer pool (Lesson 4.1, 5.3)
 	const samples: { plan: PlanNode; ms: number }[] = [];
 	for (let i = 0; i < runs; i++) samples.push(await runOnce(sql));
 	samples.sort((a, b) => a.ms - b.ms);

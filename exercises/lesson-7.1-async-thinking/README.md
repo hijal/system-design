@@ -43,8 +43,8 @@ npm install
 ## Run
 
 ```bash
-npm run compare                     # চারটা mode পরপর, শেষে তুলনা (~১ মিনিট ৪০ সেকেন্ড)
-npm run scenario -- sync-in-tx      # শুধু একটা mode
+npm run compare                     # all four modes in turn, a comparison at the end (~1 minute 40 seconds)
+npm run scenario -- sync-in-tx      # just one mode
 ```
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
@@ -53,8 +53,8 @@ npm run scenario -- sync-in-tx      # শুধু একটা mode
 কথা (এই মেশিনে কয়েকবার চালিয়ে একই আকৃতি এসেছে)। `npm run compare` এর শেষে:
 
 ```
-── তুলনা ────────────────────────────────────────────────────────
-   mode                assign ব্যর্থ   list ব্যর্থ   email p99   সফল-কিন্তু-email-নেই
+── comparison ──────────────────────────────────────────────
+   mode              assign failed  list failed   email p99     said ok, no email
    sync-in-tx                   91          207       7.0 s                     0
    sync-after-commit            61            0       4.0 s                     0
    fire-and-forget               0            0       4.0 s                    60

@@ -23,7 +23,7 @@ Node.js 22+ এবং Docker (Docker Compose v2 সহ)। Port **5438** (primar
 ## Setup
 
 ```bash
-docker compose up -d --wait   # primary চালু, তারপর replica নিজেকে primary থেকে কপি করে (pg_basebackup)
+docker compose up -d --wait   # the primary starts, then the replica copies itself from the primary (pg_basebackup)
 npm install
 ```
 
@@ -36,7 +36,7 @@ docker compose exec primary psql -U taskflow -c "SELECT application_name, state,
 #  walreceiver      | streaming | sync
 
 docker compose exec replica psql -U taskflow -tAc "SELECT pg_is_in_recovery()"
-# t        ← replica read-only standby হিসেবে চলছে
+# t        ← the replica is running as a read-only standby
 ```
 
 (`sync_state` এ `sync` দেখালেও সাধারণ commit async — কেন, সেটা `docker-compose.yml` এর comment এ।)
@@ -46,7 +46,7 @@ docker compose exec replica psql -U taskflow -tAc "SELECT pg_is_in_recovery()"
 ```bash
 npm run lag
 npm run ryw
-npm run failover     # ⚠️ শেষে cluster ভাঙা থাকে — নিচের reset command চালাও
+npm run failover     # ⚠️ leaves the cluster broken at the end — run the reset command below
 docker compose down -v && docker compose up -d --wait
 ```
 
@@ -57,10 +57,10 @@ docker compose down -v && docker compose up -d --wait
 **১. `npm run lag`**
 
 ```
-   create (primary) → সাথে সাথে findByPk (replica)
-   অবস্থা                              খুঁজে পায়নি   replica তে দেখা যেতে কত সময় লাগল
-   স্বাভাবিক (একই মেশিন, load নেই)     199/200   p50    1.8 ms   p99    2.3 ms
-   replica ২০০ ms পিছিয়ে (নকল lag)     50/50   p50  200.1 ms   p99  200.9 ms
+   create (primary) → findByPk right away (replica)
+   situation                               not found   time until visible on the replica
+   normal (same machine, no load)          199/200   p50    1.8 ms   p99    2.3 ms
+   replica 200 ms behind (simulated lag)    50/50   p50  200.1 ms   p99  200.9 ms
 ```
 
 প্রথম লাইনের "খুঁজে পায়নি" সংখ্যা রান ভেদে ১৯৮–১৯৯ — কিন্তু **প্রায় সবসময়** পায় না।
@@ -68,33 +68,33 @@ docker compose down -v && docker compose up -d --wait
 **২. `npm run ryw`**
 
 ```
-   replica 200 ms পিছিয়ে; প্রতিটা কৌশলে 30 বার "লেখো → সাথে সাথে পড়ো"
-   কৌশল                                       পাওয়া গেছে   লেখা (median)   পড়া (median)
-   ক. কিছু না (replica থেকে পড়া)                0/30        2.1 ms        0.4 ms
-   খ. useMaster: true (primary থেকে)            30/30        2.1 ms        0.4 ms
-   গ. LSN token — replica ধরা পর্যন্ত অপেক্ষা   30/30        1.8 ms      200.7 ms
-   ঘ. synchronous_commit = remote_apply         30/30      202.2 ms        0.7 ms
+   replica 200 ms behind; 30 times "write → read immediately" for each strategy
+   strategy                                      found  write median   read median
+   a. nothing (read from the replica)            0/30        2.1 ms        0.4 ms
+   b. useMaster: true (from the primary)        30/30        2.1 ms        0.4 ms
+   c. LSN token — wait for the replica          30/30        1.8 ms      200.7 ms
+   d. synchronous_commit = remote_apply         30/30      202.2 ms        0.7 ms
 ```
 
 **৩. `npm run failover`** (মূল অংশ)
 
 ```
-   ৪. একটা event synchronous_commit = remote_apply দিয়ে
-      ৩ সেকেন্ড পরে: commit এখনো replica এর অপেক্ষায় আটকে আছে? হ্যাঁ
-      → app এর timeout এ ধৈর্য শেষ; query টা cancel করা হলো
-      COMMIT ফেরত এলো 3.0s পরে, সাথে Postgres এর সতর্কবার্তা:
+   4. one event with synchronous_commit = remote_apply
+      after 3 seconds: is the commit still stuck waiting for the replica? yes
+      → the app's timeout ran out of patience; the query was cancelled
+      COMMIT came back after 3.0s, with a warning from Postgres:
         WARNING: canceling wait for synchronous replication due to user request — The transaction has already committed locally, but might not have been replicated to the standby.
 
-   ৫. Primary মারা গেল (docker kill)
-      app এর নতুন write: ✗ Connection terminated unexpectedly
+   5. The primary died (docker kill)
+      a new write from the app: ✗ Connection terminated unexpectedly
 
-   ৬. Failover — replica কে promote করা (pg_promote)
-      replica এখনো read-only standby? না — এখন সে নতুন primary, write নেয়
+   6. Failover — promoting the replica (pg_promote)
+      is the replica still a read-only standby? no — it is the new primary now, it takes writes
 
-   ৭. নতুন primary তে কী আছে?
+   7. What is on the new primary?
       before            10/10  ✓
-      async              0/20  ✗ হারিয়ে গেছে — অথচ user কে "saved" বলা হয়েছিল
-      sync               0/1  ✗ হারিয়ে গেছে — app timeout পেয়েছিল, কিন্তু পুরনো primary তে এটা commit হয়ে ছিল
+      async              0/20  ✗ lost — even though the user was told "saved"
+      sync               0/1  ✗ lost — the app got a timeout, but it had been committed on the old primary
       after-failover     1/1  ✓
 ```
 

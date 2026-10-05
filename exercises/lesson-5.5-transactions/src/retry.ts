@@ -2,13 +2,13 @@ import { DatabaseError, OptimisticLockError } from 'sequelize';
 import { z } from 'zod';
 import { sleep } from './db';
 
-// Postgres এর error code গুলো SQLSTATE — Sequelize এর DatabaseError এর `original` এ থাকে।
-// `original` এর type এ `code` নেই, তাই `as` দিয়ে চাপা না দিয়ে Zod দিয়ে যাচাই।
+// Postgres's error codes are SQLSTATE — kept in the `original` of Sequelize's DatabaseError.
+// `original`'s type has no `code`, so it is checked with Zod rather than silenced with `as`.
 const pgError = z.object({ code: z.string() });
 
 const RETRYABLE_CODES = new Set([
-	'40001', // serialization_failure — REPEATABLE READ / SERIALIZABLE এর "আবার চেষ্টা করো"
-	'40P01' // deadlock_detected — Postgres একটা transaction কে বলি দিয়েছে
+	'40001', // serialization_failure — REPEATABLE READ / SERIALIZABLE's "try again"
+	'40P01' // deadlock_detected — Postgres sacrificed one transaction
 ]);
 
 export function pgErrorCode(error: unknown): string | undefined {
@@ -25,9 +25,9 @@ export function isRetryable(error: unknown): boolean {
 
 export type RetryStats = { retries: number };
 
-// পুরো transaction টা আবার চালানো — শুধু ব্যর্থ query টা না। কারণ transaction এর ভেতরে যা
-// পড়া হয়েছিল সেটাই এখন পুরনো; নতুন করে পড়ে নতুন করে সিদ্ধান্ত নিতে হবে।
-// Backoff + jitter: সবাই একসাথে আবার চেষ্টা করলে আবার একসাথে ধাক্কা খাবে (Lesson 4.6, 7.4)।
+// Rerunning the whole transaction — not just the failed query. Because whatever was read inside the
+// transaction is now stale; it has to be read afresh and the decision made afresh.
+// Backoff + jitter: if everyone retries at once, they collide at once again (Lesson 4.6, 7.4).
 export async function withRetry<T>(
 	fn: () => Promise<T>,
 	stats: RetryStats,

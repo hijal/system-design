@@ -63,16 +63,16 @@ So the design has two separate paths. Rate limit state is fast, in memory, and l
 
 ```
 ── Part A — load: 500,000 API requests/s at peak, 400 API servers, 2 rules per request ──
-                                                          Redis op/s    shards needed    network   cross-AZ / month
-a separate Redis call per rule                             1,000,000          20      300 MB/s         $10,368
-all rules in one Lua script (on the same shard)              500,000          10      150 MB/s          $5,184
+                                                          Redis op/s  shards needed       network  cross-AZ / month
+a separate Redis call per rule                             1,000,000             20      300 MB/s           $10,368
+all rules in one Lua script (on the same shard)              500,000             10      150 MB/s            $5,184
 
 ── Part B — memory ──
-token bucket, 300,000 active keys (150 B/state)              600,000     90.0 MB
-sliding log, limit 1,000 an hour, the same keys (16 B/entry) 300,000      4.8 GB
+token bucket, 300,000 active keys (150 B/state)                      600,000     90.0 MB
+sliding log, limit 1,000 an hour, the same keys (16 B/entry)  300,000      4.8 GB
 
 ── Part C — the latency budget: the API's p99 is 50 ms, the limiter gets 1 ms ──
-1,250 requests/s on one API server — if the limiter holds each for 1 ms, ~1 is waiting at a time; slow at 50 ms, ~63.
+1,250 requests/s on one API server — if the limiter holds each for 1 ms, ~1 are waiting at a time; slow at 50 ms, ~63.
 ```
 
 Four things:
@@ -133,13 +133,13 @@ Proxies like Envoy have both: a local limit inside every proxy, and an external 
 **Situation 1 — demand twice the limit, spread evenly over all servers:**
 
 ```
-strategy                                           accepted/s  of limit   highest in 1 s       blocked     centre op/s    extra p50   extra p99
-each server its own bucket (full limit)                  2,010   2.01x             2.10x     0.0%             0    0.00 ms    0.00 ms
-split the limit (limit / N on each server)               1,010   1.01x             1.11x    49.7%             0    0.00 ms    0.00 ms
-central, every request, atomic (Lua)                     1,020   1.02x             1.20x    49.3%         2,010    0.50 ms    1.25 ms
-central, GET then SET (not atomic)                       1,355   1.35x             1.63x    32.6%         4,020    1.04 ms    2.03 ms
-token lease (4 at a time, wait if not granted)           1,016   1.02x             1.16x    49.5%         1,166    0.33 ms    1.15 ms
-local + sync every 100 ms (async)                          998   1.00x             1.22x    50.4%           495    0.00 ms    0.00 ms
+strategy                                          accepted/s  of limit    highest in 1 s  blocked   centre op/s  extra p50  extra p99
+each server its own bucket (full limit)                2,010     2.01x             2.10x     0.0%             0    0.00 ms    0.00 ms
+split the limit (limit / N on each server)             1,010     1.01x             1.11x    49.7%             0    0.00 ms    0.00 ms
+central, every request, atomic (Lua)                   1,020     1.02x             1.20x    49.3%         2,010    0.50 ms    1.25 ms
+central, GET then SET (not atomic)                     1,355     1.35x             1.63x    32.6%         4,020    1.04 ms    2.03 ms
+token lease (4 at a time, wait if not granted)         1,016     1.02x             1.16x    49.5%         1,166    0.33 ms    1.15 ms
+local + sync every 100 ms (async)                        998     1.00x             1.22x    50.4%           495    0.00 ms    0.00 ms
 ```
 
 The first row is 9.5's old mistake (limit × servers, here as much as the demand). All the others are ~1.0x. In this situation everyone looks good, so stopping here would lead to the wrong decision.
@@ -149,9 +149,9 @@ The first row is 9.5's old mistake (limit × servers, here as much as the demand
 **Situation 2 — the same demand, but 90% of traffic on 5 servers** (common in reality: one customer's connection pool is stuck on a few keep-alive connections to a few servers, 3.2):
 
 ```
-split the limit (limit / N on each server)                 287   0.29x             0.32x    85.8%             0    0.00 ms    0.00 ms
-token lease (4 at a time, wait if not granted)           1,007   1.01x             1.16x    50.1%           835    0.00 ms    1.09 ms
-local + sync every 100 ms (async)                          966   0.97x             1.16x    52.1%           495    0.00 ms    0.00 ms
+split the limit (limit / N on each server)               287     0.29x             0.32x    85.8%             0    0.00 ms    0.00 ms
+token lease (4 at a time, wait if not granted)         1,007     1.01x             1.16x    50.1%           835    0.00 ms    1.09 ms
+local + sync every 100 ms (async)                        966     0.97x             1.16x    52.1%           495    0.00 ms    0.00 ms
 ```
 
 **Splitting the limit collapses.** Each server's share is 20/s. The five servers where the traffic has piled up use up their shares and block, while the other 45 servers' shares sit unused. The customer gets 29% of their limit. And in situation 4 it is even worse.
@@ -159,10 +159,10 @@ local + sync every 100 ms (async)                          966   0.97x          
 **Situation 3 — an attack: demand 20 times the limit:**
 
 ```
-central, every request, atomic (Lua)                     1,020   1.02x             1.20x    94.9%        20,033    0.50 ms    1.27 ms
-central, GET then SET (not atomic)                       5,799   5.80x             7.33x    71.1%        40,065    1.04 ms    2.04 ms
-token lease (4 at a time, wait if not granted)           1,019   1.02x             1.19x    94.9%         9,360    0.25 ms    1.14 ms
-local + sync every 100 ms (async)                        2,016   2.02x             2.08x    89.9%           495    0.00 ms    0.00 ms
+central, every request, atomic (Lua)                   1,020     1.02x             1.20x    94.9%        20,033    0.50 ms    1.27 ms
+central, GET then SET (not atomic)                     5,799     5.80x             7.33x    71.1%        40,065    1.04 ms    2.04 ms
+token lease (4 at a time, wait if not granted)         1,019     1.02x             1.19x    94.9%         9,360    0.25 ms    1.14 ms
+local + sync every 100 ms (async)                      2,016     2.02x             2.08x    89.9%           495    0.00 ms    0.00 ms
 ```
 
 **Approximate Sync (local counting + periodic sync)** — each server counts by itself and every T ms sends its count to the centre and gets everyone's total back; in between, it decides with the last known total + its own count. No network on the request's path (zero extra latency), and the centre's load is not the number of requests but servers × sync rate (here 495/s). The price: during the sync window no server sees the others. In calm conditions you don't notice it. But in an attack, in the first moment after a sync all 50 servers think "there's room" at once: **2.02x**. Experiment 1: with a 500 ms sync, **7.02x**. The error grows with T × the number of servers, and is worst exactly when demand is highest. So this strategy belongs where the limit is a coarse protection and a 2× error is tolerable (counting across many PoPs at a CDN's edge is in this family), and is in the wrong place when there is a fragile downstream behind the limit.
@@ -170,10 +170,10 @@ local + sync every 100 ms (async)                        2,016   2.02x          
 **Situation 4 — demand at 80% of the limit, 90% of traffic on 5 servers.** Blocking anyone here is wrong:
 
 ```
-split the limit (limit / N on each server)                 176   0.18x             0.20x    78.3%             0    0.00 ms    0.00 ms
-central, every request, atomic (Lua)                       813   0.81x             0.88x     0.0%           813    0.50 ms    1.26 ms
-token lease (4 at a time, wait if not granted)             813   0.81x             0.88x     0.0%           215    0.00 ms    0.99 ms
-local + sync every 100 ms (async)                          813   0.81x             0.88x     0.0%           495    0.00 ms    0.00 ms
+split the limit (limit / N on each server)               176     0.18x             0.20x    78.3%             0    0.00 ms    0.00 ms
+central, every request, atomic (Lua)                     813     0.81x             0.88x     0.0%           813    0.50 ms    1.26 ms
+token lease (4 at a time, wait if not granted)           813     0.81x             0.88x     0.0%           215    0.00 ms    0.99 ms
+local + sync every 100 ms (async)                        813     0.81x             0.88x     0.0%           495    0.00 ms    0.00 ms
 ```
 
 **78%** of the requests of a customer under their limit blocked, just because their traffic was not spread evenly. This is the worst kind of mistake: the customer comes to support and says "my limit is 1,000, I'm sending 800, I'm getting 429s", and the dashboard shows their total rate below the limit. Experiment 2: with 200 servers they get 10% of their limit. Adding servers (autoscale) shrinks the customer's limit.
@@ -184,7 +184,7 @@ The result: in situation 4 the centre's load goes from 813 to **215 op/s**, with
 
 ```
 ── lease size: 50 servers, burst 200 — when lease × servers passes the burst ──
-lease     lease × servers    2x, 5 servers: accepted   centre op/s    80%: wrongly blocked    centre op/s
+lease     lease × server  2x, 5 servers: accepted   centre op/s  80%: wrongly blocked   centre op/s
 1                     50                   1.02x         1,791              0.0%           813
 4                    200                   1.01x           835              0.0%           215
 10                   500                   0.93x           494              0.8%           106
@@ -214,11 +214,11 @@ Customers' traffic is not equal. `npm run hotkey`: 500,000 requests/s, three hun
 ```
 biggest tenant: 37,911 req/s (7.6%); tenants above 1,000/s: 37
 
-plan                                                 total op/s   avg shard    busiest shard   of capacity   busiest / avg
-one op per request, 16 shards                           500,000     31,250         63,494      63%         2.03x
-the same, 32 shards                                     500,000     15,625         52,306      52%         3.35x
-leases on big tenants (> 1,000/s)                       413,256     25,828         33,521      34%         1.30x
-big tenants' keys split 8 ways (rl:k#0..7)              500,000     31,250         36,431      36%         1.17x
+plan                                          total op/s  avg shard  busiest shard  of capacity  busiest / avg
+one op per request, 16 shards                    500,000     31,250         63,494          63%          2.03x
+the same, 32 shards                              500,000     15,625         52,306          52%          3.35x
+leases on big tenants (> 1,000/s)                413,256     25,828         33,521          34%          1.30x
+big tenants' keys split 8 ways (rl:k#0..7)       500,000     31,250         36,431          36%          1.17x
 ```
 
 - **One customer is more than half a shard.** The price of 1.3's hash tag: all of one customer's keys on one shard. The average shard is 31k, the busiest 63k.
@@ -233,19 +233,19 @@ A rate limiter is a protection. But because it sits on the path of every request
 
 ```
 ── store slow (median 40 ms) ──
-policy                                              extra p50    extra p99     hanging on a server   ordinary blocked   abuser got
-no timeout, wait for the answer                             40 ms     128 ms                 57           0.0%     1.1x limit
-timeout 5 ms → fail open                          5.00 ms    5.00 ms                  6           0.0%    10.1x limit
-timeout 5 ms → fail closed (503)                  5.00 ms    5.00 ms                  6         100.0%     0.0x limit
-timeout 5 ms → local bucket (limit / N)           5.00 ms    5.00 ms                  6          16.4%     1.0x limit
-+ breaker → local bucket, generous (3 × limit / N)  0.00 ms    0.00 ms                  0           0.0%     3.1x limit
+policy                                                  extra p50  extra p99  hanging per server  ordinary blocked   abuser got
+no timeout, wait for the answer                             40 ms     128 ms                  57              0.0%   1.1x limit
+timeout 5 ms → fail open                                  5.00 ms    5.00 ms                   6              0.0%  10.1x limit
+timeout 5 ms → fail closed (503)                          5.00 ms    5.00 ms                   6            100.0%   0.0x limit
+timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms                   6             16.4%   1.0x limit
++ breaker → local bucket, generous (3 × limit / N)        0.00 ms    0.00 ms                   0              0.0%   3.1x limit
 
 ── blackhole on the store's network (no answer; TCP gives up after 30 s) ──
-no timeout, wait for the answer                           30.00 s    30.00 s             37,500           0.0%     1.0x limit
-timeout 5 ms → fail open                          5.00 ms    5.00 ms                  6           0.0%    10.0x limit
-timeout 5 ms → fail closed (503)                  5.00 ms    5.00 ms                  6         100.0%     0.0x limit
-timeout 5 ms → local bucket (limit / N)           5.00 ms    5.00 ms                  6          16.2%     1.0x limit
-+ breaker → local bucket, generous (3 × limit / N)  0.00 ms    0.00 ms                  0           0.0%     3.1x limit
+no timeout, wait for the answer                           30.00 s    30.00 s              37,500              0.0%   1.0x limit
+timeout 5 ms → fail open                                  5.00 ms    5.00 ms                   6              0.0%  10.0x limit
+timeout 5 ms → fail closed (503)                          5.00 ms    5.00 ms                   6            100.0%   0.0x limit
+timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms                   6             16.2%   1.0x limit
++ breaker → local bucket, generous (3 × limit / N)        0.00 ms    0.00 ms                   0              0.0%   3.1x limit
 ```
 
 - **Without a timeout, the limiter takes the whole API down.** When slow, 40 ms on every request (p99 128), and in a blackhole 30 seconds, with 37,500 requests hanging at once on every server: memory, sockets, threads all used up. A "soft" protection then becomes the hardest dependency (10.3). So the limiter call's timeout is close to its latency budget (here 5 ms), and no retries.
@@ -261,18 +261,18 @@ That is why the rules have `failMode`. Login: `closed` (no brute force without a
 `npm run smoke` runs every decision together: an Express limiter service (`/v1/check`, `/v1/lease`, rules with Zod), a client library (timeout with `AbortSignal.timeout`, breaker, leases, per-rule fail mode, local fallback), and API servers that call the client from middleware:
 
 ```
-#   step                                                         result
-1   key acme: 15 on A, 15 on B, alternating                      A: 200 × 5, 429 × 10 | B: 200 × 5, 429 × 10
-2   the last 429's headers                                       Retry-After: 1, source: limiter
-3   clock forward 1 s, 12 more                                   200 × 10, 429 × 2
-4   key big-plain (1,000/s): 100 on A, check on every request    200 × 100; 100 calls to the limiter
-5   key big-co: 100 to the API with leases (5)                   200 × 100; 20 lease calls to the limiter
-6   limiter 200 ms slow, timeout 20 ms: GET /data (local)        200, source: fallback, under 100 ms
-7   at the same time POST /login (fail closed)                   503, Retry-After: 1, under 100 ms
-8   limiter down: 8 GET /data on A                               200 × 5, 429 × 3; source: fallback
-9   network calls toward the limiter during that                 3 (the breaker opens after 3 failures)
-10  limiter down: POST /login                                    503, Retry-After: 1
-11  limiter back, 300 ms after the breaker                       200, source: limiter, 1 network call
+#   step                                                      result
+1   key acme: 15 on A, 15 on B, alternating                   A: 200 × 5, 429 × 10 | B: 200 × 5, 429 × 10
+2   the last 429's headers                                    Retry-After: 1, source: limiter
+3   clock forward 1 s, 12 more                                200 × 10, 429 × 2
+4   key big-plain (1,000/s): 100 on A, check on every request  200 × 100; 100 calls to the limiter
+5   key big-co: 100 to the API with leases (5)                200 × 100; 20 lease calls to the limiter
+6   limiter 200 ms slow, timeout 20 ms: GET /data (local)     200, source: fallback, under 100 ms
+7   at the same time POST /login (fail closed)                503, Retry-After: 1, under 100 ms
+8   limiter down: 8 GET /data on A                            200 × 5, 429 × 3; source: fallback
+9   network calls toward the limiter during that              3 (the breaker opens after 3 failures)
+10  limiter down: POST /login                                 503, Retry-After: 1
+11  limiter back, 300 ms after the breaker                    200, source: limiter, 1 network call(s)
 ```
 
 - Step 1: exactly 10 across the two API servers, because counting is central. No sign of 9.5's 3x problem.

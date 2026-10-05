@@ -65,11 +65,11 @@ From the exercise, `npm run latency`: TaskFlow's board — 50 tasks in a project
 
 ```
 ── Opening the board — all processes on one machine ──
-                                                        1 user alone   busy: 16 concurrent, 5 s
-   path                                     inner calls        p50    boards/s       p99   CPU / board (all processes)
-   monolith (function call)                          0     0.3 ms       6234     5.0 ms   0.1 ms
-   microservices, chatty (call per task)           100    11.3 ms         86   203.6 ms  24.4 ms
-   microservices, batched (2 calls)                  2     0.8 ms       2206    11.1 ms   0.8 ms
+                                                    1 user alone  busy: 16 concurrent, 5 s
+   path                                         calls        p50   boards/s        p99   CPU / board (all processes)
+   monolith (function call)                         0     0.3 ms       6234     5.0 ms   0.1 ms
+   microservices, chatty (call per task)          100    11.3 ms         86   203.6 ms   24.4 ms
+   microservices, batched (2 calls)                 2     0.8 ms       2206    11.1 ms   0.8 ms
 ```
 
 - **Chatty:** one board = 100 HTTP calls. To a single user it looks like 11 ms (the 100 calls go out together, so that is all it costs) — but in system CPU it is **24 ms per board**, more than two hundred times the monolith. With 16 users at once you get just 86 boards per second and a p99 of 200 ms. This is Lesson 5.6's N+1 — not database queries this time, network calls. And in the monolith that same "lazy" code was harmless, because a function call is nearly free.
@@ -90,11 +90,11 @@ The first question: do separate processes mean separate failures? Let's measure 
 
 ```
 ── A. Heavy neighbour: opening the board (8 clients) while an export runs (~300 ms CPU each, back to back) ──
-   path                                         boards/s ok     p50        p99    full   without comments   error
-   monolith, no export (for comparison)               5979     1.3 ms     3.2 ms    100%                 0%      0%
-   monolith, export in the same process                 28   301.4 ms   302.8 ms    100%                 0%      0%
-   microservices, no timeout                            28   301.8 ms   306.5 ms    100%                 0%      0%
-   microservices, timeout 50 ms + fallback             154    51.7 ms    58.1 ms      1%                99%      0%
+   path                                         boards/s ok        p50        p99     full  no comments   error
+   monolith, no export (for comparison)                5979     1.3 ms     3.2 ms     100%           0%      0%
+   monolith, export in the same process                  28   301.4 ms   302.8 ms     100%           0%      0%
+   microservices, no timeout                             28   301.8 ms   306.5 ms     100%           0%      0%
+   microservices, timeout 50 ms + fallback              154    51.7 ms    58.1 ms       1%          99%      0%
 ```
 
 - **Monolith:** the export and the board share one event loop — the board goes from 1.3 ms to 301 ms. Incident 2, exactly.
@@ -107,11 +107,11 @@ Now a crash — a bug in the export killed the process (like an OOM):
 
 ```
 ── B. Crash: a bug in the export killed the process — then 5 s of opening boards ──
-   path                                         boards/s ok     p50        p99    full   without comments   error
-   monolith (the only process died)                      0     1.2 ms     3.9 ms      0%                 0%    100%
-   microservices, comments died, no timeout              0     3.6 ms     7.8 ms      0%                 0%    100%
-   microservices, comments died, + fallback           1759     4.2 ms     8.3 ms      0%               100%      0%
-      … then users died too (it has no fallback)         0     3.1 ms     7.0 ms      0%                 0%    100%
+   path                                         boards/s ok        p50        p99     full  no comments   error
+   monolith (the only process died)                       0     1.2 ms     3.9 ms       0%           0%    100%
+   microservices, comments died, no timeout               0     3.6 ms     7.8 ms       0%           0%    100%
+   microservices, comments died, + fallback            1759     4.2 ms     8.3 ms       0%         100%      0%
+      … then users died (no fallback)                     0     3.1 ms     7.0 ms       0%           0%    100%
 ```
 
 Here you see microservices' real benefit: in the monolith the export's bug shuts down **all** of TaskFlow (six instances in reality, but the same bug in all of them). In microservices only comments goes — and with a fallback the board still works. But look at the last two rows: without a fallback it is 100% errors, and a fallback has to be designed **separately for every dependency** — users did not have one.
@@ -120,11 +120,11 @@ Here you see microservices' real benefit: in the monolith the export's bug shuts
 
 ```
 ── C. Arithmetic: k services on the board's path, each independently 99.9% available ──
-   k   availability of the whole path   downtime per month (30 days)
-   1                           99.90%       43 minutes
-   3                           99.70%      129 minutes
-   5                           99.50%      216 minutes
-  10                           99.00%      430 minutes
+   k        path availability   downtime per 30 days
+   1                   99.90%       43 minutes
+   3                   99.70%      129 minutes
+   5                   99.50%      216 minutes
+  10                   99.00%      430 minutes
 ```
 
 If even half of the proposed 12 services sit on the board's path, then even with every one of them good (99.9%) the board is down three and a half hours a month — instead of the monolith's 43 minutes. A fallback takes that service off the path (like a parallel component) — so a fallback is not just nice UX, it is the arithmetic of availability.
@@ -143,11 +143,11 @@ In TaskFlow, "create a task" means two things: a row in the tasks table, and `ta
 
 ```
 ── 3000 "create task", 100 workspaces, crash after the first write in 83 of them (3%), 8 concurrent ──
-   path                                           ok   failed  task rows  counter  mismatched ws   result                        ops/s      p50
-   monolith: one transaction                     2917       83       2917     2917              0   they match                     2917   2.6 ms
-   services: task first, then billing            2917       83       3000     2917             57   83 tasks with no bill          1516   5.2 ms
-   services: billing first, then task            2917       83       2917     3000             57   83 bills with no task          1513   5.2 ms
-   services: task first + the user retried       3000        0       3083     3000             57   83 tasks with no bill          1477   5.2 ms
+   path                                               ok failed    tasks  counter    bad ws   result                  ops/s      p50
+   monolith: one transaction                        2917     83     2917     2917         0   they match               2917   2.6 ms
+   services: task first, then billing               2917     83     3000     2917        57   83 tasks with no bill    1516   5.2 ms
+   services: billing first, then task               2917     83     2917     3000        57   83 bills with no task    1513   5.2 ms
+   services: task first + the user retried          3000      0     3083     3000        57   83 tasks with no bill    1477   5.2 ms
 ```
 
 - **Monolith:** a crash means the whole transaction is void. The user sees an error, but nothing is left half-done — zero mismatches.
@@ -212,12 +212,15 @@ src/modules/
 ```
 
 ```typescript
+// src/modules/work/index.ts — the work module's public interface
 import type { Transaction } from 'sequelize';
 import { billing } from '../billing';
 import { Task } from './models/task';
 
 export async function createTask(input: NewTask, tx: Transaction): Promise<TaskDto> {
 	const task = await Task.create(input, { transaction: tx });
+	// calling another module — through its public function, never its table directly.
+	// But still the same process, the same database, the same transaction — 1.4's mismatch can't happen here.
 	await billing.recordTaskCreated(tx, input.workspaceId);
 	return toDto(task);
 }

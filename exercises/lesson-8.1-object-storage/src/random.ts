@@ -1,4 +1,4 @@
-// Seeded PRNG (mulberry32) — প্রতিবার একই "random" ক্রম, তাই simulation আর file এর আকার হুবহু মেলে।
+// Seeded PRNG (mulberry32) — the same "random" sequence every time, so the simulation and file sizes match exactly.
 export function mulberry32(seed: number): () => number {
 	let a = seed;
 	return () => {

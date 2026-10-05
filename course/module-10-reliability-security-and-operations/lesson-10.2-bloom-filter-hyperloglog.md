@@ -37,10 +37,10 @@
 প্রথমে একটা মাপা সংখ্যা। Exercise এর `npm run redis` — আসল Redis 8 এ ১০ লাখ আলাদা user ID, তিনভাবে রাখা:
 
 ```
-কাঠামো                          MEMORY USAGE                          কী বলতে পারে
-SET (SADD)                       35.55 MB               ঠিক 1,000,000, আর কারা
-HyperLogLog (PFADD)               14.0 KB        ~999,674 (-0.03% ভুল), কারা না
-Bloom (BF.RESERVE 0.01)           1.31 MB            "আছে কি?" — 0.51% ভুল "হ্যাঁ"
+structure                    MEMORY USAGE                  what it can tell
+SET (SADD)                       35.55 MB        exactly 1,000,000, and who
+HyperLogLog (PFADD)               14.0 KB    ~999,674 (-0.03% off), not who
+Bloom (BF.RESERVE 0.01)           1.31 MB  "is it there?" — 0.51% wrong "yes"
 ```
 
 `SET` সব প্রশ্নের সঠিক উত্তর দেয় — কতজন, কে কে, অমুক আছে কিনা — কারণ সে **প্রত্যেককে মনে রাখে**। তার দাম ৩৫.৫৫ MB। বাকি দুটো মনে রাখে না: HyperLogLog মোটে ১৪ KB এ (প্রায় **২,৬০০ ভাগের এক ভাগ**) শুধু "কতজন" বলে, Bloom filter ১.৩১ MB এ (২৭ ভাগের এক ভাগ) শুধু "অমুক আছে কিনা" বলে। দুজনেই মাঝে মাঝে ভুল করে।
@@ -93,7 +93,7 @@ has("Zz77Yy66")  → 5, 11, 13    সব ১       →  "হয়তো আছ�
 `npm run bloom`, অংশ ক — ১০ লাখ নাম ঢোকানো, তারপর ১০ লাখ **এমন** নাম খোঁজা যা কখনো ঢোকানো হয়নি:
 
 ```
-bit / নাম        k     মাপা false positive        তত্ত্ব      memory
+bits/name       k      measured FP rate    theory      memory
 4               3               14.680%   14.689%      488 KB
 6               4                5.593%    5.606%      732 KB
 8               6                2.163%    2.158%      977 KB
@@ -101,8 +101,8 @@ bit / নাম        k     মাপা false positive        তত্ত্�
 12              8                0.313%    0.314%    1,465 KB
 16             11                0.047%    0.046%    1,953 KB
 20             14                0.006%    0.007%    2,441 KB
-   ঢোকানো 1,000,000টা নামের কয়টাকে "নেই" বলল (false negative): 0
-   1.0% এর জন্য লাগে 9.59 bit/নাম; 0.1% এর জন্য 14.38
+   inserted names called "absent" (false negatives), out of 1,000,000: 0
+   1.0% needs 9.59 bits/name; 0.1% needs 14.38
 ```
 
 তিনটা জিনিস পড়ার আছে:
@@ -114,7 +114,7 @@ bit / নাম        k     মাপা false positive        তত্ত্�
 কয়টা hash? বেশি hash মানে প্রতিটা খোঁজায় বেশি bit দেখা (ভালো), কিন্তু প্রতিটা যোগে বেশি bit ১ করা (filter দ্রুত ভরে, খারাপ)। অংশ খ — ১০ bit/নাম স্থির, `k` বদলানো:
 
 ```
-k         মাপা false positive        তত্ত্ব   bit এর কত % ১
+k          measured FP rate    theory   % of bits set
 1                    9.483%    9.516%            9.5%
 3                    1.761%    1.741%           25.9%
 5                    0.937%    0.943%           39.3%
@@ -132,7 +132,7 @@ k         মাপা false positive        তত্ত্ব   bit এর ক
 Bloom filter এর আকার **আগে** ঠিক করতে হয় — `m` আর `k` ধরা হয় একটা নির্দিষ্ট `n` ধরে। বেশি ঢোকালে কী হয়? অংশ গ — ১০ লাখের জন্য ১% ধরে বানানো filter:
 
 ```
-ঢোকানো                 ধারণক্ষমতার     মাপা false positive   bit এর কত % ১
+inserted        of capacity      measured FP rate   % of bits set
 500,000                0.5x                 0.03%           30.6%
 1,000,000                1x                 0.99%           51.8%
 1,500,000              1.5x                 5.77%           66.6%
@@ -146,10 +146,10 @@ Bloom filter এর আকার **আগে** ঠিক করতে হয় 
 Redis এর `BF` এর নিজের উত্তর আছে। `npm run redis`, অংশ গ — ২.৫ লাখের জন্য বানানো filter এ ৭.৫ লাখ ঢোকানো:
 
 ```
-filter             MEMORY USAGE    ভেতরের filter     মাপা false positive        ঢোকানো নামে "নেই"
+filter             MEMORY USAGE  inner filters      measured FP rate    inserted → "no"
 default                 1.07 MB              2                 0.74%                  0
 NONSCALING             292.6 KB              1                 1.00%            494,508
-   NONSCALING: BF.MADD এর reply তে "non scaling filter is full" — ঢোকেনি 499,558টা নাম, আর exception হয়নি
+   NONSCALING: BF.MADD's reply says "non scaling filter is full" — 499,558 names not inserted, and no exception
 ```
 
 - **Default** filter ভরে গেলে Redis একটা নতুন, বড় filter পাশে যোগ করে (এখানে ২টা), আর খোঁজার সময় সবগুলো দেখে। FPR বাঁধা থাকে (০.৭৪%), memory বাড়ে। একে বলে scalable Bloom filter — ধারণক্ষমতা ভুল আন্দাজ করলেও বাঁচায়, দাম প্রতিটা খোঁজায় একাধিক filter দেখা।
@@ -158,10 +158,10 @@ NONSCALING             292.6 KB              1                 1.00%            
 এবার মোছা। একজন user account delete করল, তার username আবার মুক্ত। Filter থেকে তাকে বের করা যায়? অংশ ঘ — ১০ লাখের মধ্যে ১ লাখ নাম মোছা:
 
 ```
-পদ্ধতি                                 memory       থাকা নাম কে "নেই"       মোছা নাম কে "আছে"   নতুন false positive
-মুছি না, রেখে দিই                       1,170 KB                  0             100.0%                0.99%
-সাধারণ bloom, bit মুছে                1,170 KB            360,187               0.0%                0.36%
-counting bloom (৪-bit counter)     4,680 KB                  0               0.6%                0.60%
+approach                            memory        kept → "no"    deleted → "yes"   new false positive
+don't delete, keep them           1,170 KB                  0             100.0%                0.99%
+plain bloom, clear bits           1,170 KB            360,187               0.0%                0.36%
+counting bloom (4-bit)            4,680 KB                  0               0.6%                0.60%
 ```
 
 - **সাধারণ Bloom এ bit মুছে ফেলা একটা বিপর্যয়।** একটা bit অনেক জিনিস ভাগাভাগি করে; ১ লাখ নামের bit মুছতে গিয়ে **৩,৬০,১৮৭টা থাকা নামও** "নেই" হয়ে গেছে — ৯ লাখের ৪০%। একটা নিরাপত্তা-প্রতিশ্রুতি ভাঙা structure এর চেয়ে কোনো structure না থাকা ভালো।
@@ -177,11 +177,11 @@ counting bloom (৪-bit counter)     4,680 KB                  0               0
 এবার মঙ্গলবারের ঘটনাটা মাপি। `npm run penetration`, অংশ ক — ২ লাখ share link, ৫,০০০ request/s যার ২০% bot এর এলোমেলো আন্দাজ, আসল user দের traffic Zipf এ (কিছু board খুব জনপ্রিয়), cache এ ৫০,০০০ entry এর জায়গা:
 
 ```
-পদ্ধতি                         DB query/s       তার মধ্যে "নেই"  আসল user এর hit  cache এ "নেই" entry     evict
-শুধু cache                         2,074            48.4%            73.2%                   0   164,145
+approach                    DB query/s  of which "none"   real user hits    negative entries     evict
+cache only                       2,074            48.4%            73.2%                   0   164,145
 + negative cache 30 s            2,320            43.2%            67.0%              18,647   414,036
 + bloom filter 1%                1,081             0.9%            73.2%                   0   164,145
-   filter: 234 KB, k = 7 — একবার বানানো, প্রতিটা app instance এর memory তে
+   filter: 234 KB, k = 7 — built once, in every app instance's memory
 ```
 
 **প্রথম সারি:** DB এর প্রায় অর্ধেক কাজ (৪৮.৪%) এমন link খোঁজা যা নেই। Bot এর ১,০০০ request/s এর প্রতিটা DB পর্যন্ত যায়।
@@ -206,10 +206,10 @@ Filter কোথায় থাকবে, সেখানে একটা আ�
 Bloom filter এর মূল প্রতিশ্রুতি: "নেই" বললে নিশ্চিতভাবে নেই। কিন্তু প্রতিশ্রুতিটার একটা লুকানো শর্ত আছে — **যা কিছু আছে, তার প্রতিটা filter এ যোগ হয়েছে।** Share link প্রতি সেকেন্ডে তৈরি হচ্ছে। Filter যদি শুরুতে একবার DB থেকে বানানো হয়, নতুন link গুলো সে চেনে না। `npm run penetration`, অংশ খ — প্রতি সেকেন্ডে ২০টা নতুন link, আর ৫% request সদ্য তৈরি link এ (মানুষ link বানিয়েই পাঠায়, সহকর্মী কয়েক মিনিটের মধ্যে খোলে):
 
 ```
-filter রাখার নিয়ম                       সত্যিকারের link এ 404  নতুন link এর request এর
-শুরুতে একবার বানানো                                   49,773                   99.7%
-প্রতি 60 s এ DB থেকে নতুন করে                         24,766                   49.6%
-তৈরির সাথে সাথে filter এ add                              0                    0.0%
+filter upkeep                      404 on a real link    of new-link requests
+built once at startup                          49,773                   99.7%
+rebuilt from the DB every 60 s                   24,766                   49.6%
+add to the filter on create                         0                    0.0%
 ```
 
 **নতুন link এর ৯৯.৭% request এ 404।** User এর চোখে: "আমি board টা share করলাম, আমার টিমের কেউ খুলতে পারছে না।" এটা সবচেয়ে খারাপ ধরনের bug — feature টা **ঠিক তার মূল মুহূর্তে** ভাঙা, আর যে দেখছে সে ভাবছে link টাই ভুল।
@@ -266,7 +266,7 @@ register[365] = max(register[365], 4)
 `npm run hll`, অংশ ক — একটাই HLL (p = ১৪, ১২,২৮৮ byte), তাতে ১০ জন থেকে ১ কোটি আলাদা user (প্রতি তিনজনের একজন দুবার করে, duplicate পরীক্ষার জন্য):
 
 ```
-আলাদা user                অনুমান        ভুল     correction ছাড়া        ভুল      সঠিক গুনতে ≥
+real users              estimate    error  no correction        error  exact needs ≥
 10                        10    +0.03%            11,822  +118117.81%           80 B
 100                      100    +0.31%            11,864   +11764.38%          800 B
 1,000                  1,002    +0.20%            12,304    +1130.41%           8 KB
@@ -284,7 +284,7 @@ register[365] = max(register[365], 4)
 কত register? অংশ খ — ১ লাখ user, ৪০টা আলাদা দিন (৪০টা আলাদা user সেট), precision বদলে:
 
 ```
-p       register     memory      তত্ত্ব (1.04/√m)       মাপা সাধারণ ভুল       সবচেয়ে খারাপ দিন
+p       register     memory  theory (1.04/√m)     measured RMS         worst day
 4             16       12 B            26.00%           26.54%            69.00%
 8            256      192 B             6.50%            6.15%            14.34%
 10         1,024      768 B             3.25%            3.57%             8.62%
@@ -298,10 +298,10 @@ p       register     memory      তত্ত্ব (1.04/√m)       মাপ�
 Redis এর HLL p = ১৪ তে বাঁধা (তাই সবসময় ~০.৮১%), আর দুই রূপে থাকে। `npm run redis`, অংশ খ:
 
 ```
-কাঠামো                          MEMORY USAGE         উত্তর
+structure                    MEMORY USAGE      answer
 SET (listpack)                      475 B          50
 HyperLogLog (sparse)                252 B          50
-HyperLogLog, ৫,০০০ জনে             14.0 KB        5025
+HyperLogLog, at 5,000             14.0 KB        5025
 ```
 
 অল্প user এ Redis HLL একটা ঘন সংকুচিত রূপে (sparse) থাকে — ৫০ জনে ২৫২ byte, ছোট `SET` এর চেয়েও কম। বড় হলে (default `hll-sparse-max-bytes` ৩,০০০ byte পেরোলে) পুরো ১২ KB এর রূপে যায়, তারপর আর বাড়ে না — ১০ লাখ বা ১০ কোটি, ১৪ KB। TaskFlow এর জন্য এর মানে: বেশিরভাগ workspace ছোট, তাই প্রতি workspace প্রতি দিন একটা HLL রাখার মোট দাম বড় workspace গুলোর সংখ্যা দিয়েই ঠিক হয়।
@@ -311,11 +311,11 @@ HyperLogLog, ৫,০০০ জনে             14.0 KB        5025
 বৃহস্পতিবারের সেই dashboard এ ফিরি। `npm run hll`, অংশ গ — ৭ দিন, প্রতিদিন ~২ লাখ active user, তার ১.৫ লাখ নিয়মিত (রোজ আসে), বাকিরা বড় একটা জনগোষ্ঠী থেকে এলোমেলো:
 
 ```
-পদ্ধতি                                      সপ্তাহের user          ভুল
-আসল (সব ID এর একটা Set)                     472,981      +0.00%
-৭টা দিনের সংখ্যা যোগ                             1,415,230    +199.21%
-৭টা HLL merge (register ধরে max)             469,026      -0.84%
-   প্রতিটা দিনের HLL 12,288 byte; merge এর পরেও একই আকার — আর ৩০ দিন merge করলেও
+approach                              weekly users       error
+exact (a Set of every ID)                  472,981      +0.00%
+sum of the 7 daily counts                1,415,230    +199.21%
+merge 7 HLLs (max per register)            469,026      -0.84%
+   each day's HLL is 12,288 bytes; still the same size after merging — even merging 30 days
 ```
 
 **দিনের সংখ্যা যোগ করলে +১৯৯%** — dashboard এর "১৪ লাখ"। নিয়মিত ১.৫ লাখ মানুষ সাতবার গোনা হয়েছে। এই ভুল HLL এর না, যোগের — দিনের সংখ্যা **একদম সঠিক** হলেও যোগফল একই রকম ভুল। Cardinality যোগ করা যায় না।
@@ -335,7 +335,7 @@ HLL merge করা যায়: দুটো HLL এর প্রতিটা 
 Merge এর সাফল্যের পরে একজন product manager এর পরের অনুরোধ: "দুটো workspace এ কতজন common user?" (দুই কোম্পানি একীভূত হচ্ছে।) Inclusion–exclusion দিয়ে: `|A ∩ B| = |A| + |B| − |A ∪ B|`, আর তিনটাই HLL থেকে পাওয়া যায়। অংশ ঘ — দুটো workspace, প্রত্যেকে ১০ লাখ viewer:
 
 ```
-আসল overlap         আসল দুটোতেই        HLL দিয়ে          ভুল
+real overlap    real in both      with HLL       error
 50.0%                500,000       499,187      -0.16%
 10.0%                100,000        89,831     -10.17%
 1.0%                  10,000        10,618      +6.18%
@@ -359,12 +359,12 @@ Overlap বড় হলে চলে, ছোট হলে ভুল **শত �
 "সবচেয়ে ছোটটা" কেন: প্রতিটা counter এ তোমার জিনিসের আসল সংখ্যা **আর** সেই counter ভাগ করা অন্যদের সংখ্যা। যে সারিতে সবচেয়ে কম ভাগাভাগি, সেটাই আসলের সবচেয়ে কাছে। `npm run heavy` — ২০ লাখ request, ~১.২৪ লাখ আলাদা board, Zipf ১.১ (10.1 এর hot key এর মতো, সবচেয়ে গরম board একাই ১৩.১%):
 
 ```
-width × depth       memory   top 10 ধরা      top 10 এ বাড়তি গোনা      ঠান্ডা board এ (≤5 বার)
-64 × 4                1 KB        1/10             ≤ 66.80%            7969.3x আসলের
-256 × 4               4 KB        5/10             ≤ 10.56%            1534.2x আসলের
-1024 × 4             16 KB        7/10              ≤ 2.53%             284.6x আসলের
-4096 × 4             64 KB       10/10              ≤ 0.31%              48.3x আসলের
-16384 × 4           256 KB       10/10              ≤ 0.10%               7.7x আসলের
+width × depth       memory  top 10 hit     top 10 overcount  cold boards (≤5 times)
+64 × 4                1 KB        1/10             ≤ 66.80%          7969.3x actual
+256 × 4               4 KB        5/10             ≤ 10.56%          1534.2x actual
+1024 × 4             16 KB        7/10              ≤ 2.53%           284.6x actual
+4096 × 4             64 KB       10/10              ≤ 0.31%            48.3x actual
+16384 × 4           256 KB       10/10              ≤ 0.10%             7.7x actual
 ```
 
 - **৬৪ KB এ top ১০ পুরোটা, সংখ্যায় ভুল ০.৩১% এর নিচে।** ১.২৪ লাখ counter এর একটা `Map` এর বদলে।

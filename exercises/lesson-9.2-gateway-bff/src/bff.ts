@@ -5,12 +5,12 @@ import { commentSchema, type PageComment, type TaskPage, taskSchema, userSchema 
 import { DESKTOP, Link, MOBILE, type Profile } from './link';
 import { ms, pad, percentile } from './random';
 
-// Lesson 9.2 §১.৩ — TaskFlow এর "task detail" page: task, assignee, ২০টা comment আর তাদের author।
+// Lesson 9.2 §1.3 — TaskFlow's "task detail" page: the task, the assignee, 20 comments and their authors.
 //
-// দুই পথ:
-//   browser → service গুলো সরাসরি — browser নিজেই তিনটা service কে ডাকে, আর নিজে জোড়া দেয়
-//   browser → BFF — একটা request; BFF data center এর ভেতরে সেই একই তিনটা service ডাকে আর page এর আকৃতি বানায়
-// Browser এর link টা model (RTT + ভাগ করা bandwidth — link.ts); data center এর ভেতরে প্রতিটা call এ NET_MS।
+// Two paths:
+//   browser → services directly — the browser itself calls the three services, and assembles the page itself
+//   browser → BFF — one request; the BFF calls the same three services inside the data center and builds the page's shape
+// The browser's link is a model (RTT + shared bandwidth — link.ts); inside the data center every call gets NET_MS.
 
 const cfg = z
 	.object({
@@ -19,17 +19,17 @@ const cfg = z
 	})
 	.parse(process.env);
 
-// Browser এর নিজের জোড়া দেওয়া — BFF (web) যা করে, হুবহু সেটাই, কিন্তু প্রতিটা ধাপ browser থেকে
+// The browser assembling it itself — exactly what the (web) BFF does, but every step from the browser
 async function directPage(link: Link, s: Services, id: number): Promise<TaskPage> {
-	const t = taskSchema.parse(await link.get(`${s.tasks.url}/tasks/${id}`)); // ধাপ ১
+	const t = taskSchema.parse(await link.get(`${s.tasks.url}/tasks/${id}`)); // step 1
 	const [assigneeRaw, commentsRaw] = await Promise.all([
-		link.get(`${s.users.url}/users/${t.assigneeId}`), // ধাপ ২ — একসাথে
+		link.get(`${s.users.url}/users/${t.assigneeId}`), // step 2 — in parallel
 		link.get(`${s.comments.url}/comments?taskId=${id}`)
 	]);
 	const assignee = userSchema.parse(assigneeRaw);
 	const all = z.array(commentSchema).parse(commentsRaw);
 	const ids = [...new Set(all.map((c) => c.authorId))].join(',');
-	const authors = z.array(userSchema).parse(await link.get(`${s.users.url}/users?ids=${ids}`)); // ধাপ ৩
+	const authors = z.array(userSchema).parse(await link.get(`${s.users.url}/users?ids=${ids}`)); // step 3
 	const byId = new Map(
 		[assignee, ...authors].map((u) => [u.id, { name: u.name, avatar: u.avatar }])
 	);
@@ -65,7 +65,7 @@ async function measure(row: Row): Promise<void> {
 	let requests = 0;
 	let bytes = 0;
 	for (let i = 0; i < cfg.PAGES + 3; i++) {
-		const link = new Link(row.profile); // প্রতিটা page load এর নিজের link (একটা tab, একটা page)
+		const link = new Link(row.profile); // every page load has its own link (one tab, one page)
 		const t = performance.now();
 		await row.load(link, (i % 200) + 1);
 		const elapsed = performance.now() - t;
@@ -89,21 +89,21 @@ async function main(): Promise<void> {
 	const mobileBff = await start('mobile-bff', { ROLE: 'bff', SHAPE: 'mobile', ...urls });
 	const s: Services = { tasks, users, comments, webBff, mobileBff };
 	try {
-		// দুই পথে হুবহু একই page আসে কিনা — না এলে তুলনার মানে নেই
+		// whether exactly the same page comes from both paths — otherwise the comparison means nothing
 		const fast: Profile = { name: 'check', rttMs: 0, mbps: 10_000 };
 		const direct = await directPage(new Link(fast), s, 7);
 		const viaBff = await new Link(fast).get(`${webBff.url}/pages/task/7`);
-		if (!isDeepStrictEqual(direct, viaBff)) throw new Error('direct আর BFF এর page আলাদা');
+		if (!isDeepStrictEqual(direct, viaBff)) throw new Error('direct and BFF pages differ');
 
 		console.log(
-			`\n── "Task detail" page: task + assignee + ২০টা comment + author · data center এর ভেতরে প্রতিটা call এ ${cfg.NET_MS} ms · ${cfg.PAGES} বার ──`
+			`\n── "Task detail" page: task + assignee + 20 comments + authors · ${cfg.NET_MS} ms per call inside the data center · ${cfg.PAGES} times ──`
 		);
 		console.log(
-			`   ${'পথ'.padEnd(30)} ${'browser এর network'.padEnd(30)}  request   ধাপ   browser এ এলো        p50        p95`
+			`   ${'path'.padEnd(30)} ${'browser network'.padEnd(30)} requests  steps  to browser        p50        p95`
 		);
 		const rows: Row[] = [
 			{
-				name: 'browser → service, সরাসরি',
+				name: 'browser → services, direct',
 				profile: DESKTOP,
 				levels: 3,
 				load: (l, id) => directPage(l, s, id)
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
 				load: (l, id) => l.get(`${webBff.url}/pages/task/${id}`)
 			},
 			{
-				name: 'browser → service, সরাসরি',
+				name: 'browser → services, direct',
 				profile: MOBILE,
 				levels: 3,
 				load: (l, id) => directPage(l, s, id)
@@ -135,7 +135,7 @@ async function main(): Promise<void> {
 		];
 		for (const row of rows) await measure(row);
 		console.log(
-			'\n   (web BFF এর page আর browser এর নিজের জোড়া দেওয়া page হুবহু একই — যাচাই করা। Mobile BFF: বিবরণ ২০০ অক্ষর, শেষ ৫টা comment।)\n'
+			'\n   (the web BFF page and the page the browser assembles itself are exactly the same — verified. Mobile BFF: 200-character description, last 5 comments.)\n'
 		);
 	} finally {
 		await Promise.all(Object.values(s).map(stop));

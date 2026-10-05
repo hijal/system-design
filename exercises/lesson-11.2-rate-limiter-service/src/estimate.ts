@@ -16,19 +16,19 @@ const LIMITER_P99_MS = env('LIMITER_P99_MS', 1);
 const SECONDS_PER_MONTH = 30 * 86_400;
 
 heading(
-	`অংশ ক — চাপ: peak এ ${n(API_RPS)} API request/s, ${n(API_SERVERS)}টা API server, প্রতি request এ ${RULES}টা নিয়ম`
+	`Part A — load: ${n(API_RPS)} API requests/s at peak, ${n(API_SERVERS)} API servers, ${RULES} rules per request`
 );
 const layouts: { name: string; opsPerRequest: number }[] = [
-	{ name: 'প্রতি নিয়মে আলাদা Redis call', opsPerRequest: RULES },
-	{ name: 'সব নিয়ম একটা Lua script এ (একই shard এ)', opsPerRequest: 1 }
+	{ name: 'a separate Redis call per rule', opsPerRequest: RULES },
+	{ name: 'all rules in one Lua script (on the same shard)', opsPerRequest: 1 }
 ];
 console.log(
 	row([
 		['', 54],
 		['Redis op/s', 14],
-		['shard লাগে', 12],
+		['shards needed', 15],
 		['network', 14],
-		['cross-AZ / মাস', 16]
+		['cross-AZ / month', 18]
 	])
 );
 for (const layout of layouts) {
@@ -40,43 +40,45 @@ for (const layout of layouts) {
 		row([
 			[layout.name, 54],
 			[n(ops), 14],
-			[n(shards), 12],
+			[n(shards), 15],
 			[`${bytes(bandwidth)}/s`, 14],
-			[`$${n(crossAz)}`, 16]
+			[`$${n(crossAz)}`, 18]
 		])
 	);
 }
 console.log(
-	`shard প্রতি ~${n(SHARD_OPS)} op/s (Lua সহ, ধরে নেওয়া), ${share(HEADROOM, 0)} ফাঁকা রেখে; message প্রতি ${MESSAGE_BYTES} B দুই দিকে; ${share(CROSS_AZ_SHARE, 0)} call অন্য AZ এ, $${CROSS_AZ_PER_GB}/GB`
+	`~${n(SHARD_OPS)} op/s per shard (with Lua, assumed), keeping ${share(HEADROOM, 0)} free; ${MESSAGE_BYTES} B per message each way; ${share(CROSS_AZ_SHARE, 0)} of calls to another AZ, $${CROSS_AZ_PER_GB}/GB`
 );
 
-heading('অংশ খ — memory: সক্রিয় key এর অবস্থা');
+heading('Part B — memory: the state of active keys');
 console.log(
 	row([
-		['', 54],
-		['key × নিয়ম', 14],
+		['', 62],
+		['keys × rules', 14],
 		['memory', 12]
 	])
 );
 console.log(
 	row([
-		[`token bucket, ${n(ACTIVE_KEYS)} সক্রিয় key (${STATE_BYTES} B/অবস্থা)`, 54],
+		[`token bucket, ${n(ACTIVE_KEYS)} active keys (${STATE_BYTES} B/state)`, 62],
 		[n(ACTIVE_KEYS * RULES), 14],
 		[bytes(ACTIVE_KEYS * RULES * STATE_BYTES), 12]
 	])
 );
 console.log(
 	row([
-		['sliding log, ঘণ্টায় 1,000 সীমা, একই key গুলো (16 B/entry)', 54],
+		['sliding log, limit 1,000 an hour, the same keys (16 B/entry)', 62],
 		[n(ACTIVE_KEYS), 14],
 		[bytes(ACTIVE_KEYS * 1_000 * 16), 12]
 	])
 );
 
-heading(`অংশ গ — latency এর বাজেট: API এর p99 ${API_P99_MS} ms, limiter পায় ${LIMITER_P99_MS} ms`);
-console.log(
-	`limiter এর অংশ: ${share(LIMITER_P99_MS / API_P99_MS, 0)}; প্রতি request এ এই বাজেটের ভেতরে একটা network round trip, একটা Lua script, আর কোনো retry না।`
+heading(
+	`Part C — the latency budget: the API's p99 is ${API_P99_MS} ms, the limiter gets ${LIMITER_P99_MS} ms`
 );
 console.log(
-	`একটা API server এ ${n(API_RPS / API_SERVERS)} request/s — limiter ${LIMITER_P99_MS} ms ধরে রাখলে একসাথে ~${n((API_RPS / API_SERVERS) * (LIMITER_P99_MS / 1_000))}টা অপেক্ষায়; ${n(50)} ms ধীর হলে ~${n((API_RPS / API_SERVERS) * 0.05)}টা।`
+	`the limiter's share: ${share(LIMITER_P99_MS / API_P99_MS, 0)}; within this budget, one network round trip per request, one Lua script, and no retries.`
+);
+console.log(
+	`${n(API_RPS / API_SERVERS)} requests/s on one API server — if the limiter holds each for ${LIMITER_P99_MS} ms, ~${n((API_RPS / API_SERVERS) * (LIMITER_P99_MS / 1_000))} are waiting at a time; slow at ${n(50)} ms, ~${n((API_RPS / API_SERVERS) * 0.05)}.`
 );

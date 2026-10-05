@@ -100,16 +100,16 @@ export function createShortener(config: Config, now: () => number = Date.now): S
 			const { url, alias, expiresAt } = parsed.data;
 			const target = new URL(url);
 			if (target.protocol !== 'https:' && target.protocol !== 'http:') {
-				fail(res, 400, 'unsupported_scheme', `${target.protocol} link নেওয়া হয় না`);
+				fail(res, 400, 'unsupported_scheme', `${target.protocol} links are not accepted`);
 				return;
 			}
 			if (target.host === shortHost) {
-				fail(res, 400, 'self_redirect', 'নিজের short link কে আবার ছোট করা যায় না (redirect loop)');
+				fail(res, 400, 'self_redirect', 'cannot shorten our own short link again (redirect loop)');
 				return;
 			}
 			const expiry = expiresAt === undefined ? null : Date.parse(expiresAt);
 			if (expiry !== null && expiry <= now()) {
-				fail(res, 400, 'expiry_in_past', 'মেয়াদ ভবিষ্যতে হতে হবে');
+				fail(res, 400, 'expiry_in_past', 'expiry must be in the future');
 				return;
 			}
 			if (
@@ -120,7 +120,7 @@ export function createShortener(config: Config, now: () => number = Date.now): S
 					res,
 					400,
 					'alias_reserved',
-					`এই alias সংরক্ষিত, বা ${CODE_LENGTH} অক্ষরের তৈরি করা code এর জায়গায় পড়ে`
+					`this alias is reserved, or falls in the space of ${CODE_LENGTH}-character generated codes`
 				);
 				return;
 			}
@@ -133,7 +133,7 @@ export function createShortener(config: Config, now: () => number = Date.now): S
 			let code: string;
 			if (alias !== undefined) {
 				if (store.insert({ ...base, code: alias, custom: true }) === 'taken') {
-					fail(res, 409, 'alias_taken', 'এই alias আগেই নেওয়া');
+					fail(res, 409, 'alias_taken', 'this alias is already taken');
 					return;
 				}
 				code = alias;
@@ -155,7 +155,7 @@ export function createShortener(config: Config, now: () => number = Date.now): S
 		(req: Request<{ code: string }>, res: Response<LinkStats | ApiError>) => {
 			const params = CodeParams.safeParse(req.params);
 			if (!params.success || store.get(params.data.code) === undefined) {
-				fail(res, 404, 'not_found', 'এই code এর কোনো link নেই');
+				fail(res, 404, 'not_found', 'no link for this code');
 				return;
 			}
 			res.json(clicks.stats(params.data.code));
@@ -167,7 +167,7 @@ export function createShortener(config: Config, now: () => number = Date.now): S
 		(req: Request<{ code: string }>, res: Response<ApiError>) => {
 			const params = CodeParams.safeParse(req.params);
 			if (!params.success || !store.disable(params.data.code, 'abuse report', now())) {
-				fail(res, 404, 'not_found', 'এই code এর কোনো link নেই');
+				fail(res, 404, 'not_found', 'no link for this code');
 				return;
 			}
 			res.status(204).end();
@@ -188,13 +188,13 @@ export function createShortener(config: Config, now: () => number = Date.now): S
 				res.redirect(302, result.url);
 				return;
 			case 'missing':
-				fail(res, 404, 'not_found', 'এই code এর কোনো link নেই');
+				fail(res, 404, 'not_found', 'no link for this code');
 				return;
 			case 'expired':
-				fail(res, 410, 'expired', 'এই link এর মেয়াদ শেষ');
+				fail(res, 410, 'expired', 'this link has expired');
 				return;
 			case 'disabled':
-				fail(res, 410, 'disabled', 'এই link বন্ধ করা হয়েছে');
+				fail(res, 410, 'disabled', 'this link has been disabled');
 				return;
 		}
 	});

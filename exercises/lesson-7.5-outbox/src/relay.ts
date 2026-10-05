@@ -3,11 +3,11 @@ import { z } from 'zod';
 import { OutboxEvent, sequelize } from './db';
 import { commentCreatedSchema, connectRedis, publish, waitReady } from './events';
 
-// Lesson 7.5 — Outbox relay: outbox table থেকে না-পাঠানো event তুলে Redis Stream এ পাঠায়।
+// Lesson 7.5 — the outbox relay: picks unsent events from the outbox table and sends them to the Redis Stream.
 //
-// প্রতিটা চক্র একটা transaction: `FOR UPDATE SKIP LOCKED` দিয়ে একটা batch নেয় (একাধিক relay চললে
-// একই row দুজন নেয় না), প্রতিটা event পাঠায়, তারপর publishedAt বসিয়ে commit।
-// পাঠানো আর "পাঠিয়েছি" লেখার মাঝে crash হলে পরের relay সেগুলো আবার পাঠায় — at-least-once (7.4)।
+// Every cycle is one transaction: takes a batch with `FOR UPDATE SKIP LOCKED` (with several relays running
+// no two take the same row), sends each event, then sets publishedAt and commits.
+// A crash between sending and writing "sent" makes the next relay send them again — at-least-once (7.4).
 
 const env = z
 	.object({
@@ -15,15 +15,15 @@ const env = z
 		BATCH: z.coerce.number().int().positive().default(50),
 		CRASH_RATE: z.coerce.number().min(0).max(1).default(0),
 		SEED: z.coerce.number().int().default(7),
-		// প্রতিবার নতুন relay এর জন্য আলাদা — নইলে restart এর পরে একই row এ আবার crash করত
+		// different for every new relay — otherwise after a restart it would crash on the same row again
 		GENERATION: z.coerce.number().int().nonnegative().default(0)
 	})
 	.parse(process.env);
 
 type Row = { id: string; payload: unknown };
 
-// writer.ts এর hash থেকে আলাদা (বাড়তি salt) — নইলে writer যে id তে crash করে (আর সেই row rollback হয়)
-// relay ও ঠিক সেগুলোতেই crash করতে চাইত, আর কখনো crash ই করত না
+// different from writer.ts's hash (an extra salt) — otherwise the relay would want to crash on exactly the ids
+// the writer crashes on (and those rows are rolled back), and would never crash at all
 function unit(id: number): number {
 	let x = Math.imul(
 		id ^ (env.SEED * 0x9e3779b1) ^ ((env.GENERATION + 1) * 0x27d4eb2f) ^ 0x5bd1e995,
@@ -48,7 +48,7 @@ async function cycle(): Promise<number> {
 			{ replacements: { batch: env.BATCH }, type: QueryTypes.SELECT, transaction: t }
 		);
 		for (const row of rows) {
-			// outbox এর payload JSONB — লিখেছে writer, কিন্তু runtime এ যাচাই (পুরনো version এর row ও থাকতে পারে)
+			// the outbox payload is JSONB — written by the writer, but validated at runtime (rows from an older version may exist too)
 			await publish(redis, commentCreatedSchema.parse(row.payload));
 			if (unit(Number(row.id)) < env.CRASH_RATE) process.kill(process.pid, 'SIGKILL');
 		}
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
 			const sent = await cycle();
 			if (sent === 0) await sleep(env.POLL_MS);
 		} catch (error: unknown) {
-			// Redis বা Postgres নেই — transaction rollback হয়েছে, row গুলো আবার পরের বার আসবে
+			// Redis or Postgres is missing — the transaction rolled back, the rows will come again next time
 			console.error('relay:', error instanceof Error ? error.message : error);
 			await sleep(1000);
 		}

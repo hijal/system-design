@@ -64,13 +64,13 @@ Lesson 2.5 এ idempotency শিখেছি HTTP API এর দিক থে�
 কোথায় লিখবে, কখন লিখবে — এখানেই সব ভুল। Exercise এর `npm run idempotency` ছয়টা কৌশলের প্রতিটায় **প্রতিটা ধাপের পরে crash** ধরে দেখে (তারপর message আবার আসে), আর দুটো worker একসাথে এলে তাদের ধাপগুলো যত রকম ক্রমে মিশতে পারে **সবগুলো** গোনে। কোনো random নেই — সব সম্ভাবনা গোনা:
 
 ```
-   কৌশল                                         crash: হারাল / দুবার     একসাথে: দুবার
-   ১. কিছু না: send → ack                           0 / 1 (1 টা point)      6 / 6
-   ২. আগে দেখো: check → send → insert → ack         0 / 1 (3 টা point)    60 / 66
-   ৩. আগে দাবি: insert (unique) → send → ack        1 / 0 (2 টা point)     0 / 12
-   ৪. দাবি + অবস্থা (provider key ছাড়া)            0 / 1 (3 টা point)    60 / 66
-   ৫. দাবি + অবস্থা + provider key                  0 / 0 (3 টা point)     0 / 66
-   ৬. একই transaction (effect টা database এ)        0 / 0 (1 টা point)      0 / 6
+   strategy                                     crash: lost / twice    concurrent: twice
+   1. nothing: send → ack                           0 / 1 (1 point)                6 / 6
+   2. check first: check → send → insert → ack      0 / 1 (3 points)             60 / 66
+   3. claim first: insert (unique) → send → ack     1 / 0 (2 points)              0 / 12
+   4. claim + state (no provider key)               0 / 1 (3 points)             60 / 66
+   5. claim + state + provider key                  0 / 0 (3 points)              0 / 66
+   6. one transaction (effect in the database)      0 / 0 (1 point)                0 / 6
 ```
 
 (ডান কলাম হলো "কতগুলো সম্ভাব্য ক্রমে duplicate" — প্রতিটা ক্রম সমান সম্ভাব্য না, কিন্তু শূন্য বনাম অশূন্য টাই আসল কথা।)
@@ -93,22 +93,22 @@ TaskFlow এ কৌশল ৫ আর ৬ এর চেহারা:
 ```typescript
 // sent_notifications: key (PRIMARY KEY), status ('pending' | 'sent'), createdAt
 async function sendMention(msg: MentionMessage): Promise<void> {
-	// dedupe key কাজের পরিচয় থেকে — message ID থেকে না (১.২ এর শেষে কেন)
+	// the dedupe key comes from the work's identity — not from the message ID (why, at the end of 1.2)
 	const key = `mention:${msg.commentId}:${msg.userId}`;
-	// দাবি: না থাকলে pending হিসেবে তৈরি; থাকলে যা আছে সেটাই ফেরত
+	// claim: create it as pending if it isn't there; if it is, return what's there
 	const [row] = await SentNotification.findOrCreate({
 		where: { key },
 		defaults: { key, status: 'pending' }
 	});
-	if (row.status === 'sent') return; // আগেই হয়েছে — ack
-	// pending: নতুন, বা আগের কেউ মাঝপথে থেমেছে — একই key দিয়ে আবার পাঠানো নিরাপদ, কারণ provider dedupe করে
+	if (row.status === 'sent') return; // already done — ack
+	// pending: new, or someone before stopped midway — sending again with the same key is safe, because the provider dedupes
 	await mailer.send({ to: msg.email, template: 'mention', idempotencyKey: key });
 	await row.update({ status: 'sent' });
 }
 
 async function countCompletedTask(msg: TaskCompletedMessage): Promise<void> {
 	await sequelize.transaction(async (t) => {
-		// processed_messages.key এর উপর unique constraint; আগে থাকলে কিছুই না
+		// unique constraint on processed_messages.key; if it's already there, do nothing
 		const [, created] = await ProcessedMessage.findOrCreate({
 			where: { key: `usage:${msg.taskId}:${msg.completedAt}` },
 			transaction: t
@@ -154,16 +154,16 @@ Permanent কে retry করা শুধু সময় নষ্ট না �
 বুধবারের ঘটনা ঠিক এটা। Exercise এর `npm run storm`, পরিস্থিতি (ক) — ১০০০টা job ঠিক একই মুহূর্তে (৯টার cron), provider প্রতি ১০০ ms এ ১০টা নিতে পারে (১০০/s), প্রতি job সর্বোচ্চ ১০ চেষ্টা:
 
 ```
-   নীতি                          মোট চেষ্টা   100ms এ সর্বোচ্চ   সফল   হাল ছাড়ল   শেষ সফল   দেরি p99
-   সাথে সাথে আবার                    9750              1990     50        950    450 ms     450 ms
-   স্থির 1 s পরে                     9550              1000    100        900     9.5 s      9.5 s
-   exponential (jitter ছাড়া)        9550              1000    100        900    46.0 s     46.0 s
+   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99
+   retry immediately                 9750              1990     50        950    450 ms     450 ms
+   fixed 1 s later                   9550              1000    100        900     9.5 s      9.5 s
+   exponential (no jitter)           9550              1000    100        900    46.0 s     46.0 s
    exponential + full jitter         7152              1456   1000          0    20.3 s     16.6 s
 
-   প্রতি সেকেন্ডে provider এ আসা চেষ্টা:
-   সেকেন্ড                          0     1     2     3     4     5     6     7
-   স্থির 1 s পরে                 1000   990   980   970   960   950   940   930
-   exponential (jitter ছাড়া)    3940   960     0   950     0     0   940     0
+   attempts reaching the provider per second:
+   second                           0     1     2     3     4     5     6     7
+   fixed 1 s later               1000   990   980   970   960   950   940   930
+   exponential (no jitter)       3940   960     0   950     0     0   940     0
    exponential + full jitter     4547   964   521   302   256   139    89    91
 ```
 
@@ -181,10 +181,10 @@ Permanent কে retry করা শুধু সময় নষ্ট না �
 **সৎ অংশ — পরিস্থিতি (খ):** job যখন এমনিতেই ছড়িয়ে আসে (৫০/s), আর provider ৫ সেকেন্ড বন্ধ থেকে ফেরে:
 
 ```
-   নীতি                          মোট চেষ্টা   100ms এ সর্বোচ্চ   সফল   হাল ছাড়ল   শেষ সফল   দেরি p99
-   সাথে সাথে আবার                    3205                50    767        233    20.0 s     350 ms
-   স্থির 1 s পরে                     2192                30   1000          0    20.0 s      8.4 s
-   exponential (jitter ছাড়া)        2415                30   1000          0    20.0 s     13.1 s
+   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99
+   retry immediately                 3205                50    767        233    20.0 s     350 ms
+   fixed 1 s later                   2192                30   1000          0    20.0 s      8.4 s
+   exponential (no jitter)           2415                30   1000          0    20.0 s     13.1 s
    exponential + full jitter         2682                44   1000          0    28.0 s     13.3 s
 ```
 
@@ -203,11 +203,11 @@ Permanent কে retry করা শুধু সময় নষ্ট না �
 `npm run dlq` — ৫ মিনিট, প্রতি সেকেন্ডে ২০টা email, ৪টা worker, ভালো job এ ১০০ ms। ২% poison (প্রতিবার ২ সেকেন্ড কাজ করে তারপর `400`)। ৬০–৯০ সেকেন্ডে provider এর outage (সব `503`)। ৪০০ সেকেন্ডে একজন মানুষ DLQ দেখে ঠিক করে redrive করে:
 
 ```
-   নীতি                                   worker সময় poison এ   সর্বোচ্চ লাইন   ভালো দেরি p99   DLQ তে গেল (ভালো / poison)   redrive → পৌঁছাল   শেষে বাকি (ভালো / poison)
-   সারাজীবন retry (সীমা নেই)                              74%            1489          93.8 s                        0 / 0              0 → 0                   0 / 131
-   ৫ বার, তারপর DLQ                                       68%            1292          76.1 s                      0 / 135              0 → 0                     0 / 0
-   ৫ বার; permanent সাথে সাথে DLQ                         28%             352         338.5 s                    159 / 135          159 → 159                     0 / 0
-   permanent সাথে সাথে; transient ১২ বার                  28%             417          45.9 s                      0 / 135              0 → 0                     0 / 0
+   policy                                  poison worker time     max waiting  good delay p99       to DLQ (good / poison) redriven → arrived   pending (good / poison)
+   retry forever (no limit)                               74%            1489          93.8 s                        0 / 0              0 → 0                   0 / 131
+   5 times, then DLQ                                      68%            1292          76.1 s                      0 / 135              0 → 0                     0 / 0
+   5 times; permanent to DLQ at once                      28%             352         338.5 s                    159 / 135          159 → 159                     0 / 0
+   permanent at once; transient 12 times                  28%             417          45.9 s                      0 / 135              0 → 0                     0 / 0
 ```
 
 **প্রথম সারি — শুক্রবার:** ২% poison job worker এর সময়ের **৭৪%** খায়। প্রতিটা poison প্রতি ৩০ সেকেন্ডে (backoff এর সীমা) আবার আসে আর ২ সেকেন্ড নেয় — আর নতুন poison আসতেই থাকে, কেউ চলে যায় না। তাদের খরচ সময়ের সাথে রৈখিকভাবে বাড়ে, আর একসময় worker এর পুরো ক্ষমতা ছাড়ায়। লাইন ১৪৮৯, ভালো job এর p99 দেড় মিনিট, আর ৬০০ সেকেন্ডে ১৩১টা poison তখনো ঘুরছে। আর সবচেয়ে বিপজ্জনক অংশ: কোনো job "failed" না — কোনো alert নেই।
@@ -242,18 +242,18 @@ Lesson 7.1 এ দেখেছি queue **capacity বানায় না** �
 `npm run backpressure` — consumer ১০০/s, অর্ধেক job জরুরি (password reset, mention), অর্ধেক কম জরুরি (digest, analytics), চারটা নীতি:
 
 ```
-── burst (5 s এ 300/s, তারপর 50/s)
-   নীতি                                   queue সর্বোচ্চ   producer এ আটকে   ফেরানো (জরুরি / কম)   অপেক্ষা p99 (সব / জরুরি)
-   সীমাহীন queue                                   1001                0                 0 / 0             9.8 s / 9.8 s
-   সীমা 500, বেশি হলে 503                           500                0             250 / 251             5.0 s / 5.0 s
-   সীমা 500, producer অপেক্ষা করে                   500              501                 0 / 0             9.8 s / 9.8 s
-   অগ্রাধিকার: 300 এর পরে কম জরুরি বাদ              475                0               0 / 584             9.6 s / 2.4 s
+── burst (300/s for 5 s, then 50/s)
+   policy                               queue max     producer held    rejected (urgent / low)  wait p99 (all / urgent)
+   unbounded queue                              1001                0                 0 / 0             9.8 s / 9.8 s
+   limit 500, 503 when full                    500                0             250 / 251             5.0 s / 5.0 s
+   limit 500, producer waits                  500              501                 0 / 0             9.8 s / 9.8 s
+   priority: drop less urgent above 300     475                0               0 / 584             9.6 s / 2.4 s
 
-── sustained (সবসময় 130/s)
-   সীমাহীন queue                                   1801                0                 0 / 0           17.8 s / 17.8 s
-   সীমা 500, বেশি হলে 503                           500                0             650 / 651             5.0 s / 5.0 s
-   সীমা 500, producer অপেক্ষা করে                   500             1301                 0 / 0           17.8 s / 17.8 s
-   অগ্রাধিকার: 300 এর পরে কম জরুরি বাদ              301                0              0 / 1501              8.6 s / 0 ms
+── sustained (always 130/s)
+   unbounded queue                              1801                0                 0 / 0           17.8 s / 17.8 s
+   limit 500, 503 when full                    500                0             650 / 651             5.0 s / 5.0 s
+   limit 500, producer waits                  500             1301                 0 / 0           17.8 s / 17.8 s
+   priority: drop less urgent above 300     301                0              0 / 1501              8.6 s / 0 ms
 ```
 
 চারটা নীতি, চারটা শিক্ষা:

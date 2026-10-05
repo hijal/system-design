@@ -52,9 +52,9 @@ The query that runs when TaskFlow's board opens and finance's query — both loo
 The exercise's `npm run olap` — a Postgres with 3 million `task_events` (limited to 2 CPUs, like a production database — whose cores are limited too). For the first 10 seconds 8 clients run only the board's query; for the next 10 seconds, four of finance's queries at the same time:
 
 ```
-   phase                        OLTP query/s   OLTP p50    OLTP p99    OLTP max   analytics finished (avg)
+   phase                           OLTP q/s   OLTP p50    OLTP p99   OLTP max    analytics done (avg)
    OLTP only                          15222     0.6 ms      1.1 ms    20.2 ms                       —
-   OLTP + 4 analytics                  4330     0.6 ms     68.5 ms    77.1 ms       47 times (868.8 ms)
+   OLTP + 4 analytics                  4330     0.6 ms     68.5 ms    77.1 ms     47 times (868.8 ms)
 ```
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the numbers are identical.)
@@ -152,8 +152,8 @@ A watermark is an estimate — and we know from Lesson 6.1 that estimates are wr
 The exercise's `npm run stream` — ~50 thousand `task.completed` in one day (three times as many during working hours); 90% of the news arrives almost immediately, 8% 1–10 minutes late (mobile), 2% 1–6 hours late (offline laptops) — and, like Friday, a pipeline outage from 1 to 2, with that hour's news all arriving between 2 and 2:10:
 
 ```
-   approach                                 time to first result (p50 / max)   error in first result   worst hour   error at end   dropped   corrections
-   batch (2 a.m., previous day)                  14.0 h / 25.0 h            0.10%          2.01%      0.10%        51        0
+   approach                                  first result p50/max      first error     worst hour  end error   dropped  updates
+   batch (2 a.m., previous day)                   14.0 h / 25.0 h            0.10%          2.01%      0.10%        51        0
    stream, processing time                          0.0 s / 0.0 s           15.22%        100.86%     15.22%         0        0
    stream, event time, lateness 0                   2.7 s / 1.0 h            9.82%         99.78%      9.82%      4869        0
    stream, event time, lateness 1 min             1.0 min / 1.0 h            9.03%         90.43%      9.03%      4474        0

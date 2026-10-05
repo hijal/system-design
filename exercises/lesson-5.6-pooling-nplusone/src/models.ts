@@ -9,7 +9,7 @@ import {
 	type Sequelize
 } from 'sequelize';
 
-// Lesson 5.2 এর normalized TaskFlow schema এর ছোট রূপ।
+// A small version of Lesson 5.2's normalized TaskFlow schema.
 export class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
 	declare id: CreationOptional<number>;
 	declare name: string;

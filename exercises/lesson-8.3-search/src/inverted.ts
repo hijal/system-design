@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { commentText, FILLER, STOPWORDS } from './data';
 
-// Lesson 8.3 §১.৫–১.৬ — একটা inverted index, নিজের হাতে, memory তে। Postgres এর GIN, Elasticsearch/Lucene এর
-// ভেতরের মূল ধারণা একই: "কোন document এ কোন শব্দ" কে উল্টে "কোন শব্দ কোন কোন document এ"।
+// Lesson 8.3 §1.5–1.6 — an inverted index, by hand, in memory. The core idea inside Postgres's GIN and
+// Elasticsearch/Lucene is the same: flipping "which words are in which document" into "which documents contain which word".
 //
-//   ১. বানানো: analyzer (ছোট হাতের অক্ষর, শব্দে ভাঙা, stopword বাদ, একটা ছোট stemmer) → posting list
-//   ২. খোঁজা: পুরো scan বনাম index — একই উত্তর, সময় কত
-//   ৩. দুটো শব্দ একসাথে (AND): posting list মেলানোর দুটো উপায়, কয়টা তুলনা লাগে
-//   ৪. সাজানো: BM25 — কোন document সবচেয়ে প্রাসঙ্গিক
-// Postgres লাগে না — like.ts এর একই comment (একই সূত্র), DOCS টা।
+//   1. build: analyzer (lowercase, split into words, drop stopwords, a small stemmer) → posting lists
+//   2. search: a full scan vs the index — the same answer, how long each takes
+//   3. two words together (AND): two ways to intersect posting lists, how many comparisons each takes
+//   4. ranking: BM25 — which document is most relevant
+// No Postgres needed — like.ts's same comments (the same formula), DOCS of them.
 
 const cfg = z
 	.object({ DOCS: z.coerce.number().int().positive().default(200_000) })
@@ -16,8 +16,8 @@ const cfg = z
 
 const STOP = new Set(STOPWORDS);
 
-// খেলনা stemmer — Porter stemmer এর কয়েকটা নিয়মের ছোট নকল: deploying/deployment/deployed → deploy,
-// invoices/invoice → invoic, received/receive → receiv। আসল analyzer এর নিয়ম অনেক বেশি (আর ভাষা ধরে)।
+// A toy stemmer — a small imitation of a few Porter stemmer rules: deploying/deployment/deployed → deploy,
+// invoices/invoice → invoic, received/receive → receiv. A real analyzer has many more rules (and per language).
 export function stem(word: string): string {
 	let w = word;
 	if (w.length > 6 && w.endsWith('ment')) w = w.slice(0, -4);
@@ -36,13 +36,13 @@ export function analyze(text: string): string[] {
 		.map(stem);
 }
 
-// posting list: শব্দটা আছে এমন document এর id (ছোট থেকে বড়), আর প্রতিটায় কতবার (term frequency)
+// posting list: the ids of the documents containing the word (ascending), and how many times in each (term frequency)
 type Postings = { docs: number[]; tf: number[] };
 
 const ms = (start: number): string => `${(performance.now() - start).toFixed(1)} ms`;
 
 function main(): void {
-	// ── ১. বানানো ──────────────────────────────────────────────
+	// ── 1. build ────────────────────────────────────────────────
 	const docs: string[] = [''];
 	for (let i = 1; i <= cfg.DOCS; i++) docs.push(commentText(i));
 	let t = performance.now();
@@ -64,7 +64,7 @@ function main(): void {
 		for (const [term, count] of counts) {
 			let p = index.get(term);
 			if (!p) index.set(term, (p = { docs: [], tf: [] }));
-			p.docs.push(id); // id বাড়তে থাকা ক্রমে আসে — তাই list সবসময় sorted
+			p.docs.push(id); // ids arrive in increasing order — so the list is always sorted
 			p.tf.push(count);
 		}
 	}
@@ -73,7 +73,7 @@ function main(): void {
 	const longest = [...index.entries()]
 		.sort(([, a], [, b]) => b.docs.length - a.docs.length)
 		.slice(0, 5);
-	// stopword রাখলে তাদের posting list কত লম্বা হতো
+	// how long the stopwords' posting lists would have been if they were kept
 	const stopDocs = STOPWORDS.slice(0, 3).map((s) => {
 		let n = 0;
 		for (let id = 1; id <= cfg.DOCS; id++)
@@ -86,19 +86,19 @@ function main(): void {
 				n++;
 		return `${s} ${Math.round((100 * n) / cfg.DOCS)}%`;
 	});
-	console.log(`\n── ১. Index বানানো: ${cfg.DOCS.toLocaleString('en')} টা comment ──`);
+	console.log(`\n── 1. Building the index: ${cfg.DOCS.toLocaleString('en')} comments ──`);
 	console.log(
-		`   সময় ${buildTime} · আলাদা term ${index.size.toLocaleString('en')} · posting ${postings.toLocaleString('en')} (~${((postings * 8) / 1024 / 1024).toFixed(0)} MB, id + tf)`
+		`   time ${buildTime} · distinct terms ${index.size.toLocaleString('en')} · postings ${postings.toLocaleString('en')} (~${((postings * 8) / 1024 / 1024).toFixed(0)} MB, id + tf)`
 	);
 	console.log(
-		`   বাদ পড়া stopword: ${droppedStop.toLocaleString('en')} / ${allTokens.toLocaleString('en')} শব্দ (${Math.round((100 * droppedStop) / allTokens)}%) — রাখলে প্রতিটার list বিশাল, কত ভাগ document এ: ${stopDocs.join(', ')}`
+		`   stopwords dropped: ${droppedStop.toLocaleString('en')} / ${allTokens.toLocaleString('en')} words (${Math.round((100 * droppedStop) / allTokens)}%) — kept, each list would be huge; share of documents: ${stopDocs.join(', ')}`
 	);
 	console.log(
-		`   সবচেয়ে লম্বা posting list: ${longest.map(([term, p]) => `${term} ${p.docs.length.toLocaleString('en')}`).join(' · ')}`
+		`   longest posting lists: ${longest.map(([term, p]) => `${term} ${p.docs.length.toLocaleString('en')}`).join(' · ')}`
 	);
 
-	// ── ২. খোঁজা: scan বনাম index ─────────────────────────────
-	console.log('\n── ২. "deploy checklist" — দুটো শব্দই আছে এমন comment ──');
+	// ── 2. search: scan vs index ────────────────────────────────
+	console.log('\n── 2. "deploy checklist" — comments containing both words ──');
 	t = performance.now();
 	let grep = 0;
 	for (let id = 1; id <= cfg.DOCS; id++) {
@@ -106,7 +106,7 @@ function main(): void {
 		if (d.includes('deploy') && d.includes('checklist')) grep++;
 	}
 	console.log(
-		`   পুরো scan, substring (LIKE এর মতো)        ${ms(t).padStart(10)}   ${grep.toLocaleString('en')} টা`
+		`   ${'full scan, substring (like LIKE)'.padEnd(44)}${ms(t).padStart(10)}   ${grep.toLocaleString('en')}`
 	);
 	t = performance.now();
 	const want = analyze('deploy checklist');
@@ -116,7 +116,7 @@ function main(): void {
 		if (want.every((w) => terms.has(w))) scanned++;
 	}
 	console.log(
-		`   পুরো scan, একই analyzer দিয়ে             ${ms(t).padStart(10)}   ${scanned.toLocaleString('en')} টা`
+		`   ${'full scan, with the same analyzer'.padEnd(44)}${ms(t).padStart(10)}   ${scanned.toLocaleString('en')}`
 	);
 	t = performance.now();
 	const found = intersect(
@@ -124,38 +124,38 @@ function main(): void {
 		{ count: 0 }
 	);
 	console.log(
-		`   inverted index (দুটো posting list মেলানো) ${ms(t).padStart(10)}   ${found.length.toLocaleString('en')} টা`
+		`   ${'inverted index (intersecting posting lists)'.padEnd(44)}${ms(t).padStart(10)}   ${found.length.toLocaleString('en')}`
 	);
 	console.log(
-		`   (substring এ বেশি: "redeploy" ও "deploy" ধরে; index এ "deploying"/"deployment" ও মেলে — stem একই)`
+		`   (more with substrings: "redeploy" matches "deploy" too; the index also matches "deploying"/"deployment" — the same stem)`
 	);
 
-	// ── ৩. AND: posting list মেলানোর দুই উপায় ─────────────────
+	// ── 3. AND: two ways to intersect posting lists ─────────────
 	const common = index.get(FILLER[0] ?? 'kax')?.docs ?? [];
 	const rare = index.get('rollback')?.docs ?? [];
 	console.log(
-		`\n── ৩. "${FILLER[0] ?? ''} AND rollback" — একটা খুব সাধারণ (${common.length.toLocaleString('en')} টা doc), একটা বিরল (${rare.length.toLocaleString('en')} টা) ──`
+		`\n── 3. "${FILLER[0] ?? ''} AND rollback" — one very common (${common.length.toLocaleString('en')} docs), one rare (${rare.length.toLocaleString('en')}) ──`
 	);
 	const merge = { count: 0 };
 	t = performance.now();
 	const viaMerge = mergeBoth(common, rare, merge);
 	console.log(
-		`   দুটো list পাশাপাশি হাঁটা (merge)          ${ms(t).padStart(10)}   তুলনা ${merge.count.toLocaleString('en').padStart(9)}   ফল ${viaMerge.length}`
+		`   ${'walking both lists side by side (merge)'.padEnd(44)}${ms(t).padStart(10)}   comparisons ${merge.count.toLocaleString('en').padStart(9)}   results ${viaMerge.length}`
 	);
 	const gallop = { count: 0 };
 	t = performance.now();
 	const viaSmall = intersect([common, rare], gallop);
 	console.log(
-		`   ছোট list থেকে শুরু, বড়টায় binary search   ${ms(t).padStart(10)}   তুলনা ${gallop.count.toLocaleString('en').padStart(9)}   ফল ${viaSmall.length}`
+		`   ${'start from the short list, binary search'.padEnd(44)}${ms(t).padStart(10)}   comparisons ${gallop.count.toLocaleString('en').padStart(9)}   results ${viaSmall.length}`
 	);
 
-	// ── ৪. সাজানো: BM25 ────────────────────────────────────────
-	console.log('\n── ৪. "deploy checklist" এর সেরা ৩টা — BM25 দিয়ে সাজানো ──');
+	// ── 4. ranking: BM25 ────────────────────────────────────────
+	console.log('\n── 4. The top 3 for "deploy checklist" — ordered by BM25 ──');
 	const avgLen = [...docLength].reduce((a, b) => a + b, 0) / cfg.DOCS;
 	const scores = bm25(want, found, index, docLength, avgLen, cfg.DOCS);
 	for (const [id, score] of scores.slice(0, 3)) {
 		console.log(
-			`   #${id} score ${score.toFixed(2)} · ${docLength[id]} টা term · "${(docs[id] ?? '').slice(0, 80)}${(docs[id] ?? '').length > 80 ? '…' : ''}"`
+			`   #${id} score ${score.toFixed(2)} · ${docLength[id]} terms · "${(docs[id] ?? '').slice(0, 80)}${(docs[id] ?? '').length > 80 ? '…' : ''}"`
 		);
 	}
 	const idf = (term: string): number => {
@@ -163,12 +163,12 @@ function main(): void {
 		return Math.log(1 + (cfg.DOCS - n + 0.5) / (n + 0.5));
 	};
 	console.log(
-		`   IDF (যত বিরল, তত ভারী): deploy ${idf('deploy').toFixed(2)} · checklist ${idf('checklist').toFixed(2)} · rollback ${idf('rollback').toFixed(2)} · ${FILLER[0] ?? ''} ${idf(FILLER[0] ?? '').toFixed(2)}`
+		`   IDF (the rarer, the heavier): deploy ${idf('deploy').toFixed(2)} · checklist ${idf('checklist').toFixed(2)} · rollback ${idf('rollback').toFixed(2)} · ${FILLER[0] ?? ''} ${idf(FILLER[0] ?? '').toFixed(2)}`
 	);
 	console.log();
 }
 
-// দুটো sorted list, দুই আঙুলে পাশাপাশি — তুলনা ≈ দুটো list এর যোগফল
+// two sorted lists, two fingers walking side by side — comparisons ≈ the sum of the two lists
 function mergeBoth(a: number[], b: number[], counter: { count: number }): number[] {
 	const out: number[] = [];
 	let i = 0;
@@ -187,7 +187,7 @@ function mergeBoth(a: number[], b: number[], counter: { count: number }): number
 	return out;
 }
 
-// সবচেয়ে ছোট list থেকে শুরু; প্রতিটা id বাকি list গুলোয় binary search — তুলনা ≈ ছোট × log(বড়)
+// start from the shortest list; binary search every id in the other lists — comparisons ≈ short × log(long)
 function intersect(lists: number[][], counter: { count: number }): number[] {
 	if (lists.length === 0) return [];
 	const sorted = [...lists].sort((a, b) => a.length - b.length);
@@ -209,7 +209,7 @@ function intersect(lists: number[][], counter: { count: number }): number[] {
 	);
 }
 
-// BM25: প্রতিটা শব্দের জন্য IDF × (tf এর একটা বাঁকানো রূপ, document এর দৈর্ঘ্য অনুযায়ী ঠিক করা)
+// BM25: for each word IDF × (a bent form of tf, adjusted for the document's length)
 function bm25(
 	terms: string[],
 	candidates: number[],

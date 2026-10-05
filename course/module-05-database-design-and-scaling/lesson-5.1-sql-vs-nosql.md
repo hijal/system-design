@@ -93,7 +93,7 @@ Relational model এর সবচেয়ে বড় শক্তিটা �
 const parsed: unknown = JSON.parse(raw);
 const result = taskListSchema.safeParse(parsed);
 if (!result.success) {
-	// cache এ আবর্জনা — miss ধরে নাও, DB ই সত্যের উৎস
+	// garbage in the cache — treat it as a miss; the DB is the source of truth
 	return { status: 'miss' };
 }
 ```
@@ -223,8 +223,8 @@ type CustomFieldValue = string | number | boolean;
 export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<Task>> {
 	declare id: CreationOptional<number>;
 	declare projectId: number;
-	declare title: string; // core field — DB enforce করে (schema-on-write)
-	declare customFields: CreationOptional<Record<string, CustomFieldValue>>; // flexible কিনারা
+	declare title: string; // core field — enforced by the DB (schema-on-write)
+	declare customFields: CreationOptional<Record<string, CustomFieldValue>>; // the flexible edge
 }
 
 Task.init(
@@ -237,7 +237,7 @@ Task.init(
 	{ sequelize, tableName: 'tasks', indexes: [{ fields: ['customFields'], using: 'gin' }] }
 );
 
-// "এই project এর যেসব task এ sprint = N" — JSONB containment (@>) query
+// "the tasks in this project where sprint = N" — a JSONB containment (@>) query
 export async function tasksInSprint(projectId: number, sprint: number): Promise<Task[]> {
 	return Task.findAll({
 		where: {
@@ -252,7 +252,7 @@ export async function tasksInSprint(projectId: number, sprint: number): Promise<
 		}
 	});
 }
-// তৈরি হওয়া SQL: ... WHERE ("Task"."projectId" = 42
+// Generated SQL: ... WHERE ("Task"."projectId" = 42
 //                      AND "customFields" @> CAST('{"sprint":14}' AS JSONB))
 ```
 

@@ -5,13 +5,13 @@ import { z } from 'zod';
 import { Comment, OutboxEvent, sequelize } from './db';
 import { commentCreatedSchema, connectRedis, STREAM, waitReady } from './events';
 
-// Lesson 7.5 — তিনটা writer এর তুলনা: কে কী হারায়, কী বানিয়ে ফেলে, কী দুবার পাঠায়।
+// Lesson 7.5 — comparing three writers: what each loses, what it invents, what it sends twice.
 //
-//   npm run scenario                         → তিনটা mode পরপর (MODE=all)
-//   MODE=outbox npm run scenario             → একটা
-//   REDIS_OUTAGE_MS=3000 WRITE_DELAY_MS=2 …  → চলার মাঝে Redis ৩ সেকেন্ড বন্ধ (docker compose stop/start)
+//   npm run scenario                         → all three modes in turn (MODE=all)
+//   MODE=outbox npm run scenario             → just one
+//   REDIS_OUTAGE_MS=3000 WRITE_DELAY_MS=2 …  → Redis down for 3 seconds mid-run (docker compose stop/start)
 //
-// শেষে যাচাই: Postgres এর comment বনাম Redis Stream এর event, comment id ধরে।
+// The check at the end: Postgres's comments vs the Redis Stream's events, matched by comment id.
 
 const config = z
 	.object({
@@ -95,7 +95,7 @@ async function runWriter(mode: Mode, report: Report): Promise<void> {
 		);
 		if (signal === 'SIGKILL') report.writerCrashes++;
 		else if (last < config.N) throw new Error('writer exited unexpectedly');
-		// crash করা comment টা বাদ (user error দেখেছে) — পরের id থেকে নতুন writer
+		// skip the comment that crashed (the user saw an error) — a new writer from the next id
 		next = last + 1;
 	}
 }
@@ -138,8 +138,8 @@ async function run(mode: Mode): Promise<Report> {
 		unpublished: 0
 	};
 
-	// Outbox mode এ relay পুরো সময় চলে; crash করলে নতুন relay (Kubernetes এর restart এর মতো)
-	// closure এর ভেতর থেকে বদলায় — তাই একটা holder (TypeScript এর narrowing এর জন্য)
+	// In outbox mode the relay runs the whole time; if it crashes, a new relay (like a Kubernetes restart)
+	// it changes from inside a closure — hence a holder (for TypeScript's narrowing)
 	const relay: { current: ChildProcess | null } = { current: null };
 	let generation = 0;
 	let stopping = false;
@@ -158,10 +158,10 @@ async function run(mode: Mode): Promise<Report> {
 		config.REDIS_OUTAGE_MS > 0
 			? sleep(500).then(async () => {
 					compose('stop');
-					console.log(`   (Redis বন্ধ, ${fmt(config.REDIS_OUTAGE_MS)})`);
+					console.log(`   (Redis down, ${fmt(config.REDIS_OUTAGE_MS)})`);
 					await sleep(config.REDIS_OUTAGE_MS);
 					compose('start');
-					console.log('   (Redis আবার চালু)');
+					console.log('   (Redis up again)');
 				})
 			: Promise.resolve();
 
@@ -184,7 +184,7 @@ async function run(mode: Mode): Promise<Report> {
 		report.lagP99 = percentile(lags, 99);
 	}
 
-	// ── যাচাই ─────────────────────────────────────────────────────────────────────────
+	// ── the check ───────────────────────────────────────────────────────────────────
 	for (let i = 0; i < 50 && redis.status !== 'ready'; i++) await sleep(200);
 	const comments = new Set((await Comment.findAll({ attributes: ['id'] })).map((c) => c.id));
 	const entries = await redis.xrange(STREAM, '-', '+');
@@ -210,18 +210,20 @@ async function run(mode: Mode): Promise<Report> {
 function print(r: Report): void {
 	console.log(`\n── mode: ${r.mode} ${'─'.repeat(56 - r.mode.length)}`);
 	console.log(
-		`   comment এর চেষ্টা: ${config.N} · writer crash: ${r.writerCrashes} · user error দেখল: ${r.rejected}` +
-			(r.mode === 'commit-first' ? ` · event পাঠানো ব্যর্থ (শুধু log এ): ${r.publishFailed}` : '')
+		`   comment attempts: ${config.N} · writer crashes: ${r.writerCrashes} · user saw an error: ${r.rejected}` +
+			(r.mode === 'commit-first'
+				? ` · event publish failed (only in the log): ${r.publishFailed}`
+				: '')
 	);
 	console.log(
-		`   database এ comment: ${r.comments} · stream এ event: ${r.events} (আলাদা eventId ${r.distinctEventIds})`
+		`   comments in the database: ${r.comments} · events in the stream: ${r.events} (distinct eventIds ${r.distinctEventIds})`
 	);
-	console.log(`   event হারাল (comment আছে, event নেই):      ${r.missing}`);
-	console.log(`   ভুতুড়ে event (event আছে, comment নেই):     ${r.ghost}`);
-	console.log(`   একই comment এর বাড়তি event:               ${r.duplicates}`);
+	console.log(`   events lost (comment exists, no event):     ${r.missing}`);
+	console.log(`   phantom events (event exists, no comment):  ${r.ghost}`);
+	console.log(`   extra events for the same comment:          ${r.duplicates}`);
 	if (r.mode === 'outbox')
 		console.log(
-			`   relay crash: ${r.relayCrashes} · commit থেকে stream এ পৌঁছাতে p50 ${fmt(r.lagP50)}, p99 ${fmt(r.lagP99)} · শেষে না-পাঠানো: ${r.unpublished}`
+			`   relay crashes: ${r.relayCrashes} · from commit to reaching the stream p50 ${fmt(r.lagP50)}, p99 ${fmt(r.lagP99)} · unpublished at the end: ${r.unpublished}`
 		);
 }
 
@@ -229,11 +231,11 @@ async function main(): Promise<void> {
 	try {
 		await sequelize.authenticate();
 	} catch {
-		console.error('Postgres পাওয়া যাচ্ছে না — আগে `docker compose up -d --wait` চালাও।');
+		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	console.log(
-		`   CRASH_RATE ${config.CRASH_RATE} (writer), ${config.RELAY_CRASH_RATE} (relay, প্রতি event) · relay: প্রতি ${fmt(config.POLL_MS)} এ খোঁজে, batch ${config.BATCH}${config.REDIS_OUTAGE_MS ? ` · Redis outage ${fmt(config.REDIS_OUTAGE_MS)}` : ''}`
+		`   CRASH_RATE ${config.CRASH_RATE} (writer), ${config.RELAY_CRASH_RATE} (relay, per event) · relay: polls every ${fmt(config.POLL_MS)}, batch ${config.BATCH}${config.REDIS_OUTAGE_MS ? ` · Redis outage ${fmt(config.REDIS_OUTAGE_MS)}` : ''}`
 	);
 	const modes: Mode[] =
 		config.MODE === 'all' ? ['commit-first', 'publish-first', 'outbox'] : [config.MODE];
@@ -244,8 +246,8 @@ async function main(): Promise<void> {
 		reports.push(report);
 	}
 	if (reports.length > 1) {
-		console.log(`\n── তুলনা ${'─'.repeat(58)}`);
-		console.log('   mode             comment   হারাল   ভুতুড়ে   বাড়তি (একই eventId)');
+		console.log(`\n── comparison ${'─'.repeat(52)}`);
+		console.log('   mode            comments    lost  phantom    extra (same eventId)');
 		for (const r of reports)
 			console.log(
 				`   ${r.mode.padEnd(15)}${String(r.comments).padStart(9)}${String(r.missing).padStart(8)}${String(r.ghost).padStart(9)}${String(r.duplicates).padStart(9)}`

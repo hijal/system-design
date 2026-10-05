@@ -62,17 +62,17 @@ Limiter মরলে?                               API চলবে; কোন 
 `npm run estimate`:
 
 ```
-── অংশ ক — চাপ: peak এ 500,000 API request/s, 400টা API server, প্রতি request এ 2টা নিয়ম ──
-                                                          Redis op/s    shard লাগে       network   cross-AZ / মাস
-প্রতি নিয়মে আলাদা Redis call                                      1,000,000          20      300 MB/s         $10,368
-সব নিয়ম একটা Lua script এ (একই shard এ)                        500,000          10      150 MB/s          $5,184
+── Part A — load: 500,000 API requests/s at peak, 400 API servers, 2 rules per request ──
+                                                          Redis op/s  shards needed       network  cross-AZ / month
+a separate Redis call per rule                             1,000,000             20      300 MB/s           $10,368
+all rules in one Lua script (on the same shard)              500,000             10      150 MB/s            $5,184
 
-── অংশ খ — memory ──
-token bucket, 300,000 সক্রিয় key (150 B/অবস্থা)                    600,000     90.0 MB
-sliding log, ঘণ্টায় 1,000 সীমা, একই key গুলো (16 B/entry)          300,000      4.8 GB
+── Part B — memory ──
+token bucket, 300,000 active keys (150 B/state)                      600,000     90.0 MB
+sliding log, limit 1,000 an hour, the same keys (16 B/entry)  300,000      4.8 GB
 
-── অংশ গ — latency এর বাজেট: API এর p99 50 ms, limiter পায় 1 ms ──
-একটা API server এ 1,250 request/s — limiter 1 ms ধরে রাখলে একসাথে ~1টা অপেক্ষায়; 50 ms ধীর হলে ~63টা।
+── Part C — the latency budget: the API's p99 is 50 ms, the limiter gets 1 ms ──
+1,250 requests/s on one API server — if the limiter holds each for 1 ms, ~1 are waiting at a time; slow at 50 ms, ~63.
 ```
 
 চারটা জিনিস:
@@ -133,13 +133,13 @@ Envoy এর মতো proxy তে দুটোই আছে: প্রতি�
 **অবস্থা ১ — চাহিদা সীমার ২ গুণ, সব server এ সমান ভাগে:**
 
 ```
-কৌশল                                              গৃহীত/s     সীমার     সবচেয়ে বেশি ১ s এ     আটকানো       কেন্দ্রে op/s    বাড়তি p50    বাড়তি p99
-প্রতি server এর নিজের bucket (পুরো সীমা)                  2,010   2.01x             2.10x     0.0%             0    0.00 ms    0.00 ms
-সীমা ভাগ করে (প্রতি server এ সীমা / N)                    1,010   1.01x             1.11x    49.7%             0    0.00 ms    0.00 ms
-কেন্দ্রে, প্রতি request এ, atomic (Lua)                   1,020   1.02x             1.20x    49.3%         2,010    0.50 ms    1.25 ms
-কেন্দ্রে, GET তারপর SET (atomic না)                      1,355   1.35x             1.63x    32.6%         4,020    1.04 ms    2.03 ms
-token lease (4টা একসাথে, না পেলে অপেক্ষা)                  1,016   1.02x             1.16x    49.5%         1,166    0.33 ms    1.15 ms
-local + প্রতি 100 ms এ sync (async)                   998   1.00x             1.22x    50.4%           495    0.00 ms    0.00 ms
+strategy                                          accepted/s  of limit    highest in 1 s  blocked   centre op/s  extra p50  extra p99
+each server its own bucket (full limit)                2,010     2.01x             2.10x     0.0%             0    0.00 ms    0.00 ms
+split the limit (limit / N on each server)             1,010     1.01x             1.11x    49.7%             0    0.00 ms    0.00 ms
+central, every request, atomic (Lua)                   1,020     1.02x             1.20x    49.3%         2,010    0.50 ms    1.25 ms
+central, GET then SET (not atomic)                     1,355     1.35x             1.63x    32.6%         4,020    1.04 ms    2.03 ms
+token lease (4 at a time, wait if not granted)         1,016     1.02x             1.16x    49.5%         1,166    0.33 ms    1.15 ms
+local + sync every 100 ms (async)                        998     1.00x             1.22x    50.4%           495    0.00 ms    0.00 ms
 ```
 
 প্রথম সারি 9.5 এর পুরনো ভুল (সীমা × server, এখানে চাহিদা যতটা ততটাই)। বাকিগুলো সবাই ~১.০x। এই অবস্থায় সবাই ভালো দেখায়, তাই এখানে থেমে গেলে ভুল সিদ্ধান্ত হবে।
@@ -149,9 +149,9 @@ local + প্রতি 100 ms এ sync (async)                   998   1.00x   
 **অবস্থা ২ — একই চাহিদা, কিন্তু ৯০% traffic ৫টা server এ** (বাস্তবে সাধারণ: একজন customer এর connection pool কয়েকটা keep-alive connection এ কয়েকটা server এ আটকে থাকে, 3.2):
 
 ```
-সীমা ভাগ করে (প্রতি server এ সীমা / N)                      287   0.29x             0.32x    85.8%             0    0.00 ms    0.00 ms
-token lease (4টা একসাথে, না পেলে অপেক্ষা)                  1,007   1.01x             1.16x    50.1%           835    0.00 ms    1.09 ms
-local + প্রতি 100 ms এ sync (async)                   966   0.97x             1.16x    52.1%           495    0.00 ms    0.00 ms
+split the limit (limit / N on each server)               287     0.29x             0.32x    85.8%             0    0.00 ms    0.00 ms
+token lease (4 at a time, wait if not granted)         1,007     1.01x             1.16x    50.1%           835    0.00 ms    1.09 ms
+local + sync every 100 ms (async)                        966     0.97x             1.16x    52.1%           495    0.00 ms    0.00 ms
 ```
 
 **সীমা ভাগ করা ভেঙে পড়ে।** প্রতিটা server এর ভাগ ২০/s। Traffic যে পাঁচটা server এ জমেছে তারা নিজের ভাগ শেষ করে আটকায়, আর বাকি ৪৫টা server এর ভাগ অব্যবহৃত পড়ে থাকে। Customer সীমার ২৯% পায়। আর অবস্থা ৪ এ আরও খারাপ।
@@ -159,10 +159,10 @@ local + প্রতি 100 ms এ sync (async)                   966   0.97x   
 **অবস্থা ৩ — আক্রমণ: চাহিদা সীমার ২০ গুণ:**
 
 ```
-কেন্দ্রে, প্রতি request এ, atomic (Lua)                   1,020   1.02x             1.20x    94.9%        20,033    0.50 ms    1.27 ms
-কেন্দ্রে, GET তারপর SET (atomic না)                      5,799   5.80x             7.33x    71.1%        40,065    1.04 ms    2.04 ms
-token lease (4টা একসাথে, না পেলে অপেক্ষা)                  1,019   1.02x             1.19x    94.9%         9,360    0.25 ms    1.14 ms
-local + প্রতি 100 ms এ sync (async)                 2,016   2.02x             2.08x    89.9%           495    0.00 ms    0.00 ms
+central, every request, atomic (Lua)                   1,020     1.02x             1.20x    94.9%        20,033    0.50 ms    1.27 ms
+central, GET then SET (not atomic)                     5,799     5.80x             7.33x    71.1%        40,065    1.04 ms    2.04 ms
+token lease (4 at a time, wait if not granted)         1,019     1.02x             1.19x    94.9%         9,360    0.25 ms    1.14 ms
+local + sync every 100 ms (async)                      2,016     2.02x             2.08x    89.9%           495    0.00 ms    0.00 ms
 ```
 
 **Approximate Sync (local গোনা + পর্যায়ক্রমিক sync)** — প্রতিটা server নিজে গোনে আর প্রতি T ms এ কেন্দ্রে নিজের সংখ্যা পাঠায় আর সবার মোট ফেরত পায়; মাঝের সময়ে সিদ্ধান্ত নেয় শেষ জানা মোট + নিজের গোনা দিয়ে। Request এর পথে কোনো network নেই (বাড়তি latency শূন্য), আর কেন্দ্রের চাপ request সংখ্যা না, server × sync এর হার (এখানে ৪৯৫/s)। দাম: sync এর জানালায় প্রতিটা server অন্যদের দেখে না। শান্ত অবস্থায় এটা চোখে পড়ে না। কিন্তু আক্রমণে, sync এর পরে প্রথম মুহূর্তে সব ৫০টা server একসাথে "জায়গা আছে" ভেবে নেয়: **২.০২x**। Experiment ১: sync ৫০০ ms হলে **৭.০২x**। ভুলটা T × server সংখ্যার সাথে বাড়ে, আর সবচেয়ে খারাপ হয় যখন চাহিদা সবচেয়ে বেশি। তাই এই কৌশল ঠিক সেখানে, যেখানে সীমা একটা মোটা সুরক্ষা আর ২ গুণ ভুল সহ্য করা যায় (CDN এর edge এ অনেক PoP জুড়ে গোনা এই পরিবারের), আর ভুল জায়গায় যেখানে সীমার পেছনে একটা ভঙ্গুর downstream।
@@ -170,10 +170,10 @@ local + প্রতি 100 ms এ sync (async)                 2,016   2.02x   
 **অবস্থা ৪ — চাহিদা সীমার ৮০%, ৯০% traffic ৫টা server এ.** এখানে কাউকে আটকানো ভুল:
 
 ```
-সীমা ভাগ করে (প্রতি server এ সীমা / N)                      176   0.18x             0.20x    78.3%             0    0.00 ms    0.00 ms
-কেন্দ্রে, প্রতি request এ, atomic (Lua)                     813   0.81x             0.88x     0.0%           813    0.50 ms    1.26 ms
-token lease (4টা একসাথে, না পেলে অপেক্ষা)                    813   0.81x             0.88x     0.0%           215    0.00 ms    0.99 ms
-local + প্রতি 100 ms এ sync (async)                   813   0.81x             0.88x     0.0%           495    0.00 ms    0.00 ms
+split the limit (limit / N on each server)               176     0.18x             0.20x    78.3%             0    0.00 ms    0.00 ms
+central, every request, atomic (Lua)                     813     0.81x             0.88x     0.0%           813    0.50 ms    1.26 ms
+token lease (4 at a time, wait if not granted)           813     0.81x             0.88x     0.0%           215    0.00 ms    0.99 ms
+local + sync every 100 ms (async)                        813     0.81x             0.88x     0.0%           495    0.00 ms    0.00 ms
 ```
 
 সীমার নিচের একজন customer এর **৭৮%** request আটকানো, শুধু কারণ তার traffic সমান ভাবে ছড়ায়নি। এটা সবচেয়ে খারাপ ধরনের ভুল: customer support এ এসে বলে "আমার সীমা ১,০০০, আমি ৮০০ পাঠাচ্ছি, ৪২৯ পাচ্ছি", আর dashboard এ তার মোট হার সীমার নিচে দেখায়। Experiment ২: ২০০টা server এ সে পায় সীমার ১০%। Server বাড়ানো (autoscale) customer এর সীমা কমায়।
@@ -183,8 +183,8 @@ local + প্রতি 100 ms এ sync (async)                   813   0.81x   
 ফল: অবস্থা ৪ এ কেন্দ্রের চাপ ৮১৩ থেকে **২১৫ op/s**, কোনো ভুল আটকানো ছাড়া, সীমা ঠিক। কিন্তু lease এর আকার একটা ফাঁদ:
 
 ```
-── lease এর আকার: 50টা server, burst 200 — lease × server যখন burst ছাড়ায় ──
-lease     lease × server      ২x, ৫টা server: গৃহীত       কেন্দ্রে op/s      ৮০%: ভুল আটকানো       কেন্দ্রে op/s
+── lease size: 50 servers, burst 200 — when lease × servers passes the burst ──
+lease     lease × server  2x, 5 servers: accepted   centre op/s  80%: wrongly blocked   centre op/s
 1                     50                   1.02x         1,791              0.0%           813
 4                    200                   1.01x           835              0.0%           215
 10                   500                   0.93x           494              0.8%           106
@@ -212,13 +212,13 @@ Lease ২০ এ সীমার নিচের customer এর ১১.৬% আ
 Customer এর traffic সমান না। `npm run hotkey`: ৫ লাখ request/s, তিন লাখ সক্রিয় key, Zipf (s = ১):
 
 ```
-সবচেয়ে বড় tenant: 37,911 req/s (7.6%); 1,000/s এর বেশি এমন tenant: 37টা
+biggest tenant: 37,911 req/s (7.6%); tenants above 1,000/s: 37
 
-পরিকল্পনা                                            মোট op/s   গড় shard     ব্যস্ততম shard     ক্ষমতার     ব্যস্ততম / গড়
-প্রতি request এ এক op, 16টা shard                    500,000     31,250         63,494      63%         2.03x
-একই, 32টা shard                                   500,000     15,625         52,306      52%         3.35x
-বড় tenant (> 1,000/s) এ lease                    413,256     25,828         33,521      34%         1.30x
-বড় tenant এর key 8 ভাগে (rl:k#0..7)                500,000     31,250         36,431      36%         1.17x
+plan                                          total op/s  avg shard  busiest shard  of capacity  busiest / avg
+one op per request, 16 shards                    500,000     31,250         63,494          63%          2.03x
+the same, 32 shards                              500,000     15,625         52,306          52%          3.35x
+leases on big tenants (> 1,000/s)                413,256     25,828         33,521          34%          1.30x
+big tenants' keys split 8 ways (rl:k#0..7)       500,000     31,250         36,431          36%          1.17x
 ```
 
 - **একজন customer একটা shard এর অর্ধেকের বেশি।** ১.৩ এর hash tag এর দাম: একটা customer এর সব key একটা shard এ। গড় shard ৩১k, ব্যস্ততম ৬৩k।
@@ -232,20 +232,20 @@ Customer এর traffic সমান না। `npm run hotkey`: ৫ লাখ r
 Rate limiter একটা সুরক্ষা। কিন্তু প্রতিটা request এর পথে বসে থাকে বলে, তার নিজের ব্যর্থতা পুরো API কে ফেলে দিতে পারে। 9.5 বলেছিল "fail open না closed, endpoint ধরে"। আজ প্রশ্নটা কঠিন রূপে: Redis **মরে না, ধীর হয়**, বা network এ blackhole (উত্তর আসেই না)। `npm run failure`: একটা shard এর key গুলো, ২০০টা সাধারণ key (সীমার নিচে) আর একটা abuser (সীমার ১০ গুণ), ৫০টা API server:
 
 ```
-── store ধীর (median 40 ms) ──
-নীতি                                                বাড়তি p50    বাড়তি p99     server এ ঝুলে থাকা      সাধারণ আটকানো   abuser পেল
-timeout নেই, উত্তরের অপেক্ষা                                40 ms     128 ms                 57           0.0%     1.1x সীমা
-timeout 5 ms → fail open                          5.00 ms    5.00 ms                  6           0.0%    10.1x সীমা
-timeout 5 ms → fail closed (503)                  5.00 ms    5.00 ms                  6         100.0%     0.0x সীমা
-timeout 5 ms → local bucket (সীমা / N)              5.00 ms    5.00 ms                  6          16.4%     1.0x সীমা
-+ breaker → local bucket, উদার (3 × সীমা / N)        0.00 ms    0.00 ms                  0           0.0%     3.1x সীমা
+── store slow (median 40 ms) ──
+policy                                                  extra p50  extra p99  hanging per server  ordinary blocked   abuser got
+no timeout, wait for the answer                             40 ms     128 ms                  57              0.0%   1.1x limit
+timeout 5 ms → fail open                                  5.00 ms    5.00 ms                   6              0.0%  10.1x limit
+timeout 5 ms → fail closed (503)                          5.00 ms    5.00 ms                   6            100.0%   0.0x limit
+timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms                   6             16.4%   1.0x limit
++ breaker → local bucket, generous (3 × limit / N)        0.00 ms    0.00 ms                   0              0.0%   3.1x limit
 
-── store এর network এ blackhole (উত্তর আসে না; TCP 30 s এ হাল ছাড়ে) ──
-timeout নেই, উত্তরের অপেক্ষা                              30.00 s    30.00 s             37,500           0.0%     1.0x সীমা
-timeout 5 ms → fail open                          5.00 ms    5.00 ms                  6           0.0%    10.0x সীমা
-timeout 5 ms → fail closed (503)                  5.00 ms    5.00 ms                  6         100.0%     0.0x সীমা
-timeout 5 ms → local bucket (সীমা / N)              5.00 ms    5.00 ms                  6          16.2%     1.0x সীমা
-+ breaker → local bucket, উদার (3 × সীমা / N)        0.00 ms    0.00 ms                  0           0.0%     3.1x সীমা
+── blackhole on the store's network (no answer; TCP gives up after 30 s) ──
+no timeout, wait for the answer                           30.00 s    30.00 s              37,500              0.0%   1.0x limit
+timeout 5 ms → fail open                                  5.00 ms    5.00 ms                   6              0.0%  10.0x limit
+timeout 5 ms → fail closed (503)                          5.00 ms    5.00 ms                   6            100.0%   0.0x limit
+timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms                   6             16.2%   1.0x limit
++ breaker → local bucket, generous (3 × limit / N)        0.00 ms    0.00 ms                   0              0.0%   3.1x limit
 ```
 
 - **Timeout ছাড়া limiter পুরো API কে নামায়।** ধীর অবস্থায় প্রতিটা request এ ৪০ ms (p99 ১২৮), আর blackhole এ ৩০ সেকেন্ড, প্রতিটা server এ একসাথে ৩৭,৫০০টা request ঝুলে থাকে: memory, socket, thread শেষ। একটা "soft" সুরক্ষা তখন সবচেয়ে hard dependency (10.3)। তাই limiter এর call এর timeout তার latency এর বাজেটের কাছাকাছি (এখানে ৫ ms), আর কোনো retry না।
@@ -261,18 +261,18 @@ timeout 5 ms → local bucket (সীমা / N)              5.00 ms    5.00 ms
 `npm run smoke` সব সিদ্ধান্ত একসাথে চালায়: একটা Express limiter service (`/v1/check`, `/v1/lease`, Zod দিয়ে নিয়ম), একটা client library (timeout `AbortSignal.timeout` দিয়ে, breaker, lease, নিয়ম ধরে fail mode, local fallback), আর API server যারা client কে middleware থেকে ডাকে:
 
 ```
-#   ধাপ                                                        ফল
-1   key acme: A তে ১৫টা, B তে ১৫টা, পালা করে                         A: 200 × 5, 429 × 10 | B: 200 × 5, 429 × 10
-2   শেষ 429 এর header                                          Retry-After: 1, উৎস: limiter
-3   ঘড়ি ১ s এগোল, আরও ১২টা                                       200 × 10, 429 × 2
-4   key big-plain (১,০০০/s): A তে ১০০টা, প্রতি request এ check     200 × 100; limiter এ 100টা call
-5   key big-co: lease (৫টা) সহ API তে ১০০টা                      200 × 100; limiter এ 20টা lease call
-6   limiter ২০০ ms ধীর, timeout ২০ ms: GET /data (local)       200, উৎস: fallback, ১০০ ms এর কম
-7   একই সময়ে POST /login (fail closed)                         503, Retry-After: 1, ১০০ ms এর কম
-8   limiter বন্ধ: A তে ৮টা GET /data                              200 × 5, 429 × 3; উৎস: fallback
-9   তার মধ্যে limiter এর দিকে network call                          3টা (breaker ৩টা ব্যর্থতায় খোলে)
-10  limiter বন্ধ: POST /login                                   503, Retry-After: 1
-11  limiter ফিরল, breaker এর ৩০০ ms পরে                         200, উৎস: limiter, network call 1টা
+#   step                                                      result
+1   key acme: 15 on A, 15 on B, alternating                   A: 200 × 5, 429 × 10 | B: 200 × 5, 429 × 10
+2   the last 429's headers                                    Retry-After: 1, source: limiter
+3   clock forward 1 s, 12 more                                200 × 10, 429 × 2
+4   key big-plain (1,000/s): 100 on A, check on every request  200 × 100; 100 calls to the limiter
+5   key big-co: 100 to the API with leases (5)                200 × 100; 20 lease calls to the limiter
+6   limiter 200 ms slow, timeout 20 ms: GET /data (local)     200, source: fallback, under 100 ms
+7   at the same time POST /login (fail closed)                503, Retry-After: 1, under 100 ms
+8   limiter down: 8 GET /data on A                            200 × 5, 429 × 3; source: fallback
+9   network calls toward the limiter during that              3 (the breaker opens after 3 failures)
+10  limiter down: POST /login                                 503, Retry-After: 1
+11  limiter back, 300 ms after the breaker                    200, source: limiter, 1 network call(s)
 ```
 
 - ধাপ ১: দুটো API server মিলে ঠিক ১০টা, কারণ গোনা কেন্দ্রে। 9.5 এর ৩x এর সমস্যা নেই।

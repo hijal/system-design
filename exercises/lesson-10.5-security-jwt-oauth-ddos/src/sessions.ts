@@ -14,12 +14,12 @@ type Policy =
 	| { kind: 'denylist'; name: string; ttl: number };
 
 const POLICIES: Policy[] = [
-	{ kind: 'stateless', name: 'JWT ২৪ ঘ, revoke নেই', ttl: 86_400 },
-	{ kind: 'lookup', name: 'প্রতি request এ session lookup' },
-	{ kind: 'refresh', name: 'access ১ ঘ + refresh', ttl: 3_600 },
-	{ kind: 'refresh', name: 'access ১৫ মি + refresh', ttl: 900 },
-	{ kind: 'refresh', name: 'access ৫ মি + refresh', ttl: 300 },
-	{ kind: 'denylist', name: 'access ১৫ মি + refresh + denylist', ttl: 900 }
+	{ kind: 'stateless', name: 'JWT 24 h, no revoke', ttl: 86_400 },
+	{ kind: 'lookup', name: 'session lookup on every request' },
+	{ kind: 'refresh', name: 'access 1 h + refresh', ttl: 3_600 },
+	{ kind: 'refresh', name: 'access 15 min + refresh', ttl: 900 },
+	{ kind: 'refresh', name: 'access 5 min + refresh', ttl: 300 },
+	{ kind: 'denylist', name: 'access 15 min + refresh + denylist', ttl: 900 }
 ];
 
 const SPAN = HOURS * 3_600;
@@ -72,16 +72,16 @@ function liveAfterRevoke(policy: Policy, session: number, at: number): number {
 }
 
 heading(
-	`অংশ ক — ${n(SESSIONS)} সক্রিয় session, ${RPS} req/s, ${HOURS} ঘণ্টা (${n(totalRequests)} request)`
+	`Part A — ${n(SESSIONS)} active sessions, ${RPS} req/s, ${HOURS} hours (${n(totalRequests)} requests)`
 );
 console.log(
 	row([
-		['নীতি', 36],
+		['policy', 36],
 		['store/identity call/s', 22],
-		['request এর %', 14],
-		['revoke এর পরে: গড়', 20],
-		['সবচেয়ে খারাপ', 14],
-		['identity মরলে চলে', 18]
+		['% of requests', 14],
+		['after revoke: avg', 20],
+		['worst', 14],
+		['works if identity dies', 24]
 	])
 );
 for (const policy of POLICIES) {
@@ -106,7 +106,7 @@ for (const policy of POLICIES) {
 	);
 }
 console.log(
-	'\n(denylist এর "identity মরলে চলে": শেষ পাওয়া denylist নিয়ে চলে; সেই সময়ে নতুন revoke পৌঁছায় না)'
+	'\n(denylist\'s "works if identity dies": it runs on the last denylist received; new revokes don\'t arrive meanwhile)'
 );
 
 type Family = { id: number; current: string; used: Set<string>; revoked: boolean; created: number };
@@ -160,16 +160,16 @@ const workHours = (minute: number): boolean => {
 	return day < 5 && hour >= 9 && hour < 17 && minute % 5 === 0;
 };
 const SCENARIOS: Scenario[] = [
-	{ name: 'চুরি সোমবার ১০:০০, alice কাজে আছে', theftAt: 10 * 60, aliceActive: workHours },
+	{ name: 'stolen Monday 10:00, alice at work', theftAt: 10 * 60, aliceActive: workHours },
 	{
-		name: 'চুরি শুক্রবার ১৬:৫০, alice সোমবার ফেরে',
+		name: 'stolen Friday 16:50, alice back Monday',
 		theftAt: 4 * DAY + 16 * 60 + 50,
 		aliceActive: workHours
 	}
 ];
 const MODES: Mode[] = [
-	{ name: 'rotation নেই', rotate: false, detectReuse: false },
-	{ name: 'rotation, reuse ধরা নেই', rotate: true, detectReuse: false },
+	{ name: 'no rotation', rotate: false, detectReuse: false },
+	{ name: 'rotation, no reuse detection', rotate: true, detectReuse: false },
 	{ name: 'rotation + reuse detection', rotate: true, detectReuse: true }
 ];
 
@@ -211,15 +211,15 @@ function run(
 }
 
 heading(
-	`অংশ খ — refresh token চুরি (access ${ACCESS_MINUTES} মি, refresh ${REFRESH_DAYS} দিন), attacker ১০ মিনিট পরে শুরু করে`
+	`Part B — refresh token theft (access ${ACCESS_MINUTES} min, refresh ${REFRESH_DAYS} days), the attacker starts 10 minutes later`
 );
 for (const scenario of SCENARIOS) {
 	console.log(`\n${scenario.name}`);
 	console.log(
 		row([
-			['নীতি', 30],
-			['attacker এর হাতে', 18],
-			['alice জোর করে logout', 22],
+			['policy', 34],
+			['attacker holds it', 19],
+			['alice forced to log out', 25],
 			['security alert', 16]
 		])
 	);
@@ -228,9 +228,9 @@ for (const scenario of SCENARIOS) {
 		const window = result.lastAccess < 0 ? 0 : result.lastAccess - (scenario.theftAt + 10) + 1;
 		console.log(
 			row([
-				[mode.name, 30],
-				[duration(window), 18],
-				[n(result.aliceLogins - 1), 22],
+				[mode.name, 34],
+				[duration(window), 19],
+				[n(result.aliceLogins - 1), 25],
 				[n(result.alerts), 16]
 			])
 		);

@@ -40,7 +40,7 @@ const Answer = z.object({ id: z.string(), state: z.object({ kind: z.string() }).
 let step = 0;
 const show = (what: string, result: string): void => {
 	step++;
-	console.log(padEnd(step, 4) + padEnd(what, 54) + result);
+	console.log(padEnd(step, 4) + padEnd(what, 60) + result);
 };
 const cents = (value: number): string =>
 	`${value < 0 ? '−' : ''}$${(Math.abs(value) / 100).toFixed(2)}`;
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
 	const server = createApp(service).listen(0);
 	await new Promise<void>((resolve) => server.once('listening', () => resolve()));
 	const address = server.address();
-	if (address === null || typeof address === 'string') throw new Error('port পাওয়া গেল না');
+	if (address === null || typeof address === 'string') throw new Error('could not get the port');
 	const base = `http://127.0.0.1:${address.port}`;
 	const pay = async (
 		amount: number,
@@ -91,35 +91,35 @@ async function main(): Promise<void> {
 		Answer.parse(await (await fetch(`${base}/v1/payments/${id}`)).json()).state.kind;
 
 	heading(
-		'একটা payment service: পয়সায় integer, double-entry ledger, fake PSP, HMAC দেওয়া webhook'
+		'one payment service: integer cents, double-entry ledger, fake PSP, HMAC-signed webhooks'
 	);
-	console.log(padEnd('#', 4) + padEnd('ধাপ', 54) + 'ফল');
+	console.log(padEnd('#', 4) + padEnd('step', 60) + 'result');
 
 	const first = await pay(3_000, 'order-1001-a');
-	show('$30.00 এর payment', `${first.status} ${first.state}; ${balances()}`);
+	show('a $30.00 payment', `${first.status} ${first.state}; ${balances()}`);
 	const again = await pay(3_000, 'order-1001-a');
 	show(
-		'একই idempotency key আবার (client এর retry)',
-		`${again.status} ${again.id} (আগেরটা ${first.id}); PSP call ${psp.calls}`
+		"the same idempotency key again (the client's retry)",
+		`${again.status} ${again.id} (earlier ${first.id}); PSP calls ${psp.calls}`
 	);
 
 	psp.declined.add(4_200);
 	const declined = await pay(4_200, 'order-1002-a');
 	show(
 		'$42.00, card decline',
-		`${declined.status} ${declined.state}; ledger এ entry ${service.ledger.length}টা`
+		`${declined.status} ${declined.state}; ${service.ledger.length} entries in the ledger`
 	);
 
 	psp.timeoutOnce.add(5_500);
 	const unknown = await pay(5_500, 'order-1003-a');
-	show('$55.00, PSP timeout (আসলে কেটেছে)', `${unknown.status} ${unknown.state}`);
+	show('$55.00, PSP timeout (actually charged)', `${unknown.status} ${unknown.state}`);
 	show(
-		'PSP এর webhook এলো (সঠিক signature)',
+		"the PSP's webhook arrived (correct signature)",
 		`${await webhook({ ref: unknown.id, status: 'charged' })} → ${await state(unknown.id)}`
 	);
 	show(
-		'জাল webhook (ভুল secret)',
-		`${await webhook({ ref: first.id, status: 'failed' }, 'guess')}; ${first.id} এখনও ${await state(first.id)}`
+		'a fake webhook (wrong secret)',
+		`${await webhook({ ref: first.id, status: 'failed' }, 'guess')}; ${first.id} still ${await state(first.id)}`
 	);
 
 	psp.timeoutOnce.add(7_700);
@@ -127,20 +127,26 @@ async function main(): Promise<void> {
 	clock += 5 * 60_000;
 	const fixed = service.recover(2 * 60_000);
 	show(
-		'$77.00 timeout, webhook হারাল; ৫ মিনিট পরে recovery job',
-		`${fixed}টা ঠিক হলো → ${await state(lost.id)}`
+		'$77.00 timeout, webhook lost; recovery job 5 minutes later',
+		`${fixed} fixed → ${await state(lost.id)}`
 	);
 
-	show('$30.00 থেকে $10.00 refund', await refund(first.id, 1_000, 'refund-1-aaaa'));
-	show('একই refund key আবার', await refund(first.id, 1_000, 'refund-1-aaaa'));
-	show('আরও $25.00 refund (মোট captured ছাড়ায়)', await refund(first.id, 2_500, 'refund-2-aaaa'));
+	show('refund $10.00 of the $30.00', await refund(first.id, 1_000, 'refund-1-aaaa'));
+	show('the same refund key again', await refund(first.id, 1_000, 'refund-1-aaaa'));
+	show(
+		'refund another $25.00 (over the total captured)',
+		await refund(first.id, 2_500, 'refund-2-aaaa')
+	);
 
 	psp.extra.push({ ref: unknown.id, amount: 5_500 });
 	const issues = service.reconcile(psp.report());
-	show('দিনশেষে PSP এর report মেলানো', issues.length === 0 ? 'সব মিলেছে' : issues.join('; '));
+	show(
+		"matching the PSP's report at the end of the day",
+		issues.length === 0 ? 'all matched' : issues.join('; ')
+	);
 
-	show('ledger এর শেষ অবস্থা', balances());
-	show('সব entry এর যোগফল', `${total()} পয়সা (${service.ledger.length}টা entry)`);
+	show("the ledger's final state", balances());
+	show('the sum of all entries', `${total()} cents (${service.ledger.length} entries)`);
 	server.close();
 }
 

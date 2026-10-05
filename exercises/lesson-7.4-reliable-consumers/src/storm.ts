@@ -2,17 +2,17 @@ import { z } from 'zod';
 import { mulberry32, percentile } from './random';
 import { Sim } from './sim';
 
-// Lesson 7.4 §১.৩ — Retry storm: চারটা retry নীতি, দুটো পরিস্থিতি।
+// Lesson 7.4 §1.3 — Retry storm: four retry policies, two situations.
 //
-//   (ক) সবাই একসাথে — ১০০০টা job ঠিক একই মুহূর্তে (সকাল ৯টার digest cron, বা outage এর পরে একসাথে
-//       ছাড়া পাওয়া backlog)। এখানে প্রশ্ন: ব্যর্থরা কি আবারও একসাথে ফেরে?
-//   (খ) outage — job আসে ছড়িয়ে (50/s, 20 s), provider প্রথম OUTAGE_MS বন্ধ।
+//   (a) everyone at once — 1000 jobs at exactly the same moment (the 9 am digest cron, or a backlog released
+//       all at once after an outage). The question here: do the failed ones come back together again?
+//   (b) outage — jobs arrive spread out (50/s, 20 s), the provider is down for the first OUTAGE_MS.
 //
-// Provider এর model: প্রতি 100 ms এ সর্বোচ্চ 10টা request সফলভাবে নিতে পারে (100/s); বাড়তি গুলো সাথে
-// সাথে 503 পায় — overload এ সে নিজেকে বাঁচায় (load shedding)। প্রতিটা চেষ্টার উত্তর আসতে 50 ms।
-// প্রতিটা job সর্বোচ্চ MAX_ATTEMPTS বার চেষ্টা।
+// The provider's model: it can successfully take at most 10 requests per 100 ms (100/s); the extras get
+// an immediate 503 — under overload it protects itself (load shedding). Each attempt takes 50 ms to answer.
+// Every job is tried at most MAX_ATTEMPTS times.
 //
-// Seed দেওয়া — jitter এর random ও প্রতিবার একই। SEED দিয়ে বদলানো যায়।
+// Seeded — the jitter's randomness is the same every time too. Can be changed with SEED.
 
 const env = z
 	.object({
@@ -32,14 +32,14 @@ const CAP = 20_000;
 
 type Policy = { name: string; delay: (attempt: number, random: () => number) => number };
 
-// attempt = এইমাত্র ব্যর্থ হওয়া চেষ্টার নম্বর (1, 2, …)
+// attempt = the number of the attempt that just failed (1, 2, …)
 const policies: Policy[] = [
-	{ name: 'সাথে সাথে আবার', delay: () => 0 },
-	{ name: 'স্থির 1 s পরে', delay: () => 1000 },
-	{ name: 'exponential (jitter ছাড়া)', delay: (n) => Math.min(CAP, BASE * 2 ** (n - 1)) },
+	{ name: 'retry immediately', delay: () => 0 },
+	{ name: 'fixed 1 s later', delay: () => 1000 },
+	{ name: 'exponential (no jitter)', delay: (n) => Math.min(CAP, BASE * 2 ** (n - 1)) },
 	{
 		name: 'exponential + full jitter',
-		// AWS Architecture Blog (Marc Brooker, 2015) এর "full jitter": 0 থেকে exponential সীমার মধ্যে এলোমেলো
+		// "full jitter" from the AWS Architecture Blog (Marc Brooker, 2015): random between 0 and the exponential bound
 		delay: (n, random) => random() * Math.min(CAP, BASE * 2 ** (n - 1))
 	}
 ];
@@ -110,12 +110,12 @@ const fmt = (ms: number): string =>
 
 const scenarios: Scenario[] = [
 	{
-		title: `(ক) সবাই একসাথে: 1000 টা job t = 0 তে, provider চালু`,
+		title: `(a) everyone at once: 1000 jobs at t = 0, provider up`,
 		arrivals: Array.from({ length: 1000 }, () => 0),
 		outageMs: 0
 	},
 	{
-		title: `(খ) outage: ${(DURATION / 1000) * JOBS_PER_SECOND} টা job (${JOBS_PER_SECOND}/s, ${DURATION / 1000} s ধরে), provider 0–${fmt(env.OUTAGE_MS)} বন্ধ`,
+		title: `(b) outage: ${(DURATION / 1000) * JOBS_PER_SECOND} jobs (${JOBS_PER_SECOND}/s, for ${DURATION / 1000} s), provider down 0–${fmt(env.OUTAGE_MS)}`,
 		arrivals: Array.from(
 			{ length: (DURATION / 1000) * JOBS_PER_SECOND },
 			(_, i) => (i * 1000) / JOBS_PER_SECOND
@@ -125,12 +125,12 @@ const scenarios: Scenario[] = [
 ];
 
 console.log(
-	`\n   provider নিতে পারে ${(CAPACITY_PER_WINDOW * 1000) / WINDOW_MS}/s (প্রতি ${WINDOW_MS} ms এ ${CAPACITY_PER_WINDOW}টা) · প্রতি job সর্বোচ্চ ${env.MAX_ATTEMPTS} চেষ্টা · exponential: ${BASE} ms × 2^(n−1), সর্বোচ্চ ${fmt(CAP)}`
+	`\n   provider can take ${(CAPACITY_PER_WINDOW * 1000) / WINDOW_MS}/s (${CAPACITY_PER_WINDOW} per ${WINDOW_MS} ms) · at most ${env.MAX_ATTEMPTS} attempts per job · exponential: ${BASE} ms × 2^(n−1), at most ${fmt(CAP)}`
 );
 for (const scenario of scenarios) {
 	console.log(`\n── ${scenario.title}\n`);
 	console.log(
-		'   নীতি                          মোট চেষ্টা   100ms এ সর্বোচ্চ   সফল   হাল ছাড়ল   শেষ সফল   দেরি p99'
+		'   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99'
 	);
 	const results: [Policy, Result][] = policies.map((p) => [p, run(p, scenario)]);
 	for (const [p, r] of results) {
@@ -140,10 +140,10 @@ for (const scenario of scenarios) {
 	}
 	const from = Math.floor(scenario.outageMs / 1000);
 	console.log(
-		`\n   প্রতি সেকেন্ডে provider এ আসা চেষ্টা (${from} s থেকে; provider নিতে পারে 100/s):`
+		`\n   attempts reaching the provider per second (from ${from} s; the provider can take 100/s):`
 	);
 	console.log(
-		`   ${'সেকেন্ড'.padEnd(28)}${Array.from({ length: 8 }, (_, i) => String(from + i).padStart(6)).join('')}`
+		`   ${'second'.padEnd(28)}${Array.from({ length: 8 }, (_, i) => String(from + i).padStart(6)).join('')}`
 	);
 	for (const [p, r] of results) {
 		console.log(

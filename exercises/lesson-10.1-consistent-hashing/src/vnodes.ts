@@ -9,15 +9,15 @@ const keys = keyNames('tasks:board', KEYS);
 function balance(): void {
 	const nodes = nodeList('cache', NODES);
 	heading(
-		`ক. ${NODES}টা node, ${KEYS.toLocaleString('en-US')}টা key — virtual node বাড়ালে ভাগ কতটা সমান হয়`
+		`A. ${NODES} nodes, ${KEYS.toLocaleString('en-US')} keys — how even the split gets as virtual nodes grow`
 	);
 	console.log(
 		row([
 			['vnode / node', 16],
-			['সবচেয়ে ভারী', 14],
-			['সবচেয়ে হালকা', 15],
-			['ring এ বিন্দু', 15],
-			['lookup এ ধাপ', 15]
+			['heaviest', 14],
+			['lightest', 15],
+			['points on ring', 15],
+			['lookup steps', 15]
 		])
 	);
 	for (const vnodes of [1, 10, 50, 100, 160, 500, 1000]) {
@@ -38,20 +38,20 @@ function balance(): void {
 			])
 		);
 	}
-	console.log('   (ভারী/হালকা = ন্যায্য ভাগের কত গুণ; 1.00x = নিখুঁত)');
+	console.log('   (heavy/light = how many times the fair share; 1.00x = perfect)');
 }
 
 function weights(): void {
 	const nodes = [node('cache-1'), node('cache-2'), node('cache-3'), node('cache-big', 'az-1', 2)];
 	const ring = new HashRing(nodes, 160);
 	const load = loadByNode(ring, keys);
-	heading('খ. একটা machine দ্বিগুণ বড় — weight 2 মানে দ্বিগুণ virtual node');
+	heading('B. one machine twice as big — weight 2 means twice the virtual nodes');
 	console.log(
 		row([
 			['node', 16],
 			['weight', 10],
-			['পেল', 12],
-			['ন্যায্য ভাগ', 14]
+			['got', 12],
+			['fair share', 14]
 		])
 	);
 	for (const spec of nodes)
@@ -69,19 +69,19 @@ function replicas(): void {
 	const nodes = nodeList('store', 6);
 	const ring = new HashRing(nodes, 160);
 	const sample = keys.slice(0, 50_000);
-	heading('গ. ৬টা node, ৩টা AZ, প্রতিটা key এর ৩টা copy — ring থেকে পরের ৩টা কীভাবে বাছবে');
+	heading('C. 6 nodes, 3 AZs, 3 copies of every key — how to pick the next 3 from the ring');
 	console.log(
 		row([
-			['নিয়ম', 30],
-			['৩টা আলাদা node না', 20],
-			['৩টা আলাদা AZ না', 18],
-			['এক AZ গেলেই সব copy শেষ', 26]
+			['rule', 30],
+			['not 3 distinct nodes', 22],
+			['not 3 distinct AZs', 20],
+			['one AZ loss kills all copies', 30]
 		])
 	);
 	const rules: [ReplicaRule, string][] = [
-		['next-points', 'পরের ৩টা বিন্দু'],
-		['distinct-nodes', 'পরের ৩টা আলাদা node'],
-		['distinct-zones', 'পরের ৩টা আলাদা AZ']
+		['next-points', 'the next 3 points'],
+		['distinct-nodes', 'the next 3 distinct nodes'],
+		['distinct-zones', 'the next 3 distinct AZs']
 	];
 	for (const [rule, label] of rules) {
 		let sharedNode = 0;
@@ -97,14 +97,14 @@ function replicas(): void {
 		console.log(
 			row([
 				[label, 30],
-				[pct(sharedNode, sample.length), 20],
-				[pct(sharedZone, sample.length), 18],
-				[pct(singleZone, sample.length), 26]
+				[pct(sharedNode, sample.length), 22],
+				[pct(sharedZone, sample.length), 20],
+				[pct(singleZone, sample.length), 30]
 			])
 		);
 	}
 	console.log(
-		`   (${sample.length.toLocaleString('en-US')}টা key; node গুলো az-1, az-2, az-3 তে পালা করে বসানো)`
+		`   (${sample.length.toLocaleString('en-US')} keys; the nodes placed in az-1, az-2, az-3 in turn)`
 	);
 }
 

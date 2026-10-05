@@ -31,28 +31,28 @@ const nearest = (city: City): Region => USERS.find((u) => u.city === city)?.near
 
 const TOPOLOGIES: Topology[] = [
 	{
-		name: 'সব সিঙ্গাপুরে',
+		name: 'all in Singapore',
 		edge: false,
 		appRegion: () => PRIMARY,
 		readRegion: () => PRIMARY,
 		writeRegion: () => PRIMARY
 	},
 	{
-		name: '+ CDN edge এ TLS',
+		name: '+ TLS at the CDN edge',
 		edge: true,
 		appRegion: () => PRIMARY,
 		readRegion: () => PRIMARY,
 		writeRegion: () => PRIMARY
 	},
 	{
-		name: '+ প্রতি region এ app + read replica',
+		name: '+ app + read replica in every region',
 		edge: true,
 		appRegion: (city) => nearest(city),
 		readRegion: (app) => app,
 		writeRegion: () => PRIMARY
 	},
 	{
-		name: 'workspace এর home region (cell)',
+		name: "the workspace's home region (cell)",
 		edge: true,
 		appRegion: (_city, home) => home,
 		readRegion: (_app, home) => home,
@@ -87,18 +87,18 @@ function sample(topology: Topology, city: City, random: () => number): Sample {
 }
 
 heading(
-	`অংশ ক — board খোলা (নতুন connection, ${API_CALLS}টা API call, প্রতিটায় ${DB_READS}টা query) আর task তৈরি; ${Math.round(AWAY_SHARE * 100)}% workspace অন্য region এর`
+	`Part A — opening a board (new connection, ${API_CALLS} API calls, ${DB_READS} queries each) and creating a task; ${Math.round(AWAY_SHARE * 100)}% of workspaces belong to another region`
 );
 for (const topology of TOPOLOGIES) {
 	console.log(`\n${topology.name}`);
 	console.log(
 		row([
-			['শহর', 14],
+			['city', 14],
 			['user', 8],
 			['board p50', 12],
 			['board p95', 12],
-			['task তৈরি p50', 15],
-			['লেখার পরে পুরনো পড়া', 22]
+			['create task p50', 17],
+			['stale read after write', 24]
 		])
 	);
 	const random = mulberry32(SEED);
@@ -115,14 +115,14 @@ for (const topology of TOPOLOGIES) {
 				[pct(u.share, 1, 0), 8],
 				[ms(percentile(boards, 50)), 12],
 				[ms(percentile(boards, 95)), 12],
-				[ms(percentile(writes, 50)), 15],
-				[pct(stale, SAMPLES, 1), 22]
+				[ms(percentile(writes, 50)), 17],
+				[pct(stale, SAMPLES, 1), 24]
 			])
 		);
 	}
 	console.log(
 		row([
-			['সবাই (ওজন সহ)', 14],
+			['all (weighted)', 14],
 			['', 8],
 			[ms(weightedPercentile(all, 50)), 12],
 			[ms(weightedPercentile(all, 95)), 12]
@@ -130,37 +130,37 @@ for (const topology of TOPOLOGIES) {
 	);
 }
 console.log(
-	'\n("লেখার পরে পুরনো পড়া" = task তৈরির পরে পরের পড়া local replica তে পৌঁছায় replication এর আগে — 6.3 এর read-your-writes)'
+	'\n("stale read after write" = after creating a task, the next read reaches the local replica before replication — 6.3\'s read-your-writes)'
 );
 
-heading('অংশ খ — region জুড়ে consensus: একটা লেখা commit হতে কত (majority এর ack)');
+heading('Part B — consensus across regions: how long a write takes to commit (majority ack)');
 type Placement = { name: string; leader: Region; followers: Region[] };
 const PLACEMENTS: Placement[] = [
-	{ name: 'সিঙ্গাপুরের ৩টা AZ', leader: 'singapore', followers: ['singapore', 'singapore'] },
+	{ name: "Singapore's 3 AZs", leader: 'singapore', followers: ['singapore', 'singapore'] },
 	{
-		name: 'সিঙ্গাপুর + মুম্বাই + ফ্রাঙ্কফুর্ট',
+		name: 'Singapore + Mumbai + Frankfurt',
 		leader: 'singapore',
 		followers: ['mumbai', 'frankfurt']
 	},
-	{ name: 'একই, leader মুম্বাইয়ে', leader: 'mumbai', followers: ['singapore', 'frankfurt'] },
+	{ name: 'the same, leader in Mumbai', leader: 'mumbai', followers: ['singapore', 'frankfurt'] },
 	{
-		name: 'চার region, leader সিঙ্গাপুরে',
+		name: 'four regions, leader in Singapore',
 		leader: 'singapore',
 		followers: ['mumbai', 'frankfurt', 'virginia']
 	},
 	{
-		name: 'চার region, leader ফ্রাঙ্কফুর্টে',
+		name: 'four regions, leader in Frankfurt',
 		leader: 'frankfurt',
 		followers: ['singapore', 'mumbai', 'virginia']
 	}
 ];
 console.log(
 	row([
-		['কোথায়', 36],
+		['where', 36],
 		['node', 6],
 		['majority', 10],
 		['commit', 10],
-		['কয়টা region হারানো সহ্য', 26]
+		['regions it can lose', 38]
 	])
 );
 for (const p of PLACEMENTS) {
@@ -172,14 +172,16 @@ for (const p of PLACEMENTS) {
 	const commit = acks[majority - 2] ?? 0;
 	const regions = new Set([p.leader, ...p.followers]).size;
 	const survives =
-		regions === 1 ? '০ (region মরলে সব যায়)' : `${Math.min(regions - 1, nodes - majority)}`;
+		regions === 1
+			? '0 (lose the region, lose everything)'
+			: `${Math.min(regions - 1, nodes - majority)}`;
 	console.log(
 		row([
 			[p.name, 36],
 			[String(nodes), 6],
 			[String(majority), 10],
 			[ms(commit), 10],
-			[survives, 26]
+			[survives, 38]
 		])
 	);
 }

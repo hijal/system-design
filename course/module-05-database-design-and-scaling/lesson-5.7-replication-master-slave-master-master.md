@@ -98,9 +98,9 @@ Postgres এর default replication **asynchronous** — primary commit কর�
 এবার TaskFlow এর bug। Exercise এর `npm run lag` ঠিক TaskFlow এর code এর মতো করে: `Task.create(...)` (primary এ যায়), তারপর সাথে সাথে `Task.findByPk(id)` (Sequelize replica তে পাঠায়):
 
 ```
-অবস্থা                              খুঁজে পায়নি   replica তে দেখা যেতে কত সময় লাগল
-স্বাভাবিক (একই মেশিন, load নেই)     199/200   p50    1.8 ms   p99    2.3 ms
-replica ২০০ ms পিছিয়ে (নকল lag)     50/50   p50  200.1 ms   p99  200.9 ms
+situation                               not found   time until visible on the replica
+normal (same machine, no load)          199/200   p50    1.8 ms   p99    2.3 ms
+replica 200 ms behind (simulated lag)    50/50   p50  200.1 ms   p99  200.9 ms
 ```
 
 প্রথম লাইনটা এই lesson এর সবচেয়ে গুরুত্বপূর্ণ সংখ্যা। Primary আর replica **একই মেশিনে**, কোনো load নেই, lag মাত্র **~২ ms** — তবু ২০০ বারের মধ্যে ১৯৯ বার নিজের সদ্য তৈরি task খুঁজে পাওয়া যায়নি। কারণ পরের read টা ২ ms এর চেয়েও দ্রুত আসে। প্রশ্নটা কখনো "lag কত ছোট" না — প্রশ্নটা **"lag শূন্য কিনা"**, আর async replication এ সেটা কখনো শূন্য না।
@@ -114,11 +114,11 @@ replica ২০০ ms পিছিয়ে (নকল lag)     50/50   p50  200.
 Exercise এর `npm run ryw` — replica ২০০ ms পিছিয়ে, প্রতিটা কৌশলে ৩০ বার "লেখো → সাথে সাথে পড়ো":
 
 ```
-কৌশল                                       পাওয়া গেছে   লেখা (median)   পড়া (median)
-ক. কিছু না (replica থেকে পড়া)                0/30        2.1 ms        0.4 ms
-খ. useMaster: true (primary থেকে)            30/30        2.1 ms        0.4 ms
-গ. LSN token — replica ধরা পর্যন্ত অপেক্ষা   30/30        1.8 ms      200.7 ms
-ঘ. synchronous_commit = remote_apply         30/30      202.2 ms        0.7 ms
+strategy                                      found  write median   read median
+a. nothing (read from the replica)            0/30        2.1 ms        0.4 ms
+b. useMaster: true (from the primary)        30/30        2.1 ms        0.4 ms
+c. LSN token — wait for the replica          30/30        1.8 ms      200.7 ms
+d. synchronous_commit = remote_apply         30/30      202.2 ms        0.7 ms
 ```
 
 তিনটা সমাধানই সঠিক (৩০/৩০)। কিন্তু সংখ্যাগুলো দেখো — প্রতিটা **দামটা ভিন্ন জায়গায় সরায়**:
@@ -153,9 +153,9 @@ app.transaction(async (transaction) => {
 **দাম ২ — replica না থাকলে write থেমে যায়।** Exercise এর `npm run failover` এর ধাপ ৪: replica কে network থেকে বিচ্ছিন্ন করে একটা sync write:
 
 ```
-৩ সেকেন্ড পরে: commit এখনো replica এর অপেক্ষায় আটকে আছে? হ্যাঁ
-→ app এর timeout এ ধৈর্য শেষ; query টা cancel করা হলো
-COMMIT ফেরত এলো 3.0s পরে, সাথে Postgres এর সতর্কবার্তা:
+after 3 seconds: is the commit still stuck waiting for the replica? yes
+→ the app's timeout ran out of patience; the query was cancelled
+COMMIT came back after 3.0s, with a warning from Postgres:
   WARNING: canceling wait for synchronous replication due to user request — The transaction
   has already committed locally, but might not have been replicated to the standby.
 ```
@@ -183,8 +183,8 @@ Exercise এর `npm run failover` পুরো গল্পটা চালা�
 
 ```
 before            10/10  ✓
-async              0/20  ✗ হারিয়ে গেছে — অথচ user কে "saved" বলা হয়েছিল
-sync               0/1  ✗ হারিয়ে গেছে — app timeout পেয়েছিল, কিন্তু পুরনো primary তে এটা commit হয়ে ছিল
+async              0/20  ✗ lost — even though the user was told "saved"
+sync               0/1  ✗ lost — the app got a timeout, but it had been committed on the old primary
 after-failover     1/1  ✓
 ```
 

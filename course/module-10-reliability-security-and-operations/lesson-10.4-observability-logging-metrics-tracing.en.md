@@ -59,7 +59,7 @@ These are not three separate tools but three views of the same event. The path t
 In 1.5 you learned that averages mislead and to look at the p99. Now let us see the numbers. The exercise's `npm run percentiles` — an hour of board opens (1.08 million requests), six instances, three replicas; `r3`'s disk stalls three times an hour for 90 seconds each:
 
 ```
-average           p50       p90       p99     p99.9       max     > 1 s
+average          p50       p90       p99     p99.9       max     > 1 s
 172 ms         79 ms    132 ms    3.79 s    4.50 s    4.77 s     2.50%
 ```
 
@@ -81,11 +81,11 @@ Now a subtle trap that almost every dashboard falls into. Say you do watch the p
 
 ```
 true p99 (all requests together)            3.79 s
-average of 60 per-minute p99s                617 ms
-median of 60 per-minute p99s                 187 ms
-max of 60 per-minute p99s                   4.52 s
+average of the 60 minutes' p99              617 ms
+median of the 60 minutes' p99               187 ms
+max of the 60 minutes' p99                  4.52 s
 
-minute          avg       p99     > 1 s
+minute     average       p99     > 1 s
 11           84 ms    183 ms      0.0%
 12          1.25 s    4.52 s     33.2%
 13          675 ms    4.46 s     16.9%
@@ -103,13 +103,13 @@ The solution is to keep not percentiles but something that **can be added**:
 Add six instances' histograms and you get exactly one big histogram; add 60 minutes' and you get exactly the hour's histogram — nothing is lost. In Prometheus this is `histogram_quantile(0.99, sum by (le) (rate(...[1h])))` — add the buckets first, then take the percentile. But how good the estimate is depends on the buckets. Part C:
 
 ```
-percentile        true  default buckets    error   own buckets       error
+percentile        true  default bucket    error   own buckets    error
 p50              79 ms           82 ms      +3%         80 ms      +1%
 p90             132 ms          205 ms     +55%        141 ms      +7%
 p99             3.79 s          4.00 s      +6%        3.78 s      -0%
 p99.9           4.50 s          4.90 s      +9%        4.86 s      +8%
-   default buckets (ms): 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000
-   own buckets     (ms): 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000, 4000, 5000
+   default bucket (ms): 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000
+   own buckets    (ms): 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000, 4000, 5000
 ```
 
 With the Prometheus client library's default buckets the p90 estimate is **55% too high** — because the true p90 (132 ms) sits in a wide bucket between 100 and 250, and inside a bucket the estimate is linear. Buckets should be **where your decisions are made** — dense around the SLO threshold (say for a 300 ms SLO: 200, 250, 300, 350), and sparse far away. Experiment 2: adding just 150 and 200 to the defaults takes the p90 error from +55% to +7%. But every bucket is a separate time series — and that is the cost in the next section.
@@ -117,7 +117,7 @@ With the Prometheus client library's default buckets the p90 estimate is **55% t
 **Now the right dimension.** We know the p99, but there is no answer to "why?". Part D — the same requests, split two ways:
 
 ```
-dimension          requests       avg       p50       p99     > 1 s
+dimension        request   average       p50       p99     > 1 s
 instance 1       180,000    170 ms     79 ms    3.77 s     2.47%
 instance 2       180,000    173 ms     79 ms    3.79 s     2.53%
 …
@@ -133,10 +133,10 @@ Split by instance, all six are identical — no information. Split by replica, t
 `replica` is a good label: three values. How many values do `user_id` and the actual `path` have? A metric system keeps a separate time series for **every distinct combination of labels** — in memory, each with its own series of numbers. `npm run cardinality` — one day's traffic (8.64 million requests, 100,000 users, 200,000 boards), one latency metric, varying the set of labels:
 
 ```
-labels                              counter series   histogram (×15)      estimated memory
+label                                   counter series   histogram (×15)    approx. memory
 method, route, status, instance              2,400            36,000            103 MB
 + plan (free/pro/business)                   7,114           106,710            305 MB
-actual path instead of route             2,529,996        37,949,940            106 GB
+the real path instead of the route           2,529,996        37,949,940            106 GB
 + user_id                                2,534,244        38,013,660            106 GB
 + trace_id                               8,640,000       129,600,000            362 GB
 ```
@@ -158,11 +158,11 @@ Then where is the answer to "which user is slow"? In logs and traces — there e
 **Log volume.** Part B — how much a day comes to depending on where each request's events are kept:
 
 ```
-what we keep                                    per request        per day
-log, one JSON line per request                         350 B      2.8 GB
-log, debug on (25 lines)                              8.5 KB     70.4 GB
-trace, every request (20 spans)                       7.8 KB     64.4 GB
-trace, 1% sample                                        80 B      659 MB
+what we keep                                per request     per day
+log, one JSON line per request                    350 B      2.8 GB
+log, debug on (25 lines)                         8.5 KB     70.4 GB
+trace, every request (20 spans)                  7.8 KB     64.4 GB
+trace, 1% sample                                   80 B      659 MB
 ```
 
 Thursday's debug logs — from 2.8 GB to 70 GB a day. Log cost grows directly with the number of events, so the log policy has three parts: **one full line per request beats ten empty ones** (one line at the end with route, status, time, user, board and trace id all in it); debug logging only where it is needed (one instance, one user, a few minutes — say behind a flag), not everywhere; and logs of successful, ordinary requests can be sampled — always keep errors and slow ones.
@@ -238,11 +238,11 @@ And splitting every trace's `db.query` spans by replica (part C) — r1 and r2 m
 **When one hop goes wrong.** Part D — the same 30 requests, but bff forgets to send `traceparent` when calling downstream services (a new HTTP client nobody instrumented — very common in practice):
 
 ```
-                              spans  traces
-header sent                       270      30
-bff sends no header               270      90
+                              span   trace
+with the header                270      30
+bff without the header         270      90
 
-   the gateway trace of the slowest request
+   the slowest request's gateway trace
 gateway · GET /boards/:id                   1,203 ms   |████████████████████████████████████████|
   gateway · HTTP GET → bff                  1,203 ms   |████████████████████████████████████████|
     bff · GET /boards/:id                   1,202 ms   |████████████████████████████████████████|
@@ -264,20 +264,20 @@ The same number of spans (270), but 90 traces — every request in three pieces.
 How much if you keep every trace? `npm run sampling` — 25.9 million traces in a day (300 req/s), 20 spans each; among them 13,088 errors, 130,236 slower than a second, and a rare bug (for one workspace) 45 times a day:
 
 ```
-policy                          traces kept   complete      errors      slow   rare bug    stored/day   arriving at collector
-keep everything               25,920,000    100.000%    13,088   130,236     45/45     193 GB           193 GB
-head 10%                       2,593,300    100.000%     1,322    12,876      2/45    19.3 GB          19.3 GB
-head 1%                          259,702    100.000%       129     1,319      0/45     1.9 GB           1.9 GB
-head 0.1%                         26,119    100.000%        18       128      0/45     199 MB           199 MB
-tail: errors + slow + 1%         401,513    100.000%    13,088   130,236     45/45     3.0 GB           193 GB
-tail: errors + slow + 0.1%       169,232    100.000%    13,088   130,236     45/45     1.3 GB           193 GB
-each service samples 10% itself 10,620,422      0.002%         0         2      0/45     1.9 MB          19.3 GB
+policy                      traces kept  full trace     error      slow  rare bug  stored/day   into collector
+keep all                    25,920,000    100.000%    13,088   130,236     45/45     193 GB           193 GB
+head 10%                     2,593,300    100.000%     1,322    12,876      2/45    19.3 GB          19.3 GB
+head 1%                        259,702    100.000%       129     1,319      0/45     1.9 GB           1.9 GB
+head 0.1%                       26,119    100.000%        18       128      0/45     199 MB           199 MB
+tail: error + slow + 1%        401,513    100.000%    13,088   130,236     45/45     3.0 GB           193 GB
+tail: error + slow + 0.1%       169,232    100.000%    13,088   130,236     45/45     1.3 GB           193 GB
+each service its own 10%    10,620,422      0.002%         0         2      0/45     1.9 MB          19.3 GB
 ```
 
 **Head sampling:** a random decision at the **start** of the request — at the gateway — "keep this trace or not", which travels to every later service in `traceparent`'s flag (`01`/`00`). Cheap and simple: nobody even sends the spans of traces not being kept. But the decision is made **blind** — at the start of a request nobody knows whether it will error or be slow. So head 1% keeps exactly 1% of errors (129) — and **not one** of the rare bug's 45. From part B, the chance of having at least one trace of a bug that happens 40 times a day:
 
 ```
-head rate          in 1 day     in 1 week
+head rate     in 1 day   in 1 week
 10%              98.5%      100.0%
 1%               33.1%       94.0%
 0.1%              3.9%       24.4%
@@ -307,14 +307,14 @@ Recall from 1.5: an SLO of 99.9% means 0.1% of requests may fail over 30 days �
 - **multi-window** — page if (burn > 14.4 in **both** 1 hour **and** 5 minutes) or (burn > 6 in both 6 hours and 30 minutes); a ticket (not waking anyone at night, looked at during working hours) if burn > 1 in both 3 days and 6 hours
 
 ```
-incident                              budget eaten   error > 1%, 5 min   error > 0.1%, 5 min    burn > 14.4, 1 h        multi-window
-big outage: 30 minutes, 20%                 13.9%        1 min (0.5%)        1 min (0.5%)        5 min (2.3%)        5 min (2.3%)
-medium: 2 hours, 1.5%                        4.1%        4 min (0.1%)        1 min (0.0%)       58 min (2.0%)       58 min (2.0%)
-slow decay: 3 days, 0.4%                    38.4%             missed        2 min (0.0%)              missed ticket 14.4 h (7.7%)
-short blip: 3 minutes, 30%                   2.1%        1 min (0.7%)        1 min (0.7%)        3 min (2.1%)        3 min (2.1%)
+event                               budget used   error > 1%, 5 min  error > 0.1%, 5 min    burn > 14.4, 1 h        multi-window
+big outage: 30 minutes, 20%              13.9%        1 min (0.5%)        1 min (0.5%)        5 min (2.3%)        5 min (2.3%)
+medium: 2 hours, 1.5%                     4.1%        4 min (0.1%)        1 min (0.0%)       58 min (2.0%)       58 min (2.0%)
+slow burn: 3 days, 0.4%                  38.4%              missed        2 min (0.0%)              missed  ticket 14.4 h (7.7%)
+short blip: 3 minutes, 30%                2.1%        1 min (0.7%)        1 min (0.7%)        3 min (2.1%)        3 min (2.1%)
 
-── total pages in 7 days ──
-nothing (just the deploy blips)                                    7                   7                   0                   0
+── Total pages in 7 days ──
+nothing (only the deploy blip)                       7                   7                   0                   0
 ```
 
 (In brackets: what % of the month's budget the incident had eaten at the moment it was caught.)

@@ -1,7 +1,7 @@
 #!/bin/sh
-# Replica: data directory খালি হলে primary থেকে পুরো কপি নাও (pg_basebackup),
-# তারপর standby হিসেবে চালু হও। -R flag টা standby.signal আর primary_conninfo লিখে দেয় —
-# মানে "আমি একটা replica, WAL আনতে হবে এই primary থেকে"।
+# Replica: if the data directory is empty, take a full copy from the primary (pg_basebackup),
+# then start as a standby. The -R flag writes standby.signal and primary_conninfo —
+# meaning "I am a replica, I have to fetch WAL from this primary".
 set -e
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
   until pg_isready -h primary -p 5432 -U taskflow; do sleep 1; done

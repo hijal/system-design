@@ -1,6 +1,6 @@
 import { commentText, env, pgPool } from './data';
 
-// Lesson 8.3 — ROWS টা comment Postgres এ (default ১০ লাখ)। কোনো index নেই — like.ts নিজে বানাবে আর মুছবে।
+// Lesson 8.3 — ROWS comments in Postgres (1,000,000 by default). No indexes — like.ts builds and drops them itself.
 
 const BATCH = 1000;
 
@@ -9,7 +9,7 @@ async function main(): Promise<void> {
 	try {
 		await pool.query('SELECT 1');
 	} catch {
-		console.error('Postgres পাওয়া যাচ্ছে না — আগে `docker compose up -d --wait`।');
+		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	const t = performance.now();
@@ -42,9 +42,9 @@ async function main(): Promise<void> {
 		"SELECT pg_size_pretty(pg_total_relation_size('comments')) AS size"
 	);
 	console.log(
-		`\n   ${env.ROWS.toLocaleString('en')} টা comment · table ${String(size.rows[0]?.size)} · ${((performance.now() - t) / 1000).toFixed(1)} s`
+		`\n   ${env.ROWS.toLocaleString('en')} comments · table ${String(size.rows[0]?.size)} · ${((performance.now() - t) / 1000).toFixed(1)} s`
 	);
-	console.log(`   উদাহরণ: "${commentText(1)}"\n`);
+	console.log(`   example: "${commentText(1)}"\n`);
 	await pool.end();
 }
 

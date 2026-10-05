@@ -1,27 +1,27 @@
-// Lesson 7.4 §১.২ — Idempotent consumer: পাঁচটা কৌশল, প্রতিটার **প্রতিটা** crash point আর **প্রতিটা**
-// interleaving গুনে দেখা।
+// Lesson 7.4 §1.2 — Idempotent consumer: five strategies, counting **every** crash point and **every**
+// interleaving of each.
 //
-// কাজ: "comment এ mention করা user কে একটা email পাঠাও"। Queue at-least-once (7.2, 7.3), তাই একই message
-// আবার আসতে পারে — দুইভাবে:
-//   (ক) প্রথম delivery মাঝপথে crash করল, ack হয়নি → broker আবার দিল (একজনের পরে আরেকজন)
-//   (খ) প্রথম worker আটকে থাকায় lock গেল, দ্বিতীয় worker ও তুলে নিল → দুজন **একসাথে** (7.3 এর stalled)
+// The job: "send an email to the user mentioned in a comment". The queue is at-least-once (7.2, 7.3), so the same message
+// can arrive again — in two ways:
+//   (a) the first delivery crashed halfway, no ack → the broker delivered it again (one after the other)
+//   (b) the first worker was stuck so its lock expired, a second worker picked it up too → both **at once** (7.3's stalled)
 //
-// প্রতিটা ধাপ atomic ধরা হয় (একটা database statement, একটা API call)। Random কিছু নেই — সব সম্ভাবনা
-// গুনে দেখা হয়, তাই output প্রতিবার হুবহু একই।
+// Every step is taken as atomic (one database statement, one API call). Nothing is random — every possibility
+// is counted, so the output is exactly the same every time.
 
 type Status = 'pending' | 'sent';
 
 interface World {
-	// processed_messages / sent_notifications table — key এর উপর unique constraint
+	// processed_messages / sent_notifications table — a unique constraint on key
 	db: Map<string, Status>;
-	// user আসলে কয়টা email পেল (বা counter কতবার বাড়ল) — এটাই মাপার জিনিস
+	// how many emails the user actually got (or how many times the counter went up) — this is what we measure
 	effects: number;
-	// provider এর নিজের idempotency: যে key আগে দেখেছে, সেটা আবার পাঠায় না
+	// the provider's own idempotency: it does not send a key it has seen before again
 	providerKeys: Set<string>;
 	acked: boolean;
 }
 
-// 'skip' মানে "কাজ আগেই হয়েছে" — বাকি ধাপ বাদ দিয়ে সরাসরি ack
+// 'skip' means "the work is already done" — skip the remaining steps and ack directly
 type StepResult = 'next' | 'skip';
 interface Step {
 	label: string;
@@ -29,20 +29,20 @@ interface Step {
 }
 interface Strategy {
 	name: string;
-	steps: Step[]; // শেষ ধাপ সবসময় ack
+	steps: Step[]; // the last step is always ack
 }
 
 const KEY = 'mention:comment-42:user-7';
 
 const send: Step = {
-	label: 'email পাঠাল',
+	label: 'email sent',
 	run: (w) => {
 		w.effects++;
 		return 'next';
 	}
 };
 const sendWithKey: Step = {
-	label: 'email পাঠাল (provider key সহ)',
+	label: 'email sent (with provider key)',
 	run: (w) => {
 		if (!w.providerKeys.has(KEY)) {
 			w.providerKeys.add(KEY);
@@ -59,9 +59,9 @@ const ack: Step = {
 	}
 };
 
-// 'sent' হলে skip; 'pending' হলে আগের কেউ মাঝপথে থেমেছে — কাজটা আবার চেষ্টা করতে হবে
+// skip if 'sent'; if 'pending', someone before stopped halfway — the work has to be tried again
 const claimPending: Step = {
-	label: 'দাবি করল (pending)',
+	label: 'claimed (pending)',
 	run: (w) => {
 		const status = w.db.get(KEY);
 		if (status === 'sent') return 'skip';
@@ -70,7 +70,7 @@ const claimPending: Step = {
 	}
 };
 const markSent: Step = {
-	label: 'sent লিখল',
+	label: 'wrote sent',
 	run: (w) => {
 		w.db.set(KEY, 'sent');
 		return 'next';
@@ -78,14 +78,14 @@ const markSent: Step = {
 };
 
 const strategies: Strategy[] = [
-	{ name: '১. কিছু না: send → ack', steps: [send, ack] },
+	{ name: '1. nothing: send → ack', steps: [send, ack] },
 	{
-		name: '২. আগে দেখো: check → send → insert → ack',
+		name: '2. check first: check → send → insert → ack',
 		steps: [
-			{ label: 'table দেখল', run: (w) => (w.db.has(KEY) ? 'skip' : 'next') },
+			{ label: 'checked the table', run: (w) => (w.db.has(KEY) ? 'skip' : 'next') },
 			send,
 			{
-				label: 'table এ লিখল',
+				label: 'wrote to the table',
 				run: (w) => {
 					w.db.set(KEY, 'sent');
 					return 'next';
@@ -95,11 +95,11 @@ const strategies: Strategy[] = [
 		]
 	},
 	{
-		name: '৩. আগে দাবি: insert (unique) → send → ack',
+		name: '3. claim first: insert (unique) → send → ack',
 		steps: [
 			{
-				label: 'table এ দাবি করল',
-				// INSERT … ON CONFLICT DO NOTHING — সারি আগে থাকলে skip
+				label: 'claimed in the table',
+				// INSERT … ON CONFLICT DO NOTHING — skip if the row already exists
 				run: (w) => {
 					if (w.db.has(KEY)) return 'skip';
 					w.db.set(KEY, 'sent');
@@ -111,20 +111,20 @@ const strategies: Strategy[] = [
 		]
 	},
 	{
-		name: '৪. দাবি + অবস্থা (provider key ছাড়া)',
+		name: '4. claim + state (no provider key)',
 		steps: [claimPending, send, markSent, ack]
 	},
 	{
-		name: '৫. দাবি + অবস্থা + provider key',
+		name: '5. claim + state + provider key',
 		steps: [claimPending, sendWithKey, markSent, ack]
 	},
 	{
-		name: '৬. একই transaction (effect টা database এ)',
+		name: '6. one transaction (effect in the database)',
 		steps: [
 			{
-				label: 'transaction: দাবি + effect',
+				label: 'transaction: claim + effect',
 				// BEGIN; INSERT processed_messages …; UPDATE usage SET count = count + 1; COMMIT
-				// — দুটো একসাথে হয় বা কোনোটাই না
+				// — both happen together or neither does
 				run: (w) => {
 					if (w.db.has(KEY)) return 'skip';
 					w.db.set(KEY, 'sent');
@@ -150,7 +150,7 @@ function cloneWorld(w: World): World {
 	};
 }
 
-// একটা delivery এক ধাপ এগোয়; ফেরত দেয় পরের ধাপের index (steps.length মানে শেষ)
+// one delivery moves one step forward; returns the index of the next step (steps.length means done)
 function stepOnce(strategy: Strategy, pc: number, w: World): number {
 	const step = strategy.steps[pc];
 	if (!step) return strategy.steps.length;
@@ -158,7 +158,7 @@ function stepOnce(strategy: Strategy, pc: number, w: World): number {
 	return result === 'skip' ? strategy.steps.length - 1 : pc + 1;
 }
 
-// (ক) প্রথম delivery ধাপ `crashAfter` এর পরে মরে (null = মরে না); ack না হলে দ্বিতীয় delivery পুরোটা চলে
+// (a) the first delivery dies after step `crashAfter` (null = never dies); without an ack the second delivery runs in full
 function crashThenRedeliver(strategy: Strategy, crashAfter: number | null): number {
 	const w = freshWorld();
 	let pc = 0;
@@ -174,7 +174,7 @@ function crashThenRedeliver(strategy: Strategy, crashAfter: number | null): numb
 	return w.effects;
 }
 
-// (খ) দুটো delivery একসাথে: প্রতিটা মুহূর্তে কে পরের ধাপ চালাবে — সব সম্ভাব্য ক্রম গুনে দেখা
+// (b) two deliveries at once: at every moment, who runs the next step — counting every possible order
 function allInterleavings(strategy: Strategy): number[] {
 	const outcomes: number[] = [];
 	const explore = (w: World, a: number, b: number): void => {
@@ -197,45 +197,49 @@ function allInterleavings(strategy: Strategy): number[] {
 }
 
 const verdict = (effects: number): string =>
-	effects === 1 ? '1 ✓' : effects === 0 ? '0 ✗ হারাল' : `${effects} ✗ দুবার`;
+	effects === 1 ? '1 ✓' : effects === 0 ? '0 ✗ lost' : `${effects} ✗ twice`;
 
-console.log('\n── (ক) crash, তারপর আবার delivery ─────────────────────────────────────────');
-console.log('   প্রতিটা ধাপের পরে crash ধরে (ack এর আগে পর্যন্ত): user কয়টা email পেল\n');
+console.log('\n── (a) crash, then delivery again ─────────────────────────────────────────');
+console.log(
+	'   assuming a crash after each step (up to before the ack): how many emails the user got\n'
+);
 const summary: { name: string; lost: number; dup: number; points: number; race: number[] }[] = [];
 for (const strategy of strategies) {
 	console.log(`   ${strategy.name}`);
 	let lost = 0;
 	let dup = 0;
-	const points = strategy.steps.length - 1; // ack এর পরে crash মানে কাজ শেষ — গোনার দরকার নেই
-	console.log(`        ${'crash নেই'.padEnd(44)} ${verdict(crashThenRedeliver(strategy, null))}`);
+	const points = strategy.steps.length - 1; // a crash after the ack means the work is done — no need to count it
+	console.log(`        ${'no crash'.padEnd(44)} ${verdict(crashThenRedeliver(strategy, null))}`);
 	for (let c = 0; c < points; c++) {
 		const effects = crashThenRedeliver(strategy, c);
 		if (effects === 0) lost++;
 		if (effects > 1) dup++;
-		const label = `"${strategy.steps[c]?.label ?? '?'}" এর পরে crash`;
+		const label = `crash after "${strategy.steps[c]?.label ?? '?'}"`;
 		console.log(`        ${label.padEnd(44)} ${verdict(effects)}`);
 	}
 	summary.push({ name: strategy.name, lost, dup, points, race: allInterleavings(strategy) });
 	console.log('');
 }
 
-console.log('── (খ) দুজন worker একসাথে একই message (stalled) ────────────────────────────');
-console.log('   দুটো delivery র ধাপগুলো যত রকম ক্রমে মিশতে পারে — সবগুলো\n');
+console.log('── (b) two workers on the same message at once (stalled) ──────────────────');
+console.log(
+	'   every order in which the steps of the two deliveries can interleave — all of them\n'
+);
 for (const s of summary) {
 	const twice = s.race.filter((e) => e > 1).length;
 	const none = s.race.filter((e) => e === 0).length;
 	console.log(
-		`   ${s.name.padEnd(44)} ${String(s.race.length).padStart(3)} টা ক্রম → দুবার ${twice}${none ? `, হারাল ${none}` : ''}`
+		`   ${s.name.padEnd(44)} ${String(s.race.length).padStart(3)} orders → twice ${twice}${none ? `, lost ${none}` : ''}`
 	);
 }
 
-console.log('\n── সারাংশ ─────────────────────────────────────────────────────────────────');
+console.log('\n── summary ────────────────────────────────────────────────────────────────');
 console.log(
-	'   কৌশল                                         crash: হারাল / দুবার     একসাথে: দুবার'
+	'   strategy                                     crash: lost / twice    concurrent: twice'
 );
 for (const s of summary) {
 	const twice = s.race.filter((e) => e > 1).length;
 	console.log(
-		`   ${s.name.padEnd(44)} ${`${s.lost} / ${s.dup}`.padStart(9)} (${s.points} টা point)   ${`${twice} / ${s.race.length}`.padStart(8)}`
+		`   ${s.name.padEnd(44)} ${`${s.lost} / ${s.dup}`.padStart(9)} ${`(${s.points} point${s.points === 1 ? '' : 's'})`.padEnd(10)}   ${`${twice} / ${s.race.length}`.padStart(17)}`
 	);
 }

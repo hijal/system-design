@@ -64,13 +64,13 @@ The first approach is often forgotten: **make the work itself naturally idempote
 Where you write it, and when you write it — that's where all the mistakes are. The exercise's `npm run idempotency` takes each of six techniques and assumes **a crash after every step** (after which the message comes again), and when two workers come at once it counts **every** order in which their steps can interleave. There's no randomness — every possibility is counted:
 
 ```
-   technique                                       crash: lost / twice     concurrent: twice
-   1. nothing: send → ack                            0 / 1 (1 point)         6 / 6
-   2. check first: check → send → insert → ack       0 / 1 (3 points)       60 / 66
-   3. claim first: insert (unique) → send → ack      1 / 0 (2 points)        0 / 12
-   4. claim + status (no provider key)               0 / 1 (3 points)       60 / 66
-   5. claim + status + provider key                  0 / 0 (3 points)        0 / 66
-   6. same transaction (the effect is in the DB)     0 / 0 (1 point)         0 / 6
+   strategy                                     crash: lost / twice    concurrent: twice
+   1. nothing: send → ack                           0 / 1 (1 point)                6 / 6
+   2. check first: check → send → insert → ack      0 / 1 (3 points)             60 / 66
+   3. claim first: insert (unique) → send → ack     1 / 0 (2 points)              0 / 12
+   4. claim + state (no provider key)               0 / 1 (3 points)             60 / 66
+   5. claim + state + provider key                  0 / 0 (3 points)              0 / 66
+   6. one transaction (effect in the database)      0 / 0 (1 point)                0 / 6
 ```
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the numbers are identical.)
@@ -156,15 +156,15 @@ And `429` and `503` often come with a `Retry-After` header — the provider itse
 Wednesday's incident is exactly this. The exercise's `npm run storm`, scenario (a) — 1000 jobs at exactly the same moment (the 9 o'clock cron), the provider can take 10 per 100 ms (100/s), at most 10 attempts per job:
 
 ```
-   policy                        total attempts   max per 100ms   succeeded   gave up   last success   delay p99
-   retry immediately                    9750              1990         50        950       450 ms       450 ms
-   fixed, after 1 s                     9550              1000        100        900        9.5 s        9.5 s
-   exponential (no jitter)              9550              1000        100        900       46.0 s       46.0 s
-   exponential + full jitter            7152              1456       1000          0       20.3 s       16.6 s
+   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99
+   retry immediately                 9750              1990     50        950    450 ms     450 ms
+   fixed 1 s later                   9550              1000    100        900     9.5 s      9.5 s
+   exponential (no jitter)           9550              1000    100        900    46.0 s     46.0 s
+   exponential + full jitter         7152              1456   1000          0    20.3 s     16.6 s
 
-   attempts arriving at the provider per second:
+   attempts reaching the provider per second:
    second                           0     1     2     3     4     5     6     7
-   fixed, after 1 s              1000   990   980   970   960   950   940   930
+   fixed 1 s later               1000   990   980   970   960   950   940   930
    exponential (no jitter)       3940   960     0   950     0     0   940     0
    exponential + full jitter     4547   964   521   302   256   139    89    91
 ```
@@ -183,11 +183,11 @@ Hold on to the core point: exponential backoff reduces **how many times** pressu
 **The honest part — scenario (b):** when jobs arrive spread out anyway (50/s), and the provider comes back after being down for 5 seconds:
 
 ```
-   policy                        total attempts   max per 100ms   succeeded   gave up   last success   delay p99
-   retry immediately                    3205                50        767        233       20.0 s       350 ms
-   fixed, after 1 s                     2192                30       1000          0       20.0 s        8.4 s
-   exponential (no jitter)              2415                30       1000          0       20.0 s       13.1 s
-   exponential + full jitter            2682                44       1000          0       28.0 s       13.3 s
+   policy                        attempts     max per 100ms     ok    gave up   last ok  delay p99
+   retry immediately                 3205                50    767        233    20.0 s     350 ms
+   fixed 1 s later                   2192                30   1000          0    20.0 s      8.4 s
+   exponential (no jitter)           2415                30   1000          0    20.0 s     13.1 s
+   exponential + full jitter         2682                44   1000          0    28.0 s     13.3 s
 ```
 
 Here jitter brings no benefit — slightly more attempts, in fact. Because there was no synchronisation; the jobs were spread out as they arrived. And in experiment 3 (a 15-second outage) 53 of full jitter's jobs give up, none of no-jitter exponential's — full jitter's average wait is half the limit, so for the same number of attempts the total time is shorter. The lesson: jitter is the cure for synchronisation, not a cure-all; and set the limit by **time** ("keep trying for 10 minutes"), not just by count. In production, synchronisation almost always comes from somewhere — a cron, a deploy, the end of an outage, cache entries expiring together — so keep jitter as the default. (There's nothing to be said for "retry immediately" in any scenario.)
@@ -205,11 +205,11 @@ Every broker has a form of it: in BullMQ the `failed` set (7.3); in RabbitMQ the
 `npm run dlq` — 5 minutes, 20 emails a second, 4 workers, 100 ms per good job. 2% poison (works for 2 seconds each time, then `400`). A provider outage from 60–90 seconds (all `503`). At 400 seconds a person looks at the DLQ, fixes things and redrives:
 
 ```
-   policy                                  worker time on poison   longest line   good delay p99   to DLQ (good / poison)   redrive → delivered   left at end (good / poison)
-   retry forever (no limit)                                 74%            1489           93.8 s                    0 / 0                 0 → 0                       0 / 131
-   5 times, then DLQ                                        68%            1292           76.1 s                  0 / 135                 0 → 0                         0 / 0
-   5 times; permanent straight to DLQ                       28%             352          338.5 s                159 / 135             159 → 159                         0 / 0
-   permanent straight away; transient 12 times              28%             417           45.9 s                  0 / 135                 0 → 0                         0 / 0
+   policy                                  poison worker time     max waiting  good delay p99       to DLQ (good / poison) redriven → arrived   pending (good / poison)
+   retry forever (no limit)                               74%            1489          93.8 s                        0 / 0              0 → 0                   0 / 131
+   5 times, then DLQ                                      68%            1292          76.1 s                      0 / 135              0 → 0                     0 / 0
+   5 times; permanent to DLQ at once                      28%             352         338.5 s                    159 / 135          159 → 159                     0 / 0
+   permanent at once; transient 12 times                  28%             417          45.9 s                      0 / 135              0 → 0                     0 / 0
 ```
 
 **The first row — Friday:** 2% of poison jobs eat **74%** of the workers' time. Each poison comes back every 30 seconds (the backoff's cap) and takes 2 seconds — and new poison keeps arriving, none ever leaves. Their cost grows linearly with time, and eventually exceeds the workers' whole capacity. A line of 1489, the good jobs' p99 a minute and a half, and at 600 seconds 131 poison jobs still going round. And the most dangerous part: no job is "failed" — no alert.
@@ -245,17 +245,17 @@ In Lesson 7.1 we saw a queue **doesn't create capacity** — if the arrival rate
 
 ```
 ── burst (300/s for 5 s, then 50/s)
-   policy                                  queue max   blocked at producer   turned away (urgent / less)   wait p99 (all / urgent)
-   unbounded queue                              1001                     0                         0 / 0           9.8 s / 9.8 s
-   limit 500, 503 above it                       500                     0                     250 / 251           5.0 s / 5.0 s
-   limit 500, the producer waits                 500                   501                         0 / 0           9.8 s / 9.8 s
-   priority: drop less urgent above 300          475                     0                       0 / 584           9.6 s / 2.4 s
+   policy                               queue max     producer held    rejected (urgent / low)  wait p99 (all / urgent)
+   unbounded queue                              1001                0                 0 / 0             9.8 s / 9.8 s
+   limit 500, 503 when full                    500                0             250 / 251             5.0 s / 5.0 s
+   limit 500, producer waits                  500              501                 0 / 0             9.8 s / 9.8 s
+   priority: drop less urgent above 300     475                0               0 / 584             9.6 s / 2.4 s
 
-── sustained (130/s all the time)
-   unbounded queue                              1801                     0                         0 / 0         17.8 s / 17.8 s
-   limit 500, 503 above it                       500                     0                     650 / 651           5.0 s / 5.0 s
-   limit 500, the producer waits                 500                  1301                         0 / 0         17.8 s / 17.8 s
-   priority: drop less urgent above 300          301                     0                      0 / 1501            8.6 s / 0 ms
+── sustained (always 130/s)
+   unbounded queue                              1801                0                 0 / 0           17.8 s / 17.8 s
+   limit 500, 503 when full                    500                0             650 / 651             5.0 s / 5.0 s
+   limit 500, producer waits                  500             1301                 0 / 0           17.8 s / 17.8 s
+   priority: drop less urgent above 300     301                0              0 / 1501              8.6 s / 0 ms
 ```
 
 Four policies, four lessons:

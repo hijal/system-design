@@ -16,12 +16,12 @@ import {
 import { getJson, httpGet } from './http';
 import { signInternal, verifyInternal, verifyJwt } from './token';
 
-// একটা process — ROLE ধরে সে কী:
-//   tasks, users, comments — TaskFlow এর service; পুরো object ফেরত দেয়
-//   bff       — একটা frontend এর জন্য backend: page এর data জোড়া দেয়, আকৃতি ঠিক করে (SHAPE = web | mobile)
-//   gateway   — সব বাইরের request এর একটা দরজা: token যাচাই, route, আর canary
-//   files-old, files-new — thumbnail এর পুরনো পথ (monolith এর ভেতরে) আর নতুন service (9.1 এর strangler fig)
-// Parent (cluster.ts) env দেয়, আর process তৈরি হলে IPC তে port পাঠায়।
+// One process — what it is, by ROLE:
+//   tasks, users, comments — TaskFlow's services; return the whole object
+//   bff       — a backend for one frontend: assembles the page's data, fixes its shape (SHAPE = web | mobile)
+//   gateway   — one door for every outside request: token check, routing, and canary
+//   files-old, files-new — the thumbnail's old path (inside the monolith) and the new service (9.1's strangler fig)
+// The parent (cluster.ts) provides the env, and once the process is up it sends the port over IPC.
 
 const env = z
 	.object({
@@ -32,10 +32,10 @@ const env = z
 		FILES_OLD_URL: z.string().default(''),
 		FILES_NEW_URL: z.string().default(''),
 		SHAPE: z.enum(['web', 'mobile']).default('web'),
-		// tasks service কীভাবে জানে request টা কার: trust = x-user-id header বিশ্বাস করে; signed = gateway এর sign যাচাই
+		// how the tasks service knows whose request it is: trust = believes the x-user-id header; signed = verifies the gateway's signature
 		AUTH_MODE: z.enum(['trust', 'signed']).default('trust'),
 		CANARY_PERCENT: z.coerce.number().min(0).max(100).default(0),
-		// data center এর ভেতরে এক service থেকে আরেকটায় যাওয়ার দেরি — tasks/users/comments এর উত্তরে যোগ হয়
+		// the delay of going from one service to another inside the data center — added to the tasks/users/comments responses
 		NET_MS: z.coerce.number().nonnegative().default(0)
 	})
 	.parse(process.env);
@@ -52,7 +52,7 @@ const idList = z
 	.transform((s) => s.split(',').map(Number))
 	.pipe(z.array(z.number().int().positive()).max(500));
 
-// অন্য service এর উত্তর — বাইরের data, তাই Zod দিয়ে parse
+// another service's response — outside data, so parse it with Zod
 async function call<T>(url: string, schema: z.ZodType<T>): Promise<T> {
 	return schema.parse(await getJson(url));
 }
@@ -64,7 +64,7 @@ if (env.NET_MS > 0 && ['tasks', 'users', 'comments'].includes(env.ROLE))
 // ── tasks ──
 if (env.ROLE === 'tasks') {
 	app.get('/tasks/:id', (req, res) => {
-		// কার request? Gateway এর পেছনের service — কিন্তু কীভাবে জানে header টা gateway ই বসিয়েছে?
+		// Whose request? A service behind the gateway — but how does it know the gateway really set the header?
 		const raw = req.header('x-user-id') ?? '';
 		const viewer: number | null =
 			env.AUTH_MODE === 'trust'
@@ -77,7 +77,7 @@ if (env.ROLE === 'tasks') {
 			res.status(404).json({ error: 'NOT_FOUND' });
 			return;
 		}
-		// board এর পথে (bff script) viewer লাগে না; gateway script এ লাগে
+		// the board's path (the bff script) doesn't need a viewer; the gateway script does
 		if (req.query.requireViewer === '1' && viewer === null) {
 			res.status(401).json({ error: 'UNAUTHENTICATED' });
 			return;
@@ -110,21 +110,21 @@ if (env.ROLE === 'comments') {
 	});
 }
 
-// ── bff: task detail page এর data, এক request এ ──
+// ── bff: the task detail page's data, in one request ──
 if (env.ROLE === 'bff') {
 	app.get(
 		'/pages/task/:id',
 		handle<{ id: string }>(async (req, res) => {
 			const id = idParam.parse(req.params.id);
-			// ধাপ ১: task (তার পরেই জানা যায় assignee কে)
+			// step 1: the task (only then do we know who the assignee is)
 			const t = await call(`${env.TASKS_URL}/tasks/${id}`, taskSchema);
-			// ধাপ ২: comment গুলো (তার পরেই জানা যায় author কারা)
+			// step 2: the comments (only then do we know who the authors are)
 			const all: Comment[] = await call(
 				`${env.COMMENTS_URL}/comments?taskId=${id}`,
 				z.array(commentSchema)
 			);
 			const shown = env.SHAPE === 'mobile' ? all.slice(-5) : all;
-			// ধাপ ৩: assignee আর author, সব একবারে
+			// step 3: the assignee and the authors, all at once
 			const ids = [...new Set([t.assigneeId, ...shown.map((c) => c.authorId)])].join(',');
 			const people = await call(`${env.USERS_URL}/users?ids=${ids}`, z.array(userSchema));
 			const byId = new Map(people.map((u) => [u.id, { name: u.name, avatar: u.avatar }]));
@@ -149,7 +149,7 @@ if (env.ROLE === 'bff') {
 	);
 }
 
-// ── files: thumbnail এর পুরনো আর নতুন পথ ──
+// ── files: the thumbnail's old and new paths ──
 if (env.ROLE === 'files-old' || env.ROLE === 'files-new') {
 	app.get('/files/:id/thumbnail', (req, res) => {
 		res.json({ fileId: idParam.parse(req.params.id), servedBy: env.ROLE });
@@ -158,7 +158,7 @@ if (env.ROLE === 'files-old' || env.ROLE === 'files-new') {
 
 // ── gateway ──
 if (env.ROLE === 'gateway') {
-	// একই user সবসময় একই দিকে — canary তে একজনের অভিজ্ঞতা request ভেদে লাফায় না
+	// the same user always goes the same way — in a canary one person's experience doesn't jump between requests
 	const bucket = (userId: number): number => (Math.imul(userId, 2654435761) >>> 0) % 100;
 
 	app.use((req, res, next) => {
@@ -175,7 +175,7 @@ if (env.ROLE === 'gateway') {
 
 	const forward = async (req: Request, res: Response, upstream: string): Promise<void> => {
 		const userId = z.number().parse(res.locals.userId);
-		// client এর পাঠানো পরিচয়ের header কখনো ভেতরে যাবে না — gateway নিজে বসায়
+		// the identity header sent by the client never goes inside — the gateway sets it itself
 		const headers: Record<string, string> = {
 			'x-user-id': String(userId),
 			'x-request-id': String(req.headers['x-request-id'])
@@ -205,7 +205,7 @@ if (env.ROLE === 'gateway') {
 	);
 }
 
-// Error handler — Express চেনে চারটা parameter দেখে। উত্তর আগেই পাঠানো শুরু হলে Express এর নিজের handler এ দেওয়া
+// Error handler — Express recognizes it by its four parameters. If the response has already started, hand it to Express's own handler
 app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 	if (res.headersSent) {
 		next(error);
@@ -215,7 +215,7 @@ app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 });
 
 const server = app.listen(0, '127.0.0.1', () => {
-	const { port } = server.address() as AddressInfo; // listen(0) এর পরে address() সবসময় AddressInfo
+	const { port } = server.address() as AddressInfo; // after listen(0), address() is always an AddressInfo
 	process.send?.({ type: 'ready', port });
 });
 server.keepAliveTimeout = 30_000;

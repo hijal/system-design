@@ -116,18 +116,18 @@ export function strictVerify(
 	const header = headerSchema.safeParse(decodeJson(h));
 	if (!header.success) return { ok: false, reason: 'bad header' };
 	if (header.data.alg !== 'RS256')
-		return { ok: false, reason: `alg ${header.data.alg} allowlist এ নেই` };
+		return { ok: false, reason: `alg ${header.data.alg} not in the allowlist` };
 	const key = header.data.kid === undefined ? undefined : keys.get(header.data.kid);
-	if (!key) return { ok: false, reason: 'অজানা kid' };
+	if (!key) return { ok: false, reason: 'unknown kid' };
 	if (!verify('sha256', Buffer.from(`${h}.${p}`), key, Buffer.from(s, 'base64url')))
-		return { ok: false, reason: 'signature মেলে না' };
+		return { ok: false, reason: 'signature mismatch' };
 	const claims = claimsSchema.safeParse(decodeJson(p));
-	if (!claims.success) return { ok: false, reason: 'claim এর আকার ভুল' };
+	if (!claims.success) return { ok: false, reason: 'claims have the wrong shape' };
 	const c = claims.data;
-	if (c.iss !== ISSUER) return { ok: false, reason: 'iss মেলে না' };
-	if (c.aud !== audience) return { ok: false, reason: 'aud মেলে না' };
-	if (c.exp <= nowSeconds - CLOCK_SKEW_SECONDS) return { ok: false, reason: 'মেয়াদ শেষ' };
-	if (c.iat > nowSeconds + CLOCK_SKEW_SECONDS) return { ok: false, reason: 'ভবিষ্যতের iat' };
+	if (c.iss !== ISSUER) return { ok: false, reason: 'iss mismatch' };
+	if (c.aud !== audience) return { ok: false, reason: 'aud mismatch' };
+	if (c.exp <= nowSeconds - CLOCK_SKEW_SECONDS) return { ok: false, reason: 'expired' };
+	if (c.iat > nowSeconds + CLOCK_SKEW_SECONDS) return { ok: false, reason: 'iat in the future' };
 	return { ok: true, claims: c };
 }
 

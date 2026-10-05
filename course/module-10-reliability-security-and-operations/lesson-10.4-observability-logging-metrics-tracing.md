@@ -59,7 +59,7 @@ TaskFlow এর যা ছিল সেটা **monitoring**: কয়েকট
 1.5 এ শিখেছিলে average বিভ্রান্তিকর, p99 দেখো। এবার সংখ্যাটা দেখি। Exercise এর `npm run percentiles` — এক ঘণ্টার board খোলা (১০.৮ লাখ request), ছয়টা instance, তিনটা replica; `r3` এর disk ঘণ্টায় তিনবার ৯০ সেকেন্ড করে আটকে যায়:
 
 ```
-গড়               p50       p90       p99     p99.9       max     > 1 s
+average          p50       p90       p99     p99.9       max     > 1 s
 172 ms         79 ms    132 ms    3.79 s    4.50 s    4.77 s     2.50%
 ```
 
@@ -80,12 +80,12 @@ TaskFlow এর যা ছিল সেটা **monitoring**: কয়েকট
 এবার একটা সূক্ষ্ম ফাঁদ যেটায় প্রায় সব dashboard পড়ে। ধরো তুমি p99 ই দেখছ — প্রতি মিনিটে একটা p99 মাপছ। Dashboard এ "গত এক ঘণ্টার p99" দেখাতে হবে। ৬০টা মিনিটের p99 থেকে কীভাবে বানাবে? `npm run percentiles`, অংশ খ:
 
 ```
-আসল p99 (সব request একসাথে)               3.79 s
-৬০টা মিনিটের p99 এর গড়                      617 ms
-৬০টা মিনিটের p99 এর median                  187 ms
-৬০টা মিনিটের p99 এর max                     4.52 s
+true p99 (all requests together)            3.79 s
+average of the 60 minutes' p99              617 ms
+median of the 60 minutes' p99               187 ms
+max of the 60 minutes' p99                  4.52 s
 
-মিনিট             গড়       p99     > 1 s
+minute     average       p99     > 1 s
 11           84 ms    183 ms      0.0%
 12          1.25 s    4.52 s     33.2%
 13          675 ms    4.46 s     16.9%
@@ -103,13 +103,13 @@ Percentile একটা **অবস্থান** — "সাজালে ৯৯
 ছয়টা instance এর histogram যোগ করলে ঠিক একটা বড় histogram, ৬০টা মিনিটের যোগ করলে ঠিক ঘণ্টার histogram — কিছু হারায় না। Prometheus এ এটাই `histogram_quantile(0.99, sum by (le) (rate(...[1h])))` — আগে bucket যোগ, তারপর percentile। কিন্তু অনুমান কত ভালো, সেটা bucket এর উপর। অংশ গ:
 
 ```
-percentile         আসল  default bucket       ভুল    নিজের bucket       ভুল
+percentile        true  default bucket    error   own buckets    error
 p50              79 ms           82 ms      +3%         80 ms      +1%
 p90             132 ms          205 ms     +55%        141 ms      +7%
 p99             3.79 s          4.00 s      +6%        3.78 s      -0%
 p99.9           4.50 s          4.90 s      +9%        4.86 s      +8%
    default bucket (ms): 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000
-   নিজের bucket   (ms): 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000, 4000, 5000
+   own buckets    (ms): 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000, 4000, 5000
 ```
 
 Prometheus এর client library এর default bucket এ p90 এর অনুমান **৫৫% বেশি** — কারণ আসল p90 (১৩২ ms) ১০০ আর ২৫০ এর মাঝের একটা চওড়া ঘরে, আর ঘরের ভেতরে অনুমান সরলরেখায় করা হয়। Bucket হওয়া উচিত **যেখানে তোমার সিদ্ধান্ত হয়** — SLO এর সীমার আশেপাশে ঘন (ধরো ৩০০ ms এর SLO হলে ২০০, ২৫০, ৩০০, ৩৫০), আর দূরে পাতলা। Experiment ২: default এ শুধু ১৫০ আর ২০০ যোগ করলে p90 এর ভুল +৫৫% থেকে +৭%। কিন্তু প্রতিটা bucket একটা আলাদা time series — আর সেটা পরের অংশের দাম।
@@ -117,7 +117,7 @@ Prometheus এর client library এর default bucket এ p90 এর অনু�
 **এবার সঠিক মাত্রা।** p99 জানা গেল, কিন্তু "কেন?" এর উত্তর নেই। অংশ ঘ — একই request, দুইভাবে ভাগ করা:
 
 ```
-মাত্রা               request        গড়       p50       p99     > 1 s
+dimension        request   average       p50       p99     > 1 s
 instance 1       180,000    170 ms     79 ms    3.77 s     2.47%
 instance 2       180,000    173 ms     79 ms    3.79 s     2.53%
 …
@@ -133,10 +133,10 @@ Instance ধরে ভাগ করলে ছয়টাই হুবহু এ
 `replica` একটা ভালো label: তিনটা মান। `user_id` আর আসল `path` এর মান কয়টা? Metric system প্রতিটা **আলাদা label এর সমন্বয়ের** জন্য একটা আলাদা time series রাখে — memory তে, প্রতিটার নিজের সংখ্যার সারি সহ। `npm run cardinality` — একদিনের traffic (৮৬.৪ লাখ request, ১ লাখ user, ২ লাখ board), একটা latency metric, label এর সেট বদলে:
 
 ```
-label                               counter series   histogram (×15)      আনুমানিক memory
+label                                   counter series   histogram (×15)    approx. memory
 method, route, status, instance              2,400            36,000            103 MB
 + plan (free/pro/business)                   7,114           106,710            305 MB
-route এর বদলে আসল path                    2,529,996        37,949,940            106 GB
+the real path instead of the route           2,529,996        37,949,940            106 GB
 + user_id                                2,534,244        38,013,660            106 GB
 + trace_id                               8,640,000       129,600,000            362 GB
 ```
@@ -158,11 +158,11 @@ route এর বদলে আসল path                    2,529,996        37,
 **Log এর আয়তন।** অংশ খ — প্রতি request এর ঘটনা কোথায় রাখলে একদিনে কত:
 
 ```
-কী রাখছি                                        প্রতি request       প্রতি দিন
-log, প্রতি request এ একটা JSON লাইন                    350 B      2.8 GB
-log, debug চালু (25টা লাইন)                          8.5 KB     70.4 GB
-trace, সব request (20টা span)                     7.8 KB     64.4 GB
-trace, ১% sample                                   80 B      659 MB
+what we keep                                per request     per day
+log, one JSON line per request                    350 B      2.8 GB
+log, debug on (25 lines)                         8.5 KB     70.4 GB
+trace, every request (20 spans)                  7.8 KB     64.4 GB
+trace, 1% sample                                   80 B      659 MB
 ```
 
 বৃহস্পতিবারের debug log — দিনে ২.৮ GB থেকে ৭০ GB। Log এর দাম ঘটনার সংখ্যায় সরাসরি বাড়ে, তাই log এর নীতি তিনটা: **প্রতি request এ একটা ভরা লাইন, দশটা খালি লাইনের চেয়ে ভালো** (শেষে একটা লাইন যাতে route, status, সময়, user, board, trace id সব আছে); debug log শুধু যেখানে লাগে (একটা instance, একটা user, কয়েক মিনিট — ধরো একটা flag দিয়ে), সবখানে না; আর সফল, সাধারণ request এর log কে sample করা যায় — error আর ধীর সবসময় রাখো।
@@ -239,17 +239,17 @@ gateway · GET /boards/:id                   1,203 ms   |███████�
 
 ```
                               span   trace
-header পাঠালে                     270      30
-bff header না পাঠালে               270      90
+with the header                270      30
+bff without the header         270      90
 
-   সবচেয়ে ধীর request এর gateway trace
+   the slowest request's gateway trace
 gateway · GET /boards/:id                   1,203 ms   |████████████████████████████████████████|
   gateway · HTTP GET → bff                  1,203 ms   |████████████████████████████████████████|
     bff · GET /boards/:id                   1,202 ms   |████████████████████████████████████████|
       bff · HTTP GET → work                 1,202 ms   |████████████████████████████████████████|
       bff · HTTP GET → billing                 16 ms   |█                                       |
 
-   ধীর query টা আছে অন্য একটা trace এ
+   the slow query is in a different trace
 work · GET /api/boards/:id                  1,202 ms   |████████████████████████████████████████|
   work · cache.get board                        1 ms   |█                                       |
   work · db.query tasks r3                  1,200 ms   |████████████████████████████████████████|
@@ -264,20 +264,20 @@ Span এর সংখ্যা একই (২৭০), কিন্তু trace �
 সব trace রাখলে কত? `npm run sampling` — একদিনে ২.৫৯ কোটি trace (৩০০ req/s), প্রতিটায় ২০টা span; তার মধ্যে ১৩,০৮৮টা error, ১,৩০,২৩৬টা এক সেকেন্ডের বেশি ধীর, আর একটা বিরল bug (একটা workspace এর জন্য) দিনে ৪৫বার:
 
 ```
-নীতি                            রাখা trace    পুরো trace     error        ধীর   বিরল bug      জমা/দিন   collector এ আসে
-সব রাখো                       25,920,000    100.000%    13,088   130,236     45/45     193 GB           193 GB
-head ১০%                     2,593,300    100.000%     1,322    12,876      2/45    19.3 GB          19.3 GB
-head ১%                        259,702    100.000%       129     1,319      0/45     1.9 GB           1.9 GB
-head ০.১%                       26,119    100.000%        18       128      0/45     199 MB           199 MB
-tail: error + ধীর + ১%          401,513    100.000%    13,088   130,236     45/45     3.0 GB           193 GB
-tail: error + ধীর + ০.১%        169,232    100.000%    13,088   130,236     45/45     1.3 GB           193 GB
-প্রতি service নিজে ১০%           10,620,422      0.002%         0         2      0/45     1.9 MB          19.3 GB
+policy                      traces kept  full trace     error      slow  rare bug  stored/day   into collector
+keep all                    25,920,000    100.000%    13,088   130,236     45/45     193 GB           193 GB
+head 10%                     2,593,300    100.000%     1,322    12,876      2/45    19.3 GB          19.3 GB
+head 1%                        259,702    100.000%       129     1,319      0/45     1.9 GB           1.9 GB
+head 0.1%                       26,119    100.000%        18       128      0/45     199 MB           199 MB
+tail: error + slow + 1%        401,513    100.000%    13,088   130,236     45/45     3.0 GB           193 GB
+tail: error + slow + 0.1%       169,232    100.000%    13,088   130,236     45/45     1.3 GB           193 GB
+each service its own 10%    10,620,422      0.002%         0         2      0/45     1.9 MB          19.3 GB
 ```
 
 **Head sampling:** request এর **শুরুতে** — gateway এ — এলোমেলো সিদ্ধান্ত, "এই trace রাখব কি না", আর সেটা `traceparent` এর flag এ (`01`/`00`) পরের সব service এ যায়। সস্তা আর সরল: না রাখা trace এর span কেউ পাঠায়ই না। কিন্তু সিদ্ধান্তটা নেওয়া হয় **অন্ধভাবে** — request শুরুর সময় কেউ জানে না সেটা error হবে না ধীর। তাই head ১% এ ঠিক ১% error থাকে (১২৯টা) — আর বিরল bug এর ৪৫টার **একটাও** না। অংশ খ থেকে, দিনে ৪০বার ঘটা একটা bug এর অন্তত একটা trace হাতে থাকার সম্ভাবনা:
 
 ```
-head হার           ১ দিনে       ১ সপ্তাহে
+head rate     in 1 day   in 1 week
 10%              98.5%      100.0%
 1%               33.1%       94.0%
 0.1%              3.9%       24.4%
@@ -307,14 +307,14 @@ head হার           ১ দিনে       ১ সপ্তাহে
 - **multi-window** — page যদি (১ ঘণ্টা **আর** ৫ মিনিট দুটোতেই burn > ১৪.৪) বা (৬ ঘণ্টা **আর** ৩০ মিনিট দুটোতেই burn > ৬); ticket (রাতে জাগানো না, কাজের সময়ে দেখা) যদি ৩ দিন আর ৬ ঘণ্টা দুটোতেই burn > ১
 
 ```
-ঘটনা                                  budget খেল     error > ১%, ৫ মি   error > 0.1%, ৫ মি    burn > 14.4, ১ ঘ        multi-window
-বড় outage: ৩০ মিনিট, ২০%                   13.9%          1 মি (0.5%)          1 মি (0.5%)          5 মি (2.3%)          5 মি (2.3%)
-মাঝারি: ২ ঘণ্টা, ১.৫%                           4.1%          4 মি (0.1%)          1 মি (0.0%)         58 মি (2.0%)         58 মি (2.0%)
-ধীর ক্ষয়: ৩ দিন, ০.৪%                        38.4%                 ধরেনি          2 মি (0.0%)                 ধরেনি ticket 14.4 ঘ (7.7%)
-ছোট ঝাঁকুনি: ৩ মিনিট, ৩০%                        2.1%          1 মি (0.7%)          1 মি (0.7%)          3 মি (2.1%)          3 মি (2.1%)
+event                               budget used   error > 1%, 5 min  error > 0.1%, 5 min    burn > 14.4, 1 h        multi-window
+big outage: 30 minutes, 20%              13.9%        1 min (0.5%)        1 min (0.5%)        5 min (2.3%)        5 min (2.3%)
+medium: 2 hours, 1.5%                     4.1%        4 min (0.1%)        1 min (0.0%)       58 min (2.0%)       58 min (2.0%)
+slow burn: 3 days, 0.4%                  38.4%              missed        2 min (0.0%)              missed  ticket 14.4 h (7.7%)
+short blip: 3 minutes, 30%                2.1%        1 min (0.7%)        1 min (0.7%)        3 min (2.1%)        3 min (2.1%)
 
-── ৭ দিনে মোট কতবার page ──
-কিছু না (শুধু deploy এর ঝাঁকুনি)                              7                   7                   0                   0
+── Total pages in 7 days ──
+nothing (only the deploy blip)                       7                   7                   0                   0
 ```
 
 (বন্ধনীতে: ধরার মুহূর্তে ঘটনাটা মাসের budget এর কত % খেয়েছিল।)

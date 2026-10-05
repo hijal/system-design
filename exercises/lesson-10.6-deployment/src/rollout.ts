@@ -24,15 +24,15 @@ type Bug = {
 	slow: (random: () => number) => boolean;
 };
 
-const NO_BUG: Bug = { name: 'কোনো bug নেই', error: () => false, slow: () => false };
+const NO_BUG: Bug = { name: 'no bug', error: () => false, slow: () => false };
 const BUGS: Bug[] = [
-	{ name: 'সবার জন্য ২% error', error: (_s, r) => r() < 0.02, slow: () => false },
+	{ name: '2% errors for everyone', error: (_s, r) => r() < 0.02, slow: () => false },
 	{
-		name: `বড় business board এ ২০% error (traffic এর ${Math.round(SEGMENT_SHARE * 100)}%)`,
+		name: `20% errors on big business boards (${Math.round(SEGMENT_SHARE * 100)}% of traffic)`,
 		error: (s, r) => s && r() < 0.2,
 		slow: () => false
 	},
-	{ name: '১০% request ধীর (> ১ s), error নেই', error: () => false, slow: (r) => r() < 0.1 }
+	{ name: '10% of requests slow (> 1 s), no errors', error: () => false, slow: (r) => r() < 0.1 }
 ];
 
 type Kind = 'bigbang' | 'rolling' | 'bluegreen' | 'canary';
@@ -40,29 +40,35 @@ type Gate = 'none' | 'errors' | 'full';
 type Strategy = { name: string; kind: Kind; gate: Gate; sticky: boolean; extra: string };
 
 const STRATEGIES: Strategy[] = [
-	{ name: 'big-bang (সব একসাথে)', kind: 'bigbang', gate: 'none', sticky: false, extra: '০' },
-	{ name: 'rolling (২ মিনিটে ১টা)', kind: 'rolling', gate: 'none', sticky: false, extra: '−১' },
-	{ name: 'blue-green', kind: 'bluegreen', gate: 'none', sticky: false, extra: '+১২' },
+	{ name: 'big-bang (all at once)', kind: 'bigbang', gate: 'none', sticky: false, extra: '0' },
 	{
-		name: 'canary, gate: error, request এলোমেলো',
+		name: 'rolling (one per 2 minutes)',
+		kind: 'rolling',
+		gate: 'none',
+		sticky: false,
+		extra: '−1'
+	},
+	{ name: 'blue-green', kind: 'bluegreen', gate: 'none', sticky: false, extra: '+12' },
+	{
+		name: 'canary, gate: error, random per request',
 		kind: 'canary',
 		gate: 'errors',
 		sticky: false,
-		extra: '+৩'
+		extra: '+3'
 	},
 	{
-		name: 'canary, gate: error, user ধরে sticky',
+		name: 'canary, gate: error, sticky per user',
 		kind: 'canary',
 		gate: 'errors',
 		sticky: true,
-		extra: '+৩'
+		extra: '+3'
 	},
 	{
 		name: 'canary, gate: error + latency + segment',
 		kind: 'canary',
 		gate: 'full',
 		sticky: true,
-		extra: '+৩'
+		extra: '+3'
 	}
 ];
 
@@ -175,7 +181,7 @@ function simulate(strategy: Strategy, bug: Bug, seed: number): Outcome {
 			(windowErr / windowTotal > ALERT_ERROR || windowSlow / windowTotal > ALERT_SLOW)
 		) {
 			detectedAt = t;
-			detectedBy = 'alert → মানুষ';
+			detectedBy = 'alert → human';
 			rollbackStart = t + HUMAN_MINUTES * 60;
 			rollbackFrom =
 				rollbackStart < HORIZON ? progress(strategy.kind, rollbackStart, step) : fraction;
@@ -195,7 +201,7 @@ function simulate(strategy: Strategy, bug: Bug, seed: number): Outcome {
 			zScore(canary.segErr, canary.segTotal, baseline.segErr, baseline.segTotal) > Z;
 		if (errFail || slowFail || segFail) {
 			detectedAt = t;
-			detectedBy = `gate, ${Math.round(fraction * 100)}% এ`;
+			detectedBy = `gate, at ${Math.round(fraction * 100)}%`;
 			rollbackStart = t + 1;
 			rollbackFrom = fraction;
 			continue;
@@ -212,18 +218,18 @@ function simulate(strategy: Strategy, bug: Bug, seed: number): Outcome {
 
 const totalRequests = RPS * HORIZON;
 heading(
-	`অংশ ক — একটা খারাপ version, ছয়টা কৌশল (${RPS} req/s, ${n(USERS)} user, ${HORIZON / 60} মিনিট দেখা; alert এর পরে মানুষের ${HUMAN_MINUTES} মিনিট)`
+	`Part A — one bad version, six strategies (${RPS} req/s, ${n(USERS)} users, watched for ${HORIZON / 60} minutes; ${HUMAN_MINUTES} minutes for a human after the alert)`
 );
 for (const [index, bug] of BUGS.entries()) {
 	console.log(`\n${bug.name}`);
 	console.log(
 		row([
-			['কৌশল', 42],
-			['খারাপ request', 14],
-			['ভুক্তভোগী user', 16],
-			['ধরা পড়ল', 10],
-			['কে ধরল', 18],
-			['পুরো ফেরত', 12]
+			['strategy', 42],
+			['bad requests', 14],
+			['users hit', 16],
+			['caught', 10],
+			['caught by', 18],
+			['reverted', 12]
 		])
 	);
 	for (const strategy of STRATEGIES) {
@@ -233,7 +239,7 @@ for (const [index, bug] of BUGS.entries()) {
 				[strategy.name, 42],
 				[n(o.hits), 14],
 				[`${n(o.users)} (${pct(o.users, USERS, 0)})`, 16],
-				[o.detectedAt === null ? 'ধরেনি' : minutes(o.detectedAt + 1), 10],
+				[o.detectedAt === null ? 'missed' : minutes(o.detectedAt + 1), 10],
 				[o.detectedBy, 18],
 				[o.rolledBackAt === null ? '—' : minutes(o.rolledBackAt), 12]
 			])
@@ -241,16 +247,16 @@ for (const [index, bug] of BUGS.entries()) {
 	}
 }
 console.log(
-	`\n(মোট request ${n(totalRequests)}; "খারাপ request" = নতুন version এর bug এ পড়া request)`
+	`\n(total requests ${n(totalRequests)}; "bad requests" = requests that hit the new version's bug)`
 );
 
-heading('অংশ খ — ভালো version: কতক্ষণে ১০০%, কত বাড়তি instance');
+heading('Part B — a good version: how long to 100%, how many extra instances');
 console.log(
 	row([
-		['কৌশল', 42],
-		['১০০% এ পৌঁছায়', 16],
-		['বাড়তি instance', 16],
-		['ভুল rollback', 14]
+		['strategy', 42],
+		['reaches 100%', 16],
+		['extra capacity', 16],
+		['bad rollback', 14]
 	])
 );
 for (const strategy of STRATEGIES) {
@@ -260,22 +266,22 @@ for (const strategy of STRATEGIES) {
 			[strategy.name, 42],
 			[o.reachedFullAt === null ? '—' : minutes(o.reachedFullAt), 16],
 			[strategy.extra, 16],
-			[o.detectedAt === null ? 'না' : `হ্যাঁ (${o.detectedBy})`, 14]
+			[o.detectedAt === null ? 'no' : `yes (${o.detectedBy})`, 14]
 		])
 	);
 }
 
-heading(`অংশ গ — canary এর পরিসংখ্যান: baseline error ০.১%, z > ${Z}, প্রতিটা ঘর ${n(TRIALS)}বার`);
+heading(`Part C — canary statistics: baseline error 0.1%, z > ${Z}, ${n(TRIALS)} runs per cell`);
 console.log(
 	row([
 		['canary', 8],
-		['সময়', 8],
+		['time', 8],
 		['canary request', 16],
-		['+০.২% ধরে', 12],
-		['+১% ধরে', 12],
-		['ভুল alarm', 12],
-		['প্রতি মিনিটে দেখলে', 20],
-		['+১% এ ক্ষতি', 14]
+		['+0.2% hit', 12],
+		['+1% hit', 12],
+		['false pos.', 12],
+		['checked per minute', 20],
+		['+1% damage', 14]
 	])
 );
 const stats = mulberry32(SEED + 900);
@@ -313,7 +319,7 @@ for (const share of [0.01, 0.05, 0.25]) {
 		console.log(
 			row([
 				[`${share * 100}%`, 8],
-				[`${window} মি`, 8],
+				[`${window} min`, 8],
 				[n(canaryRequests), 16],
 				[pct(small.end, TRIALS, 0), 12],
 				[pct(big.end, TRIALS, 0), 12],
@@ -325,15 +331,15 @@ for (const share of [0.01, 0.05, 0.25]) {
 	}
 }
 console.log(
-	'\n("ধরে" = সময় শেষে একবার দেখে z > 3; "প্রতি মিনিটে দেখলে" = প্রতি মিনিটে দেখে যেকোনোবার z > 3, কোনো bug ছাড়া)'
+	'\n("hit" = checked once at the end, z > 3; "checked per minute" = checked every minute, z > 3 at any point, with no bug)'
 );
 
-heading('অংশ ঘ — canary ৫% এ এক ঘণ্টা: request এলোমেলো বনাম user ধরে sticky');
+heading('Part D — canary at 5% for an hour: random per request vs sticky per user');
 console.log(
 	row([
 		['routing', 26],
-		['নতুন version ছুঁয়েছে', 22],
-		['দুই version এর মাঝে লাফিয়েছে', 28]
+		['saw the new version', 22],
+		['switched between versions', 28]
 	])
 );
 for (const sticky of [false, true]) {
@@ -354,7 +360,7 @@ for (const sticky of [false, true]) {
 	}
 	console.log(
 		row([
-			[sticky ? 'user ধরে sticky' : 'request এলোমেলো', 26],
+			[sticky ? 'sticky per user' : 'random per request', 26],
 			[`${n(touched)} (${pct(touched, USERS, 0)})`, 22],
 			[`${n(flipped)} (${pct(flipped, USERS, 0)})`, 28]
 		])

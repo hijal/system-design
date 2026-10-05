@@ -20,7 +20,7 @@ const listen = (app: { listen: (port: number) => Server }, port = 0): Promise<Se
 	});
 const portOf = (server: Server): number => {
 	const address = server.address();
-	if (address === null || typeof address === 'string') throw new Error('port পাওয়া গেল না');
+	if (address === null || typeof address === 'string') throw new Error('could not get the port');
 	return address.port;
 };
 const close = (server: Server): Promise<void> =>
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
 	);
 	const [a, b, leased, slow] = servers.map((s) => `http://127.0.0.1:${portOf(s)}`);
 	if (a === undefined || b === undefined || leased === undefined || slow === undefined)
-		throw new Error('API চালু হয়নি');
+		throw new Error('the API did not start');
 
 	const call = async (
 		api: string,
@@ -83,8 +83,8 @@ async function main(): Promise<void> {
 			.join(', ');
 	};
 
-	heading('একটা limiter service, দুটো API server (A, B), নকল ঘড়ি; সীমা: api ১০/s, login ৫/s');
-	console.log(padEnd('#', 4) + padEnd('ধাপ', 58) + 'ফল');
+	heading('one limiter service, two API servers (A, B), fake clock; limits: api 10/s, login 5/s');
+	console.log(padEnd('#', 4) + padEnd('step', 58) + 'result');
 
 	const fromA: number[] = [];
 	const fromB: number[] = [];
@@ -94,29 +94,29 @@ async function main(): Promise<void> {
 		last = await call(b, '/data', 'acme');
 		fromB.push(last.status);
 	}
-	show('key acme: A তে ১৫টা, B তে ১৫টা, পালা করে', `A: ${tally(fromA)} | B: ${tally(fromB)}`);
-	show('শেষ 429 এর header', `Retry-After: ${last.retryAfter}, উৎস: ${last.source}`);
+	show('key acme: 15 on A, 15 on B, alternating', `A: ${tally(fromA)} | B: ${tally(fromB)}`);
+	show("the last 429's headers", `Retry-After: ${last.retryAfter}, source: ${last.source}`);
 
 	clock += 1_000;
 	const after: number[] = [];
 	for (let i = 0; i < 12; i++)
 		after.push((await call(i % 2 === 0 ? a : b, '/data', 'acme')).status);
-	show('ঘড়ি ১ s এগোল, আরও ১২টা', tally(after));
+	show('clock forward 1 s, 12 more', tally(after));
 
 	const checksBefore = limiter.stats.checks;
 	const plain: number[] = [];
 	for (let i = 0; i < 100; i++) plain.push((await call(a, '/data', 'big-plain')).status);
 	show(
-		'key big-plain (১,০০০/s): A তে ১০০টা, প্রতি request এ check',
-		`${tally(plain)}; limiter এ ${limiter.stats.checks - checksBefore}টা call`
+		'key big-plain (1,000/s): 100 on A, check on every request',
+		`${tally(plain)}; ${limiter.stats.checks - checksBefore} calls to the limiter`
 	);
 
 	const leasesBefore = limiter.stats.leases;
 	const viaLease: number[] = [];
 	for (let i = 0; i < 100; i++) viaLease.push((await call(leased, '/data', 'big-co')).status);
 	show(
-		'key big-co: lease (৫টা) সহ API তে ১০০টা',
-		`${tally(viaLease)}; limiter এ ${limiter.stats.leases - leasesBefore}টা lease call`
+		'key big-co: 100 to the API with leases (5)',
+		`${tally(viaLease)}; ${limiter.stats.leases - leasesBefore} lease calls to the limiter`
 	);
 
 	await fetch(`http://127.0.0.1:${limiterPort}/admin/delay`, {
@@ -128,15 +128,15 @@ async function main(): Promise<void> {
 	const slowData = await call(slow, '/data', 'slowpoke');
 	const slowDataMs = performance.now() - started;
 	show(
-		'limiter ২০০ ms ধীর, timeout ২০ ms: GET /data (local)',
-		`${slowData.status}, উৎস: ${slowData.source}, ${slowDataMs < 100 ? '১০০ ms এর কম' : 'ধীর!'}`
+		'limiter 200 ms slow, timeout 20 ms: GET /data (local)',
+		`${slowData.status}, source: ${slowData.source}, ${slowDataMs < 100 ? 'under 100 ms' : 'slow!'}`
 	);
 	started = performance.now();
 	const slowLogin = await call(slow, '/login', 'x');
 	const slowLoginMs = performance.now() - started;
 	show(
-		'একই সময়ে POST /login (fail closed)',
-		`${slowLogin.status}, Retry-After: ${slowLogin.retryAfter}, ${slowLoginMs < 100 ? '১০০ ms এর কম' : 'ধীর!'}`
+		'at the same time POST /login (fail closed)',
+		`${slowLogin.status}, Retry-After: ${slowLogin.retryAfter}, ${slowLoginMs < 100 ? 'under 100 ms' : 'slow!'}`
 	);
 
 	await fetch(`http://127.0.0.1:${limiterPort}/admin/delay`, {
@@ -154,23 +154,23 @@ async function main(): Promise<void> {
 		sources.push(r.source);
 	}
 	show(
-		'limiter বন্ধ: A তে ৮টা GET /data',
-		`${tally(outage)}; উৎস: ${[...new Set(sources)].join(', ')}`
+		'limiter down: 8 GET /data on A',
+		`${tally(outage)}; source: ${[...new Set(sources)].join(', ')}`
 	);
 	show(
-		'তার মধ্যে limiter এর দিকে network call',
-		`${clientA.networkCalls - callsBefore}টা (breaker ৩টা ব্যর্থতায় খোলে)`
+		'network calls toward the limiter during that',
+		`${clientA.networkCalls - callsBefore} (the breaker opens after 3 failures)`
 	);
 	const login = await call(a, '/login', 'x');
-	show('limiter বন্ধ: POST /login', `${login.status}, Retry-After: ${login.retryAfter}`);
+	show('limiter down: POST /login', `${login.status}, Retry-After: ${login.retryAfter}`);
 
 	limiterServer = await listen(limiter.app, limiterPort);
 	await sleep(350);
 	const backBefore = clientA.networkCalls;
 	const back = await call(a, '/data', 'back');
 	show(
-		'limiter ফিরল, breaker এর ৩০০ ms পরে',
-		`${back.status}, উৎস: ${back.source}, network call ${clientA.networkCalls - backBefore}টা`
+		'limiter back, 300 ms after the breaker',
+		`${back.status}, source: ${back.source}, ${clientA.networkCalls - backBefore} network call(s)`
 	);
 
 	await Promise.all([limiterServer, ...servers].map(close));

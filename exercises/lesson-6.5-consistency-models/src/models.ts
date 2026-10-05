@@ -1,12 +1,12 @@
 import { eventual, MODELS, r, w, type History } from './checker';
 
-// Lesson 6.5 — Module 6 এর সাতটা ঘটনা, consistency এর মই এ।
-// প্রতিটা history ছোট আর হাতে বানানো — সময়গুলো ms এ; P1, P2, P3 তিনজন client।
-// প্রতিটার পাশে কোন lesson এ এই ঘটনা দেখেছিলে।
+// Lesson 6.5 — seven incidents from Module 6, on the consistency ladder.
+// Every history is small and hand-made — times in ms; P1, P2, P3 are three clients.
+// Next to each, the lesson where you saw this incident.
 
 const CASES: { name: string; lesson: string; history: History }[] = [
 	{
-		name: 'এক primary, সব স্বাভাবিক',
+		name: 'one primary, all normal',
 		lesson: '5.x',
 		history: [
 			w('P1', 'x', 1, 0, 10),
@@ -17,7 +17,7 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 		]
 	},
 	{
-		name: 'লেখা চলার মাঝে পড়া নতুন মান পেল',
+		name: 'read during a write got the new value',
 		lesson: '6.2',
 		history: [
 			w('P1', 'x', 1, 0, 50),
@@ -27,7 +27,7 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 		]
 	},
 	{
-		name: 'পুরনো leader থেকে পড়া',
+		name: 'read from the old leader',
 		lesson: '6.2',
 		history: [
 			w('P1', 'x', 1, 0, 10),
@@ -37,12 +37,12 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 		]
 	},
 	{
-		name: 'Replica lag: নিজের লেখা নেই',
+		name: 'replica lag: own write missing',
 		lesson: '5.7',
 		history: [w('P1', 'x', 1, 0, 10), r('P1', 'x', 0, 12, 15), r('P1', 'x', 1, 300, 305)]
 	},
 	{
-		name: 'Refresh এ task উধাও',
+		name: 'task vanishes on refresh',
 		lesson: '6.3',
 		history: [
 			w('P2', 'x', 1, 0, 10),
@@ -52,25 +52,25 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 		]
 	},
 	{
-		name: 'উত্তর আছে, প্রশ্ন নেই',
+		name: 'answer present, question missing',
 		lesson: '6.3',
 		history: [
-			w('P1', 'q', 1, 0, 10), // রহিম: প্রশ্ন
-			r('P2', 'q', 1, 20, 25), // করিম প্রশ্ন পড়ল
-			w('P2', 'a', 1, 30, 40), // করিম: উত্তর
-			r('P3', 'a', 1, 50, 55), // পাঠক উত্তর দেখল
-			r('P3', 'q', 0, 60, 65), // … কিন্তু প্রশ্ন না
+			w('P1', 'q', 1, 0, 10), // Rahim: the question
+			r('P2', 'q', 1, 20, 25), // Karim read the question
+			w('P2', 'a', 1, 30, 40), // Karim: the answer
+			r('P3', 'a', 1, 50, 55), // a reader saw the answer
+			r('P3', 'q', 0, 60, 65), // … but not the question
 			r('P3', 'q', 1, 400, 405)
 		]
 	},
 	{
-		name: 'LWW: ঘড়ির ভুলে bot এর edit হারাল',
+		name: "LWW: bot's edit lost to a clock error",
 		lesson: '6.4',
 		history: [
 			w('P1', 'x', 1, 0, 10),
-			r('P2', 'x', 1, 20, 25), // bot title দেখল
-			w('P2', 'x', 2, 30, 40), // bot "[DONE]" লিখল — পিছিয়ে থাকা ঘড়ির replica তে
-			r('P2', 'x', 1, 300, 305), // সবাই পুরনোটাই দেখছে
+			r('P2', 'x', 1, 20, 25), // the bot saw the title
+			w('P2', 'x', 2, 30, 40), // the bot wrote "[DONE]" — on the replica with the lagging clock
+			r('P2', 'x', 1, 300, 305), // everyone still sees the old one
 			r('P1', 'x', 1, 310, 315),
 			r('P3', 'x', 1, 320, 325)
 		]
@@ -80,7 +80,7 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 function main(): void {
 	const tick = (ok: boolean | null): string => (ok === null ? '—' : ok ? '✓' : '✗');
 	console.log(
-		'\n   ঘটনা                                   lesson   linear.  sequential  causal  RYW  mono.read  eventual'
+		'\n   incident                               lesson   linear.  sequential  causal  RYW  mono.read  eventual'
 	);
 	for (const c of CASES) {
 		const cells = MODELS.map(([, check]) => check(c.history));

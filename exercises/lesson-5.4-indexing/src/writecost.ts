@@ -3,9 +3,9 @@ import { QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { sequelize } from './db';
 
-// Lesson 5.4 §১.৬ — index এর দাম লেখার সময় দিতে হয়।
-// একই ২ লাখ row insert করা হয় তিনটা table এ: শুধু primary key, ৩টা index, ৬টা index।
-// মাপা হয় সময়, আর কত byte WAL লেখা হলো (Lesson 5.3 এর write amplification)।
+// Lesson 5.4 §1.6 — an index's price is paid at write time.
+// The same 200,000 rows are inserted into three tables: primary key only, 3 indexes, 6 indexes.
+// Measured: the time, and how many bytes of WAL were written (Lesson 5.3's write amplification).
 
 const ROWS = 200_000;
 const ROUNDS = 3;
@@ -53,7 +53,7 @@ type Result = { ms: number; walMb: number; indexMb: number };
 
 async function measure(indexCount: number): Promise<Result> {
 	await sequelize.query('DROP TABLE IF EXISTS tasks_w');
-	await sequelize.query('CREATE TABLE tasks_w (LIKE tasks INCLUDING ALL)'); // primary key সহ
+	await sequelize.query('CREATE TABLE tasks_w (LIKE tasks INCLUDING ALL)'); // with the primary key
 	for (const ddl of INDEXES.slice(0, indexCount)) await sequelize.query(ddl);
 
 	const times: number[] = [];
@@ -80,15 +80,15 @@ async function measure(indexCount: number): Promise<Result> {
 }
 
 async function main(): Promise<void> {
-	console.log(`\n  ${ROWS.toLocaleString('en-US')} row insert, ${ROUNDS} বারের median:\n`);
-	console.log('  index (primary key বাদে)      সময়        WAL       index এর মোট আকার');
+	console.log(`\n  ${ROWS.toLocaleString('en-US')} row insert, median of ${ROUNDS} runs:\n`);
+	console.log('  indexes (besides the PK)         time               WAL  index size');
 	let base: Result | undefined;
 	for (const count of [0, 3, 6]) {
 		const result = await measure(count);
 		base ??= result;
 		const slower = (result.ms / base.ms).toFixed(1);
 		console.log(
-			`  ${String(count).padStart(2)}টা${' '.repeat(24)}${result.ms.toFixed(0).padStart(6)} ms (${slower}x)  ${result.walMb.toFixed(1).padStart(6)} MB   ${result.indexMb.toFixed(1).padStart(6)} MB`
+			`  ${String(count).padStart(2)}${' '.repeat(26)}${result.ms.toFixed(0).padStart(6)} ms (${slower}x)  ${result.walMb.toFixed(1).padStart(6)} MB   ${result.indexMb.toFixed(1).padStart(6)} MB`
 		);
 	}
 	await sequelize.query('DROP TABLE IF EXISTS tasks_w');

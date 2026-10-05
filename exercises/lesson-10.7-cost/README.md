@@ -57,43 +57,43 @@ npm run traffic
 খরচের ২৫%:
 
 ```
-staging + dev (prod এর মাপে, ২৪/৭)            $4,701   17.9%      $420    $4,281                        ¼ মাপ, শুধু কাজের সময়
-NAT gateway (ঘণ্টা + প্রতি GB)                    $3,001   11.4%      $139    $2,862     S3 gateway endpoint, image endpoint
-app instance (peak এর মাপে, 20টা ২৪/৭)         $2,803   10.7%      $869    $1,934           autoscale (গড় 7.6), 5টা commit
-মোট                                         $26,290    100%    $8,276   $18,014                                  69% কম
+staging + dev (prod-sized, 24/7)              $4,701   17.9%      $420    $4,281                        ¼ size, working hours only
+NAT gateway (hourly + per GB)                 $3,001   11.4%      $139    $2,862               S3 gateway endpoint, image endpoint
+app instances (sized for peak, 20 24/7)       $2,803   10.7%      $869    $1,934                  autoscale (avg 7.6), 5 committed
+total                                        $26,290    100%    $8,276   $18,014                                          69% less
 
 POST /boards/:id/export           60,000      $0.011       $10,920      $655    0.013%       25%
 
-প্রতি ভাগ দৈনিক > নিজের ৭ দিনের গড় × ১.৫                         1 দিন পরে           1 দিন পরে                     0
+each category daily > its own 7-day average × 1.5           1 day later         1 day later                         0
 ```
 
 `npm run capacity` — peak ধরে স্থির fleet এর ২০% ব্যবহার; commit এর সেরা বিন্দু যেখানে ব্যবহার ৬৫% সময়ের বেশি:
 
 ```
-স্থির: peak + ২৫%, ২৪/৭                         20.0      $2,803         20%          0       0 (0.00%)
-reactive autoscale (লক্ষ্য 60%)                   7.6      $1,072         53%          4  15,252 (0.01%)
-5  ← সবচেয়ে কম              $869               18.9%                           79%          $27.97
-origin এ autoscale, কোনো সীমা নেই                      1,334    $1,025        $2,333             $0    $3,357
-edge এ block / challenge (১ KB উত্তর)                   0        $0        $73.44           $648      $721
+fixed: peak + 25%, 24/7                       20.0      $2,803         20%          0       0 (0.00%)
+reactive autoscale (target 60%)                 7.6      $1,072         53%          4  15,252 (0.01%)
+5  ← lowest                 $869               18.9%                           79%          $27.97
+autoscale at the origin, no limit                         1,334    $1,025        $2,333             $0    $3,357
+block / challenge at the edge (1 KB answer)                   0        $0        $73.44           $648      $721
 ```
 
 `npm run storage` — "সস্তা" class এ ছোট object বেশি দামি; log এর দাম ঢোকানোয়:
 
 ```
-সব Standard, পুরনো version চিরকাল                       $775    $2,066       $32,424             $0             $0
-+ শুধু ≥১২৮ KB IA, ১৮০ দিনে Glacier IR                  $126      $479        $7,445           $462           $364
+all Standard, old versions forever                            $775    $2,066           $32,424             $0             $0
++ only ≥128 KB to IA, Glacier IR at 180 days                  $126      $479            $7,445           $462           $364
 Standard                  25,000,000        1.0 TB        $276
-IA (transition সহ)        25,000,000        3.2 TB        $730
-প্রতি request এ একটা লাইন (10.4)            2.8        $42.00                 $1.18                 $7.56                $30.66                 $2.77
+IA (with transition)              25,000,000        3.2 TB        $730
+one line per request (10.4)              2.8          $42.00                 $1.18                 $7.56                $30.66                 $2.77
 ```
 
 `npm run traffic` — S3 এর traffic NAT দিয়ে গেলে মাসে ~$৩,০০০; gateway endpoint এ প্রায় শূন্য:
 
 ```
-সব NAT দিয়ে, প্রতি AZ এ একটা NAT                         64.5 TB      $3,001                             আজকের TaskFlow
-+ S3 gateway endpoint                               4.5 TB        $301                    gateway endpoint বিনা মূল্যে
-service, যেকোনো AZ এ পাঠানো                             114.0 TB      $2,281                  ভেতরের call এর 67% অন্য AZ এ
-+ প্রতি AZ এ একটা read replica                         18.1 TB        $363                 পড়া নিজের AZ এ, লেখা primary তে
+everything through NAT, one NAT per AZ                   64.5 TB        $3,001                                      today's TaskFlow
++ S3 gateway endpoint                                     4.5 TB          $301                          the gateway endpoint is free
+services, sent to any AZ                                114.0 TB        $2,281                   67% of internal calls to another AZ
++ a read replica in every AZ                             18.1 TB          $363          reads in their own AZ, writes to the primary
 ```
 
 ## কী দেখার জন্য এটা বানানো

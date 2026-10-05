@@ -113,22 +113,22 @@ async function scenario(
 
 async function main(): Promise<void> {
 	console.log(
-		`\n=== Lesson 9.5 — কয়েকটা instance, একটাই সীমা ===\n` +
-			`   ${PORTS.length} টা Express instance · সীমা ${LIMIT} request প্রতি ${WINDOW_MS} ms প্রতি user\n` +
-			`   একজন user round robin এ ${ATTEMPTS} টা request পাঠাচ্ছে (gateway যেভাবে ভাগ করে দিত)\n`
+		`\n=== Lesson 9.5 — Several instances, one limit ===\n` +
+			`   ${PORTS.length} Express instances · limit ${LIMIT} requests per ${WINDOW_MS} ms per user\n` +
+			`   one user sends ${ATTEMPTS} requests round robin (the way a gateway would spread them)\n`
 	);
 
-	const perInstance = await scenario('প্রতি instance এর নিজের গোনা', () =>
+	const perInstance = await scenario('each instance counts its own', () =>
 		PORTS.map(() => new SlidingWindowCounter(LIMIT, WINDOW_MS))
 	);
 
 	const oneStore = sharedStore(new SlidingWindowCounter(LIMIT, WINDOW_MS), STORE_RTT_MS);
-	const shared = await scenario(`ভাগ করা store (RTT ${STORE_RTT_MS} ms)`, () =>
+	const shared = await scenario(`shared store (RTT ${STORE_RTT_MS} ms)`, () =>
 		PORTS.map(() => oneStore)
 	);
 
 	console.log(
-		`   ${padEnd('গোনা কোথায়', LABEL)}${padLeft('200', COL)}${padLeft('429', COL)}${padLeft('আসল সীমা', COL)}${padLeft('p99', COL)}${padLeft('store call', COL)}`
+		`   ${padEnd('where counted', LABEL)}${padLeft('200', COL)}${padLeft('429', COL)}${padLeft('real limit', COL)}${padLeft('p99', COL)}${padLeft('store call', COL)}`
 	);
 	for (const result of [perInstance, shared])
 		console.log(
@@ -139,15 +139,15 @@ async function main(): Promise<void> {
 		);
 
 	console.log(
-		`\n   ${PORTS.length} টা instance, প্রত্যেকের নিজের গোনা — user পেল ${perInstance.ok} টা, মানে সীমার ` +
-			`${(perInstance.ok / LIMIT).toFixed(1)} গুণ (instance সংখ্যার সমান)।\n` +
-			`   ভাগ করা store এ ঠিক ${shared.ok} টা — দাম: প্রতিটা request এ একটা করে store call (${shared.storeCalls} টা / ${ATTEMPTS} টা request)।\n` +
-			`   এখানে p99 ${ms(perInstance.p99)} বনাম ${ms(shared.p99)} — এই পার্থক্যটা মাপা যায়নি, কারণ store টা একই process এ\n` +
-			`   আর RTT মাত্র ${STORE_RTT_MS} ms এর একটা ভান। আসল Redis এ (বিশেষত অন্য AZ তে) এটা প্রতিটা request এ যোগ হয়।\n` +
-			`   বড় দামটা latency না — store এখন একটা hard dependency: সে মরলে fail open (সীমা নেই) নাকি fail closed (সব 429)?\n`
+		`\n   ${PORTS.length} instances, each counting its own — the user got ${perInstance.ok}, i.e. ` +
+			`${(perInstance.ok / LIMIT).toFixed(1)} times the limit (equal to the instance count).\n` +
+			`   with a shared store exactly ${shared.ok} — the price: one store call per request (${shared.storeCalls} / ${ATTEMPTS} requests).\n` +
+			`   here p99 is ${ms(perInstance.p99)} vs ${ms(shared.p99)} — this difference could not be measured, because the store is in the same process\n` +
+			`   and the RTT is only a ${STORE_RTT_MS} ms pretence. With real Redis (especially in another AZ) it is added to every request.\n` +
+			`   the bigger price is not latency — the store is now a hard dependency: when it dies, fail open (no limit) or fail closed (all 429)?\n`
 	);
 
-	console.log(`── 429 এর উত্তরটা কেমন দেখায় ──`);
+	console.log(`── What the 429 response looks like ──`);
 	const solo = await startInstance(
 		'inst-1',
 		PORTS[0] ?? 4401,
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
 	for (let i = 0; i < 4; i += 1) {
 		const reply = await get(soloAgent, solo.url, 'user-9');
 		console.log(
-			`   চেষ্টা ${i + 1}: status ${reply.status} · x-ratelimit-remaining: ${reply.remaining}` +
+			`   attempt ${i + 1}: status ${reply.status} · x-ratelimit-remaining: ${reply.remaining}` +
 				(reply.retryAfter ? ` · retry-after: ${reply.retryAfter}s` : '')
 		);
 	}

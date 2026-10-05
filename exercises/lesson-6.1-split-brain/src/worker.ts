@@ -1,18 +1,18 @@
 import { z } from 'zod';
 
-// Lesson 6.1 — TaskFlow এর "due-date reminder" worker। কয়েকটা instance চলে, কিন্তু reminder
-// পাঠাবে শুধু একজন — যার হাতে lease (নইলে প্রতিটা email কয়েকবার যাবে)। Leader এর কাজ, প্রতি tick এ:
+// Lesson 6.1 — TaskFlow's "due-date reminder" worker. Several instances run, but only one sends
+// reminders — the one holding the lease (otherwise every email goes out several times). The leader, on every tick:
 //
-//   ১. lease আছে কিনা দেখো (না থাকলে বা শেষ হয়ে আসলে lock service থেকে নাও/বাড়াও)
-//   ২. storage থেকে cursor পড়ো — পরের কোন batch
-//   ৩. সেই batch এর reminder email পাঠাও
-//   ৪. cursor + 1 লেখো, সাথে নিজের token
+//   1. check the lease (acquire/extend it from the lock service if it's missing or about to expire)
+//   2. read the cursor from storage — which batch is next
+//   3. send that batch's reminder emails
+//   4. write cursor + 1, along with its own token
 //
-// PAUSE_AT_BATCH দেওয়া থাকলে, সেই batch এ ধাপ ২ এর ঠিক পরে process পুরোপুরি থেমে যায় —
-// একটা synchronous busy loop, stop-the-world GC যেভাবে পুরো thread আটকায় ঠিক সেভাবে।
-// থামা অবস্থায় কোনো timer চলে না, lease renew হয় না — আর থামা process জানেও না যে সে থেমে ছিল।
+// With PAUSE_AT_BATCH set, the process stops completely right after step 2 at that batch —
+// a synchronous busy loop, exactly the way a stop-the-world GC freezes the whole thread.
+// While stopped no timer runs and the lease isn't renewed — and the stopped process doesn't even know it was stopped.
 
-// env হলো runtime input — type assertion না, Zod দিয়ে parse
+// env is runtime input — no type assertion, parsed with Zod
 const env = z
 	.object({
 		NODE_NAME: z.string().min(1),
@@ -37,7 +37,7 @@ let lease: Lease | null = null;
 let paused = false;
 
 function log(message: string): void {
-	// runner এই লাইনগুলো পড়ে service এর event এর সাথে সময় অনুযায়ী মেলায়
+	// the runner reads these lines and matches them by time with the services' events
 	console.log(`${Date.now() - env.START}\t${message}`);
 }
 
@@ -46,9 +46,9 @@ async function call(
 	path: string,
 	body?: unknown
 ): Promise<{ status: number; json: unknown }> {
-	// connection: close — প্রতি request এ নতুন connection। Node এর fetch এ কিছুক্ষণ idle থাকা
-	// keep-alive socket আবার ব্যবহার করলে প্রায় 300 ms অকারণ দেরি দেখা গেছে; সেটা এখানে timeline
-	// গুলিয়ে দিত (lease এর মেয়াদই 1000 ms), তাই বাদ।
+	// connection: close — a new connection per request. Reusing a keep-alive socket that has been idle a while
+	// in Node's fetch showed a needless delay of about 300 ms; that would have muddled the timeline here
+	// (the lease itself is 1000 ms), so it is turned off.
 	const init: RequestInit = {
 		method,
 		headers: { 'content-type': 'application/json', connection: 'close' }
@@ -61,35 +61,35 @@ async function call(
 function stopTheWorld(ms: number): void {
 	const until = Date.now() + ms;
 	while (Date.now() < until) {
-		// কিছুই না — event loop আটকে আছে, ঠিক একটা লম্বা GC pause এর মতো
+		// nothing — the event loop is blocked, just like a long GC pause
 	}
 }
 
 async function tick(): Promise<void> {
-	// ধাপ ১ — lease। নিজের ঘড়িতে মেয়াদ হিসাব করি, request পাঠানোর মুহূর্ত থেকে (নিরাপদ দিকে);
-	// অর্ধেক মেয়াদ পেরোলে renew।
+	// Step 1 — the lease. The expiry is computed on our own clock, from the moment the request was sent (the safe side);
+	// renew once half the lease has passed.
 	const askedAt = Date.now();
 	if (lease === null || askedAt >= lease.localExpiresAt - lease.ttlMs / 2) {
 		const result = acquireResponse.parse(
 			(await call('POST', '/lock/acquire', { node: env.NODE_NAME })).json
 		);
 		if (!result.granted) {
-			if (lease !== null) log('lease renew হলো না — অন্য কেউ leader, আমি follower');
+			if (lease !== null) log('lease not renewed — someone else is leader, I am a follower');
 			lease = null;
 			return;
 		}
-		if (lease === null) log(`leader হলাম (token ${result.token})`);
+		if (lease === null) log(`became leader (token ${result.token})`);
 		lease = { token: result.token, ttlMs: result.ttlMs, localExpiresAt: askedAt + result.ttlMs };
 	}
 
-	// এখানে lease নিজের ঘড়িতে valid। নিচের সবকিছু এই বিশ্বাসের উপর চলে।
+	// Here the lease is valid by our own clock. Everything below runs on that belief.
 	const { cursor } = cursorResponse.parse((await call('GET', '/cursor')).json);
 
 	if (env.PAUSE_AT_BATCH === cursor && !paused) {
 		paused = true;
-		log(`cursor = ${cursor} পড়লাম … তারপর process থেমে গেল (${env.PAUSE_MS} ms, stop-the-world)`);
+		log(`read cursor = ${cursor} … then the process stopped (${env.PAUSE_MS} ms, stop-the-world)`);
 		stopTheWorld(env.PAUSE_MS);
-		log(`আবার চলছি — আমার কাছে মনে হচ্ছে কিছুই হয়নি, batch ${cursor} পাঠাচ্ছি`);
+		log(`running again — as far as I can tell nothing happened, sending batch ${cursor}`);
 	}
 
 	await call('POST', '/email', { node: env.NODE_NAME, batch: cursor });
@@ -102,7 +102,7 @@ async function tick(): Promise<void> {
 	if (write.status === 409) {
 		const { highest } = staleResponse.parse(write.json);
 		log(
-			`storage লেখা ফিরিয়ে দিল: আমার token ${lease.token} < ${highest} — আমি আর leader না, থামলাম`
+			`storage rejected the write: my token ${lease.token} < ${highest} — I am no longer leader, stopping`
 		);
 		lease = null;
 	}

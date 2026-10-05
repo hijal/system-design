@@ -203,7 +203,7 @@ And if the rule can be expressed as a database constraint (`UNIQUE`, `CHECK`, an
 Now Lesson 5.2's counter. The exercise's `npm run lostupdate` runs **100 `+1`s at once** on one counter, with seven strategies (10 connections in the pool):
 
 ```
-strategy                                   final value   retries    time
+strategy                                final value  retries      time
 1. read-modify-write, no transaction      ✗   1/100        0     145 ms
 2. same, in a READ COMMITTED transaction  ✗  10/100        0     113 ms
 3. SELECT ... FOR UPDATE                  ✓ 100/100        0     141 ms

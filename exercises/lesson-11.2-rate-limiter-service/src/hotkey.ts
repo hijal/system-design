@@ -35,22 +35,22 @@ const leaseSize = (rate: number): number =>
 
 const plans: Plan[] = [
 	{
-		name: `প্রতি request এ এক op, ${SHARDS}টা shard`,
+		name: `one op per request, ${SHARDS} shards`,
 		shards: SHARDS,
 		opsFor: (k, r) => [[`rl:${k}`, r]]
 	},
 	{
-		name: `একই, ${SHARDS * 2}টা shard`,
+		name: `the same, ${SHARDS * 2} shards`,
 		shards: SHARDS * 2,
 		opsFor: (k, r) => [[`rl:${k}`, r]]
 	},
 	{
-		name: `বড় tenant (> ${n(BIG_TENANT_RPS)}/s) এ lease`,
+		name: `leases on big tenants (> ${n(BIG_TENANT_RPS)}/s)`,
 		shards: SHARDS,
 		opsFor: (k, r) => [[`rl:${k}`, r > BIG_TENANT_RPS ? r / leaseSize(r) : r]]
 	},
 	{
-		name: `বড় tenant এর key ${SPLIT} ভাগে (rl:k#0..${SPLIT - 1})`,
+		name: `big tenants' keys split ${SPLIT} ways (rl:k#0..${SPLIT - 1})`,
 		shards: SHARDS,
 		opsFor: (k, r) =>
 			r > BIG_TENANT_RPS
@@ -60,20 +60,20 @@ const plans: Plan[] = [
 ];
 
 heading(
-	`${n(API_RPS)} request/s, ${n(KEYS)}টা সক্রিয় key, Zipf (s = ${ZIPF_S}), shard প্রতি ক্ষমতা ~${n(SHARD_OPS)} op/s`
+	`${n(API_RPS)} requests/s, ${n(KEYS)} active keys, Zipf (s = ${ZIPF_S}), ~${n(SHARD_OPS)} op/s capacity per shard`
 );
 const top = rates[0] ?? 0;
 console.log(
-	`সবচেয়ে বড় tenant: ${n(top)} req/s (${pct(top, API_RPS, 1)}); ${n(BIG_TENANT_RPS)}/s এর বেশি এমন tenant: ${n(rates.filter((r) => r > BIG_TENANT_RPS).length)}টা\n`
+	`biggest tenant: ${n(top)} req/s (${pct(top, API_RPS, 1)}); tenants above ${n(BIG_TENANT_RPS)}/s: ${n(rates.filter((r) => r > BIG_TENANT_RPS).length)}\n`
 );
 console.log(
 	row([
-		['পরিকল্পনা', 44],
-		['মোট op/s', 12],
-		['গড় shard', 11],
-		['ব্যস্ততম shard', 15],
-		['ক্ষমতার', 9],
-		['ব্যস্ততম / গড়', 14]
+		['plan', 44],
+		['total op/s', 12],
+		['avg shard', 11],
+		['busiest shard', 15],
+		['of capacity', 13],
+		['busiest / avg', 15]
 	])
 );
 for (const plan of plans) {
@@ -93,14 +93,14 @@ for (const plan of plans) {
 			[n(total), 12],
 			[n(average), 11],
 			[n(busiest), 15],
-			[pct(busiest, SHARD_OPS, 0), 9],
-			[`${(busiest / average).toFixed(2)}x`, 14]
+			[pct(busiest, SHARD_OPS, 0), 13],
+			[`${(busiest / average).toFixed(2)}x`, 15]
 		])
 	);
 }
 console.log(
-	`\nবড় tenant এর lease: তার সীমার ${BURST_SECONDS} s এর burst ÷ ${API_SERVERS}টা server — সবচেয়ে বড় tenant এ ${leaseSize(top)}টা token।`
+	`\nA big tenant's lease: the ${BURST_SECONDS} s burst of its limit ÷ ${API_SERVERS} servers — ${leaseSize(top)} tokens for the biggest tenant.`
 );
 console.log(
-	`key ভাগ করা: প্রতিটা ভাগে সীমা / ${SPLIT}, server প্রতি request এ একটা ভাগ এলোমেলো বাছে — তাই ভাগগুলোয় traffic সমান।`
+	`key splitting: limit / ${SPLIT} in each part, and the server picks a part at random for each request — so the parts get even traffic.`
 );

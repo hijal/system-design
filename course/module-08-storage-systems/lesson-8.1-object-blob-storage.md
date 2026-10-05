@@ -26,7 +26,7 @@ class Attachment extends Model<InferAttributes<Attachment>, InferCreationAttribu
 	declare taskId: number;
 	declare fileName: string;
 	declare contentType: string;
-	declare data: Buffer; // DataTypes.BLOB → Postgres এ bytea — file টা নিজেই row এর ভেতরে
+	declare data: Buffer; // DataTypes.BLOB → bytea in Postgres — the file itself lives inside the row
 }
 ```
 
@@ -71,15 +71,15 @@ CTO এর উত্তর এক লাইনের: "S3 এ রাখো।" �
 প্রথম প্রশ্ন: TaskFlow এর hackathon এর পথটা আসলে কতটা খারাপ? Exercise এর `npm run where` একই ২০০টা file (মোট ৩১৫ MB; বেশিরভাগ ছোট, কয়েকটা ১০ MB পর্যন্ত) দুই জায়গায় রাখে — Postgres এর `bytea` column এ, আর object storage এ (database এ শুধু একটা metadata row):
 
 ```
-── ১. রাখা (একসাথে ৪টা upload) ─────────────────────────────────
-   কোথায়                              সময়      WAL লেখা    database এ বাড়ল   object storage এ
+── 1. Storing (4 uploads at a time) ─────────────────────────────
+   where                               time         WAL         DB growth    object storage
    Postgres (bytea)                  1.14 s    336.9 MB          327.2 MB                 —
    object storage + metadata row     1.69 s       49 KB             80 KB          314.5 MB
-   (তুলনার জন্য: ২ লাখ task এর পুরো tasks table + index = 23.3 MB)
+   (for comparison: the whole tasks table of 200k tasks + indexes = 23.3 MB)
 
-── ২. Backup (pg_dump -Fc, container এর ভেতরে) ─────────────────
-   file সহ database                      361.1 MB    21.56 s
-   file ছাড়া (শুধু metadata)              2.4 MB   399.8 ms
+── 2. Backup (pg_dump -Fc, inside the container) ─────────────────
+   database with files                   361.1 MB    21.56 s
+   without files (metadata only)           2.4 MB   399.8 ms
 ```
 
 রাখার সময় প্রায় সমান — এখানে database কে দোষ দেওয়ার কিছু নেই। দামটা অন্য তিন জায়গায়:
@@ -91,12 +91,12 @@ CTO এর উত্তর এক লাইনের: "S3 এ রাখো।" �
 **এবার ঘটনা ৩ — file দেওয়ার সময়।** Board এর query (৮ জন client) চলছে, আর তার সাথে ৮ জন file নামাচ্ছে:
 
 ```
-── ৩. File দেওয়ার সময় board এর query (8 OLTP client, pool max 10; 8 জন file নামায়) ──
-   ধাপ                                          OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99
-   শুধু OLTP                                      14437     0.4 ms     0.8 ms        0        0   —
-   + file, Postgres → app এর ভেতর দিয়ে             350    20.9 ms    66.1 ms      192      289   27.9 ms / 170.8 ms
-   + file, Postgres → আলাদা process               14687     0.4 ms     0.8 ms      194      290   23.3 ms / 218.0 ms
-   + file, object storage → সরাসরি                14968     0.4 ms     0.7 ms      348      516   17.5 ms / 91.6 ms
+── 3. Board queries while files are served (8 OLTP clients, pool max 10; 8 downloading files) ──
+   step                                        OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99
+   OLTP only                                      14437     0.4 ms     0.8 ms        0        0   —
+   + files, Postgres → through the app              350    20.9 ms    66.1 ms      192      289   27.9 ms / 170.8 ms
+   + files, Postgres → separate process           14687     0.4 ms     0.8 ms      194      290   23.3 ms / 218.0 ms
+   + files, object storage → direct               14968     0.4 ms     0.7 ms      348      516   17.5 ms / 91.6 ms
 ```
 
 তৃতীয় সারিটা প্রথমে দেখো, কারণ এটা একটা সৎ অবাক করা ফল: Postgres নিজে file ভালোই দেয়। আলাদা একটা process থেকে প্রতি সেকেন্ডে ২৯০ MB নামালেও board এর p99 একই — ০.৮ ms। তাহলে দ্বিতীয় সারিতে board প্রতি সেকেন্ডে ১৪ হাজার থেকে **৩৫০** এ নামল কেন?
@@ -117,9 +117,9 @@ CTO এর উত্তর এক লাইনের: "S3 এ রাখো।" �
 Team lead এর প্রস্তাব: file প্রতিটা Express instance এর নিজের disk এ। Database এর সব সমস্যা যায় — কিন্তু spaced repetition এর প্রশ্নটা এখানে কামড় দেয়। Exercise এর `npm run stateless`: দুটো Express instance একটা load balancer এর পেছনে, ২০ জন user প্রত্যেকে ১০টা file upload করে; তারপর uploader নিজে আবার খোলে, একজন teammate খোলে, আর শেষে instance A বদলানো হয় (deploy, crash, autoscaling এর scale-in — নতুন container, খালি disk):
 
 ```
-   file কোথায় · load balancer          নিজে আবার খুলল: 404   teammate খুলল: 404   instance A বদলানোর পরে: নেই
+   where files live · load balancer   own reopen 404    teammate open 404     lost after replacing A
    local disk, round robin                       50%                  47%                  148 / 200
-   local disk, sticky (user ধরে)                  0%                  47%                  100 / 200
+   local disk, sticky (per user)                  0%                  47%                  100 / 200
    object storage, round robin                    0%                   0%                    0 / 200
 ```
 
@@ -181,14 +181,14 @@ AWS বলে S3 Standard এর durability এর design লক্ষ্য **9
 Exercise এর `npm run durability`, অংশ ক — একটা সরল model: disk গুলো স্বাধীনভাবে বছরে ২% হারে মরে, আর মরা disk এর data অন্য disk এ আবার বানাতে ২৪ ঘণ্টা লাগে। একটা object হারায় যদি তার কোনো disk মরার পরে মেরামত শেষের আগে আরও m টা মরে:
 
 ```
-── ক. হিসাব (AFR 2%, মেরামতে 24 ঘণ্টা, disk গুলো স্বাধীনভাবে মরে) ──
-   পদ্ধতি       ১ TB রাখতে disk এ   সহ্য করে   বছরে হারানোর সম্ভাবনা   durability   ১০০ কোটি object এ বছরে হারায়
-   ১ কপি                 1.00 TB  0 টা disk                 2.0e-2    1.7 nines                     20000000
-   ২ কপি                 2.00 TB  1 টা disk                 2.2e-6    5.7 nines                         2192
-   ৩ কপি                 3.00 TB  2 টা disk                1.8e-10    9.7 nines                          0.2
-   EC 4+2                1.50 TB  2 টা disk                 3.6e-9    8.4 nines                            4
-   EC 6+3                1.50 TB  3 টা disk                1.7e-12   11.8 nines                        0.002
-   EC 10+4               1.40 TB  4 টা disk                1.8e-15   14.7 nines                     0.000002
+── A. Calculation (AFR 2%, 24 hours to repair, disks die independently) ──
+   scheme          disk for 1 TB   survives     annual loss chance   durability        lost/yr of 1B objects
+   1 copy                1.00 TB    0 disks                 2.0e-2    1.7 nines                     20000000
+   2 copies              2.00 TB     1 disk                 2.2e-6    5.7 nines                         2192
+   3 copies              3.00 TB    2 disks                1.8e-10    9.7 nines                          0.2
+   EC 4+2                1.50 TB    2 disks                 3.6e-9    8.4 nines                            4
+   EC 6+3                1.50 TB    3 disks                1.7e-12   11.8 nines                        0.002
+   EC 10+4               1.40 TB    4 disks                1.8e-15   14.7 nines                     0.000002
 ```
 
 - **৩ কপি বনাম EC 6+3:** EC অর্ধেক disk এ (১.৫ TB বনাম ৩ TB) বেশি durability দেয় — কারণ এক কপি না, তিনটা disk মরা সহ্য করে। Petabyte এর আকারে "অর্ধেক disk" মানে কোটি টাকা। তাই বড় object store গুলো প্রায় সবাই erasure coding ব্যবহার করে (যেমন Facebook এর f4 system, 2014 এর paper এ, Reed–Solomon 10+4)।
@@ -204,12 +204,12 @@ Exercise এর `npm run durability`, অংশ ক — একটা সরল m
 অংশ খ — ১০টা rack × ১২টা disk, ১ লাখ object; fragment গুলো rack না ভেবে এলোমেলো disk এ বসানো, বনাম প্রতিটা fragment আলাদা rack এ; তারপর পুরো rack বন্ধ:
 
 ```
-── খ. Failure domain (10 টা rack × 12 টা disk, 100,000 টা object) ──
-   পদ্ধতি · fragment কোথায়             পড়া যায় না যখন বন্ধ:    1 rack   2 rack   3 rack
-   ৩ কপি · এলোমেলো disk                                           89      718    2,541
-   ৩ কপি · প্রতিটা আলাদা rack                                      0        0      860
-   EC 6+3 · এলোমেলো disk                                         611    8,021   26,556
-   EC 6+3 · প্রতিটা আলাদা rack                                     0        0        0
+── B. Failure domain (10 racks × 12 disks, 100,000 objects) ──
+   scheme · where the fragments are     unreadable when down:   1 rack  2 racks  3 racks
+   3 copies · random disks                                        89      718    2,541
+   3 copies · each on a different rack                             0        0      860
+   EC 6+3 · random disks                                         611    8,021   26,556
+   EC 6+3 · each on a different rack                               0        0        0
 ```
 
 - **EC 6+3, এলোমেলো:** একটা rack বন্ধ হলেই ৬১১টা object পড়া যায় না — ৩ কপির চেয়েও **বেশি**। ৯টা fragment এলোমেলো বসালে একই rack এ চারটা পড়ার সম্ভাবনা কম না। অংশ ক এর ১১.৮ nines এখানে অর্থহীন — সংখ্যাটা ধরে নিয়েছিল disk স্বাধীন।
@@ -228,7 +228,7 @@ Exercise এর `npm run inspect` সাতটা ছোট পরীক্ষ�
 **১. লেখার পরেই পড়া।** একই key তে ২০০ বার overwrite, প্রতিবার সাথে সাথে GET:
 
 ```
-   পুরনো মান ফেরত এসেছে: 0 / 200
+   old value returned: 0 / 200
 ```
 
 AWS S3 ডিসেম্বর 2020 থেকে সব PUT, DELETE আর LIST এ **strong read-after-write consistency** দেয় — সফল PUT এর পরে যেকোনো GET নতুনটাই পায় (Lesson 6.5 এর ভাষায় একটা object এর জন্য linearizable এর কাছাকাছি)। এর আগে overwrite আর delete এ eventual ছিল — আর পুরনো অনেক blog আর Stack Overflow উত্তর এখনো সেটাই বলে। অন্য S3-compatible system এ (বা cross-region replication এর কপিতে) নিয়ম আলাদা হতে পারে — "S3-compatible" মানে API এক, প্রতিশ্রুতি এক না। দাবি না, documentation আর পরীক্ষা (6.5 এর Jepsen এর শিক্ষা)।
@@ -238,8 +238,8 @@ AWS S3 ডিসেম্বর 2020 থেকে সব PUT, DELETE আর LIST
 ```
    LIST Prefix='workspaces/12/' Delimiter='/':
      object  workspaces/12/avatar.png
-     "folder" workspaces/12/tasks/   ← কোনো আসল জিনিস না, শুধু key এর মিল
-   workspaces/12/ → workspaces/99/ "rename": 9 টা request (১ LIST + প্রতিটা object এ COPY + DELETE)
+     "folder" workspaces/12/tasks/   ← not a real thing, just keys that match
+   workspaces/12/ → workspaces/99/ "rename": 9 requests (1 LIST + COPY + DELETE per object)
 ```
 
 `Delimiter` দিয়ে LIST করলে API নিজেই key গুলো `/` এ ভাগ করে "folder" এর মতো দেখায় (`CommonPrefixes`) — কিন্তু index এ কোনো folder নেই। তাই "folder এর নাম বদলাও" একটা operation না — প্রতিটা object আলাদা করে copy আর delete: এখানে ৪টা object এ ৯টা request, দশ লাখ object এ বিশ লাখ। Design এর শিক্ষা: **এমন কিছু key এ রেখো না যেটা বদলাতে পারে** (user এর দেওয়া file এর নাম, task এর title) — ১.৮ এ।
@@ -247,8 +247,8 @@ AWS S3 ডিসেম্বর 2020 থেকে সব PUT, DELETE আর LIST
 **৩. লেখা পুরো object, পড়া আংশিক হতে পারে।**
 
 ```
-   ১ byte বদলাতে পাঠাতে হলো: 8,388,608 byte (পুরো 8 MB)
-   মাঝখান থেকে 1 KB পড়তে এলো: 1024 byte · bytes 4194304-4195327/8388608 · মিলেছে: হ্যাঁ
+   to change 1 byte, had to send: 8,388,608 bytes (the whole 8 MB)
+   reading 1 KB from the middle returned: 1024 bytes · bytes 4194304-4195327/8388608 · matches: yes
 ```
 
 Append নেই, "এই offset এ লেখো" নেই — ১.৪ এর ভেতরের গঠনের সরাসরি ফল। তাই object storage log file বা database এর data file রাখার জায়গা না (বারবার শেষে যোগ হয় এমন কিছু)। কিন্তু `Range` দিয়ে পড়া আংশিক হতে পারে — video এর মাঝখান থেকে চালানো, বড় file এর একটা অংশ, একটা download মাঝপথে থেমে গেলে বাকিটা। (বড় file লেখাকে টুকরো করার উপায় — multipart upload — Lesson 8.2।)
@@ -258,10 +258,10 @@ Append নেই, "এই offset এ লেখো" নেই — ১.৪ এর 
 **৬. দুজন একসাথে লিখলে।** Task এর checklist একটা JSON object; Rahim আর Karim দুজনেই পড়ল, নিজের item যোগ করল, লিখল:
 
 ```
-   শর্ত ছাড়া:            ["draft","Karim: deploy"]   ← Rahim এর item নীরবে হারাল (last writer wins)
-   If-Match (ETag):       Rahim লেখা হলো · Karim প্রত্যাখ্যাত (412 PreconditionFailed) · আবার পড়ে Karim লেখা হলো
+   unconditional:         ["draft","Karim: deploy"]   ← Rahim's item silently lost (last writer wins)
+   If-Match (ETag):       Rahim wrote · Karim rejected (412 PreconditionFailed) · after re-reading, Karim wrote
                           ["draft","Rahim: review","Karim: deploy"]
-   If-None-Match: * (আগে থেকে আছে এমন key এ): প্রত্যাখ্যাত (412 PreconditionFailed)
+   If-None-Match: * (on a key that already exists): rejected (412 PreconditionFailed)
 ```
 
 Lesson 5.5 এর lost update, object storage এ। কোনো lock নেই — শেষ PUT জেতে। সমাধানও 5.5 এর optimistic concurrency এর মতো: **conditional write**। `If-Match: <পড়ার সময়ের ETag>` — "যা পড়েছিলাম সেটাই যদি এখনো থাকে, তবেই লেখো" (compare-and-swap); না মিললে `412`, আবার পড়ে চেষ্টা। `If-None-Match: *` — "শুধু না থাকলে তৈরি করো" — একই key তে দুটো upload এর দ্বিতীয়টা আটকায়। (AWS S3 এ এ দুটো এসেছে 2024 এ — তার আগে এই ধরনের সমন্বয়ের জন্য বাইরে একটা database বা lock লাগত। আবারও: তোমার system এ আছে কিনা যাচাই করো।)
@@ -272,8 +272,8 @@ Lesson 5.5 এর lost update, object storage এ। কোনো lock নেই
 
 ```
    PUT "version one" → PUT "version two" → DELETE
-   version আছে: 2 · delete marker: 1 · সাধারণ GET: 404
-   প্রথম version টা VersionId দিয়ে: "version one" · copy করে ফিরিয়ে আনার পরে GET: "version one"
+   versions present: 2 · delete markers: 1 · plain GET: 404
+   the first version by VersionId: "version one" · GET after copying it back: "version one"
 ```
 
 Bucket এ versioning চালু থাকলে overwrite পুরনো version মোছে না, আর DELETE আসলে একটা "delete marker" বসায় — সাধারণ GET এ 404, কিন্তু পুরনো version গুলো আছে, আর ফিরিয়ে আনা যায়। এটাই ১.৫ এর "নিজের ভুল থেকে রক্ষা" এর প্রথম স্তর। দাম: প্রতিটা version জায়গা নেয় আর বিল হয় — তাই সাথে একটা lifecycle rule লাগে (১.৭)।
@@ -313,10 +313,10 @@ class Attachment extends Model<InferAttributes<Attachment>, InferCreationAttribu
 	declare id: CreationOptional<number>;
 	declare taskId: number;
 	declare workspaceId: number;
-	declare fileName: string; // user এর দেওয়া নাম — শুধু দেখানোর জন্য, key এ না
+	declare fileName: string; // the user-given name — only for display, never in the key
 	declare contentType: string;
 	declare size: number;
-	declare storageKey: string; // ws/{workspaceId}/att/{uuid} — একবার ঠিক হলে আর বদলায় না
+	declare storageKey: string; // ws/{workspaceId}/att/{uuid} — once set, never changes
 	declare etag: string;
 	declare createdAt: CreationOptional<Date>;
 }
@@ -341,18 +341,18 @@ type NewAttachment = Pick<
 
 async function saveAttachment(input: NewAttachment, body: Buffer): Promise<Attachment> {
 	const storageKey = `ws/${input.workspaceId}/att/${randomUUID()}`;
-	// ১. আগে object — এখানে থামলে শুধু একটা orphan object (রাতের job মুছবে)
+	// 1. The object first — stopping here leaves only an orphan object (the nightly job removes it)
 	const put = await s3.send(
 		new PutObjectCommand({
 			Bucket: env.ATTACHMENTS_BUCKET,
 			Key: storageKey,
 			Body: body,
 			ContentType: input.contentType,
-			// RFC 5987 — অ-ASCII নামও (বাংলা file এর নাম) ঠিকমতো যায়
+			// RFC 5987 — non-ASCII names (Bangla file names) survive too
 			ContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(input.fileName)}`
 		})
 	);
-	// ২. তারপর row — এখানে ব্যর্থ হলে user error দেখে, আবার চেষ্টা করে; আর কিছু ভাঙে না
+	// 2. Then the row — if this fails the user sees an error and retries; nothing else breaks
 	return Attachment.create({ ...input, storageKey, size: body.length, etag: put.ETag ?? '' });
 }
 ```

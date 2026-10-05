@@ -5,16 +5,16 @@ import { mulberry32, uniform } from './random';
 import { Sim } from './sim';
 import { generateEvents, type TaskEvent } from './workload';
 
-// Lesson 7.2 — একই TaskFlow ঘটনার ধারা, তিন ধরনের broker, পাঁচটা পরিস্থিতি:
+// Lesson 7.2 — the same stream of TaskFlow events, three kinds of broker, five situations:
 //
-//   npm run fanout    — তিনটা service একই ঘটনা চায় (§১.২)
-//   npm run crash     — search service ১০ সেকেন্ড বন্ধ (deploy) (§১.৩)
-//   npm run slow      — analytics service আসার গতির চেয়ে ধীর (§১.৩)
-//   npm run replay    — নতুন service এসে পুরনো সব ঘটনা চায় (§১.৪)
-//   npm run ordering  — একই task এর ঘটনা ক্রমে প্রক্রিয়া করতে হবে (§১.৫)
-//   npm run all       — সবগুলো
+//   npm run fanout    — three services want the same events (§1.2)
+//   npm run crash     — the search service is down for 10 seconds (deploy) (§1.3)
+//   npm run slow      — the analytics service is slower than the arrival rate (§1.3)
+//   npm run replay    — a new service arrives and wants every old event (§1.4)
+//   npm run ordering  — events of the same task must be processed in order (§1.5)
+//   npm run all       — all of them
 //
-// Seed দেওয়া — প্রতিবার হুবহু একই সংখ্যা। SEED env দিয়ে বদলানো যায়।
+// Seeded — exactly the same numbers every time. Can be changed with the SEED env.
 
 const scenario = z
 	.enum(['fanout', 'crash', 'slow', 'replay', 'ordering', 'all'])
@@ -22,7 +22,7 @@ const scenario = z
 const env = z
 	.object({
 		SEED: z.coerce.number().int().default(7),
-		// Experiment এর জন্য: log এর partition সংখ্যা, offset commit এর ব্যবধান, pub/sub এর buffer সীমা
+		// For experiments: the log's partition count, the offset commit interval, the pub/sub buffer limit
 		PARTITIONS: z.coerce.number().int().positive().default(4),
 		COMMIT_MS: z.coerce.number().int().positive().default(5000),
 		BUFFER_LIMIT: z.coerce.number().int().positive().default(100)
@@ -30,7 +30,7 @@ const env = z
 	.parse(process.env);
 const seed = env.SEED;
 
-// প্রতিটা (service, ঘটনা) জোড়ার প্রক্রিয়ার সময় সব broker এ একই — তুলনাটা যাতে সৎ থাকে
+// The processing time of every (service, event) pair is the same on every broker — so the comparison stays honest
 function perEvent(
 	salt: number,
 	pick: (random: () => number) => number
@@ -55,7 +55,7 @@ const analytics: ServiceSpec = {
 };
 
 const DURATION = 60_000;
-const DRAIN = 120_000; // publish থামার পরে সবাইকে শেষ করার সময়
+const DRAIN = 120_000; // time for everyone to finish after publishing stops
 
 type Broker = 'pubsub' | 'queue' | 'log';
 
@@ -118,23 +118,26 @@ function header(title: string, note: string): void {
 	console.log(`   ${note}\n`);
 }
 
-// ── ১. Fanout ─────────────────────────────────────────────────────────────────────────
+// ── 1. Fanout ─────────────────────────────────────────────────────────────────────────
 
 function fanout(events: TaskEvent[]): void {
-	header('fanout', `${events.length} টা ঘটনা; email, search আর analytics — তিনজনেরই সবগুলো দরকার`);
+	header(
+		'fanout',
+		`${events.length} events; email, search and analytics — all three need every one of them`
+	);
 	const services = [email, search, analytics];
 	const variants: [string, Recorder][] = [
 		[
-			'queue — একটাই queue, সবাই মিলে',
+			'queue — one shared queue',
 			simulate((sim, rec) =>
 				runQueue(sim, events, services, rec, { layout: 'shared', ackDelayMs: 5, outages: [] })
 			)
 		],
-		['queue — service প্রতি queue', runBroker('queue', events, services)],
+		['queue — one queue per service', runBroker('queue', events, services)],
 		['pub/sub', runBroker('pubsub', events, services)],
-		['log — service প্রতি group', runBroker('log', events, services)]
+		['log — one group per service', runBroker('log', events, services)]
 	];
-	console.log('   broker                            email পেল   search পেল   analytics পেল');
+	console.log('   broker                           email got   search got   analytics got');
 	for (const [name, rec] of variants) {
 		const [e, s, a] = services.map((svc) => rec.report(svc.name, events));
 		if (!e || !s || !a) continue;
@@ -148,22 +151,22 @@ function fanout(events: TaskEvent[]): void {
 	}
 }
 
-// ── ২. Crash ──────────────────────────────────────────────────────────────────────────
+// ── 2. Crash ──────────────────────────────────────────────────────────────────────────
 
 function crash(events: TaskEvent[]): void {
 	const outage: Outage = { service: 'search', from: 20_000, to: 30_000 };
-	header('crash', 'search service 20 s থেকে 30 s বন্ধ (deploy); বাকিরা চলছে');
+	header('crash', 'search service down from 20 s to 30 s (deploy); the others keep running');
 	const services = [email, search, analytics];
 	const variants: [string, Recorder][] = [
 		['pub/sub', runBroker('pubsub', events, services, [outage])],
-		['queue (ack প্রতি message)', runBroker('queue', events, services, [outage])],
-		[`log (commit প্রতি ${fmt(env.COMMIT_MS)})`, runBroker('log', events, services, [outage])],
+		['queue (ack per message)', runBroker('queue', events, services, [outage])],
+		[`log (commit every ${fmt(env.COMMIT_MS)})`, runBroker('log', events, services, [outage])],
 		[
-			'log (commit প্রতি 100 ms)',
+			'log (commit every 100 ms)',
 			runBroker('log', events, services, [outage], { commitIntervalMs: 100 })
 		]
 	];
-	console.log('   broker                          হারাল   দুবার প্রক্রিয়া   দেরি p99    দেরি max');
+	console.log('   broker                           lost  processed twice  delay p99  delay max');
 	for (const [name, rec] of variants) {
 		const r = rec.report('search', events);
 		console.log(
@@ -177,7 +180,7 @@ function crash(events: TaskEvent[]): void {
 	}
 }
 
-// ── ৩. Slow consumer ──────────────────────────────────────────────────────────────────
+// ── 3. Slow consumer ──────────────────────────────────────────────────────────────────
 
 function slow(events: TaskEvent[]): void {
 	const slowAnalytics: ServiceSpec = {
@@ -187,11 +190,11 @@ function slow(events: TaskEvent[]): void {
 	const perSecond = (events.length / (DURATION / 1000)).toFixed(1);
 	header(
 		'slow',
-		`analytics এর ১টা worker, প্রতিটা ঘটনায় 60–100 ms (≈12.5/s); ঘটনা আসে ≈${perSecond}/s`
+		`analytics has 1 worker, 60–100 ms per event (≈12.5/s); events arrive at ≈${perSecond}/s`
 	);
 	const services = [email, search, slowAnalytics];
 	console.log(
-		'   broker     analytics হারাল   জমা (সর্বোচ্চ)   analytics দেরি max   email দেরি p99'
+		'   broker      analytics lost    backlog (max)  analytics delay max  email delay p99'
 	);
 	for (const broker of ['pubsub', 'queue', 'log'] as const) {
 		const rec = runBroker(broker, events, services);
@@ -207,11 +210,11 @@ function slow(events: TaskEvent[]): void {
 		);
 	}
 	console.log(
-		'\n   (log এর "জমা" = consumer lag — log এ আছে কিন্তু analytics এখনো পড়েনি; broker এর জন্য বাড়তি কিছু না)'
+		'\n   (the log\'s "backlog" = consumer lag — in the log but not yet read by analytics; nothing extra for the broker)'
 	);
 }
 
-// ── ৪. Replay ─────────────────────────────────────────────────────────────────────────
+// ── 4. Replay ─────────────────────────────────────────────────────────────────────────
 
 function replay(): void {
 	const JOIN = 60_000;
@@ -221,7 +224,7 @@ function replay(): void {
 	const searchV2: ServiceSpec = { ...search, name: 'search-v2' };
 	header(
 		'replay',
-		`নতুন search-v2 যোগ দিল 60 s এ; পুরো index বানাতে সব ঘটনা চায় (আগের ${before.length}, পরের ${after.length})`
+		`the new search-v2 joined at 60 s; it needs every event to build the full index (${before.length} earlier, ${after.length} later)`
 	);
 	const variants: [string, Recorder][] = [
 		[
@@ -248,7 +251,7 @@ function replay(): void {
 		],
 		...(
 			[
-				['log (retention 7 দিন)', 7 * 24 * 3600 * 1000],
+				['log (retention 7 days)', 7 * 24 * 3600 * 1000],
 				['log (retention 30 s)', 30_000]
 			] as const
 		).map(([name, retentionMs]): [string, Recorder] => [
@@ -264,7 +267,7 @@ function replay(): void {
 			)
 		])
 	];
-	console.log('   broker                   আগের ঘটনা পেল    পরের ঘটনা পেল');
+	console.log('   broker                  earlier events     later events');
 	for (const [name, rec] of variants) {
 		const b = rec.report('search-v2', before);
 		const a = rec.report('search-v2', after);
@@ -277,10 +280,10 @@ function replay(): void {
 	}
 }
 
-// ── ৫. Ordering ───────────────────────────────────────────────────────────────────────
+// ── 5. Ordering ───────────────────────────────────────────────────────────────────────
 
 function ordering(events: TaskEvent[]): void {
-	// প্রতিটা ঘটনায় 20–120 ms, কিন্তু ১% এ 3 s (provider এর একটা ধীর মুহূর্ত)
+	// 20–120 ms per event, but 3 s on 1% (a slow moment at the provider)
 	const notifier = (workers: number): ServiceSpec => ({
 		name: 'notifier',
 		workers,
@@ -289,7 +292,7 @@ function ordering(events: TaskEvent[]): void {
 	const tasks = new Set(events.map((e) => e.taskId)).size;
 	header(
 		'ordering',
-		`notifier service, ${tasks} টা task — একই task এর ঘটনা ক্রমে প্রক্রিয়া হওয়ার কথা`
+		`notifier service, ${tasks} tasks — events of the same task should be processed in order`
 	);
 	const variants: [string, Recorder, string][] = [
 		[
@@ -328,11 +331,11 @@ function ordering(events: TaskEvent[]): void {
 			simulate((sim, rec) =>
 				runLog(sim, events, [{ service: notifier(8), consumers: 8 }], rec, logDefaults())
 			),
-			env.PARTITIONS >= 8 ? '8' : `${env.PARTITIONS} (${8 - env.PARTITIONS} জন বসে থাকে)`
+			env.PARTITIONS >= 8 ? '8' : `${env.PARTITIONS} (${8 - env.PARTITIONS} idle)`
 		]
 	];
 	console.log(
-		'   broker                           ক্রম ভাঙা task   দেরি p50   দেরি p99   দেরি max   কাজ পাওয়া consumer'
+		'   broker                      tasks out of order  delay p50  delay p99  delay max   consumers with work'
 	);
 	for (const [name, rec, busy] of variants) {
 		const r = rec.report('notifier', events);

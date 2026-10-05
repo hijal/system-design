@@ -60,36 +60,36 @@ type Plan = {
 
 const plans: Plan[] = [
 	{
-		name: 'একটা worker, পুরো video, একটার পর একটা resolution',
+		name: 'one worker, the whole video, one resolution after another',
 		workers: 1,
 		split: 'none',
 		lowFirst: false
 	},
 	{
-		name: `resolution প্রতি একটা worker (${LADDER.length}টা)`,
+		name: `one worker per resolution (${LADDER.length})`,
 		workers: LADDER.length,
 		split: 'rendition',
 		lowFirst: false
 	},
 	{
-		name: `${SEGMENT_S} s এর টুকরো, ${WORKERS}টা worker`,
+		name: `${SEGMENT_S} s pieces, ${WORKERS} workers`,
 		workers: WORKERS,
 		split: 'segment',
 		lowFirst: false
 	},
-	{ name: `একই, কিন্তু 360p এর টুকরো আগে`, workers: WORKERS, split: 'segment', lowFirst: true }
+	{ name: `the same, but 360p pieces first`, workers: WORKERS, split: 'segment', lowFirst: true }
 ];
 
 heading(
-	`${VIDEO_MIN} মিনিটের video, ${LADDER.length}টা resolution (মোট ${LADDER.reduce((s, r) => s + r.cpu, 0).toFixed(1)} CPU-ঘণ্টা/ঘণ্টা); spot worker, CPU-ঘণ্টায় ${INTERRUPT_PER_CPU_H} বার কেড়ে নেওয়া; ${UPLOADS}টা upload`
+	`${VIDEO_MIN}-minute videos, ${LADDER.length} resolutions (${LADDER.reduce((s, r) => s + r.cpu, 0).toFixed(1)} CPU-hours per hour in total); spot workers, taken back ${INTERRUPT_PER_CPU_H} times per CPU-hour; ${UPLOADS} uploads`
 );
 console.log(
 	row([
-		['পরিকল্পনা', 50],
+		['plan', 58],
 		['publish p50', 13],
 		['p99', 11],
-		['360p দেখা যায়', 14],
-		['নষ্ট CPU', 10]
+		['360p watchable', 16],
+		['wasted CPU', 12]
 	])
 );
 for (const plan of plans) {
@@ -127,20 +127,20 @@ for (const plan of plans) {
 	firsts.sort((a, b) => a - b);
 	const show = (s: number): string =>
 		s >= 3_600
-			? `${(s / 3_600).toFixed(1)} ঘ`
+			? `${(s / 3_600).toFixed(1)} h`
 			: s >= 60
-				? `${(s / 60).toFixed(1)} মি`
+				? `${(s / 60).toFixed(1)} min`
 				: `${n(s)} s`;
 	console.log(
 		row([
-			[plan.name, 50],
+			[plan.name, 58],
 			[show(percentile(publishes, 50)), 13],
 			[show(percentile(publishes, 99)), 11],
-			[show(percentile(firsts, 50)), 14],
-			[pct(wasted, cpu, 2), 10]
+			[show(percentile(firsts, 50)), 16],
+			[pct(wasted, cpu, 2), 12]
 		])
 	);
 }
 console.log(
-	`\n"360p দেখা যায়" = সব 360p টুকরো তৈরি, video টা দর্শকের জন্য চালু করা যায়। worker চালু হতে ${STARTUP_S} s; কেড়ে নিলে কাজটা আবার — পুরো resolution, বা শুধু সেই টুকরো।`
+	`\n"360p watchable" = every 360p piece is built, and the video can be opened to viewers. A worker takes ${STARTUP_S} s to start; when taken back, the job runs again — the whole resolution, or just that piece.`
 );

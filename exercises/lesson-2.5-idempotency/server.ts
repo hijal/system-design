@@ -27,15 +27,15 @@ interface IdempotencyRecord {
 }
 
 // ---------- "Storage" (in-memory for this exercise) ----------
-// NOTE: এই exercise এ Map ব্যবহার করা হয়েছে শুধু demonstration এর জন্য।
-// Production এ (Module 4.4 এর পরে) এটা Redis এ থাকা উচিত, কারণ:
-//   1. Server restart হলে in-memory data হারিয়ে যায় (durability নেই)
-//   2. Horizontal scaling এ (Lesson 1.6) একাধিক server এর মধ্যে এই state শেয়ার হবে না
+// NOTE: this exercise uses a Map for demonstration only.
+// In production (after Module 4.4) this belongs in Redis, because:
+//   1. In-memory data is lost when the server restarts (no durability)
+//   2. With horizontal scaling (Lesson 1.6) this state is not shared between servers
 const idempotencyStore = new Map<string, IdempotencyRecord>();
 const tasks: Task[] = [];
 
 // ---------- Validation Schema ----------
-// Runtime input (req.body) কখনো সরাসরি বিশ্বাস করা হয় না — Zod দিয়ে parse করা হয়
+// Runtime input (req.body) is never trusted directly — it is parsed with Zod
 const createTaskSchema = z.object({
 	title: z.string().min(1, 'title is required and cannot be empty'),
 	description: z.string().optional()
@@ -44,8 +44,8 @@ const createTaskSchema = z.object({
 type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
 // ---------- Error Contract Helper ----------
-// exactOptionalPropertyTypes: true থাকায়, `details: undefined` explicitly assign করা যায় না,
-// তাই conditional object construction করা হয়েছে
+// With exactOptionalPropertyTypes: true, `details: undefined` cannot be assigned explicitly,
+// so the object is built conditionally
 function buildErrorResponse(code: string, message: string, details?: unknown): ApiErrorBody {
 	if (details === undefined) {
 		return { error: { code, message } };
@@ -75,15 +75,15 @@ app.post(
 			return;
 		}
 
-		// ধাপ ১: এই key আগে দেখা গেছে কিনা check করো — যদি হ্যাঁ, cached result ফেরত দাও,
-		// আবার business logic execute কোরো না (এটাই idempotency এর মূল কথা)
+		// Step 1: check whether this key has been seen before — if so, return the cached result
+		// and don't execute the business logic again (this is the core of idempotency)
 		const cached = idempotencyStore.get(idempotencyKey);
 		if (cached !== undefined) {
 			res.status(cached.statusCode).json(cached.body);
 			return;
 		}
 
-		// ধাপ ২: body validate করো
+		// Step 2: validate the body
 		const parseResult = createTaskSchema.safeParse(req.body);
 		if (!parseResult.success) {
 			const body = buildErrorResponse(
@@ -91,13 +91,13 @@ app.post(
 				'Request body failed validation.',
 				parseResult.error.flatten()
 			);
-			// Validation error cache করা হয় না: কিছুই execute হয়নি, তাই client body ঠিক করে
-			// একই key দিয়ে retry করলে সেটা নতুন করে process হওয়া উচিত (Stripe ও তাই করে)
+			// Validation errors are not cached: nothing was executed, so when the client fixes the body
+			// and retries with the same key, it should be processed afresh (Stripe does the same)
 			res.status(422).json(body);
 			return;
 		}
 
-		// ধাপ ৩: actual "write" — এটাই সেই non-idempotent অংশ যেটা আমরা রক্ষা করছি
+		// Step 3: the actual "write" — this is the non-idempotent part we are protecting
 		const input: CreateTaskInput = parseResult.data;
 		const newTask: Task = {
 			id: randomUUID(),

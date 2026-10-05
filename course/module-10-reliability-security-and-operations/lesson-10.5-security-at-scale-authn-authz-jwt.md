@@ -74,16 +74,16 @@ RS256 এ identity service একটা **private key** দিয়ে sign ক
 
 ```
 token                                           naive                     strict
-বৈধ token                                       200 (member)              200 (member)
-payload এ role → admin (signature আগেরটা)       401 invalid signature     401 signature মেলে না
-alg: none, signature খালি                       200 (admin)               401 alg none allowlist এ নেই
-HS256, public key কে secret ধরে sign            200 (admin)               401 alg HS256 allowlist এ নেই
-মেয়াদ ২ ঘণ্টা আগে শেষ                            200 (member)              401 মেয়াদ শেষ
-aud = billing-api (অন্য service এর)             200 (member)              401 aud মেলে না
-iss = staging (একই key ভাগ করা)                 200 (member)              401 iss মেলে না
-অন্য key দিয়ে sign (attacker এর নিজের)          401 invalid signature     401 signature মেলে না
+valid token                                    200 (member)              200 (member)
+role → admin in the payload (old signature)   401 invalid signature  401 signature mismatch
+alg: none, empty signature                    200 (admin)         401 alg none not in the allowlist
+HS256, signed using the public key as the secret  200 (admin)         401 alg HS256 not in the allowlist
+expired 2 hours ago                        200 (member)             401 expired
+aud = billing-api (another service's)          200 (member)          401 aud mismatch
+iss = staging (sharing the same key)          200 (member)          401 iss mismatch
+signed with another key (the attacker's own)  401 invalid signature  401 signature mismatch
 
-naive গ্রহণ করল 6/8, strict 1/8
+naive accepted 6/8, strict 1/8
 ```
 
 প্রথমে খেয়াল করো কী **কাজ করেছে**: payload বদলানো আর অন্য key দিয়ে sign করা, দুটোই naive ও ধরেছে। Cryptography ঠিক আছে। ভাঙার জায়গা অন্য তিনটা:
@@ -146,7 +146,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 এবার সোমবার। `npm run authz` অংশ খ এ ২,০০০ workspace × ৩০টা board = ৬০,০০০ board, id `1..60000`। Mallory নিজের free workspace এর admin, তার token বৈধ। আটটা route এর প্রতিটায় সে অন্যের সব board এর id দিয়ে চেষ্টা করে:
 
 ```
-route                          অন্যের board পেল    অস্তিত্ব জানল
+route                          got others' boards  learned existence
 GET    /boards/:id                         0          59,970
 GET    /boards/:id/tasks                   0          59,970
 PATCH  /boards/:id                         0          59,970
@@ -169,9 +169,9 @@ POST   /boards/:id/archive                 0          59,970
 **UUID কি সমাধান?** একটা স্বাভাবিক প্রতিক্রিয়া: "id sequential না রেখে এলোমেলো UUID করো।" অংশ গ:
 
 ```
-mallory এর চেষ্টা                          চেষ্টা     অন্যের board পেল
-এলোমেলো UUID অনুমান                     1,000,000                 0
-ফাঁস হওয়া support log থেকে পাওয়া id           340               340
+mallory's attempt                       attempts  got others' boards
+guessing random UUIDs              1,000,000                 0
+ids from a leaked support log          340               340
 ```
 
 দশ লাখ অনুমানে একটাও না। UUID v4 এর ১২২ bit এলোমেলো, অনুমান করে পাওয়ার কোনো আশা নেই। কিন্তু id **গোপন জিনিস না।** URL এ থাকে, browser history তে থাকে, screenshot এ, support ticket এ, log এ (10.4), share করা link এ। ৩৪০টা ফাঁস হওয়া id এর **৩৪০টাই** কাজ করেছে। UUID enumeration থামায়, আর সেটা ভালো জিনিস, রাখো। কিন্তু এটা authorization না। Authorization মানে "id জানলেও তুমি পাবে না।"
@@ -203,14 +203,14 @@ export async function loadBoardFor(userId: string, boardId: string): Promise<Boa
 **(খ) Authorization matrix test।** প্রতিটা route × প্রতিটা ধরনের actor, আর প্রত্যাশিত ফল। অংশ ঘ:
 
 ```
-route                           মালিক     অন্য ws এর member   অন্য ws এর admin   token ছাড়া   ফল
+route                           owner   member of another ws  admin of another ws  no token  result
 GET    /boards/:id              200       404                 404                401           pass
 …
 GET    /boards/:id/export       200       200 ✗               200 ✗              401           FAIL
 DELETE /boards/:id              204       404                 204 ✗              401           FAIL
 POST   /boards/:id/archive      200       404                 404                401           pass
 
-3টা ঘর ব্যর্থ — CI তে এই test থাকলে merge এর আগে ধরা পড়ত
+3 cells failed — with this test in CI it would have been caught before merge
 ```
 
 তিনটা ঘর, আর ঠিক সেই তিনটা যা সোমবারে আসল ক্ষতি করেছে। এই test এর শক্তি হলো এটা route এর তালিকা থেকে **নিজে** তৈরি হয়। নতুন route যোগ করলে সে matrix এ নিজেই ঢুকে যায়, আর কেউ প্রত্যাশিত ফল না লিখলে test ব্যর্থ হয়। 10.3 এর dependency matrix এর একই যুক্তি: যে প্রশ্ন সবাই ভুলে যায়, সেটা CI কে করতে দাও।
@@ -224,13 +224,13 @@ POST   /boards/:id/archive      200       404                 404               
 কতটা ছোট? `npm run sessions` অংশ ক তে ৬০,০০০ সক্রিয় session, সেকেন্ডে ৩০০ request, ৮ ঘণ্টা (৮৬ লাখ request)। মাঝে ২,০০০টা revoke (logout, password বদল, account disable), আর ছয়টা নীতি:
 
 ```
-নীতি                            store/identity call/s   request এর %   revoke এর পরে: গড়   সবচেয়ে খারাপ   identity মরলে চলে
-JWT ২৪ ঘ, revoke নেই                            0.0          0.0%            19.6 ঘ         24.0 ঘ          24.0 ঘ
-প্রতি request এ session lookup                299.9        100.0%               0 s            0 s             0 s
-access ১ ঘ + refresh                           14.8          4.9%             27 মি          1.0 ঘ           1.0 ঘ
-access ১৫ মি + refresh                         43.7         14.6%            4.8 মি           15 মি            15 মি
-access ৫ মি + refresh                          88.0         29.3%            1.1 মি          5.0 মি           5.0 মি
-access ১৫ মি + refresh + denylist              43.7         14.6%               5 s            5 s             15 মি
+policy                        store/identity call/s   % of requests  after revoke: avg  worst  works if identity dies
+JWT 24 h, no revoke                            0.0          0.0%            19.6 h         24.0 h          24.0 h
+session lookup on every request             299.9        100.0%               0 s            0 s             0 s
+access 1 h + refresh                           14.8          4.9%             27 min        1.0 h           1.0 h
+access 15 min + refresh                       43.7         14.6%            4.8 min         15 min        15 min
+access 5 min + refresh                        88.0         29.3%            1.1 min        5.0 min       5.0 min
+access 15 min + refresh + denylist            43.7         14.6%               5 s            5 s           15 min
 ```
 
 প্রথম দুটো সারি দুই প্রান্ত:
@@ -249,16 +249,16 @@ Access token এর মেয়াদ একটা knob। এটা ঘোর�
 **Refresh token চুরি হলে।** বুধবারের log এ access token এর পাশে refresh token ও ছিল। অংশ খ তে access token ১৫ মিনিট, refresh token ৩০ দিন। Attacker চুরির ১০ মিনিট পরে কাজ শুরু করে:
 
 ```
-চুরি সোমবার ১০:০০, alice কাজে আছে
-নীতি                          attacker এর হাতে   alice জোর করে logout   security alert
-rotation নেই                         29.6 দিন                      0                0
-rotation, reuse ধরা নেই               29.6 দিন                      1                0
-rotation + reuse detection              15 মি                      1                1
+stolen Monday 10:00, alice at work
+policy                      attacker holds it  alice forced to log out  security alert
+no rotation                         29.6 days                    0                0
+rotation, no reuse detection        29.6 days                    1                0
+rotation + reuse detection              15 min                    1                1
 
-চুরি শুক্রবার ১৬:৫০, alice সোমবার ফেরে
-rotation নেই                         25.3 দিন                      0                0
-rotation, reuse ধরা নেই               25.3 দিন                      1                0
-rotation + reuse detection             2.7 দিন                      1                1
+stolen Friday 16:50, alice back Monday
+no rotation                         25.3 days                    0                0
+rotation, no reuse detection        25.3 days                    1                0
+rotation + reuse detection             2.7 days                    1                1
 ```
 
 মাঝের সারিটা সবচেয়ে শিক্ষণীয়। **শুধু rotation চোরকে থামায় না, বৈধ user কে বের করে দেয়।** Attacker আগে refresh করেছে, তাই পরিবারের "বর্তমান" token এখন তার হাতে। Alice এর token পুরনো হয়ে গেছে, সে logout হয়, আবার login করে, আর ভাবে "অদ্ভুত"। Attacker ২৯.৬ দিন থেকে যায়। Reuse detection এই মুহূর্তটাকেই একটা সংকেত বানায়: alice তার পুরনো token টা দেখাল, server চিনল "এটা আগে ব্যবহার হয়েছে, মানে দুজন মানুষ এই পরিবার চালাচ্ছে", আর পুরো পরিবার বাতিল করল। Attacker এর হাতে থাকল শুধু তার শেষ access token এর ১৫ মিনিট। সাথে একটা security alert।
@@ -291,11 +291,11 @@ TaskFlow এ দুটো নতুন চাওয়া এসেছে: "Goog
 Code টা browser এর URL দিয়ে যায়, তাই সেটাকে "চুরি হতে পারে" ধরে নিতে হয়। Token আসে back channel এ, মানে server থেকে server এ। Flow এর প্রতিটা প্রতিরক্ষা একটা নির্দিষ্ট পথ বন্ধ করে। `npm run oauth` অংশ ক তে চারটা আক্রমণ × পাঁচটা প্রতিরক্ষার সেট:
 
 ```
-আক্রমণ                                                কিছু নেই   state    শুধু PKCE   state + PKCE   সব (+exact, single-use)
-Login CSRF: mallory এর code alice এর browser এ        সফল ✗     আটকানো   আটকানো     আটকানো         আটকানো
-Code চুরি (mobile scheme / log), mallory আগে redeem    সফল ✗     সফল ✗    আটকানো     আটকানো         আটকানো
-Code replay: alice এর পরে একই code                    সফল ✗     সফল ✗    আটকানো     আটকানো         আটকানো
-redirect_uri টোপ (prefix match), mallory এর নিজের PKCE  সফল ✗     সফল ✗    সফল ✗      সফল ✗          আটকানো
+attack                                               nothing  state    PKCE only  state + PKCE  all (+exact, single-use)
+Login CSRF: mallory's code in alice's browser         succeeded ✗  blocked  blocked  blocked   blocked
+Code theft (mobile scheme / log), mallory redeems first  succeeded ✗  succeeded ✗  blocked  blocked   blocked
+Code replay: the same code after alice               succeeded ✗  succeeded ✗  blocked  blocked   blocked
+redirect_uri bait (prefix match), mallory's own PKCE  succeeded ✗  succeeded ✗  succeeded ✗  succeeded ✗  blocked
 ```
 
 এক এক করে দেখি:
@@ -312,8 +312,8 @@ redirect_uri টোপ (prefix match), mallory এর নিজের PKCE  স�
 **ID token ≠ access token।** অংশ গ:
 
 ```
-ID token (aud = taskflow-web)         aud না দেখা API: 200   aud দেখা API: 401 aud মেলে না
-access token (aud = taskflow-api)     aud না দেখা API: 200   aud দেখা API: 200
+ID token (aud = taskflow-web)         API ignoring aud: 200   API checking aud: 401 aud mismatch
+access token (aud = taskflow-api)     API ignoring aud: 200   API checking aud: 200
 ```
 
 ID token TaskFlow এর **web app** কে বলে "এটা alice"। তার `aud` হলো client (`taskflow-web`)। এটা API এর দরজা খোলার চাবি না। কোনো API যদি `aud` না দেখে, তাহলে যেকোনো app এর জন্য বানানো যেকোনো ID token তার দরজা খোলে। এর মধ্যে এমন app ও আছে যেটা একই identity provider ব্যবহার করে, কিন্তু অন্য কারো। ১.২ এর তৃতীয় নিয়মেরই একটা রূপ।
@@ -323,17 +323,17 @@ ID token TaskFlow এর **web app** কে বলে "এটা alice"। ত�
 মঙ্গলবার। `npm run secrets` অংশ ক তে একটা ছোট git history আর একটা secret scanner আছে। Scanner দুইভাবে চালানো হয়েছে, শুধু আজকের code এ আর পুরো history তে:
 
 ```
-শুধু HEAD (আজকের code):    2টা finding
-পুরো git history:          5টা finding
+HEAD only (today's code):  2 findings
+whole git history:         5 findings
 
-commit    file                rule                              মূল্যায়ন
-7f20b4d   .env                tfsk key এর ধরন                   আসল — live payment key
-7f20b4d   .env                SECRET/KEY = উচ্চ entropy         আসল — token sign করার secret
-7f20b4d   .env                URL এ password                    আসল — production DB
-c08a5f2   package-lock.json   যেকোনো লম্বা উচ্চ entropy string   false positive (lockfile hash)
-c08a5f2   test/fixtures.ts    tfsk key এর ধরন                   test key — কম ঝুঁকি, তবু সরাও
+commit    file                rule                            verdict
+7f20b4d   .env                tfsk key pattern                 real — live payment key
+7f20b4d   .env                SECRET/KEY = high entropy       real — the token signing secret
+7f20b4d   .env                password in a URL                real — production DB
+c08a5f2   package-lock.json   any long high-entropy string  false positive (lockfile hash)
+c08a5f2   test/fixtures.ts    tfsk key pattern     test key — low risk, remove it anyway
 
-আসল production secret: history তে 3টা, HEAD এ 0টা — "oops remove .env" commit কিছুই মোছেনি
+real production secrets: 3 in history, 0 at HEAD — the "oops remove .env" commit deleted nothing
 ```
 
 তিনটা শিক্ষা:
@@ -345,11 +345,11 @@ c08a5f2   test/fixtures.ts    tfsk key এর ধরন                   test k
 **ফাঁসের ক্ষতি কীসে কমে?** ক্ষতি = ফাঁস হওয়া secret কতদিন **কাজ করে**। অংশ খ তে ১,০০০টা ফাঁস চারটা চ্যানেলে (git, log, CI output, laptop)। ধরা পড়তে median ২০ দিন লাগে (ধরে নেওয়া সংখ্যা, নিচে দেখো):
 
 ```
-নীতি                              কাজ করা ফাঁস     median        p90   > ৭ দিন   মোট attacker-দিন
-স্থির secret, কখনো বদলায় না              1,000   19.1 দিন   117.3 দিন     76.6%             46,312
-প্রতি 90 দিনে rotate                    1,000   13.5 দিন    54.5 দিন     70.5%             21,256
-90 দিন + push protection                 677   13.0 দিন    52.2 দিন     47.1%             14,010
-dynamic credential (60 মি lease)        1,000      30 মি       54 মি      0.0%                 21
+policy                          working leaks  median        p90   > 7 days  total attacker-days
+static secret, never changes        1,000   19.1 days  117.3 days   76.6%             46,312
+rotate every 90 days                1,000   13.5 days  54.5 days   70.5%             21,256
+90 days + push protection               677   13.0 days  52.2 days   47.1%             14,010
+dynamic credential (60 min lease)      1,000      30 min     54 min    0.0%                 21
 ```
 
 ৯০ দিনের rotation, যেটা অনেক compliance checklist চায়, মোট ক্ষতি অর্ধেক করে। কিন্তু median ফাঁস এখনও ১৩.৫ দিন কাজ করে, আর ৭০% ফাঁস এক সপ্তাহের বেশি। Rotation সাহায্য করে শুধু যদি তারিখটা ঘটনাক্রমে ধরা পড়ার আগে আসে। Push protection (git এ push এর মুহূর্তে secret ধরে push আটকানো, এখানে git এর ফাঁসের ৮০% ধরে) git এর পথটা অনেকখানি বন্ধ করে। কিন্তু log, CI, laptop এর পথ খোলা থাকে।
@@ -361,13 +361,13 @@ dynamic credential (60 মি lease)        1,000      30 মি       54 মি
 **একটা ভাঙা দেয়াল কতটা ক্ষতি করে।** অংশ গ: TaskFlow এর ছয়টা service, আর একটা service এর ভেতরে কেউ ঢুকলে কয়টা secret তার হাতে যায়:
 
 ```
-ঢুকেছে     একটা ভাগ করা .env   service ধরে আলাদা   যা হাতে গেল
-gateway                    10                   2   payment/DB না
-web-bff                    10                   2   payment/DB না
-monolith                   10                   4   DATABASE_URL সহ
-billing                    10                   4   STRIPE_KEY সহ
-files                      10                   2   payment/DB না
-worker                     10                   4   DATABASE_URL সহ
+got into  one shared .env  separate per service  what they got
+gateway                    10                   2  no payment/DB
+web-bff                    10                   2  no payment/DB
+monolith                   10                   4  incl. DATABASE_URL
+billing                    10                   4  incl. STRIPE_KEY
+files                      10                   2  no payment/DB
+worker                     10                   4  incl. DATABASE_URL
 ```
 
 একটা ভাগ করা `.env` মানে যেকোনো service এ ঢুকলেই সব দশটা। আলাদা করলে ২–৪টা, আর ছয়টার তিনটায় payment বা DB এর key একদমই নেই। এটা 10.3 এর **blast radius** এর যুক্তি, নিরাপত্তায় প্রয়োগ। এর নাম **least privilege**: প্রতিটা অংশ ঠিক ততটুকু পায় যতটুকু তার কাজে লাগে।
@@ -383,15 +383,15 @@ worker                     10                   4   DATABASE_URL সহ
 `npm run abuse` অংশ ক তে ১২ লাখ চেষ্টা, ৩৮,০০০ IP, ৬ ঘণ্টা। তালিকার ৩% email TaskFlow এ আছে, আর তাদের ১০% একই password ব্যবহার করে। সাথে একই সময়ে ২০,০০০ বৈধ login, যার ৩০% আসে ৪০টা office এর NAT এর পেছন থেকে:
 
 ```
-প্রতি IP গড়ে ঘণ্টায় 5.3 চেষ্টা, প্রতি email গড়ে ১বার; তালিকার 3,547টা account এর password সত্যিই মেলে
+5.3 attempts per IP per hour on average, once per email on average; the password really matches for 3,547 accounts on the list
 
-নীতি                               bot password পর্যন্ত   account দখল   বৈধ login আটকাল   বৈধ user এ ঝামেলা   ধরা পড়ল
-কোনো সীমা নেই                                1,200,000         3,547          0 (0.0%)                  0          —
-9.5: IP ২০/ঘ + email ১০/ঘ                     1,200,000         3,547        946 (4.7%)                  0          —
-কঠোর: IP ৫/ঘ + email ১০/ঘ                       853,658         2,532     4,484 (22.4%)                  0          —
+policy                           bot reached password  takeovers     legit logins blocked  legit user friction  detected
+no limits                               1,200,000         3,547          0 (0.0%)                  0          —
+9.5: IP 20/h + email 10/h                     1,200,000         3,547        946 (4.7%)                  0          —
+strict: IP 5/h + email 10/h                    853,658         2,532     4,484 (22.4%)                  0          —
 9.5 + breached password check                1,200,000           531        946 (4.7%)              1,210          —
-9.5 + failure ratio → challenge                123,183           395      1,104 (5.5%)              4,935       1 মি
-সব + MFA (25% user)                            123,183            46      1,104 (5.5%)              6,137       1 মি
+9.5 + failure ratio → challenge                123,183           395      1,104 (5.5%)              4,935     1 min
+all + MFA (25% of users)                       123,183            46      1,104 (5.5%)              6,137     1 min
 ```
 
 - **9.5 এর সীমা একটা চেষ্টাও আটকায়নি** (১২ লাখের ১২ লাখ password পর্যন্ত পৌঁছেছে)। প্রতি IP ঘণ্টায় ৫.৩, সীমা ২০। প্রতি email একবার, সীমা ১০। আর **বৈধ user আটকেছে ৯৪৬ জন**, সবাই office NAT এর পেছনে। সীমাটা ভুল লোকদের থামিয়েছে।
@@ -413,13 +413,13 @@ worker                     10                   4   DATABASE_URL সহ
 **Volumetric।** `npm run abuse` অংশ খ তে ৩০০ Gbps এর UDP reflection, origin এর link ১০ Gbps, বৈধ traffic ০.৮ Gbps:
 
 ```
-নকশা                                           link এ আসে   বৈধ traffic পৌঁছায়
-origin সরাসরি internet এ                       300.8 Gbps                3.3%
-origin এ app rate limit                        300.8 Gbps                3.3%
-anycast CDN/scrubbing এর পেছনে                   0.8 Gbps              100.0%
-CDN, কিন্তু origin IP ফাঁস (পুরনো DNS)          300.8 Gbps                3.3%
-ফাঁস IP + origin firewall এ CDN allowlist       300.8 Gbps                3.3%
-নতুন origin IP, শুধু CDN এর tunnel দিয়ে          0.8 Gbps              100.0%
+design                                        reaches link  legit traffic arrives
+origin directly on the internet              300.8 Gbps                3.3%
+app rate limit at the origin                   300.8 Gbps                3.3%
+behind anycast CDN/scrubbing                   0.8 Gbps              100.0%
+CDN, but origin IP leaked (old DNS)      300.8 Gbps                3.3%
+leaked IP + CDN allowlist on origin firewall  300.8 Gbps                3.3%
+new origin IP, only through the CDN tunnel  0.8 Gbps              100.0%
 ```
 
 দ্বিতীয় সারিটা দেখো: **app এর rate limit কিছুই করে না।** Packet গুলো app পর্যন্ত পৌঁছানোর আগেই ১০ Gbps এর পাইপ ভরে গেছে। App এর limiter এর কাছে বৈধ আর অবৈধ দুই রকম request এর ৯৭% ই পৌঁছায় না। কাজের জিনিস হলো এমন একটা নেটওয়ার্ক যার ক্ষমতা আক্রমণের চেয়ে বড়। 4.5 এর **anycast** CDN একই IP শত শত জায়গা থেকে ঘোষণা করে, তাই আক্রমণ ভাগ হয়ে শত শত PoP এ পড়ে, প্রতিটা ছোট ভাগ শোষণ করে। আর UDP reflection এর মতো traffic যা HTTP ই না, সেটা edge এই ফেলে দেওয়া হয়।
@@ -429,13 +429,13 @@ CDN, কিন্তু origin IP ফাঁস (পুরনো DNS)          30
 **L7।** অংশ গ: public share page `/s/:token`, ২০,০০০ IP × সেকেন্ডে ৩টা, origin এর ক্ষমতা সেকেন্ডে ২,০০০:
 
 ```
-নকশা                                            origin এ req/s   বৈধ request সফল
-কিছু নেই                                                60,400              3.3%
-per-IP ১০ req/s                                         60,400              3.3%
-CDN cache (৬০ s, ৩০০ PoP), attacker ৫টা আসল token          105            100.0%
-CDN cache, কিন্তু ?x=এলোমেলো দিয়ে cache ভাঙা             60,080              3.3%
-cache key normalize (অজানা query বাদ)                      105            100.0%
-edge এ challenge (bot ৫% পার), cache ছাড়া                 3,400             58.8%
+design                                         req/s at origin  legit requests ok
+nothing                                              60,400              3.3%
+per-IP 10 req/s                                                      60,400               3.3%
+CDN cache (60 s, 300 PoPs), attacker with 5 real tokens   105            100.0%
+CDN cache, but busted with ?x=random           60,080              3.3%
+normalized cache key (unknown query dropped)            105            100.0%
+challenge at the edge (5% of bots pass), no cache      3,400             58.8%
 ```
 
 - **Per-IP সীমা আবার অকেজো।** প্রতি IP সেকেন্ডে ৩টা, সীমা ১০। ১.৭ এর একই গল্প। বিতরণ করা আক্রমণ প্রতি-key এর সীমার নিচে থাকে।

@@ -24,15 +24,15 @@ const READ_S = env('READ_S', 30);
 const DELETE_SHARE = env('DELETE_SHARE', 0.02);
 
 heading(
-	`অংশ ক — একটা feed পড়ায় K টা জায়গা থেকে একসাথে আনা: প্রতিটা median ${FETCH_MS} ms, ${SLOW_SHARE * 100}% ধীর (${SLOW_MS} ms)`
+	`Part A — fetching from K places at once in one feed read: each median ${FETCH_MS} ms, ${SLOW_SHARE * 100}% slow (${SLOW_MS} ms)`
 );
 console.log(
 	row([
-		['পথ', 46],
+		['path', 52],
 		['K', 6],
 		['p50', 10],
 		['p99', 10],
-		['অন্তত একটা ধীর', 16]
+		['at least one slow', 19]
 	])
 );
 const fetchOnce = (random: () => number): number =>
@@ -40,11 +40,11 @@ const fetchOnce = (random: () => number): number =>
 		? SLOW_MS + lognormal(random, FETCH_MS, 0.3)
 		: lognormal(random, FETCH_MS, 0.4);
 const cases: [string, number, boolean][] = [
-	['push: শুধু নিজের timeline', 1, false],
-	['hybrid: timeline + ~১৯টা celebrity', 20, false],
-	['hybrid, ধীরগুলো hedge (১০ ms এ দ্বিতীয় চেষ্টা)', 20, true],
-	['pull: ২০০ জনের সবার post', 200, false],
-	['pull, hedge সহ', 200, true]
+	['push: your own timeline only', 1, false],
+	['hybrid: timeline + ~19 celebrities', 20, false],
+	['hybrid, slow ones hedged (second try at 10 ms)', 20, true],
+	['pull: posts from all 200', 200, false],
+	['pull, with hedging', 200, true]
 ];
 for (const [name, k, hedge] of cases) {
 	const random = mulberry32(SEED);
@@ -65,23 +65,23 @@ for (const [name, k, hedge] of cases) {
 	latencies.sort((a, b) => a - b);
 	console.log(
 		row([
-			[name, 46],
+			[name, 52],
 			[k, 6],
 			[ms(percentile(latencies, 50)), 10],
 			[ms(percentile(latencies, 99)), 10],
-			[pct(anySlow, READS, 1), 16]
+			[pct(anySlow, READS, 1), 19]
 		])
 	);
 }
 
 heading(
-	`অংশ খ — দ্বিতীয় page: feed এ মিনিটে ${NEW_PER_MIN}টা নতুন post, page পড়তে গড়ে ${READ_S} s, প্রথম page এর ${DELETE_SHARE * 100}% মুছে যায়`
+	`Part B — the second page: ${NEW_PER_MIN} new posts a minute in the feed, ${READ_S} s on average to read a page, ${DELETE_SHARE * 100}% of the first page deleted`
 );
 console.log(
 	row([
-		['page কীভাবে', 40],
-		['দ্বিতীয় page এ আগে দেখা', 24],
-		['একটা বাদ পড়ল', 16]
+		['how the page works', 40],
+		['already seen on page 2', 24],
+		['one skipped', 16]
 	])
 );
 for (const mode of ['offset', 'cursor'] as const) {
@@ -118,8 +118,8 @@ for (const mode of ['offset', 'cursor'] as const) {
 		row([
 			[
 				mode === 'offset'
-					? '?offset=20 (প্রথম ২০টা বাদ দাও)'
-					: '?cursor=<শেষ দেখা id> (id < cursor)',
+					? '?offset=20 (skip the first 20)'
+					: '?cursor=<last seen id> (id < cursor)',
 				40
 			],
 			[pct(duplicates, SESSIONS, 1), 24],
@@ -128,5 +128,5 @@ for (const mode of ['offset', 'cursor'] as const) {
 	);
 }
 console.log(
-	`\n${n(SESSIONS)}টা session। "একটা বাদ পড়ল" = প্রথম page এর ঠিক পরের post টা দ্বিতীয় page এ এলো না।`
+	`\n${n(SESSIONS)} sessions. "one skipped" = the post right after the first page did not appear on the second page.`
 );

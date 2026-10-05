@@ -2,13 +2,13 @@ import { z } from 'zod';
 import { ANALYTICS_SQL, CHECKSUM_SQL, duck, OLTP_SQL, pgPool } from './data';
 import { percentile } from './random';
 
-// Lesson 7.6 §১.২–১.৩ — OLTP আর OLAP এক database এ, আর আলাদা engine এ।
+// Lesson 7.6 §1.2–1.3 — OLTP and OLAP in one database, and in separate engines.
 //
-//   ধাপ ১: শুধু OLTP — CLIENTS টা client একটানা "project এর সাম্প্রতিক ২০টা ঘটনা" জিজ্ঞেস করে
-//   ধাপ ২: একই OLTP, আর একই Postgres এ ANALYTICS_LOOPS টা analytics query একটানা চলে
-//   ধাপ ৩: analytics এর প্রশ্ন একবার Postgres এ (একা), একবার DuckDB তে — সময় আর ফল মেলানো
+//   step 1: OLTP only — CLIENTS clients keep asking "the project's 20 most recent events"
+//   step 2: the same OLTP, plus ANALYTICS_LOOPS analytics queries running nonstop on the same Postgres
+//   step 3: the analytics question once on Postgres (alone), once on DuckDB — comparing times and results
 //
-// আসল database, আসল সময় — সংখ্যা মেশিন ভেদে বদলাবে, আকৃতি একই থাকার কথা।
+// A real database, real time — the numbers will vary between machines, the shape should stay the same.
 
 const env = z
 	.object({
@@ -26,7 +26,9 @@ async function main(): Promise<void> {
 	try {
 		await pool.query('SELECT 1 FROM task_events LIMIT 1');
 	} catch {
-		console.error('task_events নেই — আগে `docker compose up -d --wait` আর `npm run seed`।');
+		console.error(
+			'task_events is missing — run `docker compose up -d --wait` and `npm run seed` first.'
+		);
 		process.exit(1);
 	}
 
@@ -60,17 +62,17 @@ async function main(): Promise<void> {
 	}
 
 	console.log(
-		`\n   Postgres (২টা CPU) · ${env.CLIENTS} টা OLTP client · প্রতি ধাপ ${env.PHASE_MS / 1000} s\n`
+		`\n   Postgres (2 CPUs) · ${env.CLIENTS} OLTP clients · ${env.PHASE_MS / 1000} s per phase\n`
 	);
-	// একবার গরম করে নেওয়া — প্রথম ধাপ যাতে ঠান্ডা cache এর দাম না দেয়
+	// warm up once — so the first phase doesn't pay for a cold cache
 	await pool.query(ANALYTICS_SQL);
 	const phases = [
-		await phase('শুধু OLTP', 0),
-		await phase(`OLTP + ${env.ANALYTICS_LOOPS}টা analytics`, env.ANALYTICS_LOOPS)
+		await phase('OLTP only', 0),
+		await phase(`OLTP + ${env.ANALYTICS_LOOPS} analytics`, env.ANALYTICS_LOOPS)
 	];
 
 	console.log(
-		'   ধাপ                          OLTP query/s   OLTP p50    OLTP p99    OLTP max   analytics শেষ হলো (গড়)'
+		'   phase                           OLTP q/s   OLTP p50    OLTP p99   OLTP max    analytics done (avg)'
 	);
 	for (const p of phases) {
 		const qps = p.oltp.length / (env.PHASE_MS / 1000);
@@ -78,11 +80,11 @@ async function main(): Promise<void> {
 			? p.analytics.reduce((a, b) => a + b, 0) / p.analytics.length
 			: 0;
 		console.log(
-			`   ${p.name.padEnd(28)}${qps.toFixed(0).padStart(12)}${fmt(percentile(p.oltp, 50)).padStart(11)}${fmt(percentile(p.oltp, 99)).padStart(12)}${fmt(p.oltp.reduce((a, b) => Math.max(a, b), 0)).padStart(11)}${(p.analytics.length ? `${p.analytics.length} বার (${fmt(avg)})` : '—').padStart(24)}`
+			`   ${p.name.padEnd(28)}${qps.toFixed(0).padStart(12)}${fmt(percentile(p.oltp, 50)).padStart(11)}${fmt(percentile(p.oltp, 99)).padStart(12)}${fmt(p.oltp.reduce((a, b) => Math.max(a, b), 0)).padStart(11)}${(p.analytics.length ? `${p.analytics.length} times (${fmt(avg)})` : '—').padStart(24)}`
 		);
 	}
 
-	// ── ধাপ ৩: একই প্রশ্ন, দুই engine ─────────────────────────────────────────────────
+	// ── step 3: the same question, two engines ─────────────────────────────────────────
 	const time = async (run: () => Promise<unknown>): Promise<number> => {
 		const t = performance.now();
 		await run();
@@ -98,7 +100,7 @@ async function main(): Promise<void> {
 	const buffers = planText.find((l) => l.includes('Buffers:')) ?? '';
 
 	const con = await duck();
-	// DuckDB এই process এর ভেতরে চলে আর default এ মেশিনের সব core নেয় — তুলনা সৎ রাখতে Postgres এর মতো ২টা
+	// DuckDB runs inside this process and by default takes every core on the machine — to keep the comparison honest, 2 like Postgres
 	await con.run('SET threads = 2');
 	const duckTimes: number[] = [];
 	for (let i = 0; i < 3; i++) duckTimes.push(await time(() => con.runAndReadAll(ANALYTICS_SQL)));
@@ -106,14 +108,14 @@ async function main(): Promise<void> {
 	const dSum = (await con.runAndReadAll(CHECKSUM_SQL)).getRowObjects()[0];
 
 	console.log(
-		'\n   একই analytics প্রশ্ন (মাসিক usage, workspace ধরে), কেউ আর চলছে না, তিনবার করে:'
+		'\n   the same analytics question (monthly usage, per workspace), nothing else running, three times each:'
 	);
-	console.log(`     Postgres (row store, ২ CPU):       ${pgTimes.map(fmt).join(', ')}`);
-	console.log(`     DuckDB   (column store, ২ thread):  ${duckTimes.map(fmt).join(', ')}`);
+	console.log(`     Postgres (row store, 2 CPUs):       ${pgTimes.map(fmt).join(', ')}`);
+	console.log(`     DuckDB   (column store, 2 threads):  ${duckTimes.map(fmt).join(', ')}`);
 	console.log(
-		`     ফল মিলেছে: ${String(pgSum?.rows) === String(dSum?.['rows']) && String(pgSum?.ms) === String(dSum?.['ms']) ? 'হ্যাঁ ✓' : 'না ✗'}`
+		`     results match: ${String(pgSum?.rows) === String(dSum?.['rows']) && String(pgSum?.ms) === String(dSum?.['ms']) ? 'yes ✓' : 'no ✗'}`
 	);
-	console.log(`\n   Postgres এর plan থেকে:\n     ${scan.trim()}\n     ${buffers.trim()}`);
+	console.log(`\n   from Postgres's plan:\n     ${scan.trim()}\n     ${buffers.trim()}`);
 	con.closeSync();
 	await pool.end();
 }

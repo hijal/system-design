@@ -167,14 +167,14 @@ export class PaymentService {
 		for (const r of report) seen.set(r.ref, (seen.get(r.ref) ?? 0) + 1);
 		for (const [ref, count] of seen) {
 			const p = this.payments.get(ref);
-			if (p === undefined) issues.push(`${ref}: PSP তে আছে, আমাদের নেই`);
+			if (p === undefined) issues.push(`${ref}: at the PSP, not with us`);
 			else if (p.state.kind !== 'succeeded')
-				issues.push(`${ref}: PSP কেটেছে, আমরা ${p.state.kind}`);
-			else if (count > 1) issues.push(`${ref}: PSP তে ${count} বার`);
+				issues.push(`${ref}: the PSP charged it, we say ${p.state.kind}`);
+			else if (count > 1) issues.push(`${ref}: ${count} times at the PSP`);
 		}
 		for (const p of this.payments.values())
 			if (p.state.kind === 'succeeded' && !seen.has(p.id))
-				issues.push(`${p.id}: আমাদের succeeded, PSP তে নেই`);
+				issues.push(`${p.id}: succeeded with us, missing at the PSP`);
 		return issues;
 	}
 }

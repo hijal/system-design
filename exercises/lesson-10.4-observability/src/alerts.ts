@@ -16,11 +16,11 @@ const MINUTES = DAYS * 1_440;
 type Incident = { name: string; minutes: number; rate: number };
 
 const SCENARIOS: Incident[] = [
-	{ name: 'বড় outage: ৩০ মিনিট, ২০%', minutes: 30, rate: 0.2 },
-	{ name: 'মাঝারি: ২ ঘণ্টা, ১.৫%', minutes: 120, rate: 0.015 },
-	{ name: 'ধীর ক্ষয়: ৩ দিন, ০.৪%', minutes: 3 * 1_440, rate: 0.004 },
-	{ name: 'ছোট ঝাঁকুনি: ৩ মিনিট, ৩০%', minutes: 3, rate: 0.3 },
-	{ name: 'কিছু না (শুধু deploy এর ঝাঁকুনি)', minutes: 0, rate: 0 }
+	{ name: 'big outage: 30 minutes, 20%', minutes: 30, rate: 0.2 },
+	{ name: 'medium: 2 hours, 1.5%', minutes: 120, rate: 0.015 },
+	{ name: 'slow burn: 3 days, 0.4%', minutes: 3 * 1_440, rate: 0.004 },
+	{ name: 'short blip: 3 minutes, 30%', minutes: 3, rate: 0.3 },
+	{ name: 'nothing (only the deploy blip)', minutes: 0, rate: 0 }
 ];
 
 type Window = (errors: Float64Array, requests: number, end: number, minutes: number) => number;
@@ -40,12 +40,12 @@ type Policy = {
 };
 
 const POLICIES: Policy[] = [
-	{ name: 'error > ১%, ৫ মি', page: (e, t) => errorRatio(e, PER_MINUTE, t, 5) > 0.01 },
+	{ name: 'error > 1%, 5 min', page: (e, t) => errorRatio(e, PER_MINUTE, t, 5) > 0.01 },
 	{
-		name: `error > ${+(BUDGET_RATIO * 100).toFixed(3)}%, ৫ মি`,
+		name: `error > ${+(BUDGET_RATIO * 100).toFixed(3)}%, 5 min`,
 		page: (e, t) => errorRatio(e, PER_MINUTE, t, 5) > BUDGET_RATIO
 	},
-	{ name: 'burn > 14.4, ১ ঘ', page: (e, t) => burn(e, t, 60) > 14.4 },
+	{ name: 'burn > 14.4, 1 h', page: (e, t) => burn(e, t, 60) > 14.4 },
 	{
 		name: 'multi-window',
 		page: (e, t) =>
@@ -130,16 +130,16 @@ function evaluate(policy: Policy, cumulative: Float64Array, baseline: Float64Arr
 const after = (t: number | null): string => {
 	if (t === null) return '—';
 	const minutes = t - INCIDENT_AT;
-	return minutes >= 120 ? `${(minutes / 60).toFixed(1)} ঘ` : `${minutes} মি`;
+	return minutes >= 120 ? `${(minutes / 60).toFixed(1)} h` : `${minutes} min`;
 };
 
 heading(
-	`ক. SLO ${SLO * 100}% (৩০ দিনে error budget ${n(MONTH_BUDGET)}টা ব্যর্থ request), ${RPS} req/s; ঘটনা শুরু দিন ৪ এর সকাল ৯টায় — কে কখন page করল`
+	`A. SLO ${SLO * 100}% (error budget of ${n(MONTH_BUDGET)} failed requests in 30 days), ${RPS} req/s; the event starts at 9 am on day 4 — who paged, and when`
 );
 console.log(
 	row([
-		['ঘটনা', 34],
-		['budget খেল', 12],
+		['event', 34],
+		['budget used', 12],
 		...POLICIES.map((policy): [string, number] => [policy.name, 20])
 	])
 );
@@ -163,19 +163,19 @@ for (const { scenario, incidentErrors, outcomes } of results) {
 					return [`${after(outcome.firstPage)} (${pct(outcome.budgetAtPage, 1, 1)})`, 20];
 				if (outcome.firstTicket !== null)
 					return [`ticket ${after(outcome.firstTicket)} (${pct(outcome.budgetAtPage, 1, 1)})`, 20];
-				return ['ধরেনি', 20];
+				return ['missed', 20];
 			})
 		])
 	);
 }
 console.log(
-	'   "কখন" = ঘটনা শুরুর কত পরে প্রথম page যেটা ঘটনা ছাড়া বাজত না (deploy এর ঝাঁকুনির কাকতালীয় page বাদ); বন্ধনীতে তখন পর্যন্ত ঘটনাটা মাসের budget এর কত % খেয়েছে'
+	'   "when" = how long after the event started came the first page that would not have fired without the event (coincidental pages from the deploy blip excluded); in brackets, what % of the month\'s budget the event had used by then'
 );
 
 heading(
-	`খ. ${DAYS} দিনে মোট কতবার page (প্রতিদিন দুপুর ২টায় deploy এ ২ মিনিট ${DEPLOY_BLIP * 100}% error)`
+	`B. Total pages in ${DAYS} days (a deploy at 2 pm every day, 2 minutes of ${DEPLOY_BLIP * 100}% errors)`
 );
-console.log(row([['ঘটনা', 34], ...POLICIES.map((policy): [string, number] => [policy.name, 20])]));
+console.log(row([['event', 34], ...POLICIES.map((policy): [string, number] => [policy.name, 20])]));
 for (const { scenario, outcomes } of results) {
 	console.log(
 		row([

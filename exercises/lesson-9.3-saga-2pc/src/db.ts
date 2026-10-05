@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { z } from 'zod';
 
-// দুটো script এর ভাগ করা অংশ: database এর সংযোগ, crash এর ভান, আর "task আর counter মেলে কিনা" এর হিসাব।
+// The part shared by both scripts: the database connections, pretending to crash, and checking "do the tasks and counter match".
 
 export type DbName = 'taskflow' | 'tasks_svc' | 'billing_svc';
 
@@ -13,7 +13,7 @@ const url = z
 export const pool = (db: DbName, max: number): Pool =>
 	new Pool({ connectionString: `${url}/${db}`, max });
 
-// Process মারা যাওয়ার ভান — deploy, OOM, timeout। কোন operation এ ঘটবে সেটা seed দেওয়া।
+// Pretending the process dies — deploy, OOM, timeout. Which operation it happens on is seeded.
 export class Crash extends Error {
 	override readonly name = 'Crash';
 }
@@ -25,13 +25,13 @@ export async function ensureDatabases(): Promise<void> {
 	try {
 		await admin.query('SELECT 1');
 	} catch {
-		console.error('Postgres পাওয়া যাচ্ছে না — আগে `docker compose up -d --wait`।');
+		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	const r = await admin.query('SHOW max_prepared_transactions');
 	if (setting.parse(r.rows[0]).max_prepared_transactions < 64) {
 		console.error(
-			'max_prepared_transactions ছোট — এই repo এর docker-compose.yml দিয়ে Postgres চালাও (command এ setting আছে)।'
+			"max_prepared_transactions is too small — run Postgres with this repo's docker-compose.yml (the setting is in command)."
 		);
 		process.exit(1);
 	}
@@ -44,9 +44,9 @@ export async function ensureDatabases(): Promise<void> {
 
 const gidRow = z.object({ gid: z.string() });
 
-// আগের run এর (বা Ctrl+C এ থেমে যাওয়া run এর) prepared transaction গুলো ফেলে দেওয়া — নইলে সেগুলো
-// row এর lock ধরে রাখে, আর পরের DROP TABLE চিরকাল অপেক্ষা করে। ROLLBACK PREPARED চালাতে হয় সেই
-// database এ connect করে, যেখানে transaction টা prepare হয়েছিল।
+// Throw away prepared transactions from an earlier run (or one stopped with Ctrl+C) — otherwise they
+// hold row locks, and the next DROP TABLE waits forever. ROLLBACK PREPARED has to run connected to the
+// database where the transaction was prepared.
 export async function clearPrepared(): Promise<void> {
 	for (const db of ['taskflow', 'tasks_svc', 'billing_svc'] as const) {
 		const p = pool(db, 1);
@@ -61,7 +61,7 @@ export async function clearPrepared(): Promise<void> {
 
 const countRow = z.object({ id: z.number(), n: z.coerce.number() });
 
-// SQL এর উত্তর: প্রতিটা workspace এর একটা সংখ্যা (id, n)
+// the SQL result: one number per workspace (id, n)
 export async function perWorkspace(p: Pool, sql: string): Promise<Map<number, number>> {
 	const r = await p.query(sql);
 	return new Map(
@@ -77,7 +77,7 @@ export const COUNTER_PER_WS = 'SELECT id, task_count AS n FROM workspaces';
 
 export type Tally = { taskRows: number; counterSum: number; mismatched: number };
 
-// প্রতিটা workspace এ task এর row আর billing এর counter মেলে কিনা
+// whether each workspace's task rows and billing counter match
 export function tally(
 	tasks: Map<number, number>,
 	counters: Map<number, number>,
@@ -96,11 +96,11 @@ export function tally(
 
 export function verdict(t: Tally): string {
 	const diff = t.counterSum - t.taskRows;
-	if (diff === 0 && t.mismatched === 0) return 'মেলে';
-	return diff < 0 ? `${-diff} টা task বিনা বিলে` : `${diff} টা বিল, task নেই`;
+	if (diff === 0 && t.mismatched === 0) return 'they match';
+	return diff < 0 ? `${-diff} tasks with no bill` : `${diff} bills with no task`;
 }
 
-// CONCURRENCY টা worker একটা ভাগ করা তালিকা থেকে একটা একটা করে কাজ নেয়
+// CONCURRENCY workers take jobs one at a time from a shared list
 export async function runWorkers<T>(
 	items: T[],
 	concurrency: number,

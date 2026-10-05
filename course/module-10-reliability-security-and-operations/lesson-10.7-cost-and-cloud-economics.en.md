@@ -54,32 +54,34 @@ events       requests (S3 GET/PUT, CDN, lifecycle)           — how many times
 Every design decision changes the number for one or more of these four. The exercise's `npm run bill` builds a monthly bill from TaskFlow's quantities (300 req/s, 60,000 MAU, 18 TB of attachments, numbers from earlier lessons) and the approximate list prices of a big public cloud. The prices are matched to 8.1's numbers and can be changed through env vars. Prices change, so look at the **proportions** of the lines rather than the dollars:
 
 ```
-line                                     now     now %     after    saved   what changed
-staging + dev (prod size, 24/7)          $4,701   17.9%     $420   $4,281   ¼ size, working hours only
-NAT gateway (hours + per GB)             $3,001   11.4%     $139   $2,862   S3 gateway endpoint, image endpoint
-app instances (peak size, 20 24/7)       $2,803   10.7%     $869   $1,934   autoscale (avg 7.6), 5 committed
-cross-AZ: service → service              $1,866    7.1%     $280   $1,586   AZ-aware routing
-metric series                            $1,800    6.8%     $900     $900   labels cleaned up (10.4)
-internet egress: API JSON                $1,750    6.7%     $350   $1,400   gzip/br (~5x smaller)
-Postgres primary (Multi-AZ)              $1,460    5.6%     $949     $511   commit
-Postgres read replicas ×2                $1,460    5.6%     $949     $511   commit
-Postgres storage (2 TB × 4 copies)         $920    3.5%     $414     $506   activity older than 90 days to S3
-log ingest + 90-day retention              $846    3.2%   $23.13     $823   debug off, successful requests sampled, 14 days
-gateway + BFF + billing + files            $771    2.9%     $501     $270   commit (always running)
-S3: attachments + old versions             $736    2.8%     $314     $422   lifecycle: versions 30 days, IA
-Redis (cache 3 + queue 2)                  $730    2.8%     $475     $256   commit
-blue-green's undeleted pool                $691    2.6%   $17.28     $674   teardown fixed; canary +3, 1 h a day
-internet egress: attachments               $675    2.6%     $660   $15.00   CDN (almost the same price)
-backup snapshots                           $570    2.2%     $285     $285   kept 30 → 14 days
-background workers                         $561    2.1%     $196     $364   spot (jobs idempotent, 7.4)
-cross-AZ: app → database                   $415    1.6%   $82.94     $332   a read replica in each AZ
-trace collector                            $280    1.1%     $140     $140   right-sized
-load balancer · S3 requests · trace storage $254    1.0%     $254       $0   —
-VPC interface endpoint (image pull)          $0    0.0%   $57.90  −$57.90   instead of NAT
-total                                   $26,290    100%   $8,276  $18,014   69% less
+line                                             now   now %     after     saved                                      what changed
+staging + dev (prod-sized, 24/7)              $4,701   17.9%      $420    $4,281                        ¼ size, working hours only
+NAT gateway (hourly + per GB)                 $3,001   11.4%      $139    $2,862               S3 gateway endpoint, image endpoint
+app instances (sized for peak, 20 24/7)       $2,803   10.7%      $869    $1,934                  autoscale (avg 7.6), 5 committed
+cross-AZ: service → service                   $1,866    7.1%      $280    $1,586                                  AZ-aware routing
+metric series                                 $1,800    6.8%      $900      $900                          labels cleaned up (10.4)
+internet egress: API JSON                     $1,750    6.7%      $350    $1,400                             gzip/br (~5× smaller)
+Postgres primary (Multi-AZ)                   $1,460    5.6%      $949      $511                                            commit
+Postgres read replica ×2                      $1,460    5.6%      $949      $511                                            commit
+Postgres storage (2 TB × 4 copies)              $920    3.5%      $414      $506                 activity older than 90 days in S3
+log ingest + keep 90 days                       $846    3.2%    $23.13      $823    debug off, sample successful requests, 14 days
+gateway + BFF + billing + files                 $771    2.9%      $501      $270                           commit (always running)
+S3: attachments + old versions                  $736    2.8%      $314      $422                   lifecycle: versions 30 days, IA
+Redis (cache 3 + queue 2)                       $730    2.8%      $475      $256                                            commit
+undeleted blue-green pool                       $691    2.6%    $17.28      $674              teardown fixed; canary +3, 1 h a day
+internet egress: attachment                     $675    2.6%      $660    $15.00                        CDN (about the same price)
+backup snapshot                                 $570    2.2%      $285      $285                                 keep 30 → 14 days
+background worker                               $561    2.1%      $196      $364                        spot (job idempotent, 7.4)
+cross-AZ: app → database                        $415    1.6%    $82.94      $332                        a read replica in every AZ
+trace collector                                 $280    1.1%      $140      $140                                       right-sized
+load balancer                                   $200    0.8%      $200        $0                                                 —
+S3 request                                    $45.00    0.2%    $45.00        $0                                                 —
+trace storage (tail sampling)                  $9.00    0.0%     $9.00        $0                                                 —
+VPC interface endpoint (image pull)               $0    0.0%    $57.90   −$57.90                                    instead of NAT
+total                                        $26,290    100%    $8,276   $18,014                                          69% less
 
-by category: compute 18% · database 20% · network 30% · storage 3% · observability 11% · other (staging) 18%
-by unit:     per workspace $13.15 → $4.14 · per MAU $0.438 → $0.138 · per million requests $33.81 → $10.64
+by category:  compute 18% · database 20% · network 30% · storage 3% · observability 11% · other (staging) 18%
+per unit:  per workspace $13.15 → $4.14 · per MAU $0.438 → $0.138 · per 1 million requests $33.81 → $10.64
 ```
 
 Three things stand out:
@@ -101,11 +103,11 @@ TaskFlow costs $13.15 per workspace per month. But workspaces are not all alike.
 **Cost Allocation** — splitting shared costs that are not in anyone's name among teams, products, plans or customers by their driver. In the cloud it rests on resource tags (`team=billing`, `env=staging`). Showing the split is **showback**; actually charging the money is **chargeback**.
 
 ```
-plan                         workspaces   seats     revenue       cost   margin   cost / seat   cost / workspace
-free                             1,399  25,000         $0    $8,161        —       $0.326            $5.83
-free: one school district            1   3,000         $0    $1,528        —       $0.509           $1,528
-pro                                500  15,000    $90,000    $7,695      91%       $0.513           $15.39
-business                           100  17,000   $170,000    $8,907      95%       $0.524           $89.07
+plan                          workspace    seat   revenue      cost    margin  cost / seat  cost / workspace
+free                             1,399  25,000        $0    $8,161         —      $0.326             $5.83
+free: one school district            1   3,000        $0    $1,528         —      $0.509            $1,528
+pro                                500  15,000   $90,000    $7,695       91%      $0.513            $15.39
+business                           100  17,000  $170,000    $8,907       95%      $0.524            $89.07
 ```
 
 Pro and business margins are above 90%. That is healthy for SaaS, and the bill is 10% of revenue. The real questions are elsewhere:
@@ -117,11 +119,11 @@ Pro and business margins are above 90%. That is healthy for SaaS, and the bill i
 **By endpoint.** The same question, at a finer grain. Part C gives the variable cost of one call to each endpoint: CPU ms, DB ms, bytes going out, bytes of internal calls, S3 through NAT:
 
 ```
-endpoint                    calls / month    per call      per million     monthly   % of calls   % of cost
-GET /boards/:id            400,000,000   $0.0000047        $4.74    $1,895     85.096%       71%
-POST /tasks                 50,000,000   $0.0000012        $1.16    $58.21     10.637%        2%
-GET /search                 20,000,000   $0.0000025        $2.55    $50.96      4.255%        2%
-POST /boards/:id/export         60,000       $0.011       $10,920      $655      0.013%       25%
+endpoint                    calls / month    per call   per million   monthly  % of calls  % of cost
+GET /boards/:id              400,000,000  $0.0000047         $4.74    $1,895    85.096%       71%
+POST /tasks                   50,000,000  $0.0000012         $1.16    $58.21    10.637%        2%
+GET /search                   20,000,000  $0.0000025         $2.55    $50.96     4.255%        2%
+POST /boards/:id/export           60,000      $0.011       $10,920      $655     0.013%       25%
 ```
 
 Export: 0.013% of calls, 25% of variable cost. One export costs **2,300 times** one board open, because it fetches 200 files from S3 through NAT, zips them, and sends 80 MB out. That does not mean export is bad. It means export needs its own rules: a rate limit (in 9.5 export was 3 a day), a background job (7.3), and an endpoint instead of NAT (1.5). And this is how the interview question "what will this feature cost" is answered: the resources of one call, times the number of calls.
@@ -133,11 +135,11 @@ Export: 0.013% of calls, 25% of variable cost. One export costs **2,300 times** 
 `npm run capacity` runs a week of traffic one minute at a time. A daily peak at 2 p.m., low at night and at weekends, a marketing email at 10 a.m. on Wednesday (+700 req/s), and some random fluctuation. Average 300 req/s, peak 1,150. Each instance handles up to 75 req/s, and a new instance takes 5 minutes to start and take traffic (10.6's readiness):
 
 ```
-policy                            avg instances   cost / month   avg utilization   minutes short   overflow requests   in spike   spot lost
-fixed: peak + 25%, 24/7                  20.0      $2,803          20%           0      0 (0.00%)          0           0
-reactive autoscale (target 60%)           7.6      $1,072          53%           4  15,252 (0.01%)     15,252           0
-scheduled (known pattern) + reactive      8.0      $1,121          50%           3   8,713 (0.00%)      8,713           0
-reactive, 70% spot                        7.6        $942          53%           4  15,252 (0.01%)     15,252           2
+policy                                    avg instances  cost / month     avg use  strained min  overflowing req  overflow in spike  spot lost
+fixed: peak + 25%, 24/7                            20.0        $2,803         20%             0       0 (0.00%)                  0          0
+reactive autoscale (target 60%)                     7.6        $1,072         53%             4  15,252 (0.01%)             15,252          0
+scheduled (known pattern) + reactive                8.0        $1,121         50%             3   8,713 (0.00%)              8,713          0
+reactive, 70% spot                                  7.6          $942         53%             4  15,252 (0.01%)             15,252          2
 ```
 
 - **The fixed fleet's average utilization is 20%.** 80% of the capacity bought is idle. And in exchange not a single request overflowed. That is its price: certainty.
@@ -156,11 +158,11 @@ With spot, another 12% cheaper. In experiment 2, with the interruption rate 15 t
 Part B, using reactive's hourly usage, with a 35% discount (a one-year estimate):
 
 ```
-commit (instances)   cost / month   vs on-demand   % of hours usage ≥ commit   unused commit
+commit (instance)   cost / month  vs on-demand        % of hours with use ≥ commit  unused commit
 0                      $1,072                  0.0%                          100%                $0
 3                        $925                 13.7%                          100%                $0
 4                        $894                 16.6%                           85%            $11.86
-5  ← lowest              $869                 18.9%                           79%            $27.97
+5  ← lowest            $869                 18.9%                           79%            $27.97
 6                        $875                 18.3%                           54%            $63.56
 8                        $943                 12.0%                           34%              $171
 12                     $1,164                 −8.6%                           20%              $443
@@ -188,12 +190,7 @@ In 8.1 you saw that object storage is far cheaper than database disk. Now, withi
 `npm run storage` part A, 24 months: starting with 18 TB of attachments and 14 TB of old versions (8.1's versioning, without a lifecycle), 1.2 TB new per month (+3%/month). Files are read a lot in their first month, then hardly at all. By count, 60% are small objects (thumbnails, avatars, ~40 KB), but by bytes only 2.9%:
 
 ```
-policy                                        month 1   month 24   total over 24 months   transition fee   retrieval fee
-all Standard, old versions forever               $775    $2,066       $32,424               $0              $0
-+ old versions deleted after 30 days             $453    $1,386       $20,859               $0              $0
-+ everything to IA after 30 days (incl. small)   $280      $877       $13,336             $473            $240
-+ only ≥128 KB to IA, Glacier IR after 180 days  $126      $479        $7,445             $462            $364
-same, with a 3 TB export of old files in month 18 $126     $479        $7,533             $462            $452
+
 ```
 
 - **The old-version lifecycle alone is a third.** Versioning is on (to protect against accidental deletes, 8.1), but old versions are never deleted. Over 24 months, 30.5 TB of old versions nobody will ever read. One rule: "delete old versions after 30 days."
@@ -204,10 +201,10 @@ But look at the difference between the third and fourth rows: in one every objec
 
 ```
 1 TB of only 40 KB objects, one year
-class                         objects     billed size    one year
-Standard                  25,000,000          1.0 TB      $276
-IA (with transition)      25,000,000          3.2 TB      $730
-Glacier IR (with transition) 25,000,000       3.2 TB      $654
+class                                 object   billed size  in one year
+Standard                          25,000,000        1.0 TB        $276
+IA (with transition)              25,000,000        3.2 TB        $730
+Glacier IR (with transition)      25,000,000        3.2 TB        $654
 ```
 
 **Small objects cost more in the "cheap" classes.** IA and Glacier IR bill every object as at least 128 KB, so a 40 KB file is counted as 3.2 times bigger. And moving every object is a request: 25 million transitions × $0.01/thousand = $250, in one go. Together, keeping small files in the cheap classes costs 2.6 times as much as Standard. Experiment 3: at 200 KB objects the trap disappears (IA $200, Glacier IR $148, Standard $276). So a lifecycle rule needs a size filter (`ObjectSizeGreaterThan`). This kind of rule does not show up if you only look at "price per GB". That is why you have to run a model.
@@ -215,10 +212,10 @@ Glacier IR (with transition) 25,000,000       3.2 TB      $654
 **Logs: where is the cost?** Part C, 10.4's logs:
 
 ```
-daily                                 GB/day   ingest/month   keep: 14 days   90 days   365 days   14 days + 1 year in S3
-one line per request (10.4)              2.8      $42.00        $1.18      $7.56    $30.66          $2.77
-+ debug on three services               47.8        $717       $20.08       $129      $523         $47.34
-10% sample of successful requests        1.5      $22.50        $0.63      $4.05    $16.43          $1.49
+per day                               GB/day  ingest / month         keep: 14 days         keep: 90 days        keep: 365 days  keep: 14 days + 1 year in S3
+one line per request (10.4)              2.8          $42.00                 $1.18                 $7.56                $30.66                 $2.77
++ debug in three services               47.8            $717                $20.08                  $129                  $523                $47.34
+10% sample of successful requests        1.5          $22.50                $0.630                 $4.05                $16.43                 $1.49
 ```
 
 The cost of logs is in **ingestion**, not retention. Indexing, parsing and making each GB searchable ($0.50) costs 16 times as much as keeping that GB for a month ($0.03). Raising retention from 14 days to 90 adds $6 a month. A debug log accidentally left on adds $675 a month. So 10.4's rules (one full line per request, debug only through a flag and time-limited, sampling successful requests) are cost rules too. And when long retention is needed (audit, law), the cheap way is 14 days in the searchable store and the rest compressed in S3.
@@ -226,9 +223,9 @@ The cost of logs is in **ingestion**, not retention. Indexing, parsing and makin
 **Database disk.** Part D, 5.8's activity table: grows by 60 GB a month, and in Postgres every GB lives in four places (primary, standby, two replicas) plus backups:
 
 ```
-design                                  month 1   month 24   total over 24 months   in the DB at month 24
-everything in Postgres (4 copies + backup)  $644    $1,410       $24,642            2.5 TB
-90 days in Postgres, the rest as Parquet in S3 $102  $105        $2,481            180 GB
+design                                           month 1  month 24  total, 24 months  in DB, month 24
+all in Postgres (4 copies + backup)                 $644    $1,410           $24,642           2.5 TB
+90 days in Postgres, the rest in S3 Parquet         $102      $105            $2,481           180 GB
 ```
 
 5.8's partitioning and 7.6's OLAP reasoning, this time in money: `DETACH` partitions older than 90 days to Parquet (6 times compressed) in S3, and read them with something like DuckDB or Athena. A tenth of the cost, and the database stays small. A small database means faster backups, faster restores, faster replica creation (10.3). Here cost and reliability point the same way.
@@ -240,12 +237,12 @@ everything in Postgres (4 copies + backup)  $644    $1,410       $24,642        
 `npm run traffic` part A, egress:
 
 ```
-design                                           GB / month   cost / month   note
-API JSON, no compression                         19.4 TB     $1,750    25 KB average
-API JSON, gzip/br (~5x)                           3.9 TB       $350    small CPU cost
-attachments directly from S3                      7.5 TB       $687    S3 egress + GET
-attachments through a CDN (90% hit)               7.5 TB       $661    S3 → CDN on the same provider assumed free
-CDN + small previews on the board (40% of bytes)  3.0 TB       $279    resized once, at upload (8.2)
+design                                        GB / month  cost / month  note
+API JSON, no compression                        19.4 TB     $1,750  25 KB on average
+API JSON, gzip/br (~5×)                           3.9 TB       $350  the CPU cost is tiny
+attachments straight from S3                   7.5 TB       $687    S3 egress + GET
+attachments through a CDN (hit 90%)              7.5 TB       $661  S3 → CDN assumed free within one provider
+CDN + small previews on the board (40% bytes)     3.0 TB       $279   resize once, at upload time (8.2)
 ```
 
 - **Compression: $1,400 for one line of config.** JSON is very repetitive (the same keys over and over), so gzip or brotli makes it 4–10 times smaller. The `compression` middleware in Express, or at the gateway/CDN. There is a CPU cost, but it is usually far smaller than the cost of the bytes.
@@ -255,13 +252,13 @@ CDN + small previews on the board (40% of bytes)  3.0 TB       $279    resized o
 **NAT gateway, part B.** Instances in a private subnet (with no direct path to the internet, which is right for security) go out through a NAT gateway. And NAT charges per GB processed, whatever the destination. **Even for S3 in the same region.**
 
 ```
-design                                         GB / month   cost / month   note
-everything through NAT, one NAT per AZ           64.5 TB     $3,001    today's TaskFlow
-+ S3 gateway endpoint                             4.5 TB       $301    gateway endpoint is free
-+ interface endpoint for images                   900 GB       $197    hours + per GB, less than NAT
-+ smaller images (500 → 150 MB)                   900 GB       $172    multi-stage build, runtime only
-everything through NAT, but one NAT for three AZs 64.5 TB     $3,795    fewer NAT hours, more cross-AZ, SPOF in one AZ
-with endpoints, one NAT for three AZs             900 GB       $143    cheaper — but if that AZ dies, outbound stops
+design                                      GB / month  cost / month  note
+everything through NAT, one NAT per AZ    64.5 TB     $3,001  today's TaskFlow
++ S3 gateway endpoint                           4.5 TB       $301  the gateway endpoint is free
++ an interface endpoint for images               900 GB       $197  hourly + per GB, less than NAT
++ smaller images (500 → 150 MB)                 900 GB       $172  multi-stage build, runtime only
+everything through NAT, but one NAT for three AZs  64.5 TB     $3,795  fewer NAT hours, more cross-AZ, a SPOF in one AZ
+with endpoints, one NAT for three AZs           900 GB       $143  cheap — but if that AZ dies, nothing gets out
 ```
 
 A **gateway endpoint** for S3 (one line in the VPC's route table, free) saves ~$2,700 a month. The cheapest win on TaskFlow's bill. And the last two rows show a trap. "One NAT instead of three" sounds economical, but the other two AZs' traffic has to travel to the NAT's AZ (the cross-AZ price), so at high traffic it is **more** expensive ($3,795). After the endpoints traffic is low, and then one NAT really is cheaper ($143 versus $197). But in 10.3's terms, if that AZ dies, the other two AZs lose their way out: Stripe, the email provider, everything. Making one AZ's outage the whole system's outage to save $54 a month. This is a pure trade between cost and reliability, and the answer depends on whether the outbound calls are hard or soft dependencies.
@@ -269,11 +266,11 @@ A **gateway endpoint** for S3 (one line in the VPC's route table, free) saves ~$
 **Across AZs, part C.** 6 internal calls per request (30 KB each) and 40 KB to the DB, three AZs:
 
 ```
-design                                  GB / month   cost / month   note
-monolith: internal calls are functions     20.7 TB       $415    only app → primary
-services, sent to any AZ                  114.0 TB     $2,281    67% of internal calls to another AZ
-services, same AZ first (AZ-aware)         34.7 TB       $695    10% to another AZ (fallback)
-+ a read replica in each AZ                18.1 TB       $363    reads in their own AZ, writes to the primary
+design                                 GB / month  cost / month  note
+monolith: internal calls are function calls  20.7 TB       $415  only app → primary
+services, sent to any AZ           114.0 TB     $2,281  67% of internal calls to another AZ
+services, same AZ first (AZ-aware)       34.7 TB       $695  10% to another AZ (fallback)
++ a read replica in every AZ           18.1 TB       $363  reads in their own AZ, writes to the primary
 ```
 
 Another dimension of 9.1's "a network call is not a function call": it costs money too. If the load balancer ignores AZs, two-thirds of calls across three AZs go to another AZ, and every GB is charged in both directions. Experiment 4: at 20 calls per request, $6,636, 16 times the monolith. **AZ-aware routing** (instances in the same AZ first, another AZ only if none) cuts that by two-thirds. Topology-aware routing in Kubernetes, locality-weighted load balancing in a service mesh. And it has a reliability cost too: if more traffic arrives in one AZ, that AZ's instances come under strain even while other AZs are idle. So this routing needs a separate autoscaler per AZ and a limit ("if your own AZ's instances are more than 80% busy, send to another AZ"). (Latency drops too, because round trips within one AZ are usually shorter. Not measured here.)
@@ -287,11 +284,11 @@ In 10.4 and 10.5 I said several times "this has a price". Now in numbers.
 **The DDoS bill.** 10.5's L7 flood: 60,000 req/s, 4 hours, 30 KB per response. `npm run capacity` part C:
 
 ```
-where it was stopped                      extra instances   compute   data transfer   request fees      total
-autoscale at the origin, no limit                1,334    $1,025         $2,333              $0    $3,357
-autoscale at the origin, limit 40                   40    $30.72           $117              $0      $147
-answered from CDN cache (cache key fixed)            0        $0         $2,203            $648    $2,851
-blocked / challenged at the edge (1 KB response)     0        $0         $73.44            $648      $721
+where it stopped                                extra instances   compute  data transfer   request fees     total
+autoscale at the origin, no limit                         1,334    $1,025        $2,333             $0    $3,357
+autoscale at the origin, limit 40                            40    $30.72          $117             $0      $147
+answered from CDN cache (cache key fixed)                     0        $0        $2,203           $648    $2,851
+block / challenge at the edge (1 KB answer)                   0        $0        $73.44           $648      $721
 ```
 
 One four-hour attack, a bill from $721 to $3,357, depending on where it was stopped. Without an autoscaling limit the system **happily serves** the attack, and sends the bill. (In reality the database would have collapsed long before, 10.3.) With a limit of 40 the bill is $147, but the origin is swamped by the attack, so most legitimate users' requests fail too (10.5's part C). Answering from the CDN cache saves the origin, but you pay the CDN's egress and request fees. Cheapest of all is giving the attack a **small** answer, at the edge. And one thing not captured here at list prices: many CDN and DDoS protection services waive the bill for attack traffic, or keep it under a separate agreement. Check their terms (not verified here). The lesson: **an upper limit on autoscaling is a cost control**, just as 10.3's bulkhead is a reliability control.
@@ -303,11 +300,11 @@ TaskFlow's budget alert was: email if the month's bill exceeds $30,000. It never
 `npm run bill` part D: 60 days of daily bills, by category (compute, database, network, storage, logs, …). Each has its own daily fluctuation and slow growth, starting from the clean "after" state (~$287 a day). On day 42 someone turns on debug logging on three services and forgets about it (+$22.50/day, 7.8% of the total). On day 51 a bug puts export into a loop (+$270/day, in NAT and egress). Four detectors:
 
 ```
-detector                                         caught the debug log   caught the export loop   false alarms (days 1–40)
-monthly budget exceeded (last month +10%)               missed         6 days later                        0
-end-of-month forecast > budget                     9 days later         1 day later                        0
-total daily > 7-day average × 1.2                       missed         1 day later                        0
-each category's daily > its own 7-day average × 1.5  1 day later         1 day later                        0
+detector                                       caught debug logs  caught export loop  false alarms (days 1–40)
+over the monthly budget (last month +10%)    missed      6 days later                   0
+end-of-month forecast > budget                 9 days later    1 day later                    0
+total daily > 7-day average × 1.2               missed      1 day later                    0
+each category daily > its own 7-day average × 1.5  1 day later     1 day later                    0
 ```
 
 **Cost Anomaly Detection** — looking at the bill not as one number at the end of the month but as a daily (or hourly) time series, split by category (service, team, line), and comparing each to its own history. A small jump gets lost in the total bill; in its own category it is tenfold.

@@ -2,19 +2,19 @@ import { type Outage, type Recorder, type ServiceSpec } from './model';
 import type { Sim } from './sim';
 import type { TaskEvent } from './workload';
 
-// Lesson 7.2 — তিন ধরনের broker, প্রতিটা তার আসল রূপের মূল আচরণটুকু নিয়ে:
+// Lesson 7.2 — three kinds of broker, each with the core behaviour of its real counterpart:
 //
-//   runPubSub  — Redis Pub/Sub এর মতো: যে এই মুহূর্তে connected, সে পায়; কিছু জমা থাকে না
-//   runQueue   — RabbitMQ এর queue এর মতো: message জমা থাকে, একজন consumer পায়, ack এ মুছে যায়
-//   runLog     — Kafka / Redis Streams এর মতো: append-only log, partition, consumer group আর offset
+//   runPubSub  — like Redis Pub/Sub: whoever is connected right now gets it; nothing is stored
+//   runQueue   — like a RabbitMQ queue: messages are stored, one consumer gets each, deleted on ack
+//   runLog     — like Kafka / Redis Streams: append-only log, partitions, consumer groups and offsets
 //
-// প্রতিটা service এর worker রা ঘটনা প্রক্রিয়া করে; "প্রক্রিয়া শেষ" মানে side effect ঘটে গেছে।
-// Outage এর মুহূর্তে যে কাজ মাঝপথে ছিল, সেটা বাতিল (side effect হয়নি)।
+// Every service's workers process events; "processing done" means the side effect has happened.
+// Work that was half done at the moment of an outage is discarded (no side effect).
 
 interface Workers {
 	busy: number;
 	down: boolean;
-	// Outage এ বাড়ে — পুরনো generation এর চলমান কাজ শেষ হলেও গোনা হয় না
+	// Goes up on an outage — in-flight work of an old generation is not counted even if it finishes
 	generation: number;
 }
 
@@ -34,11 +34,11 @@ function scheduleOutages(
 // ── Pub/Sub ─────────────────────────────────────────────────────────────────────────────
 
 export interface PubSubOptions {
-	// Subscriber এর জন্য broker এ জমে থাকা message এর সীমা (Redis এর client-output-buffer-limit এর মতো)
+	// Limit on messages piled up in the broker for a subscriber (like Redis's client-output-buffer-limit)
 	bufferLimit: number;
 	reconnectMs: number;
 	outages: Outage[];
-	// দেরিতে subscribe করা service: এই মুহূর্তের আগে সে connected ছিল না
+	// A service that subscribes late: it was not connected before this moment
 	joinAt?: Record<string, number>;
 }
 
@@ -79,12 +79,12 @@ export function runPubSub(
 
 		for (const event of events) {
 			sim.at(event.publishedAt, () => {
-				// Connected না থাকলে এই message এই subscriber এর জন্য কোথাও নেই — কখনো না
+				// If not connected, this message exists nowhere for this subscriber — ever
 				if (!connected) return;
 				buffer.push(event);
 				rec.backlog(service.name, buffer.length);
 				if (buffer.length > opts.bufferLimit) {
-					// Broker ধীর subscriber কে কেটে দেয়, জমা সব ফেলে দিয়ে — নিজেকে বাঁচাতে
+					// The broker cuts off the slow subscriber, dropping everything piled up — to save itself
 					disconnect();
 					sim.after(opts.reconnectMs, () => {
 						if (!w.down) connected = true;
@@ -116,13 +116,13 @@ export function runPubSub(
 // ── Queue ───────────────────────────────────────────────────────────────────────────────
 
 export interface QueueOptions {
-	// 'shared' — একটাই queue, সব service এর worker তাতে প্রতিযোগিতা করে
-	// 'per-service' — fanout exchange: প্রতিটা service এর নিজের queue, প্রতিটা message সব queue তে
+	// 'shared' — a single queue, every service's workers compete on it
+	// 'per-service' — fanout exchange: each service has its own queue, every message goes to every queue
 	layout: 'shared' | 'per-service';
-	// প্রক্রিয়া শেষ (side effect) আর broker এর কাছে ack পৌঁছানোর মাঝের সময়
+	// the time between processing done (side effect) and the ack reaching the broker
 	ackDelayMs: number;
 	outages: Outage[];
-	// দেরিতে যোগ দেওয়া service: তার queue এই মুহূর্তে তৈরি হয় — আগের message সেখানে কখনো যায়নি
+	// A service that joins late: its queue is created at this moment — earlier messages never went there
 	joinAt?: Record<string, number>;
 }
 
@@ -154,8 +154,8 @@ export function runQueue(
 		return w;
 	};
 
-	// RabbitMQ এর মতো round-robin: প্রতিটা worker একটা consumer (prefetch = 1), আর পালা ঘোরে —
-	// একই service এর দুটো worker মানে দুটো পালা
+	// Round-robin like RabbitMQ: every worker is a consumer (prefetch = 1), and turns rotate —
+	// two workers of the same service mean two turns
 	const slots = new Map<Queue, ServiceSpec[]>(
 		queues.map((q) => [q, q.consumers.flatMap((s) => Array.from({ length: s.workers }, () => s))])
 	);
@@ -217,8 +217,8 @@ export function runQueue(
 				w.down = true;
 				w.generation++;
 				w.busy = 0;
-				// Connection বন্ধ → ack না পাওয়া সব message আবার queue তে, আগের জায়গায়।
-				// এর মধ্যে যেগুলোর side effect হয়ে গিয়েছিল (ack পথে ছিল) — সেগুলো আবার প্রক্রিয়া হবে।
+				// Connection closed → every unacked message goes back to the queue, in its old place.
+				// Those whose side effect had already happened (the ack was on its way) — will be processed again.
 				for (const queue of queues) {
 					const back = [...queue.unacked.values()].filter((u) => u.service === service.name);
 					for (const u of back) queue.unacked.delete(u.event.id);
@@ -238,17 +238,17 @@ export function runQueue(
 
 export interface LogGroup {
 	service: ServiceSpec;
-	// Group এ কয়টা consumer — প্রতিটা একসাথে একটাই message প্রক্রিয়া করে
+	// How many consumers in the group — each processes one message at a time
 	consumers: number;
-	// দেরিতে যোগ দেওয়া group: এই মুহূর্তে log এর শুরু থেকে পড়া শুরু করে (Kafka এর `earliest`)
+	// A group that joins late: at this moment it starts reading from the start of the log (Kafka's `earliest`)
 	joinAt?: number;
 }
 
 export interface LogOptions {
 	partitions: number;
-	// কোন partition এ যাবে: task id দিয়ে (একই task সবসময় একই partition), নাকি এলোমেলো
+	// Which partition it goes to: by task id (the same task always in the same partition), or random
 	key: 'task' | 'random';
-	// Consumer কত পর পর offset commit করে (Kafka এর default auto-commit ৫ সেকেন্ড)
+	// How often the consumer commits its offset (Kafka's default auto-commit is 5 seconds)
 	commitIntervalMs: number;
 	retentionMs: number;
 	outages: Outage[];
@@ -267,7 +267,7 @@ export function runLog(
 	const log: Entry[][] = Array.from({ length: opts.partitions }, () => []);
 	const logStart: number[] = new Array<number>(opts.partitions).fill(0);
 
-	// Retention: পুরনো entry মুছে log এর শুরু সামনে সরে (offset গুলো বদলায় না)
+	// Retention: old entries are deleted and the start of the log moves forward (offsets do not change)
 	const trim = (p: number): number => {
 		const entries = log[p] ?? [];
 		let start = logStart[p] ?? 0;
@@ -283,11 +283,11 @@ export function runLog(
 		const { service } = group;
 		const w: Workers = { busy: 0, down: false, generation: 0 };
 		let joined = group.joinAt === undefined;
-		// position: পরের কোনটা পড়ব; done: কোন পর্যন্ত প্রক্রিয়া শেষ; committed: broker এ লেখা
+		// position: which one to read next; done: processed up to where; committed: written to the broker
 		let position = new Array<number>(opts.partitions).fill(0);
 		let done = new Array<number>(opts.partitions).fill(0);
 		let committed = new Array<number>(opts.partitions).fill(0);
-		// Consumer i পায় সেই partition গুলো যাদের p % consumers === i — বাড়তি consumer বসে থাকে
+		// Consumer i gets the partitions where p % consumers === i — extra consumers sit idle
 		const consumers = Array.from({ length: group.consumers }, (_, i) => ({
 			partitions: Array.from({ length: opts.partitions }, (_, p) => p).filter(
 				(p) => p % group.consumers === i
@@ -300,7 +300,7 @@ export function runLog(
 			if (!joined || w.down) return;
 			for (const consumer of consumers) {
 				if (consumer.busy) continue;
-				// নিজের partition গুলো ঘুরে ঘুরে — কিন্তু প্রতিটা partition এর ভেতরে কড়া ক্রমে
+				// round-robin over its own partitions — but strictly in order within each partition
 				for (let k = 0; k < consumer.partitions.length; k++) {
 					const p = consumer.partitions[(consumer.next + k) % consumer.partitions.length];
 					if (p === undefined) continue;
@@ -327,7 +327,7 @@ export function runLog(
 				}
 			}
 		};
-		// Consumer lag: log এ আছে কিন্তু এই group এখনো প্রক্রিয়া করেনি — broker এ জমা না, শুধু একটা দূরত্ব
+		// Consumer lag: in the log but not yet processed by this group — not stored in the broker, just a distance
 		const recordLag = (): void => {
 			if (joined)
 				rec.backlog(
@@ -364,7 +364,7 @@ export function runLog(
 			},
 			() => {
 				w.down = false;
-				// নতুন করে শুরু: শেষ commit করা offset থেকে — তার পরে যা প্রক্রিয়া হয়েছিল, আবার হবে
+				// Starting over: from the last committed offset — whatever was processed after it will be processed again
 				position = [...committed];
 				done = [...committed];
 				pump();

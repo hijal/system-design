@@ -12,11 +12,11 @@ import {
 	tasksForProject
 } from './domain';
 
-// একটা process — ROLE ধরে সে কী:
-//   monolith — তিনটা module এক process এ, board বানাতে সরাসরি function call
-//   tasks    — board এর route; users আর comments কে HTTP তে ডাকে (CALLS = chatty বা batched)
-//   users, comments — নিজের module এর HTTP API
-// Parent (cluster.ts) env এ ROLE আর অন্য service এর URL দেয়; process তৈরি হলে IPC তে port পাঠায়।
+// One process — what it is, by ROLE:
+//   monolith — the three modules in one process, the board built with direct function calls
+//   tasks    — the board's route; calls users and comments over HTTP (CALLS = chatty or batched)
+//   users, comments — their own module's HTTP API
+// The parent (cluster.ts) provides ROLE and the other services' URLs in env; once the process is up it sends the port over IPC.
 
 const env = z
 	.object({
@@ -24,9 +24,9 @@ const env = z
 		USERS_URL: z.string().default(''),
 		COMMENTS_URL: z.string().default(''),
 		CALLS: z.enum(['chatty', 'batched']).default('batched'),
-		// 0 = কোনো timeout নেই (default fetch এর মতো — চিরকাল অপেক্ষা)
+		// 0 = no timeout (like the default fetch — waits forever)
 		TIMEOUT_MS: z.coerce.number().int().nonnegative().default(0),
-		// প্রতিটা internal request এ বাড়তি দেরি — একই machine এর বদলে আলাদা machine এর network (experiment)
+		// extra delay on every internal request — a separate machine's network instead of the same machine (experiment)
 		NET_MS: z.coerce.number().nonnegative().default(0),
 		EXPORT_MS: z.coerce.number().int().positive().default(300)
 	})
@@ -34,7 +34,7 @@ const env = z
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-// Express 4 async handler এর rejection নিজে ধরে না — ধরে next() এ দেওয়া, নইলে process crash
+// Express 4 doesn't catch an async handler's rejection itself — catch it and pass it to next(), otherwise the process crashes
 const handle =
 	<P>(fn: (req: Request<P>, res: Response) => Promise<void>) =>
 	(req: Request<P>, res: Response, next: NextFunction): void => {
@@ -46,7 +46,7 @@ const idList = z
 	.transform((s) => s.split(',').map(Number))
 	.pipe(z.array(z.number().int().positive()).max(500));
 
-// ── অন্য service এর client — বাইরের উত্তর, তাই Zod দিয়ে parse (type assertion না) ──
+// ── a client for the other services — outside responses, so parsed with Zod (not a type assertion) ──
 async function call<T>(url: string, schema: z.ZodType<T>): Promise<T> {
 	const res = await fetch(
 		url,
@@ -60,7 +60,7 @@ const countsSchema = z.record(z.string(), z.number());
 async function remoteBoard(projectId: number): Promise<Board> {
 	const tasks = tasksForProject(projectId);
 	let degraded = false;
-	// comments না পেলে board তবু দেখায় — শুধু সংখ্যা ছাড়া (TIMEOUT_MS > 0 হলে; নইলে error উপরে যায়)
+	// without comments the board still shows — just without the counts (when TIMEOUT_MS > 0; otherwise the error goes up)
 	const soft = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
 		if (env.TIMEOUT_MS === 0) return fn();
 		try {
@@ -72,7 +72,7 @@ async function remoteBoard(projectId: number): Promise<Board> {
 	};
 
 	if (env.CALLS === 'chatty') {
-		// প্রতিটা task এর জন্য আলাদা দুটো call — ORM এর lazy load এর মতো সরল code, network এ N+1 (Lesson 5.6)
+		// two separate calls for every task — code as simple as an ORM's lazy load, N+1 over the network (Lesson 5.6)
 		const cards = await Promise.all(
 			tasks.map(async (t): Promise<BoardCard> => {
 				const [assignee, comments] = await Promise.all([
@@ -85,7 +85,7 @@ async function remoteBoard(projectId: number): Promise<Board> {
 		return { projectId, cards, degraded };
 	}
 
-	// batched: দুটো call, একসাথে — সব user একবারে, সব গোনা একবারে
+	// batched: two calls, in parallel — all users at once, all counts at once
 	const ids = [...new Set(tasks.map((t) => t.assigneeId))].join(',');
 	const taskIds = tasks.map((t) => t.id).join(',');
 	const [userList, counts] = await Promise.all([
@@ -116,7 +116,7 @@ function localBoard(projectId: number): Board {
 }
 
 const app = express();
-// আলাদা machine এর network এর ভান: internal API এর উত্তর NET_MS দেরিতে
+// pretending to be a separate machine's network: the internal API responds NET_MS late
 if (env.NET_MS > 0 && (env.ROLE === 'users' || env.ROLE === 'comments'))
 	app.use((_req, _res, next) => void sleep(env.NET_MS).then(() => next()));
 
@@ -149,13 +149,13 @@ if (env.ROLE === 'comments') {
 		res.json(Object.fromEntries(ids.map((id) => [String(id), commentCount(id)])));
 	});
 }
-// "সব comment এর export" — CPU এর ভারী কাজ, যে module এর, সেই process এ
+// "export every comment" — heavy CPU work, in the process of the module it belongs to
 if (env.ROLE === 'monolith' || env.ROLE === 'comments') {
 	app.get('/export', (_req, res) => {
 		res.json({ bytes: exportComments(env.EXPORT_MS) });
 	});
 }
-// Error handler — Express চেনে চারটা parameter দেখে। উত্তর আগেই পাঠানো শুরু হলে Express এর নিজের handler এ দেওয়া
+// Error handler — Express recognizes it by its four parameters. If the response has already started, hand it to Express's own handler
 app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 	if (res.headersSent) {
 		next(error);
@@ -165,12 +165,12 @@ app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 });
 
 const server = app.listen(0, '127.0.0.1', () => {
-	const { port } = server.address() as AddressInfo; // listen(0) এর পরে address() সবসময় AddressInfo
+	const { port } = server.address() as AddressInfo; // after listen(0), address() is always an AddressInfo
 	process.send?.({ type: 'ready', port });
 });
 server.keepAliveTimeout = 30_000;
 
-// parent CPU এর হিসাব চাইলে — এই process এর নিজের user + system CPU সময়
+// when the parent asks for the CPU accounting — this process's own user + system CPU time
 process.on('message', (msg: unknown) => {
 	if (msg === 'cpu') {
 		const { user, system } = process.cpuUsage();

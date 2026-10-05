@@ -14,9 +14,9 @@ const PRIMARY_PORT = Number(process.env.PRIMARY_PORT ?? 5438);
 const REPLICA_PORT = Number(process.env.REPLICA_PORT ?? 5439);
 const credentials = { username: 'taskflow', password: 'taskflow', database: 'taskflow' };
 
-// TaskFlow এর app connection — Sequelize এর built-in read replication।
-// Transaction এর বাইরের SELECT যায় `read` pool এ (replica), বাকি সব `write` এ (primary)।
-// ঠিক এই সুবিধাটাই read-your-writes bug এর জন্ম দেয় (lag.ts)।
+// TaskFlow's app connection — Sequelize's built-in read replication.
+// SELECTs outside a transaction go to the `read` pool (the replica), everything else to `write` (the primary).
+// Exactly this convenience gives birth to the read-your-writes bug (lag.ts).
 export const app = new Sequelize({
 	dialect: 'postgres',
 	logging: false,
@@ -27,7 +27,7 @@ export const app = new Sequelize({
 	pool: { max: 10, min: 0, idle: 10_000 }
 });
 
-// সরাসরি connection — admin কাজ আর মাপার জন্য (LSN, lag, setting)
+// a direct connection — for admin work and measuring (LSN, lag, settings)
 function direct(port: number): Sequelize {
 	return new Sequelize({ dialect: 'postgres', logging: false, host: HOST, port, ...credentials });
 }
@@ -67,9 +67,9 @@ export function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Replica তে কৃত্রিম lag: WAL পেয়ে গেলেও প্রয়োগ করার আগে এতক্ষণ অপেক্ষা করবে।
-// recovery_min_apply_delay একটা আসল Postgres setting (ইচ্ছাকৃত "delayed replica" বানাতে
-// ব্যবহার হয়) — এখানে ভারী load বা দূরের network এর lag নকল করতে।
+// Artificial lag on the replica: even after receiving the WAL it waits this long before applying it.
+// recovery_min_apply_delay is a real Postgres setting (used to build a deliberate "delayed replica")
+// — here it imitates the lag of heavy load or a distant network.
 export async function setApplyDelay(ms: number): Promise<void> {
 	await replica.query(`ALTER SYSTEM SET recovery_min_apply_delay = '${ms}ms'`);
 	await replica.query('SELECT pg_reload_conf()');
@@ -85,13 +85,13 @@ export async function setApplyDelay(ms: number): Promise<void> {
 	throw new Error('replica did not pick up recovery_min_apply_delay');
 }
 
-// Replica কি primary এর বর্তমান অবস্থা পর্যন্ত পৌঁছেছে? (প্রতিটা ধাপের আগে পরিষ্কার শুরু)
+// Has the replica reached the primary's current state? (a clean start before every step)
 export async function waitForCatchUp(): Promise<void> {
 	const lsn = await scalarText(primary, 'SELECT pg_current_wal_lsn()::text AS v');
 	await waitForReplay(lsn);
 }
 
-// Replica এর প্রয়োগ করা WAL অবস্থান (LSN) একটা নির্দিষ্ট বিন্দু পার হওয়া পর্যন্ত অপেক্ষা
+// Wait until the replica's applied WAL position (LSN) passes a given point
 export async function waitForReplay(lsn: string, timeoutMs = 10_000): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {

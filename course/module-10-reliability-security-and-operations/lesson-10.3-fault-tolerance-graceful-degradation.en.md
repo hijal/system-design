@@ -65,8 +65,8 @@ Why this distinction matters: 1.5's availability is a **measurement** — how mu
 The direct way to answer the CTO's first question: kill each dependency one at a time and run every user journey. The exercise's `npm run matrix` does exactly that — TaskFlow's seven journeys (`src/journeys.ts`) are real TypeScript functions, and a harness makes each dependency "dead" (connection refused immediately) and runs every journey. The table is not written by hand; it is **discovered** by running the code:
 
 ```
-── A. One dependency dead (connection refused) — the old code ──
-dead dependency            login       board create-task     comment      search      upload  share-link
+── A. One dependency dead (connection refused) — old code ──
+dead dependency          login       board  create-task     comment      search      upload  share-link
 pg-primary                   ✗           ✓           ✗           ✗           ✓           ✗           ✓
 pg-replica                   ✓           ✗           ✓           ✓           ✗           ✓           ✓
 redis-cache                  ✓           ✓          ✗!           ✓           ✓           ✓           ✓
@@ -103,14 +103,14 @@ board (old code):  flags × replica × billing = 0.995 × 0.999 × 0.999 = 99.30
 `npm run matrix`, part D — simulate 10 years, killing each dependency at random times according to its availability, and run every journey every minute:
 
 ```
-journey        hard deps (old)      formula   old code    down/year   hard deps (new)        ran      full     down/year
-login                       3   99.351%    99.368%    3,320 min               2   99.861%   99.861%      731 min
-board                       3   99.301%    99.300%    3,680 min               0  100.000%   99.791%        0 min
-create-task                 3   99.351%    99.353%    3,399 min               1   99.948%   99.733%      274 min
-comment                     3   99.351%    99.346%    3,440 min               1   99.948%   99.948%      274 min
-search                      2   99.401%    99.412%    3,093 min               1   99.904%   99.904%      505 min
-upload                      3   99.440%    99.438%    2,952 min               2   99.931%   99.931%      360 min
-share-link                  1   99.500%    99.507%    2,592 min               0  100.000%  100.000%        0 min
+journey        hard dep (old)   formula   old code  down/year   hard dep (new)    worked   in full  down/year
+login                       3   99.351%    99.368%  3,320 min                2   99.861%   99.861%    731 min
+board                       3   99.301%    99.300%  3,680 min                0  100.000%   99.791%      0 min
+create-task                 3   99.351%    99.353%  3,399 min                1   99.948%   99.733%    274 min
+comment                     3   99.351%    99.346%  3,440 min                1   99.948%   99.948%    274 min
+search                      2   99.401%    99.412%  3,093 min                1   99.904%   99.904%    505 min
+upload                      3   99.440%    99.438%  2,952 min                2   99.931%   99.931%    360 min
+share-link                  1   99.500%    99.507%  2,592 min                0  100.000%  100.000%      0 min
 ```
 
 - **The formula and the simulation match almost exactly** (board: 99.301% versus 99.300%). The product is not a theoretical guess — with independent failures, this is what happens.
@@ -129,7 +129,7 @@ The rows that changed in the new code's matrix (`npm run matrix`, part B):
 
 ```
 ── B. One dependency dead — code written with degradation in mind ──
-dead dependency            login       board create-task     comment      search      upload  share-link
+dead dependency          login       board  create-task     comment      search      upload  share-link
 pg-replica                   ✓           ~           ✓           ✓           ✗           ✓           ✓
 redis-cache                  ✓           ✓           ~           ✓           ✓           ✓           ✓
 redis-queue                  ✓           ✓           ✓           ✓           ✓           ✓           ✓
@@ -152,8 +152,8 @@ Notice that search's `✗` is still there in the new code. When the replica dies
 **Slow is worse than dead.** Part C of the matrix is the same table, but the dependency is not dead — it answers in 3 seconds:
 
 ```
-── C. One dependency slow (answers in 3 s) — the old code ──
-slow dependency            login       board create-task     comment      search      upload  share-link
+── C. One dependency slow (answers in 3 s) — old code ──
+slow dependency          login       board  create-task     comment      search      upload  share-link
 redis-cache                  ✓        3.0s        3.0s           ✓           ✓           ✓        3.0s
 redis-limiter             3.0s        3.0s        3.0s        3.0s        3.0s           ✓           ✓
 flags                     3.0s        3.0s        3.0s        3.0s        3.0s        3.1s        3.0s
@@ -178,11 +178,11 @@ k = 3  →  0.011 seconds down per year
 Three copies, and a hundredth of a second a year — practically indestructible. Now `npm run redundancy` — the billing service, simulated over 40 years, with three kinds of fault: an instance dies (on average once every 30 days), a whole AZ (availability zone — a group of data centres, 8.1's failure domain) dies half a time a year for two hours, and three deploys a week, 3% of them bad:
 
 ```
-design                                  formula down/yr        measured     failed min/yr  instance      AZ   deploy       fully down
-1 instance                                  365 min    99.905%               497       343      82       72       461 min
-3, same AZ, deployed together             0.011 s    99.970%               160         6      82       72       117 min
-3, 3 AZs, deployed together               0.011 s    99.985%                78         6       0       72        35 min
-3, 3 AZs, one at a time                   0.011 s    99.992%                43         6       0       37         0 min
+design                          formula down/year   measured   failed min/year  instance      AZ   deploy  full outage
+1 instance                                365 min    99.905%               497       343      82       72     461 min
+3, same AZ, deployed together              0.011 s    99.970%               160         6      82       72     117 min
+3, 3 AZs, deployed together               0.011 s    99.985%                78         6       0       72      35 min
+3, 3 AZs, one at a time                   0.011 s    99.992%                43         6       0       37       0 min
 ```
 
 - **The formula says 0.011 seconds, the measurement says 160 minutes** — almost 900,000 times more. The formula handled instances dying individually just fine (343 → 6 minutes). But the other two causes kill the three copies **together**: when the AZ dies, all three are in it, and a bad deploy goes to all three at once.
@@ -199,19 +199,19 @@ And one more caution, from the exercise's experiment 4: deploying one at a time 
 Now Monday morning. No dependency died here; the problem is **your own capacity**. `npm run brownout` — 48 workers, a normal 600 req/s, at 9 a.m. 2.5 times that (1,500 req/s) for seven minutes, and clients leave after 3 seconds. The worker time for one full board page:
 
 ```
-full page = task list 8 ms + comment counts 5 ms + activity panel 12 ms + "More boards like this" 25 ms = 50 ms
-capacity: 960 req/s at full page; dropping parts, 25 ms → 1,920 req/s, 13 ms → 3,692 req/s, 8 ms → 6,000 req/s
+full page = task list 8 ms + comment counts 5 ms + activity panel 12 ms + "more boards like this" 25 ms = 50 ms
+capacity: 960 req/s with the full page; at the brownout levels 25 ms → 1,920 req/s, 13 ms → 3,692 req/s, 8 ms → 6,000 req/s
 ```
 
 At full page the capacity is 960 req/s, and 1,500 arrived. But the core work — the task list — is only 16% of the total cost. What happened to the requests that arrived during the seven minutes of load:
 
 ```
-policy                     got board   full page      503   timeout       p50       p99   wasted work   recovery after load
-nothing                         0.0%       0.0%     0.0%    100.0%         —         —    100.0%      not even in 15 min
-+ deadline check            34.1%      34.1%     0.0%     65.9%    2.99 s    3.00 s     59.1%           immediately
-load shedding (7.4)         64.0%      64.0%    36.0%      0.0%    348 ms    373 ms      0.0%           immediately
-brownout                   100.0%       2.9%     0.0%      0.0%     18 ms    360 ms      0.0%           immediately
-brownout + shedding         99.7%       3.1%     0.3%      0.0%     18 ms    315 ms      0.0%           immediately
+policy                  got board  full page      503   timeout       p50       p99  wasted work  recovery after load
+nothing                      0.0%       0.0%     0.0%    100.0%         —         —      100.0%  not even in 15 minutes
++ deadline check            34.1%      34.1%     0.0%     65.9%    2.99 s    3.00 s       59.1%          immediately
+load shedding (7.4)         64.0%      64.0%    36.0%      0.0%    348 ms    373 ms        0.0%          immediately
+brownout                   100.0%       2.9%     0.0%      0.0%     18 ms    360 ms        0.0%          immediately
+brownout + shedding         99.7%       3.1%     0.3%      0.0%     18 ms    315 ms        0.0%          immediately
 ```
 
 **Nothing:** nobody got a board. Zero. And it does not recover even after the load is gone — until the 15-minute run ended, nobody got an answer in time. Why: about a hundred thousand requests piled up in the queue, the workers are finishing them in order — and each one's client left long ago. **Wasted work 100%**: every worker moment spent on a request whose answer nobody will read. This is Monday's "the rush eased at 9:08, but the site did not recover."
@@ -236,7 +236,7 @@ brownout:       reduce the cost    →  everyone gets something, nobody gets eve
 Brownout's levels minute by minute (`npm run brownout`, part B) — 0 means the full page, 3 means just the task list:
 
 ```
-minute       req/s   avg level  brownout p99     nothing: p99      nothing: on time
+minute     req/s  avg level  brownout p99  nothing: p99  nothing: on time
 2            598      0.00         74 ms         74 ms           100.0%
 3          1,048      0.84        187 ms        2.90 s            63.4%
 4          1,495      1.49        350 ms             —             0.0%
@@ -273,12 +273,12 @@ Saturday's root mistake: **every data plane request depended on the control plan
 `npm run static` — `flags` dead from minute 30 to 75; from minute 50 to 80 traffic goes from 600 to 1,000 req/s (the autoscaler brings up new instances); and instances crash and restart now and then. Four designs:
 
 ```
-design                              failed requests      worst minute         short minutes    failed boots   config age (max)
-ask on every request                     44.05%              100.0%            45           0                        —
-cache, TTL 5 minutes                     40.82%              100.0%            40         463                 5 minutes
-last-known-good                          12.08%               50.0%            25         463                45 minutes
-last-known-good + snapshot                0.24%               20.0%             1           0                45 minutes
-   in this run: 9 crashes/restarts, the autoscaler brought up 6 new instances; failed requests = % of the total over all 120 minutes
+design                        failed requests        worst minute  short minutes  failed boots         config age (max)
+ask on every request                   44.05%              100.0%            45             0                        —
+cache, TTL 5 minutes                   40.82%              100.0%            40           463                5 minutes
+last-known-good                        12.08%               50.0%            25           463               45 minutes
+last-known-good + snapshot              0.24%               20.0%             1             0               45 minutes
+   in this run: 9 crash/restarts, the autoscaler brought up 6 new instances; failed requests = % of the total over all 120 minutes
 ```
 
 - **Ask on every request:** everything fails for the full 45 minutes of the outage.
@@ -323,20 +323,20 @@ There is a low-tech form too: the **game day** — on a scheduled day the team i
 Say the board's code still has a hidden hard dependency (1.2's plan badge). A 2-second delay is being injected into billing. What % of traffic do you inject it into? `npm run chaos` — 500 req/s, a normal error rate of 0.05%, stopped two ways: a **global alarm** (stop if the whole site's errors over the last 60 seconds exceed 0.2% — an ordinary SLO alert), and a **control group** (keep an untouched group the same size as the experiment, and stop when the difference in errors between the two groups is statistically clear). Each condition 200 times, median:
 
 ```
-── A. Loud bug — 60% of injected requests fail (plan badge on every paid board, no timeout) ──
-blast radius    global: caught      when       damage  control: caught      when       damage
+── A. A loud bug — 60% of injected requests fail (plan badge on every paid board, no timeout) ──
+blast radius     global: caught      when     harm  control: caught      when     harm
 0.1%                     3%      10 s      540         100%      30 s        8
 1%                     100%      10 s       29         100%      10 s       29
 5%                     100%      10 s      149         100%      10 s      149
-100% (everyone)        100%      10 s    2,997            —         —        —
+100% (all)                 100%      10 s    2,997                —         —        —
 
-── B. Subtle bug — 5% of injected requests fail (only on boards with 500+ tasks) ──
-blast radius    global: caught      when       damage  control: caught      when       damage
-0.1%                     0%         —       45         100%    6.2 min        9
+── B. A subtle bug — 5% of injected requests fail (only on boards with 500+ tasks) ──
+blast radius     global: caught      when     harm  control: caught      when     harm
+0.1%                         0%         —       45             100%   6.2 min        9
 1%                       2%      10 s      447         100%      40 s       11
 5%                     100%      10 s       14         100%      10 s       14
 25%                    100%      10 s       61         100%      10 s       61
-100% (everyone)        100%      10 s      250            —         —        —
+100% (all)                 100%      10 s      250                —         —        —
 ```
 
 ("Damage" = user requests that failed because of the fault before it was stopped; if not caught, over the full 30 minutes.)
@@ -350,8 +350,8 @@ So the shape of the decision: **start small, but when you start small keep a con
 **And the opposite mistake — stopping for no reason.** The same experiment, but the code is fine (the fault is harmless):
 
 ```
-── C. Code is fine, fault is harmless — yet stopped by mistake, in what % of runs ──
-blast radius       global: false stop     control: false stop
+── C. The code is fine, the fault harmless — yet stopped by mistake, in what % of runs ──
+blast radius    global: false stop  control: false stop
 1%                          0.0%               0.0%
 5%                          0.0%               0.5%
 50%                         0.0%               1.5%

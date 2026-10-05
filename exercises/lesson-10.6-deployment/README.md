@@ -62,19 +62,19 @@ npm run rename
 `npm run rollout` — একটা bug যা মাত্র ১% traffic কে ছোঁয়, সেটা কোনো alert বাজায় না; শুধু canary ধরে:
 
 ```
-বড় business board এ ২০% error (traffic এর 1%)
-big-bang (সব একসাথে)                                 4,164        582 (1%)       ধরেনি                 —           —
-canary, gate: error, user ধরে sticky                    5          5 (0%)      11 মি        gate, 5% এ        12 মি
+20% errors on big business boards (1% of traffic)
+big-bang (all at once)                             4,164        582 (1%)    missed                 —           —
+canary, gate: error, sticky per user                   5          5 (0%)    11 min       gate, at 5%      12 min
 
-১০% request ধীর (> ১ s), error নেই
-canary, gate: error, user ধরে sticky               28,010    21,751 (36%)      32 মি       alert → মানুষ        42 মি
-canary, gate: error + latency + segment               24         23 (0%)     1.0 মি        gate, 1% এ       1.5 মি
+10% of requests slow (> 1 s), no errors
+canary, gate: error, sticky per user              28,010    21,751 (36%)    32 min     alert → human      42 min
+canary, gate: error + latency + segment               24         23 (0%)   1.0 min       gate, at 1%     1.5 min
 
-canary       সময়  canary request    +০.২% ধরে      +১% ধরে    ভুল alarm          প্রতি মিনিটে দেখলে
-1%          30 মি           5,400         80%        100%        1.0%                5.5%
+canary       time  canary request    +0.2% hit     +1% hit   false pos.  checked per minute
+1%          30 min         5,400         80%        100%        1.0%                5.5%
 
-request এলোমেলো                        35,663 (59%)                35,663 (59%)
-user ধরে sticky                        2,963 (5%)                      0 (0%)
+random per request                  35,663 (59%)                35,663 (59%)
+sticky per user                       2,963 (5%)                      0 (0%)
 ```
 
 `npm run flags` — hash এ flag এর নাম না মেশালে একই ১০% user সব experiment এ; দুই service আলাদা key দিয়ে দেখলে এক
@@ -85,19 +85,19 @@ hash(user)                     5,869 (10%)                   0             5,869
 hash(flag + user)              6,041 (10%)                   0               616
 
 flag, streaming push                             3 s             3 s                  40
-flag নেই: rollback deploy                        11 মি            11 মি               9,900
+no flag: rollback deploy                      11 min          11 min               9,900
 
 BFF hash(user), API hash(session)                    180,000   61,331 (34.07%)
-BFF একবার ঠিক করে, header এ পাঠায়                         180,000         0 (0.00%)
+BFF decides once, sends it in a header               180,000         0 (0.00%)
 ```
 
 `npm run drain` — graceful সারিতে ব্যর্থ শূন্য; বাকিগুলোতে কয়েক শতাংশ:
 
 ```
-health check নেই, হঠাৎ kill                      3,090         130          35     165 (5.34%)       289    485 ms
-health check, হঠাৎ kill, LB GET retry           3,132           0          20      20 (0.64%)       254    482 ms
-health check, SIGTERM এ শুধু close()             3,146         111          36     147 (4.67%)       264    484 ms
-graceful: readiness → অপেক্ষা → close              4,252           0           0       0 (0.00%)         3    157 ms
+no health check, abrupt kill                   3,090         130          35     165 (5.34%)       289    485 ms
+health check, abrupt kill, LB GET retry        3,132           0          20      20 (0.64%)       254    482 ms
+health check, only close() on SIGTERM          3,146         111          36     147 (4.67%)       264    484 ms
+graceful: readiness → wait → close             4,252           0           0       0 (0.00%)         3    157 ms
 ```
 
 `npm run locks` — `ADD COLUMN` নিজে মুহূর্তের, কিন্তু একটা লম্বা query এর পেছনে দাঁড়ালে পুরো app তার পেছনে লাইনে:
@@ -105,23 +105,23 @@ graceful: readiness → অপেক্ষা → close              4,252      
 ```
 ADD COLUMN archived boolean DEFAULT false          10 ms       15          2 ms          3 ms          0      0
 ADD COLUMN score float DEFAULT random()           669 ms       38        646 ms        646 ms          8      0
-ADD COLUMN priority int, সামনে 6 s এর query         6.05 s      476        5.70 s        5.70 s          8      0
-একই, lock_timeout 200 ms + retry                  6.38 s    7,421        200 ms        202 ms          0      0
-একটা UPDATE এ সব                                   4.92 s      483          0 ms        4.83 s          8      0
-batch এ (10,000টা করে, মাঝে ২০ ms)                    6.16 s    8,271          0 ms         36 ms          0      0
+ADD COLUMN priority int, behind a 6 s query       6.05 s      476        5.70 s        5.70 s          8      0
+the same, lock_timeout 200 ms + retry             6.38 s    7,421        200 ms        202 ms          0      0
+all in one UPDATE                                 4.92 s      483          0 ms        4.83 s          8      0
+in batches (10,000 each, 20 ms apart)             6.16 s    8,271          0 ms         36 ms          0      0
 ```
 
 `npm run rename` — এক ধাপে rename এ হাজার error; expand/contract এর প্রতিটা ধাপে শূন্য; আর চারটা ভুল:
 
 ```
-migration আগে, তারপর deploy                          v1 → v2   9,544   4,223         0
-তারপর rollback (migration ফেরানো হয়নি)                  v2 → v1   8,306   4,219         0
-২. deploy: দুটোতে লেখা                                v1 → v1.5   9,883       0         0
-   backfill (name IS DISTINCT FROM title): 11টা batch, 18,287টা row বদলাল; এখন name ≠ title: 0
-৬. contract: title মোছা                                   v2   4,959       0         0
-dual-write বাদ: expand + backfill → সরাসরি v2         v1 → v2   9,942       0       278
-   এখন name আর title আলাদা এমন row: 3,711
-   backfill (name IS NULL): 11টা batch, 18,276টা row বদলাল; এখন name ≠ title: 6
+migration first, then deploy                       v1 → v2   9,544   4,223         0
+then rollback (migration not reverted)             v2 → v1   8,306   4,219         0
+2. deploy: write to both                         v1 → v1.5   9,883       0         0
+   backfill (name IS DISTINCT FROM title): 11 batches, 18,287 rows changed; name ≠ title now: 0
+6. contract: drop title                                 v2   4,959       0         0
+no dual-write: expand + backfill → v2              v1 → v2   9,942       0       278
+   rows where name and title now differ: 3,711
+   backfill (name IS NULL): 11 batches, 18,276 rows changed; name ≠ title now: 6
 ```
 
 ## কী দেখার জন্য এটা বানানো

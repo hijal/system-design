@@ -75,10 +75,10 @@ To the app it's still a single `activity` table — on `INSERT`, Postgres itself
 The exercise's `npm run partition` — 12 months × 100,000 = 1,200,000 events, the same data in a plain table and in a partitioned table:
 
 ```
-query                                    plain table     partitioned
-project 42, last 7 days                  0.03 ms         0.04 ms — activity_2026_09
-project 42, all time (no time condition) 0.22 ms         0.62 ms — 12 partitions
-every event of a whole month (August)    22.41 ms        9.14 ms — activity_2026_08
+query                                    plain table                partitioned
+project 42, last 7 days                  0.03 ms                    0.04 ms — activity_2026_09
+project 42, all time (no time condition) 0.22 ms                    0.62 ms — 12 partitions
+every event of a whole month (August)    22.41 ms                   9.14 ms — activity_2026_08
 ```
 
 Here's an honest point many articles don't make: **partitioning isn't a substitute for an index.** First line — for a query with an index, partitioning gave no benefit. Second line — when the query lacks the partition key (`createdAt`), the partitioned table is **nearly three times slower**, because it has to walk the 12 indexes of 12 partitions. Only in the third line — where one whole partition has to be read — is the gain clear.
@@ -86,8 +86,8 @@ Here's an honest point many articles don't make: **partitioning isn't a substitu
 The real gain is elsewhere — **deleting old data**:
 
 ```
-plain table: DELETE (103,334 rows)        99 ms   WAL   11.5 MB   table size 142.2 MB → 142.2 MB
-partitioned: DETACH + DROP partition       8 ms   WAL    0.1 MB   (the whole file is gone)
+plain table: DELETE (103,334 rows)         99 ms   WAL   11.5 MB   table size 142.2 MB → 142.2 MB
+partitioned: DETACH + DROP partition        8 ms   WAL    0.1 MB   (the whole file is gone)
 ```
 
 `DELETE` marks every row "dead" one by one, writes WAL for each (Lesson 5.3), and — notice — the table **didn't shrink by a single byte**. VACUUM later makes the dead rows' space reusable, but doesn't return the disk space to the operating system. Dropping a partition, on the other hand, means deleting its file outright — almost no WAL, and the disk is freed immediately. That is the answer to TaskFlow's hours-long nightly cleanup job.
@@ -151,11 +151,11 @@ Changing the shard key later is almost as hard as rebuilding the whole system. A
 The exercise's `npm run keys` splits the same day's 1,000,000 writes across 4 shards with four different keys (40% of the writes come from one huge workspace):
 
 ```
-shard key                      share of writes per shard      busiest   shards holding workspace 7's data
-hash(workspaceId)               14%  16%  15%  55%                55%        1
-hash(taskId)                    25%  25%  25%  25%                25%        4
-range(createdAt) — quarterly     0%   0%   0% 100%               100%        1
-hash(workspaceId, projectId)    17%  33%  25%  25%                33%        4
+shard key                      share of writes per shard        busiest   shards holding workspace 7's data
+hash(workspaceId)               14%  16%  15%  55%                   55%        1
+hash(taskId)                    25%  25%  25%  25%                   25%        4
+range(createdAt) — quarterly     0%   0%   0% 100%                  100%        1
+hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        4
 ```
 
 Each line is a separate lesson:

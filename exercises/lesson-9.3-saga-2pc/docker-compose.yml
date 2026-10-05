@@ -1,9 +1,9 @@
-# শুধু Postgres। একই container এ তিনটা database: taskflow (monolith, তুলনার জন্য), tasks_svc (work service —
-# saga এর orchestrator আর 2PC এর coordinator এর log ও এখানে), billing_svc (billing service)। আলাদা database
-# মানে একটা সাধারণ transaction দুটোকে ছুঁতে পারে না — যেমন আলাদা machine এ হতো।
+# Only Postgres. Three databases in the same container: taskflow (the monolith, for comparison), tasks_svc (the work service —
+# also holding the saga orchestrator's and the 2PC coordinator's log), billing_svc (the billing service). Separate databases
+# mean an ordinary transaction can't touch both — as it would be on separate machines.
 #
-# max_prepared_transactions: Postgres এ two-phase commit (PREPARE TRANSACTION) default এ বন্ধ (0) —
-# এখানে চালু করা হয়েছে। Port 5448 — আগের exercise গুলোর সাথে সংঘাত নেই।
+# max_prepared_transactions: two-phase commit (PREPARE TRANSACTION) is off (0) by default in Postgres —
+# it is turned on here. Port 5448 — no clash with the earlier exercises.
 services:
   postgres:
     image: postgres:17-alpine

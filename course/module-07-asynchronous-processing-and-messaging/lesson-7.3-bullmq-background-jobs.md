@@ -23,7 +23,7 @@ Lesson 7.2 এর সিদ্ধান্ত: TaskFlow এর message দুই
 আজ সেটা বানাব। আর বানানোর পরে একটা পরীক্ষা, যেটার জন্য দুই lesson ধরে অপেক্ষা করছি। Lesson 7.1 এর শেষ experiment টা মনে করো: in-memory queue, ধীর provider, আর ঠিক মাঝখানে API process এ `SIGKILL`। ফল ছিল:
 
 ```
-   "সফল" বলা হলো, email যায়নি: 103
+   told "ok", email never sent: 103
 ```
 
 ১০৩ জন user "assign হয়েছে" দেখেছিল; তাদের assignee রা কোনো email পায়নি; কেউ জানেও না। আজ একই পরীক্ষা, BullMQ দিয়ে।
@@ -71,16 +71,16 @@ Producer এর দিক, exercise এর `api.ts` থেকে (মূল অ�
 const queue = new Queue<AssignEmail>(QUEUE_NAME, { connection });
 
 app.post('/api/tasks/:id/assign', async (req: Request, res: Response): Promise<void> => {
-	// … taskId আর body Zod দিয়ে validate …
+	// … taskId and body validated with Zod …
 	try {
-		// queue.add ফেরে যখন job টা Redis এ লেখা হয়ে গেছে — এর পরে API মরলেও job থাকে
+		// queue.add returns once the job is written to Redis — after this the job survives even if the API dies
 		const job = await queue.add(JOB_ASSIGN_EMAIL, data, {
 			...assignJobOptions(env.ATTEMPTS), // attempts, backoff, removeOnComplete …
-			jobId: assignJobId(data) // `assign-${taskId}-${assigneeId}` — ১.৭ এ
+			jobId: assignJobId(data) // `assign-${taskId}-${assigneeId}` — in 1.7
 		});
 		res.status(202).json({ taskId: data.taskId, jobId: job.id });
 	} catch (error: unknown) {
-		// Redis পাওয়া যাচ্ছে না — job লেখা হয়নি। চুপ করে 202 দেওয়া মানে 7.1 এর fire-and-forget।
+		// Redis can't be reached — the job wasn't written. Quietly returning 202 would be 7.1's fire-and-forget.
 		res.status(503).json({ error: 'QUEUE_UNAVAILABLE' });
 	}
 });
@@ -92,13 +92,13 @@ Consumer এর দিক, `worker.ts`:
 
 ```typescript
 async function processAssignEmail(job: Job): Promise<void> {
-	// Redis থেকে আসা data — অন্য process লিখেছে, তাই বিশ্বাস না করে parse
+	// data coming from Redis — another process wrote it, so parse it instead of trusting it
 	const data = assignEmailSchema.parse(job.data);
 	const res = await fetch(`${env.PROVIDER_URL}/send`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ key: job.id, to: data.to }),
-		signal: AbortSignal.timeout(env.SEND_TIMEOUT_MS) // বাইরের call এ timeout ছাড়া কিছু না (7.1)
+		signal: AbortSignal.timeout(env.SEND_TIMEOUT_MS) // no external call without a timeout (7.1)
 	});
 	if (!res.ok) throw new Error(`provider responded ${res.status}`);
 }
@@ -106,7 +106,7 @@ async function processAssignEmail(job: Job): Promise<void> {
 const worker = new Worker(QUEUE_NAME, processAssignEmail, {
 	connection,
 	concurrency: env.CONCURRENCY,
-	lockDuration: env.LOCK_MS, // ১.৫ এ
+	lockDuration: env.LOCK_MS, // in 1.5
 	stalledInterval: env.STALLED_MS
 });
 ```
@@ -149,13 +149,13 @@ Lesson 7.2 এর ভাষায় এই ছবিটা পড়ো: `activ
 Exercise এর `npm run inspect` একটা ছোট queue তে প্রতিটা অবস্থার একটা করে job বানিয়ে Redis এর key গুলো সরাসরি দেখায় (BullMQ 5.81 এ; version ভেদে খুঁটিনাটি বদলাতে পারে):
 
 ```
-   Redis এর key (bull:inspect-demo:*):
+   Redis keys (bull:inspect-demo:*):
      completed            zset    demo-completed
      delayed              zset    demo-delayed
      demo-completed       hash
      demo-delayed         hash
      …
-     events               stream  16 টা event
+     events               stream  16 events
      failed               zset    demo-failed
      prioritized          zset    demo-prioritized
      wait                 list    demo-waiting
@@ -183,14 +183,14 @@ command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendon
 এবার পরীক্ষা। Load Lesson 7.1 এর মতোই: প্রতি সেকেন্ডে ২০টা assign, ৮ সেকেন্ড স্বাভাবিক → ৮ সেকেন্ড ধীর (provider প্রতি email এ ২ সেকেন্ড) → ৮ সেকেন্ড আবার স্বাভাবিক। একটা worker process, concurrency ৮। প্রথমে কেউ মরে না — `npm run scenario`:
 
 ```
-   phase            API p50 / p99     API ব্যর্থ
-   স্বাভাবিক          22 ms / 53 ms            0
-   provider ধীর       30 ms / 53 ms            0
-   সেরে ওঠার পর       29 ms / 35 ms            0
+   phase            API p50 / p99     API failed
+   normal             22 ms / 53 ms            0
+   provider slow      30 ms / 53 ms            0
+   after recovery     29 ms / 35 ms            0
 
-   queue এ সর্বোচ্চ: waiting 127, delayed (retry এর অপেক্ষায়) 0
-   email পৌঁছাতে (job যোগ থেকে): p50 194 ms, p99 6.8 s, max 6.8 s
-   "202 পেল, email যায়নি": 0
+   most in the queue: waiting 127, delayed (waiting to retry) 0
+   email delivery (from job added): p50 194 ms, p99 6.8 s, max 6.8 s
+   "got 202, the email never went": 0
 ```
 
 7.1 এর queue এর মতোই আকৃতি: provider ধীর হলেও API কয়েক দশ ms, ক্ষতিটা backlog আর দেরিতে। Backlog হাতে মেলাও: ধীর phase এ ৮ worker ÷ ২ s = ৪ email/s বের হয়, আসে ২০ → +১৬/s × ৮ s = **১২৮** (মাপা ১২৭)। একটা পার্থক্য: API এর p50 এখন ~২০–৩০ ms, 7.1 এর in-memory queue এর ~১০ ms না — প্রতিটা `queue.add` Redis এ একটা network round trip। টেকসই হওয়ার দাম, আর সস্তা দাম।
@@ -198,12 +198,12 @@ command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendon
 এবার আসল পরীক্ষা — `CRASH=api`, ধীর phase এর মাঝখানে (১২ সেকেন্ডে) API process `SIGKILL`, সাথে সাথে নতুন API:
 
 ```
-    12.0 s  API process SIGKILL — নতুন API চালু হচ্ছে
+    12.0 s  API process SIGKILL — a new API is starting
 
-   phase            API p50 / p99     API ব্যর্থ
-   provider ধীর       32 ms / 53 ms            3
+   phase            API p50 / p99     API failed
+   provider slow      32 ms / 53 ms            3
 
-   "202 পেল, email যায়নি": 0
+   "got 202, the email never went": 0
 ```
 
 **শূন্য।** ১০৩ থেকে ০। কারণ ১.১ এর সেই বাক্য: job API এর memory তে কখনো ছিলই না। `queue.add` ফেরার মুহূর্তে job Redis এ; তার পরে API মরুক, বাঁচুক — worker job টা পাবে।
@@ -225,12 +225,12 @@ Lesson 6.1 এর প্রশ্নটাই, নতুন জায়গা�
 `CRASH=worker-kill` — ১২ সেকেন্ডে worker `SIGKILL`, সাথে সাথে নতুন worker (exercise এ `lockDuration` ১০ s আর `stalledInterval` ৫ s — run ছোট রাখতে; default দুটোই ৩০ s):
 
 ```
-    12.0 s  worker SIGKILL (queue এ তখন active: 8) — নতুন worker চালু হচ্ছে
+    12.0 s  worker SIGKILL (active in the queue at the time: 8) — a new worker is starting
 
-   job: completed 478, failed 0   · চেষ্টা লেগেছে: 1 বার → 478
-   email পৌঁছাতে (job যোগ থেকে): p50 194 ms, p99 18.7 s, max 18.9 s
-   "202 পেল, email যায়নি": 0
-   একই email দুবার (বা বেশি) পৌঁছেছে: 8
+   jobs: completed 478, failed 0   · attempts needed: 1 → 478
+   email delivery (from job added): p50 194 ms, p99 18.7 s, max 18.9 s
+   "got 202, the email never went": 0
+   the same email delivered twice (or more): 8
 ```
 
 পড়ো:
@@ -245,9 +245,9 @@ Lesson 6.1 এর প্রশ্নটাই, নতুন জায়গা�
 ```
    worker error: could not renew lock for job assign-100-1
    …
-   job: completed 476, failed 2
-   failed এর কারণ: "job stalled more than allowable limit" × 2
-   একই email দুবার (বা বেশি) পৌঁছেছে: 9
+   jobs: completed 476, failed 2
+   reason for failed: "job stalled more than allowable limit" × 2
+   the same email delivered twice (or more): 9
 ```
 
 একটা job আটকেছিল, কিন্তু lock হারাল **সবগুলো** — কারণ event loop একটা; পুরো process থেমে ছিল, তাই তার ৮টা চলমান job এর কারো lock ই renew হয়নি। সবাই stalled, সবাই আবার চলল, ৯টা duplicate। আর আটকানো job টা নিজে? আবার চালানোর সময় আবার ১২ সেকেন্ড আটকাল, আবার stalled — দ্বিতীয়বার, তাই `failed`। নিয়মিত ভেঙে পড়া job এর একটা আদিরূপ, 7.2 এর "poison message" এর মতো।
@@ -261,9 +261,9 @@ Lesson 6.1 এর প্রশ্নটাই, নতুন জায়গা�
 **আর graceful shutdown — deploy যেমন হওয়া উচিত।** `CRASH=worker-term` — একই মুহূর্তে, কিন্তু `SIGKILL` এর বদলে `SIGTERM`:
 
 ```
-    12.0 s  worker SIGTERM (queue এ তখন active: 8) — নতুন worker চালু হচ্ছে
-   email পৌঁছাতে (job যোগ থেকে): p50 199 ms, p99 6.7 s, max 7.0 s
-   একই email দুবার (বা বেশি) পৌঁছেছে: 0
+    12.0 s  worker SIGTERM (active in the queue at the time: 8) — a new worker is starting
+   email delivery (from job added): p50 199 ms, p99 6.7 s, max 7.0 s
+   the same email delivered twice (or more): 0
 ```
 
 Duplicate **০**, দেরিতে কোনো লাফ নেই। Worker এর SIGTERM handler (Lesson 3.4 এর graceful shutdown) `worker.close()` ডাকে: নতুন job নেওয়া বন্ধ, চলমান ৮টা শেষ করা, তারপর exit। Kubernetes বা যেকোনো deploy system আগে SIGTERM দেয়, তারপর একটা grace period (Kubernetes এ default ৩০ সেকেন্ড) পরে SIGKILL। তাই নিয়ম: **grace period তোমার সবচেয়ে লম্বা job এর চেয়ে বড় হতে হবে** — নইলে প্রতিটা deploy এক একটা `worker-kill`।
@@ -275,7 +275,7 @@ Team এর দ্বিতীয় প্রশ্ন। Processor throw ক�
 ```typescript
 {
 	attempts: 5,
-	// 1 s, 2 s, 4 s, 8 s … — আর ±50% jitter
+	// 1 s, 2 s, 4 s, 8 s … — and ±50% jitter
 	backoff: { type: 'exponential', delay: 1000, jitter: 0.5 },
 	removeOnComplete: { age: 3600, count: 10_000 },
 	removeOnFail: { age: 7 * 24 * 3600 }
@@ -289,11 +289,11 @@ Team এর দ্বিতীয় প্রশ্ন। Processor throw ক�
 `FAIL_RATE=0.3` — provider ৩০% সময় `503`:
 
 ```
-   queue এ সর্বোচ্চ: waiting 143, delayed (retry এর অপেক্ষায়) 21
-   job: completed 477, failed 1   · চেষ্টা লেগেছে: 1 বার → 341, 2 বার → 86, 3 বার → 36, 4 বার → 11, 5 বার → 3
-   provider: আলাদা email পৌঁছেছে 477, 503 দিয়েছে 208 বার
-   email পৌঁছাতে (job যোগ থেকে): p50 2.2 s, p99 14.5 s, max 18.8 s
-   "202 পেল, email যায়নি": 1
+   most in the queue: waiting 143, delayed (waiting to retry) 21
+   jobs: completed 477, failed 1   · attempts needed: 1 → 341, 2 → 86, 3 → 36, 4 → 11, 5 → 3
+   provider: distinct emails delivered 477, returned 503 208 times
+   email delivery (from job added): p50 2.2 s, p99 14.5 s, max 18.8 s
+   "got 202, the email never went": 1
 ```
 
 চেষ্টার বণ্টনটা দেখো — প্রায় জ্যামিতিক: প্রতিবার ~৭০% সফল, তাই প্রতিটা ধাপে আগেরটার ~৩০%। ৫ বারই ব্যর্থ হওয়ার সম্ভাবনা 0.3⁵ ≈ 0.24%, ৪৭৮ এর মধ্যে ~১.২ — আর ঠিক **১টা** job `failed`। Retry ছাড়া (experiment ৩, `ATTEMPTS=1`) failed হয় ১৪২টা, ~৩০%।
@@ -314,9 +314,9 @@ Team এর তৃতীয় প্রশ্ন: user দুবার click �
 `DOUBLE_SUBMIT=1` — প্রতিটা assign দুবার পাঠানো:
 
 ```
-   API 202 দিয়েছে: 954 বার, আলাদা job: 477
-   provider: আলাদা email পৌঁছেছে 477
-   একই email দুবার (বা বেশি) পৌঁছেছে: 0
+   API returned 202: 954 times, distinct jobs: 477
+   provider: distinct emails delivered 477
+   the same email delivered twice (or more): 0
 ```
 
 ৯৫৪টা request, ৪৭৭টা job, ৪৭৭টা email। Lesson 2.5 এর idempotency key এর queue-রূপ — আর এবার key টা client দেয়নি, কাজের **পরিচয়** থেকে এসেছে।

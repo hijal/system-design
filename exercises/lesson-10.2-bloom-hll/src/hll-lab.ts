@@ -22,16 +22,16 @@ function sketchOf(prefix: string, count: number, precision = PRECISION): HyperLo
 function accuracy(): void {
 	const sketch = new HyperLogLog(PRECISION);
 	heading(
-		`ক. একটা HyperLogLog (p = ${PRECISION}, ${n(sketch.memoryBytes())} byte) এ একই user বারবার — আসল সংখ্যা বনাম অনুমান`
+		`A. One HyperLogLog (p = ${PRECISION}, ${n(sketch.memoryBytes())} bytes) seeing the same users again and again — real count vs estimate`
 	);
 	console.log(
 		row([
-			['আলাদা user', 14],
-			['অনুমান', 14],
-			['ভুল', 10],
-			['correction ছাড়া', 18],
-			['ভুল', 13],
-			['সঠিক গুনতে ≥', 15]
+			['real users', 14],
+			['estimate', 14],
+			['error', 10],
+			['no correction', 18],
+			['error', 13],
+			['exact needs ≥', 15]
 		])
 	);
 	const checkpoints = [10, 100, 1_000, 10_000, 30_000, 50_000, 100_000, 1_000_000, 10_000_000];
@@ -54,7 +54,7 @@ function accuracy(): void {
 		);
 	}
 	console.log(
-		`   "সঠিক গুনতে ≥" = প্রতিটা user এর শুধু একটা 8-byte hash রাখলেও যত memory লাগত (আসল Set এ আরও বেশি)`
+		`   "exact needs ≥" = the memory needed even if only one 8-byte hash per user were kept (a real Set takes more)`
 	);
 }
 
@@ -73,16 +73,16 @@ function spread(precision: number, count: number): { typical: number; worst: num
 function precisionSweep(): void {
 	const count = 100_000;
 	heading(
-		`খ. Precision বদলালে — ${n(count)} জন আলাদা user, ${TRIALS}টা আলাদা দিন (আলাদা user সেট), প্রতি দিনের অনুমানের ভুল`
+		`B. Changing the precision — ${n(count)} distinct users, ${TRIALS} different days (different user sets), each day's estimate error`
 	);
 	console.log(
 		row([
 			['p', 5],
 			['register', 11],
 			['memory', 11],
-			['তত্ত্ব (1.04/√m)', 18],
-			['মাপা সাধারণ ভুল', 17],
-			['সবচেয়ে খারাপ দিন', 18]
+			['theory (1.04/√m)', 18],
+			['measured RMS', 17],
+			['worst day', 18]
 		])
 	);
 	for (const precision of [4, 6, 8, 10, 12, 14, 16]) {
@@ -99,12 +99,14 @@ function precisionSweep(): void {
 			])
 		);
 	}
-	console.log('   (সাধারণ ভুল = RMS; প্রায় ৯৫% দিনে ভুল তার দ্বিগুণের মধ্যে থাকার কথা)');
+	console.log(
+		'   (RMS = the typical error; on about 95% of days the error should be within twice that)'
+	);
 }
 
 function weekly(): void {
 	heading(
-		'গ. TaskFlow এর ৭ দিন: প্রতিদিন ~২ লাখ active, তার ১.৫ লাখ নিয়মিত — সপ্তাহে আলাদা user কতজন?'
+		"C. TaskFlow's 7 days: ~200k active each day, 150k of them regulars — how many distinct users in the week?"
 	);
 	const random = mulberry32(21);
 	const regulars = 150_000;
@@ -129,15 +131,15 @@ function weekly(): void {
 	const truth = weekExact.size;
 	console.log(
 		row([
-			['পদ্ধতি', 34],
-			['সপ্তাহের user', 16],
-			['ভুল', 12]
+			['approach', 34],
+			['weekly users', 16],
+			['error', 12]
 		])
 	);
 	const cases: [string, number][] = [
-		['আসল (সব ID এর একটা Set)', truth],
-		['৭টা দিনের সংখ্যা যোগ', sumOfDaily],
-		['৭টা HLL merge (register ধরে max)', merged.count()]
+		['exact (a Set of every ID)', truth],
+		['sum of the 7 daily counts', sumOfDaily],
+		['merge 7 HLLs (max per register)', merged.count()]
 	];
 	for (const [label, value] of cases)
 		console.log(
@@ -148,21 +150,21 @@ function weekly(): void {
 			])
 		);
 	console.log(
-		`   প্রতিটা দিনের HLL ${n(days[0]?.memoryBytes() ?? 0)} byte; merge এর পরেও একই আকার — আর ৩০ দিন merge করলেও`
+		`   each day's HLL is ${n(days[0]?.memoryBytes() ?? 0)} bytes; still the same size after merging — even merging 30 days`
 	);
 }
 
 function intersection(): void {
 	const size = 1_000_000;
 	heading(
-		`ঘ. দুটো workspace, প্রত্যেকে ${n(size)} viewer — দুটোতেই কতজন? (|A∩B| = |A| + |B| − |A∪B|)`
+		`D. Two workspaces, ${n(size)} viewers each — how many in both? (|A∩B| = |A| + |B| − |A∪B|)`
 	);
 	console.log(
 		row([
-			['আসল overlap', 14],
-			['আসল দুটোতেই', 14],
-			['HLL দিয়ে', 14],
-			['ভুল', 12]
+			['real overlap', 14],
+			['real in both', 14],
+			['with HLL', 14],
+			['error', 12]
 		])
 	);
 	for (const overlap of [0.5, 0.1, 0.01, 0.001]) {
@@ -182,7 +184,7 @@ function intersection(): void {
 		);
 	}
 	console.log(
-		'   (union ~২০ লাখ, তার ~0.8% ভুল ≈ ১৬,০০০ — পুরোটা গিয়ে পড়ে ছোট intersection এর উপর)'
+		'   (the union is ~2 million, ~0.8% of it ≈ 16,000 — all of it lands on the small intersection)'
 	);
 }
 

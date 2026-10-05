@@ -10,15 +10,15 @@ import {
 	waitForReplay
 } from './db';
 
-// Lesson 5.7 §১.৪ — read-your-writes এর তিনটা সমাধান, আর প্রতিটার দাম।
-// Replica কে ২০০ ms পিছিয়ে রাখা, যাতে দাম গুলো চোখে পড়ে।
+// Lesson 5.7 §1.4 — three solutions for read-your-writes, and the price of each.
+// The replica is kept 200 ms behind, so the prices are visible.
 
 const DELAY_MS = 200;
 const ITERATIONS = 30;
 
 type Strategy = {
 	label: string;
-	// একটা task লেখো, তারপর পড়ে দেখো; পড়ায় পাওয়া গেল কিনা ফেরত দাও
+	// write a task, then read it back; return whether the read found it
 	writeThenRead: () => Promise<{ found: boolean; writeMs: number; readMs: number }>;
 };
 
@@ -30,7 +30,7 @@ async function timed<T>(fn: () => Promise<T>): Promise<{ value: T; ms: number }>
 
 const strategies: Strategy[] = [
 	{
-		label: 'ক. কিছু না (replica থেকে পড়া)',
+		label: 'a. nothing (read from the replica)',
 		writeThenRead: async () => {
 			const w = await timed(() => Task.create({ title: 'naive' }));
 			const r = await timed(() => Task.findByPk(w.value.id));
@@ -38,8 +38,8 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		// নিজের লেখার ঠিক পরের পড়া primary থেকে — Sequelize এর useMaster
-		label: 'খ. useMaster: true (primary থেকে)',
+		// the read right after your own write goes to the primary — Sequelize's useMaster
+		label: 'b. useMaster: true (from the primary)',
 		writeThenRead: async () => {
 			const w = await timed(() => Task.create({ title: 'use-master' }));
 			const r = await timed(() => Task.findByPk(w.value.id, { useMaster: true }));
@@ -47,10 +47,10 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		// লেখার পর primary এর WAL অবস্থান (LSN) মনে রাখো; replica সেখানে পৌঁছানো পর্যন্ত
-		// অপেক্ষা করে তারপর replica থেকে পড়ো। Production এ এই LSN টা একটা token হিসেবে
-		// client কে দেওয়া যায় (cookie/header), যাতে তার পরের request ও এটা মানে।
-		label: 'গ. LSN token — replica ধরা পর্যন্ত অপেক্ষা',
+		// after writing, remember the primary's WAL position (LSN); wait until the replica reaches it
+		// and then read from the replica. In production this LSN can be given to the client as a token
+		// (cookie/header), so that its next request honours it too.
+		label: 'c. LSN token — wait for the replica',
 		writeThenRead: async () => {
 			const w = await timed(async () => {
 				const task = await Task.create({ title: 'lsn-wait' });
@@ -65,9 +65,9 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		// Commit নিজেই অপেক্ষা করে যতক্ষণ না replica এটা প্রয়োগ করে (synchronous replication)।
-		// শুধু এই transaction এর জন্য — SET LOCAL।
-		label: 'ঘ. synchronous_commit = remote_apply',
+		// The commit itself waits until the replica applies it (synchronous replication).
+		// Only for this transaction — SET LOCAL.
+		label: 'd. synchronous_commit = remote_apply',
 		writeThenRead: async () => {
 			const w = await timed(() =>
 				app.transaction(async (transaction) => {
@@ -90,9 +90,9 @@ async function main(): Promise<void> {
 	await app.sync({ force: true });
 	await setApplyDelay(DELAY_MS);
 	console.log(
-		`\n   replica ${DELAY_MS} ms পিছিয়ে; প্রতিটা কৌশলে ${ITERATIONS} বার "লেখো → সাথে সাথে পড়ো"`
+		`\n   replica ${DELAY_MS} ms behind; ${ITERATIONS} times "write → read immediately" for each strategy`
 	);
-	console.log(`   ${'কৌশল'.padEnd(42)} পাওয়া গেছে   লেখা (median)   পড়া (median)`);
+	console.log(`   ${'strategy'.padEnd(42)}    found  write median   read median`);
 
 	for (const strategy of strategies) {
 		await waitForCatchUp();

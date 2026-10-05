@@ -1,12 +1,12 @@
 import { Pool } from 'pg';
 import { z } from 'zod';
 
-// Lesson 8.3 — TaskFlow এর comment, একটা নির্দিষ্ট সূত্রে। Comment নম্বর i এর text সবসময় একই — তাই
-// Postgres এ রাখা text আর inverted.ts এর নিজের index এর text হুবহু মেলে।
+// Lesson 8.3 — TaskFlow's comments, from a fixed formula. Comment number i always has the same text — so
+// the text kept in Postgres and the text in inverted.ts's own index match exactly.
 //
-// প্রতিটা comment ৬–২৫টা শব্দ: ৩৫% ছোট সাধারণ শব্দ (the, to, and — "stopword"), ১৫% TaskFlow এর কাজের
-// শব্দ (deploy, invoice, bug …), বাকিটা ৫০০০টা বানানো শব্দ থেকে Zipf বণ্টনে (অল্প কয়েকটা খুব সাধারণ,
-// বেশিরভাগ বিরল — আসল ভাষার মতো)।
+// Every comment is 6–25 words: 35% short common words (the, to, and — "stopwords"), 15% TaskFlow work
+// words (deploy, invoice, bug …), the rest from 5000 made-up words in a Zipf distribution (a few very common,
+// most rare — like a real language).
 
 export const env = z
 	.object({
@@ -52,9 +52,9 @@ export const STOPWORDS = [
 	'should'
 ];
 
-// TaskFlow এর কাজের শব্দ, আর কত ঘনঘন আসে (আপেক্ষিক ওজন)। কয়েকটা ইচ্ছা করে রাখা:
-// deploy/deployment/deploying/redeploy (stemming), login/blog/catalog ("log" এর substring),
-// start/party/article/smart/art ("art" এর substring), receive (ভুল বানানে খোঁজা হবে)
+// TaskFlow's work words, and how often they appear (relative weight). A few are there on purpose:
+// deploy/deployment/deploying/redeploy (stemming), login/blog/catalog (substrings of "log"),
+// start/party/article/smart/art (substrings of "art"), receive (will be searched misspelled)
 export const DOMAIN: ReadonlyArray<readonly [string, number]> = [
 	['deploy', 20],
 	['deployment', 8],
@@ -112,7 +112,7 @@ const SYLLABLES = [
 	'te'
 ];
 
-// ৫০০০টা বানানো শব্দ — প্রতিটা আলাদা, আর কোনো আসল শব্দের সাথে মেলে না (শেষে "x")
+// 5000 made-up words — each distinct, and none matches a real word (they end in "x")
 export const FILLER = Array.from({ length: 5000 }, (_, i) => {
 	let n = i;
 	let word = '';
@@ -144,7 +144,7 @@ function pick(cdf: Float64Array, r: number): number {
 const fillerCdf = cumulative(FILLER.map((_, rank) => 1 / (rank + 1))); // Zipf
 const domainCdf = cumulative(DOMAIN.map(([, w]) => w));
 
-// comment নম্বর i (১ থেকে) এর text
+// the text of comment number i (from 1)
 export function commentText(i: number): string {
 	const random = mulberry32(Math.imul(i, 2654435761) ^ 0x5bd1e995);
 	const length = 6 + Math.floor(random() * 20);

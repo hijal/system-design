@@ -1,20 +1,20 @@
 import { z } from 'zod';
 import { percentile } from './random';
 
-// Lesson 7.4 §১.৫ — Backpressure: consumer প্রতি সেকেন্ডে 100টা পারে। দুই ধরনের load, চারটা নীতি।
+// Lesson 7.4 §1.5 — Backpressure: the consumer can do 100 per second. Two kinds of load, four policies.
 //
-//   burst     — 5 s ধরে 300/s, তারপর 50/s (মোট গড়ে consumer এর নিচে — শুধু একটা ঢেউ)
-//   sustained — পুরো 60 s ধরে 130/s (সবসময় consumer এর উপরে)
+//   burst     — 300/s for 5 s, then 50/s (on average below the consumer — just one wave)
+//   sustained — 130/s for the full 60 s (always above the consumer)
 //
-// অর্ধেক job "জরুরি" (password reset, mention), অর্ধেক "কম জরুরি" (weekly digest, analytics)।
-// সময় 10 ms এর ধাপে চলে; প্রতি ধাপে consumer একটা job নেয় (100/s)। Random কিছু নেই।
+// Half the jobs are "urgent" (password reset, mention), half "less urgent" (weekly digest, analytics).
+// Time moves in 10 ms steps; on each step the consumer takes one job (100/s). Nothing is random.
 
 const env = z.object({ LIMIT: z.coerce.number().int().positive().default(500) }).parse(process.env);
 
 const TICK = 10;
 const DURATION = 60_000;
 const DRAIN_UNTIL = 300_000;
-const SHED_AT = 300; // এর বেশি লাইন হলে কম জরুরি job আর নেওয়া হয় না
+const SHED_AT = 300; // above this queue length, less urgent jobs are no longer accepted
 
 type Priority = 'high' | 'low';
 type Job = { createdAt: number; priority: Priority };
@@ -22,15 +22,15 @@ type Pattern = { name: string; rate: (t: number) => number };
 type Strategy = 'unbounded' | 'reject' | 'block' | 'shed';
 
 const patterns: Pattern[] = [
-	{ name: 'burst (5 s এ 300/s, তারপর 50/s)', rate: (t) => (t < 5000 ? 300 : 50) },
-	{ name: 'sustained (সবসময় 130/s)', rate: () => 130 }
+	{ name: 'burst (300/s for 5 s, then 50/s)', rate: (t) => (t < 5000 ? 300 : 50) },
+	{ name: 'sustained (always 130/s)', rate: () => 130 }
 ];
 
 const strategies: { key: Strategy; name: string }[] = [
-	{ key: 'unbounded', name: 'সীমাহীন queue' },
-	{ key: 'reject', name: `সীমা ${env.LIMIT}, বেশি হলে 503` },
-	{ key: 'block', name: `সীমা ${env.LIMIT}, producer অপেক্ষা করে` },
-	{ key: 'shed', name: `অগ্রাধিকার: ${SHED_AT} এর পরে কম জরুরি বাদ` }
+	{ key: 'unbounded', name: 'unbounded queue' },
+	{ key: 'reject', name: `limit ${env.LIMIT}, 503 when full` },
+	{ key: 'block', name: `limit ${env.LIMIT}, producer waits` },
+	{ key: 'shed', name: `priority: drop less urgent above ${SHED_AT}` }
 ];
 
 interface Result {
@@ -46,7 +46,7 @@ interface Result {
 
 function run(pattern: Pattern, strategy: Strategy): Result {
 	const queue: Job[] = [];
-	// block নীতিতে: queue ভরা থাকায় producer এর কাছে আটকে থাকা request (user এর HTTP request ঝুলে আছে)
+	// with the block policy: requests held at the producer because the queue is full (the user's HTTP request hangs)
 	const producerWaiting: Job[] = [];
 	const r: Result = {
 		created: 0,
@@ -70,7 +70,7 @@ function run(pattern: Pattern, strategy: Strategy): Result {
 	};
 
 	for (let t = 0; t < DRAIN_UNTIL; t += TICK) {
-		// আগে আটকে থাকা producer রা, আসার ক্রমে
+		// producers held earlier go first, in order of arrival
 		while (producerWaiting.length > 0 && queue.length < env.LIMIT) {
 			const job = producerWaiting.shift();
 			if (job) queue.push(job);
@@ -90,7 +90,7 @@ function run(pattern: Pattern, strategy: Strategy): Result {
 		r.maxQueue = Math.max(r.maxQueue, queue.length);
 		r.maxProducerWaiting = Math.max(r.maxProducerWaiting, producerWaiting.length);
 
-		// consumer: প্রতি ধাপে একটা; shed নীতিতে জরুরিটা আগে (priority queue)
+		// consumer: one per step; with the shed policy the urgent one goes first (priority queue)
 		let index = 0;
 		if (strategy === 'shed') {
 			const high = queue.findIndex((j) => j.priority === 'high');
@@ -111,19 +111,19 @@ function run(pattern: Pattern, strategy: Strategy): Result {
 const fmt = (ms: number): string =>
 	ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`;
 
-console.log(`\n   consumer 100/s · 60 s ধরে load · অর্ধেক জরুরি, অর্ধেক কম জরুরি`);
+console.log(`\n   consumer 100/s · load for 60 s · half urgent, half less urgent`);
 for (const pattern of patterns) {
 	console.log(`\n── ${pattern.name}\n`);
 	console.log(
-		'   নীতি                                   queue সর্বোচ্চ   producer এ আটকে   ফেরানো (জরুরি / কম)   অপেক্ষা p99 (সব / জরুরি)   শেষ কাজ'
+		'   policy                                     queue max    producer held   rejected (urgent / low)   wait p99 (all / urgent)  finished'
 	);
 	for (const s of strategies) {
 		const r = run(pattern, s.key);
 		console.log(
-			`   ${s.name.padEnd(38)}${String(r.maxQueue).padStart(14)}${String(r.maxProducerWaiting).padStart(17)}${`${r.rejectedHigh} / ${r.rejectedLow}`.padStart(22)}${`${fmt(percentile(r.waitAll, 99))} / ${fmt(percentile(r.waitHigh, 99))}`.padStart(26)}${fmt(r.lastDone).padStart(10)}`
+			`   ${s.name.padEnd(38)}${String(r.maxQueue).padStart(14)}${String(r.maxProducerWaiting).padStart(17)}${`${r.rejectedHigh} / ${r.rejectedLow}`.padStart(26)}${`${fmt(percentile(r.waitAll, 99))} / ${fmt(percentile(r.waitHigh, 99))}`.padStart(26)}${fmt(r.lastDone).padStart(10)}`
 		);
 	}
 }
 console.log(
-	'\n   ("অপেক্ষা" = job তৈরি থেকে consumer এর হাতে পৌঁছানো; block নীতিতে এর মধ্যে producer এ আটকে থাকার সময়ও আছে)'
+	'\n   ("wait" = from job creation until it reaches the consumer; with the block policy it includes the time held at the producer)'
 );

@@ -58,46 +58,46 @@ npm run smoke
 `npm run estimate` — heartbeat message এর চেয়ে বেশি; receipt delivery এর দ্বিগুণ; history রাখা বনাম না রাখা হাজার গুণ:
 
 ```
-heartbeat / s (প্রতি 30 s এ)                                    5,000,000   message এর চেয়েও বেশি
+heartbeats / s (every 30 s)                                  5,000,000   more than the messages
 delivery / s (peak)                                          4,444,444
 receipt (delivered + read) / s (peak)                        8,888,889
-সব history চিরকাল (10 বছর, এক কপি)                                14.6 PB
-শুধু না-পৌঁছানো message (পৌঁছালে মুছে ফেলা)                                    3.2 TB
-সব contact কে push / s                                       23,148,148   presence storm
+all history forever (10 years, one copy)                       14.6 PB
+only undelivered messages (deleted once delivered)              3.2 TB
+push to every contact / s                                   23,148,148   presence storm
 ```
 
 `npm run gateway` — broadcast এ প্রতিটা gateway সব কিছু পায়; jitter ছাড়া reconnect এ congestion collapse; শুধু push এ message
 হারায়:
 
 ```
-সব gateway কে broadcast (একটা pub/sub channel)                   4,444,444       0.3%     1,333,333,200
-session registry (user → gateway) + সরাসরি পাঠানো                      14,815     100.0%         8,888,888
-সাথে সাথে, ব্যর্থ হলে আবার সাথে সাথে                               5,000,000   3,000,000,000       6,000         —         —     0% (10 মি এ)
-প্রথমটা ০–10 s এ ছড়ানো + full jitter                        251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
-প্রথমটা ০–10 s এ ছড়ানো + full jitter                    391,250 (88%)                             0   16.82 s   64.77 s
+broadcast to every gateway (one pub/sub channel)                                       4,444,444       0.3%             1,333,333,200
+session registry (user → gateway) + direct send                                           14,815     100.0%                 8,888,888
+at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         —         —  0% (in 10 min)
+first one spread over 0–10 s + full jitter                251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
+first one spread over 0–10 s + full jitter          391,250 (88%)                             0   16.82 s   64.77 s
 ```
 
 `npm run delivery` — retry ছাড়া হারায়, dedupe ছাড়া দুবার; ফোনের ঘড়িতে উত্তর প্রশ্নের উপরে; পৌঁছানোর ক্রমে সদস্যরা আলাদা ক্রম
 দেখে:
 
 ```
-একবার পাঠাও, ack নেই (at-most-once)                      5.94%          0.00%              0.00%             3.94
-ack না এলে আবার পাঠাও (at-least-once)                     0.00%          5.80%              2.92%             4.31
-আবার পাঠাও + client_msg_id আর seq দিয়ে বাদ                 0.00%          0.00%              0.00%             4.25
-পাঠানোর ফোনের ঘড়ি ধরে সাজানো                                         10.21%                   0.00%
-যে ক্রমে পৌঁছাল সেভাবে দেখানো                                            0.41%                  47.59%
-conversation প্রতি seq (একটা sequencer)                         0.00%                   0.00%
+send once, no ack (at-most-once)                     5.94%          0.00%              0.00%             3.94
+resend if no ack (at-least-once)                     0.00%          5.80%              2.92%             4.31
+resend + drop by client_msg_id and seq               0.00%          0.00%              0.00%             4.25
+sorted by the sending phone's clock                          10.21%                          0.00%
+shown in the order they arrived                               0.41%                         47.59%
+per-conversation seq (one sequencer)                          0.00%                          0.00%
 ```
 
 `npm run smoke` — ১১টা ধাপ:
 
 ```
-2   bob পেল (gw2 তে, registry দেখে)                             1:hi
-5   alice আবার পাঠাল একই client_msg_id (ack হারিয়েছিল ধরে)          ack seq 1, duplicate: true; bob এ 1টা
-7   carol online (gw1), sync { }                            1:standup?, 2:১০টায়, 3:ok
-8   gw2 crash; alice → bob ২টা (registry তখনও gw2)           stale route: 2, store এ dm: 3টা
-9   bob gw1 এ reconnect, sync { dm: 1, team: 3 }            2:আছো?, 3:call দাও
-10  alice আর bob একসাথে team এ                                carol দেখে: 4:আমি আগে, 5:না আমি; seq: 4, 5
+2   bob received it (on gw2, via the registry)                      1:hi
+5   alice resent the same client_msg_id (as if the ack was lost)    ack seq 1, duplicate: true; 1 at bob
+7   carol online (gw1), sync { }                                    1:standup?, 2:at 10, 3:ok
+8   gw2 crashes; alice → bob 2 messages (registry still gw2)        stale route: 2, 3 in dm in the store
+9   bob reconnects on gw1, sync { dm: 1, team: 3 }                  2:you there?, 3:call me
+10  alice and bob in team at the same time                          carol sees: 4:me first, 5:no, me; seq: 4, 5
 ```
 
 ## কী দেখার জন্য এটা বানানো

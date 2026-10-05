@@ -6,8 +6,8 @@ const TASK_COUNT = 5_000;
 async function main(): Promise<void> {
 	await sequelize.sync({ force: true });
 
-	// যথেষ্ট row, যাতে DB query টার একটা মাপার মতো খরচ থাকে —
-	// নাহলে cache আর DB এর পার্থক্য চোখেই পড়বে না।
+	// enough rows that the DB query has a measurable cost —
+	// otherwise the difference between the cache and the DB won't even be visible.
 	const rows = Array.from({ length: TASK_COUNT }, (_unused, index) => ({
 		userId: USER_ID,
 		title: `TaskFlow task #${index + 1}`,

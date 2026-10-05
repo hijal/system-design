@@ -9,12 +9,12 @@ import {
 } from 'sequelize';
 import { sequelize } from '../db';
 
-// Normalized schema (3NF) — প্রতিটা তথ্য ঠিক এক জায়গায়:
+// Normalized schema (3NF) — every fact in exactly one place:
 //
 //   users ◄── tasks ──► projects          tasks ◄── task_tags ──► tags
 //         assigneeId    projectId                (junction table, M:N)
 //
-// একমাত্র ব্যতিক্রম projects.openTaskCount — ইচ্ছাকৃত denormalization (§১.৪)।
+// The only exception is projects.openTaskCount — deliberate denormalization (§1.4).
 
 export type TaskStatus = 'todo' | 'doing' | 'done';
 
@@ -27,8 +27,8 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
 export class Project extends Model<InferAttributes<Project>, InferCreationAttributes<Project>> {
 	declare id: CreationOptional<number>;
 	declare name: string;
-	// Derived data: tasks table থেকে গুনে বের করা যায়, কিন্তু dashboard দ্রুত করতে
-	// আলাদা করে রাখা। Source of truth এখনো tasks table — এটা শুধু তার একটা কপি।
+	// Derived data: it can be counted from the tasks table, but it is kept separately
+	// to make the dashboard fast. The source of truth is still the tasks table — this is just a copy of it.
 	declare openTaskCount: CreationOptional<number>;
 }
 
@@ -39,7 +39,7 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 	declare projectId: ForeignKey<Project['id']>;
 	declare assigneeId: ForeignKey<User['id']> | null;
 
-	// include দিলে Sequelize এগুলো ভরে দেয় — DB column না, তাই NonAttribute
+	// Sequelize fills these in with include — they are not DB columns, hence NonAttribute
 	declare assignee?: NonAttribute<User>;
 	declare tags?: NonAttribute<Tag[]>;
 }
@@ -49,8 +49,8 @@ export class Tag extends Model<InferAttributes<Tag>, InferCreationAttributes<Tag
 	declare name: string;
 }
 
-// Junction table — task আর tag এর M:N সম্পর্ক। Composite primary key (taskId, tagId),
-// তাই একই task এ একই tag দুইবার বসানো DB নিজেই আটকায়।
+// Junction table — the M:N relationship between task and tag. Composite primary key (taskId, tagId),
+// so the DB itself prevents the same tag being put on the same task twice.
 export class TaskTag extends Model<InferAttributes<TaskTag>, InferCreationAttributes<TaskTag>> {
 	declare taskId: ForeignKey<Task['id']>;
 	declare tagId: ForeignKey<Tag['id']>;
@@ -88,8 +88,8 @@ Task.init(
 		sequelize,
 		tableName: 'tasks',
 		timestamps: false,
-		// Foreign key column এ Postgres নিজে থেকে index বানায় না — JOIN আর
-		// "এই project এর task" query এর জন্য এটা হাতে দিতে হয় (Lesson 5.4)।
+		// Postgres doesn't create an index on a foreign key column by itself — for JOINs and
+		// "this project's tasks" queries it has to be added by hand (Lesson 5.4).
 		indexes: [{ fields: ['projectId', 'status'] }, { fields: ['assigneeId'] }]
 	}
 );

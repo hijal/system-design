@@ -12,13 +12,13 @@ const DATABASE_URL: string =
 
 export const sequelize = new Sequelize(DATABASE_URL, {
 	logging: false,
-	// Lesson 5.6 এ আমরা এই pool option টা নিয়ে বিস্তারিত কথা বলব।
+	// We will talk about this pool option in detail in Lesson 5.6.
 	pool: { max: 10, min: 0, idle: 10_000 }
 });
 
-// main.md §৬ — Sequelize model কখনো untyped রাখা যাবে না।
-// InferAttributes / InferCreationAttributes ব্যবহার করলে model এর field গুলো
-// TypeScript নিজে থেকেই জানে, আলাদা করে interface লিখতে হয় না।
+// main.md §6 — a Sequelize model must never be left untyped.
+// With InferAttributes / InferCreationAttributes TypeScript knows the model's fields
+// by itself, with no separate interface to write.
 export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<Task>> {
 	declare id: CreationOptional<number>;
 	declare userId: number;

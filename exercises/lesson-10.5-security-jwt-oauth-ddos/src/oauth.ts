@@ -103,7 +103,7 @@ type Attack = {
 
 const ATTACKS: Attack[] = [
 	{
-		name: 'Login CSRF: mallory এর code alice এর browser এ',
+		name: "Login CSRF: mallory's code in alice's browser",
 		run: (server, client) => {
 			const malloryLogin = new TaskFlowClient(server, client.defenses).start('mallory-browser');
 			const malloryRedirect = server.authorize(
@@ -120,7 +120,7 @@ const ATTACKS: Attack[] = [
 		}
 	},
 	{
-		name: 'Code চুরি (mobile scheme / log), mallory আগে redeem',
+		name: 'Code theft (mobile scheme / log), mallory redeems first',
 		run: (server, client) => {
 			const login = client.start('alice-browser');
 			const redirect = server.authorize('alice', CALLBACK, login.state, s256(login.verifier), 0);
@@ -129,7 +129,7 @@ const ATTACKS: Attack[] = [
 		}
 	},
 	{
-		name: 'Code replay: alice এর পরে একই code',
+		name: 'Code replay: the same code after alice',
 		run: (server, client) => {
 			const login = client.start('alice-browser');
 			const redirect = server.authorize('alice', CALLBACK, login.state, s256(login.verifier), 0);
@@ -138,7 +138,7 @@ const ATTACKS: Attack[] = [
 		}
 	},
 	{
-		name: 'redirect_uri টোপ (prefix match), mallory এর নিজের PKCE',
+		name: "redirect_uri bait (prefix match), mallory's own PKCE",
 		run: (server) => {
 			const verifier = random(32);
 			const redirect = server.authorize('alice', EVIL_CALLBACK, random(24), s256(verifier), 0);
@@ -149,26 +149,26 @@ const ATTACKS: Attack[] = [
 ];
 
 const CONFIGS: [string, Defenses][] = [
-	['কিছু নেই', { state: false, pkce: false, exactRedirect: false, singleUse: false }],
+	['nothing', { state: false, pkce: false, exactRedirect: false, singleUse: false }],
 	['state', { state: true, pkce: false, exactRedirect: false, singleUse: false }],
-	['শুধু PKCE', { state: false, pkce: true, exactRedirect: false, singleUse: false }],
+	['PKCE only', { state: false, pkce: true, exactRedirect: false, singleUse: false }],
 	['state + PKCE', { state: true, pkce: true, exactRedirect: false, singleUse: false }],
-	['সব (+exact, single-use)', { state: true, pkce: true, exactRedirect: true, singleUse: true }]
+	['all (+exact, single-use)', { state: true, pkce: true, exactRedirect: true, singleUse: true }]
 ];
 
-heading('অংশ ক — Authorization code flow: চারটা আক্রমণ × পাঁচটা প্রতিরক্ষার সেট');
-console.log(padEnd('আক্রমণ', 54) + CONFIGS.map(([name]) => padEnd(name, 24)).join(''));
+heading('Part A — Authorization code flow: four attacks × five sets of defences');
+console.log(padEnd('attack', 60) + CONFIGS.map(([name]) => padEnd(name, 26)).join(''));
 for (const attack of ATTACKS) {
-	let line = padEnd(attack.name, 54);
+	let line = padEnd(attack.name, 60);
 	for (const [, defenses] of CONFIGS) {
 		const server = new AuthorizationServer(defenses);
 		const client = new TaskFlowClient(server, defenses);
-		line += padEnd(attack.run(server, client) ? 'সফল ✗' : 'আটকানো', 24);
+		line += padEnd(attack.run(server, client) ? 'succeeded ✗' : 'blocked', 26);
 	}
 	console.log(line);
 }
 
-heading('অংশ খ — একটা বৈধ login, প্রতিটা সেটে');
+heading('Part B — one legitimate login, with each set');
 for (const [name, defenses] of CONFIGS) {
 	const server = new AuthorizationServer(defenses);
 	const client = new TaskFlowClient(server, defenses);
@@ -179,11 +179,11 @@ for (const [name, defenses] of CONFIGS) {
 	const slow = server.authorize('alice', CALLBACK, late.state, s256(late.verifier), 0);
 	const okLate = slow !== null && client.callback('alice-late', slow, CODE_TTL + 30);
 	console.log(
-		`${padEnd(name, 32)}২ s পরে callback: ${okNow ? 'login' : 'ব্যর্থ'}   ${CODE_TTL + 30} s পরে: ${okLate ? 'login' : 'ব্যর্থ (code এর মেয়াদ শেষ)'}`
+		`${padEnd(name, 32)}callback after 2 s: ${okNow ? 'login' : 'failed'}   after ${CODE_TTL + 30} s: ${okLate ? 'login' : 'failed (code expired)'}`
 	);
 }
 
-heading('অংশ গ — OIDC ID token কে API এর access token হিসেবে পাঠালে');
+heading('Part C — sending an OIDC ID token to the API as an access token');
 const now = 1_790_000_000;
 const key = newSigningKey('2026-10');
 const idToken = signRs256(claimsFor('alice', 'member', now, { aud: CLIENT_ID }), key);
@@ -196,6 +196,6 @@ for (const [label, token] of [
 	const loose = naiveVerify(token, publicPem(key));
 	const strict = strictVerify(token, keys, API_AUDIENCE, now);
 	console.log(
-		`${padEnd(label, 38)}aud না দেখা API: ${loose.ok ? '200' : '401'}   aud দেখা API: ${strict.ok ? '200' : `401 ${strict.reason}`}`
+		`${padEnd(label, 38)}API ignoring aud: ${loose.ok ? '200' : '401'}   API checking aud: ${strict.ok ? '200' : `401 ${strict.reason}`}`
 	);
 }

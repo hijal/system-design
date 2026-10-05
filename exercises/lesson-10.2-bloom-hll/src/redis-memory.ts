@@ -52,7 +52,7 @@ const size = (bytes: number): string =>
 
 async function threeWays(): Promise<void> {
 	heading(
-		`ক. Redis ${await version()} এ ${USERS.toLocaleString('en-US')} জন আলাদা user — তিনভাবে রাখা`
+		`A. ${USERS.toLocaleString('en-US')} distinct users in Redis ${await version()} — stored three ways`
 	);
 	await inChunks(USERS, 'user', (batch) => redis.sadd('uniq:set', ...batch));
 	await inChunks(USERS, 'user', (batch) => redis.pfadd('uniq:hll', ...batch));
@@ -64,22 +64,22 @@ async function threeWays(): Promise<void> {
 	const bfWrong = await falsePositives('uniq:bf', PROBES);
 	console.log(
 		row([
-			['কাঠামো', 26],
+			['structure', 26],
 			['MEMORY USAGE', 15],
-			['কী বলতে পারে', 34]
+			['what it can tell', 34]
 		])
 	);
 	const lines: [string, number, string][] = [
-		['SET (SADD)', await memory('uniq:set'), `ঠিক ${exact.toLocaleString('en-US')}, আর কারা`],
+		['SET (SADD)', await memory('uniq:set'), `exactly ${exact.toLocaleString('en-US')}, and who`],
 		[
 			'HyperLogLog (PFADD)',
 			await memory('uniq:hll'),
-			`~${estimate.toLocaleString('en-US')} (${pct(estimate - USERS, USERS, 2)} ভুল), কারা না`
+			`~${estimate.toLocaleString('en-US')} (${pct(estimate - USERS, USERS, 2)} off), not who`
 		],
 		[
 			'Bloom (BF.RESERVE 0.01)',
 			await memory('uniq:bf'),
-			`"আছে কি?" — ${pct(bfWrong, PROBES, 2)} ভুল "হ্যাঁ"`
+			`"is it there?" — ${pct(bfWrong, PROBES, 2)} wrong "yes"`
 		]
 	];
 	for (const [label, bytes, answer] of lines)
@@ -93,15 +93,15 @@ async function threeWays(): Promise<void> {
 }
 
 async function small(): Promise<void> {
-	heading('খ. ছোট সংখ্যায় — একটা board এর আজকের viewer (৫০ জন)');
+	heading("B. At small sizes — today's viewers of one board (50)");
 	await redis.sadd('board:set', ...ids('user', 0, 50));
 	await redis.pfadd('board:hll', ...ids('user', 0, 50));
 	const encoding = await redis.call('OBJECT', 'ENCODING', 'board:set');
 	console.log(
 		row([
-			['কাঠামো', 26],
+			['structure', 26],
 			['MEMORY USAGE', 15],
-			['উত্তর', 12]
+			['answer', 12]
 		])
 	);
 	console.log(
@@ -121,7 +121,7 @@ async function small(): Promise<void> {
 	await redis.pfadd('board:hll', ...ids('user', 50, 5_000));
 	console.log(
 		row([
-			['HyperLogLog, ৫,০০০ জনে', 26],
+			['HyperLogLog, at 5,000', 26],
 			[size(await memory('board:hll')), 15],
 			[await redis.pfcount('board:hll'), 12]
 		])
@@ -131,7 +131,7 @@ async function small(): Promise<void> {
 async function overfill(): Promise<void> {
 	const capacity = Math.round(USERS / 4);
 	heading(
-		`গ. ${capacity.toLocaleString('en-US')} ধরে বানানো Redis Bloom এ ${(capacity * 3).toLocaleString('en-US')} ঢোকালে — default বনাম NONSCALING`
+		`C. Inserting ${(capacity * 3).toLocaleString('en-US')} into a Redis Bloom built for ${capacity.toLocaleString('en-US')} — default vs NONSCALING`
 	);
 	await redis.call('BF.RESERVE', 'grow:bf', '0.01', String(capacity));
 	await redis.call('BF.RESERVE', 'fixed:bf', '0.01', String(capacity), 'NONSCALING');
@@ -147,9 +147,9 @@ async function overfill(): Promise<void> {
 		row([
 			['filter', 16],
 			['MEMORY USAGE', 15],
-			['ভেতরের filter', 15],
-			['মাপা false positive', 22],
-			['ঢোকানো নামে "নেই"', 19]
+			['inner filters', 15],
+			['measured FP rate', 22],
+			['inserted → "no"', 19]
 		])
 	);
 	for (const key of ['grow:bf', 'fixed:bf']) {
@@ -173,7 +173,7 @@ async function overfill(): Promise<void> {
 		);
 	}
 	console.log(
-		`   NONSCALING: BF.MADD এর reply তে "non scaling filter is full" — ঢোকেনি ${rejected.toLocaleString('en-US')}টা নাম, আর exception হয়নি`
+		`   NONSCALING: BF.MADD's reply says "non scaling filter is full" — ${rejected.toLocaleString('en-US')} names not inserted, and no exception`
 	);
 }
 

@@ -148,25 +148,25 @@ async function main(): Promise<void> {
 	const durations = results.map((result) => result.ms).sort((a, b) => a - b);
 
 	heading(
-		`ক. ${REQUESTS}টা board request — gateway → bff → (work, billing); work এর replica r3 request ${STALL_FROM}–${STALL_TO} এর মধ্যে ${n(STALL_MS)} ms আটকে`
+		`A. ${REQUESTS} board requests — gateway → bff → (work, billing); work's replica r3 stalls ${n(STALL_MS)} ms during requests ${STALL_FROM}–${STALL_TO}`
 	);
 	console.log(
-		`   p50 ${n(percentile(durations, 50))} ms, সবচেয়ে ধীর ${n(slowest?.ms ?? 0)} ms; মোট span ${spans.length}টা, আলাদা trace ${new Set(spans.map((span) => span.traceId)).size}টা`
+		`   p50 ${n(percentile(durations, 50))} ms, slowest ${n(slowest?.ms ?? 0)} ms; ${spans.length} spans in total, ${new Set(spans.map((span) => span.traceId)).size} distinct traces`
 	);
 	if (!slowest) return;
-	console.log(`\n   সবচেয়ে ধীর request এর trace — ${slowest.trace}`);
+	console.log(`\n   the slowest request's trace — ${slowest.trace}`);
 	waterfall(slowest.trace);
 
-	heading('খ. একই trace_id দিয়ে চারটা service এর log খোঁজা');
+	heading("B. Searching four services' logs by the same trace_id");
 	for (const line of logs.filter((entry) => entry.trace_id === slowest.trace))
 		console.log(
 			`   ${JSON.stringify({ ...line, trace_id: `${line.trace_id?.slice(0, 8)}…`, span_id: `${line.span_id?.slice(0, 6)}…` })}`
 		);
 	console.log(
-		`   মোট log লাইন ${logs.length}টা; এই trace এর ${logs.filter((entry) => entry.trace_id === slowest.trace).length}টা`
+		`   ${logs.length} log lines in total; ${logs.filter((entry) => entry.trace_id === slowest.trace).length} for this trace`
 	);
 
-	heading('গ. সব trace এর db.query span, replica ধরে');
+	heading('C. db.query spans from every trace, by replica');
 	console.log(
 		row([
 			['replica', 10],
@@ -203,7 +203,7 @@ async function main(): Promise<void> {
 		.filter((span) => span.name === 'db.query tasks')
 		.sort((a, b) => b.end - b.start - (a.end - a.start))[0];
 
-	heading('ঘ. bff যদি traceparent পাঠাতে ভুলে যায় — একই ৩০টা request');
+	heading('D. If bff forgets to pass traceparent — the same 30 requests');
 	console.log(
 		row([
 			['', 26],
@@ -213,22 +213,22 @@ async function main(): Promise<void> {
 	);
 	console.log(
 		row([
-			['header পাঠালে', 26],
+			['with the header', 26],
 			[before.spans, 8],
 			[before.traces, 8]
 		])
 	);
 	console.log(
 		row([
-			['bff header না পাঠালে', 26],
+			['bff without the header', 26],
 			[spans.length, 8],
 			[traces.size, 8]
 		])
 	);
 	if (brokenSlowest && slowQuery) {
-		console.log(`\n   সবচেয়ে ধীর request এর gateway trace — ${brokenSlowest.trace}`);
+		console.log(`\n   the slowest request's gateway trace — ${brokenSlowest.trace}`);
 		waterfall(brokenSlowest.trace);
-		console.log(`\n   ধীর query টা আছে অন্য একটা trace এ — ${slowQuery.traceId}`);
+		console.log(`\n   the slow query is in a different trace — ${slowQuery.traceId}`);
 		waterfall(slowQuery.traceId);
 	}
 }

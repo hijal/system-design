@@ -74,14 +74,14 @@ Now the problem: because the payload is readable, no password, secret or anythin
 
 ```
 token                                           naive                     strict
-valid token                                     200 (member)              200 (member)
-payload role → admin (old signature)            401 invalid signature     401 signature mismatch
-alg: none, empty signature                      200 (admin)               401 alg none not in allowlist
-HS256, signed with the public key as secret     200 (admin)               401 alg HS256 not in allowlist
-expired 2 hours ago                             200 (member)              401 expired
-aud = billing-api (another service's)           200 (member)              401 aud mismatch
-iss = staging (shares the same key)             200 (member)              401 iss mismatch
-signed with another key (attacker's own)        401 invalid signature     401 signature mismatch
+valid token                                    200 (member)              200 (member)
+role → admin in the payload (old signature)   401 invalid signature  401 signature mismatch
+alg: none, empty signature                    200 (admin)         401 alg none not in the allowlist
+HS256, signed using the public key as the secret  200 (admin)         401 alg HS256 not in the allowlist
+expired 2 hours ago                        200 (member)             401 expired
+aud = billing-api (another service's)          200 (member)          401 aud mismatch
+iss = staging (sharing the same key)          200 (member)          401 iss mismatch
+signed with another key (the attacker's own)  401 invalid signature  401 signature mismatch
 
 naive accepted 6/8, strict 1/8
 ```
@@ -146,7 +146,7 @@ Notice two things. First, `jwtVerify` checks the signature and `iss`/`aud`/`exp`
 Now Monday. In `npm run authz` part B: 2,000 workspaces × 30 boards = 60,000 boards, ids `1..60000`. Mallory is the admin of their own free workspace, with a valid token. On each of eight routes, mallory tries the id of every board belonging to someone else:
 
 ```
-route                          others' boards got   learned they exist
+route                          got others' boards  learned existence
 GET    /boards/:id                         0          59,970
 GET    /boards/:id/tasks                   0          59,970
 PATCH  /boards/:id                         0          59,970
@@ -169,9 +169,9 @@ Notice that this is not a failure of AuthN. On every request mallory really is m
 **Are UUIDs the solution?** A natural reaction: "make ids random UUIDs instead of sequential." Part C:
 
 ```
-mallory's attempt                          attempts     others' boards got
-random UUID guesses                     1,000,000                 0
-ids found in a leaked support log             340               340
+mallory's attempt                       attempts  got others' boards
+guessing random UUIDs              1,000,000                 0
+ids from a leaked support log          340               340
 ```
 
 Not one in a million guesses. A v4 UUID has 122 random bits; there is no hope of guessing one. But an id **is not a secret.** It sits in URLs, in browser history, in screenshots, in support tickets, in logs (10.4), in shared links. **All 340** of the 340 leaked ids worked. UUIDs stop enumeration, which is a good thing — keep them. But that is not authorization. Authorization means "even if you know the id, you won't get it."
@@ -203,14 +203,14 @@ Every route calls `loadBoardFor`; calling `Board.findByPk` directly is forbidden
 **(b) An authorization matrix test.** Every route × every kind of actor, with the expected result. Part D:
 
 ```
-route                           owner     member of other ws   admin of other ws   no token   result
+route                           owner   member of another ws  admin of another ws  no token  result
 GET    /boards/:id              200       404                 404                401           pass
 …
 GET    /boards/:id/export       200       200 ✗               200 ✗              401           FAIL
 DELETE /boards/:id              204       404                 204 ✗              401           FAIL
 POST   /boards/:id/archive      200       404                 404                401           pass
 
-3 cells failed — with this test in CI, it would have been caught before the merge
+3 cells failed — with this test in CI it would have been caught before merge
 ```
 
 Three cells, and exactly the three that did the real damage on Monday. This test's power is that it generates **itself** from the list of routes. Add a new route and it enters the matrix by itself, and if nobody writes down the expected results, the test fails. The same reasoning as 10.3's dependency matrix: let CI ask the question everyone forgets.
@@ -224,13 +224,13 @@ The second half of Wednesday. The fired employee's account was disabled in the m
 How short? In `npm run sessions` part A: 60,000 active sessions, 300 requests a second, 8 hours (8.6 million requests). In the middle, 2,000 revocations (logout, password change, account disable), and six policies:
 
 ```
-policy                          store/identity call/s   % of requests   after revoke: avg   worst case   works if identity dies
-JWT 24 h, no revocation                         0.0          0.0%            19.6 h         24.0 h          24.0 h
-session lookup on every request               299.9        100.0%               0 s            0 s             0 s
-access 1 h + refresh                           14.8          4.9%            27 min          1.0 h           1.0 h
-access 15 min + refresh                        43.7         14.6%           4.8 min         15 min          15 min
-access 5 min + refresh                         88.0         29.3%           1.1 min        5.0 min         5.0 min
-access 15 min + refresh + denylist             43.7         14.6%               5 s            5 s          15 min
+policy                        store/identity call/s   % of requests  after revoke: avg  worst  works if identity dies
+JWT 24 h, no revoke                            0.0          0.0%            19.6 h         24.0 h          24.0 h
+session lookup on every request             299.9        100.0%               0 s            0 s             0 s
+access 1 h + refresh                           14.8          4.9%             27 min        1.0 h           1.0 h
+access 15 min + refresh                       43.7         14.6%            4.8 min         15 min        15 min
+access 5 min + refresh                        88.0         29.3%            1.1 min        5.0 min       5.0 min
+access 15 min + refresh + denylist            43.7         14.6%               5 s            5 s           15 min
 ```
 
 The first two rows are the two extremes:
@@ -249,16 +249,16 @@ The last row separates them. A **denylist** is a small list of revoked tokens' `
 **When a refresh token is stolen.** Wednesday's log had refresh tokens alongside the access tokens. In part B the access token is 15 minutes and the refresh token 30 days. The attacker starts work 10 minutes after the theft:
 
 ```
-stolen Monday 10:00, alice is at work
-policy                          attacker holds it   alice forced out   security alert
-no rotation                          29.6 days                      0                0
-rotation, no reuse detection         29.6 days                      1                0
-rotation + reuse detection              15 min                      1                1
+stolen Monday 10:00, alice at work
+policy                      attacker holds it  alice forced to log out  security alert
+no rotation                         29.6 days                    0                0
+rotation, no reuse detection        29.6 days                    1                0
+rotation + reuse detection              15 min                    1                1
 
-stolen Friday 16:50, alice back on Monday
-no rotation                          25.3 days                      0                0
-rotation, no reuse detection         25.3 days                      1                0
-rotation + reuse detection            2.7 days                      1                1
+stolen Friday 16:50, alice back Monday
+no rotation                         25.3 days                    0                0
+rotation, no reuse detection        25.3 days                    1                0
+rotation + reuse detection             2.7 days                    1                1
 ```
 
 The middle row is the most instructive. **Rotation alone does not stop the thief — it throws out the legitimate user.** The attacker refreshed first, so the family's "current" token is now in their hands. Alice's token has become stale; alice is logged out, logs in again, and thinks "odd". The attacker stays for 29.6 days. Reuse detection turns exactly this moment into a signal: alice presented their old token, the server recognized "this has been used before, so two people are driving this family", and cancelled the whole family. The attacker is left with only the 15 minutes of their last access token. Plus a security alert.
@@ -291,11 +291,11 @@ Two new requests have come to TaskFlow: "log in with Google", and a public API s
 The code travels through the browser's URL, so it has to be assumed "may be stolen". Tokens arrive over the back channel, server to server. Each defence in the flow closes one specific path. In `npm run oauth` part A: four attacks × five sets of defences:
 
 ```
-attack                                                none       state    PKCE only   state + PKCE   all (+exact, single-use)
-Login CSRF: mallory's code in alice's browser         works ✗    blocked  blocked     blocked        blocked
-Code theft (mobile scheme / log), mallory redeems first works ✗  works ✗  blocked     blocked        blocked
-Code replay: the same code after alice                works ✗    works ✗  blocked     blocked        blocked
-redirect_uri bait (prefix match), mallory's own PKCE  works ✗    works ✗  works ✗     works ✗        blocked
+attack                                               nothing  state    PKCE only  state + PKCE  all (+exact, single-use)
+Login CSRF: mallory's code in alice's browser         succeeded ✗  blocked  blocked  blocked   blocked
+Code theft (mobile scheme / log), mallory redeems first  succeeded ✗  succeeded ✗  blocked  blocked   blocked
+Code replay: the same code after alice               succeeded ✗  succeeded ✗  blocked  blocked   blocked
+redirect_uri bait (prefix match), mallory's own PKCE  succeeded ✗  succeeded ✗  succeeded ✗  succeeded ✗  blocked
 ```
 
 One at a time:
@@ -312,8 +312,8 @@ Part B shows the cost: the code's expiry is 60 seconds, so a callback arriving a
 **ID token ≠ access token.** Part C:
 
 ```
-ID token (aud = taskflow-web)         API not checking aud: 200   API checking aud: 401 aud mismatch
-access token (aud = taskflow-api)     API not checking aud: 200   API checking aud: 200
+ID token (aud = taskflow-web)         API ignoring aud: 200   API checking aud: 401 aud mismatch
+access token (aud = taskflow-api)     API ignoring aud: 200   API checking aud: 200
 ```
 
 The ID token tells TaskFlow's **web app** "this is alice". Its `aud` is the client (`taskflow-web`). It is not a key to the API's door. If an API does not check `aud`, then any ID token made for any app opens its door — including apps that use the same identity provider but belong to someone else. A form of 1.2's third rule.
@@ -323,17 +323,17 @@ The ID token tells TaskFlow's **web app** "this is alice". Its `aud` is the clie
 Tuesday. `npm run secrets` part A has a small git history and a secret scanner. The scanner was run two ways, on today's code only and on the whole history:
 
 ```
-HEAD only (today's code):    2 findings
-whole git history:           5 findings
+HEAD only (today's code):  2 findings
+whole git history:         5 findings
 
-commit    file                rule                              assessment
-7f20b4d   .env                tfsk key format                   real — live payment key
-7f20b4d   .env                SECRET/KEY = high entropy         real — token-signing secret
-7f20b4d   .env                password in URL                   real — production DB
-c08a5f2   package-lock.json   any long high-entropy string      false positive (lockfile hash)
-c08a5f2   test/fixtures.ts    tfsk key format                   test key — low risk, remove anyway
+commit    file                rule                            verdict
+7f20b4d   .env                tfsk key pattern                 real — live payment key
+7f20b4d   .env                SECRET/KEY = high entropy       real — the token signing secret
+7f20b4d   .env                password in a URL                real — production DB
+c08a5f2   package-lock.json   any long high-entropy string  false positive (lockfile hash)
+c08a5f2   test/fixtures.ts    tfsk key pattern     test key — low risk, remove it anyway
 
-real production secrets: 3 in history, 0 in HEAD — the "oops remove .env" commit deleted nothing
+real production secrets: 3 in history, 0 at HEAD — the "oops remove .env" commit deleted nothing
 ```
 
 Three lessons:
@@ -345,11 +345,11 @@ Three lessons:
 **What reduces the damage of a leak?** Damage = how long a leaked secret **keeps working**. In part B, 1,000 leaks across four channels (git, logs, CI output, laptops). It takes a median of 20 days to be caught (an assumed number, see below):
 
 ```
-policy                              working leaks     median        p90   > 7 days   total attacker-days
-static secret, never changes              1,000   19.1 days  117.3 days     76.6%             46,312
-rotate every 90 days                      1,000   13.5 days   54.5 days     70.5%             21,256
-90 days + push protection                   677   13.0 days   52.2 days     47.1%             14,010
-dynamic credential (60 min lease)         1,000      30 min      54 min      0.0%                 21
+policy                          working leaks  median        p90   > 7 days  total attacker-days
+static secret, never changes        1,000   19.1 days  117.3 days   76.6%             46,312
+rotate every 90 days                1,000   13.5 days  54.5 days   70.5%             21,256
+90 days + push protection               677   13.0 days  52.2 days   47.1%             14,010
+dynamic credential (60 min lease)      1,000      30 min     54 min    0.0%                 21
 ```
 
 90-day rotation, which many compliance checklists demand, halves the total damage. But the median leak still works for 13.5 days, and 70% of leaks work for more than a week. Rotation only helps if the date happens to come before the leak is caught. Push protection (catching a secret at the moment of a git push and blocking the push; here it catches 80% of git leaks) closes much of the git path. But the log, CI and laptop paths stay open.
@@ -361,13 +361,13 @@ The rule: **don't rely on catching the leak — shorten the secret's lifetime.**
 **How much damage one broken wall does.** Part C: TaskFlow's six services, and how many secrets someone gets if they get inside one service:
 
 ```
-got into     one shared .env   separate per service   what they got
-gateway                    10                   2   no payment/DB
-web-bff                    10                   2   no payment/DB
-monolith                   10                   4   including DATABASE_URL
-billing                    10                   4   including STRIPE_KEY
-files                      10                   2   no payment/DB
-worker                     10                   4   including DATABASE_URL
+got into  one shared .env  separate per service  what they got
+gateway                    10                   2  no payment/DB
+web-bff                    10                   2  no payment/DB
+monolith                   10                   4  incl. DATABASE_URL
+billing                    10                   4  incl. STRIPE_KEY
+files                      10                   2  no payment/DB
+worker                     10                   4  incl. DATABASE_URL
 ```
 
 One shared `.env` means getting into any service gets all ten. Separated, it is 2–4, and three of the six have no payment or DB key at all. This is 10.3's **blast radius** reasoning, applied to security. Its name is **least privilege**: each part gets exactly as much as its job needs.
@@ -383,15 +383,15 @@ Saturday night. Look closely at what the attack looked like, because 9.5's rate 
 In `npm run abuse` part A: 1.2 million attempts, 38,000 IPs, 6 hours. 3% of the list's emails exist on TaskFlow, and 10% of those use the same password. Alongside, 20,000 legitimate logins at the same time, 30% of them from behind 40 offices' NATs:
 
 ```
-on average 5.3 attempts per IP per hour, one per email; 3,547 accounts in the list really have a matching password
+5.3 attempts per IP per hour on average, once per email on average; the password really matches for 3,547 accounts on the list
 
-policy                               bots reaching password   accounts taken   legit logins blocked   legit users hassled   detected
-no limit                                     1,200,000         3,547          0 (0.0%)                  0          —
-9.5: IP 20/h + email 10/h                    1,200,000         3,547        946 (4.7%)                  0          —
+policy                           bot reached password  takeovers     legit logins blocked  legit user friction  detected
+no limits                               1,200,000         3,547          0 (0.0%)                  0          —
+9.5: IP 20/h + email 10/h                     1,200,000         3,547        946 (4.7%)                  0          —
 strict: IP 5/h + email 10/h                    853,658         2,532     4,484 (22.4%)                  0          —
 9.5 + breached password check                1,200,000           531        946 (4.7%)              1,210          —
-9.5 + failure ratio → challenge                123,183           395      1,104 (5.5%)              4,935      1 min
-all + MFA (25% of users)                       123,183            46      1,104 (5.5%)              6,137      1 min
+9.5 + failure ratio → challenge                123,183           395      1,104 (5.5%)              4,935     1 min
+all + MFA (25% of users)                       123,183            46      1,104 (5.5%)              6,137     1 min
 ```
 
 - **9.5's limits did not stop a single attempt** (1.2 million of 1.2 million reached the password check). 5.3 per IP per hour, limit 20. Once per email, limit 10. And **it blocked 946 legitimate users**, all behind office NATs. The limit stopped the wrong people.
@@ -413,13 +413,13 @@ The defences for the two are completely different. That is the key point.
 **Volumetric.** In `npm run abuse` part B: 300 Gbps of UDP reflection, the origin's link is 10 Gbps, legitimate traffic 0.8 Gbps:
 
 ```
-design                                          arriving on link   legit traffic reaching
-origin directly on the internet                 300.8 Gbps                3.3%
-app rate limit at the origin                    300.8 Gbps                3.3%
-behind an anycast CDN/scrubbing                   0.8 Gbps              100.0%
-CDN, but origin IP leaked (old DNS)             300.8 Gbps                3.3%
-leaked IP + CDN allowlist in origin firewall    300.8 Gbps                3.3%
-new origin IP, only through a CDN tunnel          0.8 Gbps              100.0%
+design                                        reaches link  legit traffic arrives
+origin directly on the internet              300.8 Gbps                3.3%
+app rate limit at the origin                   300.8 Gbps                3.3%
+behind anycast CDN/scrubbing                   0.8 Gbps              100.0%
+CDN, but origin IP leaked (old DNS)      300.8 Gbps                3.3%
+leaked IP + CDN allowlist on origin firewall  300.8 Gbps                3.3%
+new origin IP, only through the CDN tunnel  0.8 Gbps              100.0%
 ```
 
 Look at the second row: **the app's rate limit does nothing.** The 10 Gbps pipe is full before the packets ever reach the app. 97% of requests, valid and invalid alike, never reach the app's limiter. What works is a network with more capacity than the attack. 4.5's **anycast** CDN announces the same IP from hundreds of places, so the attack is split across hundreds of PoPs, each absorbing a small share. And traffic like UDP reflection that is not even HTTP is dropped right at the edge.
@@ -429,13 +429,13 @@ But the fourth and fifth rows: **a CDN only protects you while the attacker cann
 **L7.** Part C: the public share page `/s/:token`, 20,000 IPs × 3 a second, origin capacity 2,000 a second:
 
 ```
-design                                            origin req/s    legit requests succeeding
-nothing                                                 60,400              3.3%
-per-IP 10 req/s                                         60,400              3.3%
-CDN cache (60 s, 300 PoPs), attacker has 5 real tokens     105            100.0%
-CDN cache, but cache busted with ?x=random              60,080              3.3%
-cache key normalized (unknown query dropped)               105            100.0%
-challenge at the edge (5% of bots pass), no cache        3,400             58.8%
+design                                         req/s at origin  legit requests ok
+nothing                                              60,400              3.3%
+per-IP 10 req/s                                                      60,400               3.3%
+CDN cache (60 s, 300 PoPs), attacker with 5 real tokens   105            100.0%
+CDN cache, but busted with ?x=random           60,080              3.3%
+normalized cache key (unknown query dropped)            105            100.0%
+challenge at the edge (5% of bots pass), no cache      3,400             58.8%
 ```
 
 - **The per-IP limit is useless again.** 3 a second per IP, limit 10. The same story as 1.7. A distributed attack stays below per-key limits.

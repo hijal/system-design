@@ -51,11 +51,11 @@ Postmortem এ দুটো প্রশ্ন উঠল। প্রথমট�
 কিন্তু সংখ্যাটা অর্ধেক গল্প। Exercise এর `npm run rebalance`, ৪ থেকে ৫টা node, ১,০০,০০০ key:
 
 ```
-routing                          সরল    নতুন node এ         পুরনোদের মধ্যে
+routing                        moved  to the new node    among the old
 hash % N                       79.9%         25.2%            74.8%
 ring (vnode 1)                 30.7%        100.0%             0.0%
 ring (vnode 160)               20.1%        100.0%             0.0%
-   আদর্শ: শুধু নতুন node এর ভাগ = ১/৫ = 20.0%, আর সবটা নতুন node এ
+   ideal: only the new node's share = 1/5 = 20.0%, and all of it to the new node
 ```
 
 শেষ কলামটা দেখো। `hash % N` এ নড়া key গুলোর **৭৪.৮% এক পুরনো node থেকে আরেক পুরনো node এ গেছে**। Node ১ এর একটা key node ৩ এ, node ৩ এর একটা key node ২ এ — যদিও ওই পুরনো node গুলোর কারো ভাগ কমার কথা ছিল না, শুধু নতুনটার ভাগ বাড়ার কথা। এটা নিছক অপচয়: যে data ঠিক জায়গাতেই ছিল, সেটাও ফেলে দিয়ে নতুন করে আনতে হচ্ছে।
@@ -110,7 +110,7 @@ route(key: string): string {
 কিন্তু উপরের টেবিলের দ্বিতীয় সারিটা দেখো: শুধু একটা বিন্দুতে (`vnode 1`) বসালে নড়েছে **৩০.৭%**, ২০% না। কারণ নতুন node টা বৃত্তের কোথায় পড়বে সেটা hash ঠিক করে — আর সে এমন জায়গায় পড়েছে যেখানে তার আগের বৃত্তচাপটা বড়। একটা বিন্দুর ring এ প্রতিটা node এর ভাগ **বৃত্তচাপের দৈর্ঘ্য**, আর সেই দৈর্ঘ্য এলোমেলো। এর পরিণাম node বাদ দেওয়ার সময় আরও খারাপ:
 
 ```
-routing                      cache-1   cache-2   cache-4   cache-5       সবচেয়ে ভারী
+routing                      cache-1   cache-2   cache-4   cache-5      heaviest
 ring (vnode 1)                    0%      100%        0%        0%         1.45x
 ring (vnode 160)                 29%       19%       25%       27%         1.04x
 ```
@@ -124,7 +124,7 @@ ring (vnode 160)                 29%       19%       25%       27%         1.04x
 `npm run vnodes` — ১০টা node, ২,০০,০০০ key:
 
 ```
-vnode / node           সবচেয়ে ভারী       সবচেয়ে হালকা      ring এ বিন্দু    lookup এ ধাপ
+vnode / node          heaviest       lightest  points on ring   lookup steps
 1                        3.06x          0.02x             10            3.4
 10                       1.51x          0.61x            100            6.7
 50                       1.23x          0.80x            500            9.0
@@ -149,7 +149,7 @@ vnode / node           সবচেয়ে ভারী       সবচেয�
 Virtual node এর একটা বাড়তি উপহার: ভিন্ন আকারের machine সহজেই সামলানো যায়। দ্বিগুণ RAM এর machine কে দ্বিগুণ virtual node দাও, সে দ্বিগুণ ভাগ পাবে:
 
 ```
-node                weight          পেল         ন্যায্য ভাগ
+node                weight         got    fair share
 cache-1                  1       19.6%         20.0%
 cache-2                  1       18.7%         20.0%
 cache-3                  1       20.3%         20.0%
@@ -167,10 +167,10 @@ Cache এ সাধারণত প্রতিটা key এর একটা co
 সবচেয়ে সরল নিয়ম — "ring এ পরের ৩টা বিন্দু" — virtual node থাকলে একটা লুকানো ফাঁদ: পরের দুটো বিন্দু প্রায়ই **একই physical node** এর দুটো virtual node। `npm run vnodes`, অংশ গ — ৬টা node, ৩টা AZ (availability zone — একই cloud region এর ভেতরে আলাদা data center; একটা AZ পুরোটা একসাথে ডুবতে পারে), প্রতি key এর ৩টা copy:
 
 ```
-নিয়ম                          ৩টা আলাদা node না     ৩টা আলাদা AZ না     এক AZ গেলেই সব copy শেষ
-পরের ৩টা বিন্দু                        45.3%              76.8%                  11.2%
-পরের ৩টা আলাদা node                    0.0%              59.1%                   0.0%
-পরের ৩টা আলাদা AZ                      0.0%               0.0%                   0.0%
+rule                         not 3 distinct nodes  not 3 distinct AZs  one AZ loss kills all copies
+the next 3 points                 45.3%              76.8%                  11.2%
+the next 3 distinct nodes          0.0%              59.1%                   0.0%
+the next 3 distinct AZs            0.0%               0.0%                   0.0%
 ```
 
 - **প্রথম নিয়মে ৪৫.৩% key এর "৩টা copy" আসলে ২টা (বা ১টা) machine এ।** Config এ লেখা replication factor ৩, dashboard এ ৩, কিন্তু প্রায় অর্ধেক data একটা machine মরলেই quorum হারায়। আর ১১.২% key এর তিনটা copy ই একটা AZ এ — ওই AZ গেলে সেগুলো পুরোপুরি হারিয়ে যায়।
@@ -184,7 +184,7 @@ Cache এ সাধারণত প্রতিটা key এর একটা co
 এবার গল্পের ঘটনাটা মাপি। `npm run cache` — ৩টা cache node থেকে ৪টা, সব key আগে থেকে গরম (তাই বদলের আগে hit rate ~১০০%), ৫,০০০ read/s, traffic Zipf বণ্টনে (অল্প কিছু key খুব জনপ্রিয়, বাকিরা কম — বাস্তব cache traffic এর মতো):
 
 ```
-routing                    প্রথম 1 s hit     প্রথম 1 s এ DB     প্রথম 10 s hit    মোট DB query
+routing                  first 1 s hit  DB in first 1 s   first 10 s hit  total DB queries
 hash % N                         56.8%            2,162            75.4%         26,370
 ring (vnode 160)                 85.3%              737            91.6%          9,066
 ```
@@ -198,9 +198,9 @@ Ring এ প্রথম সেকেন্ডে ৭৩৭ — প্রায�
 **Ring এর নিজের ফাঁদ: consistent hashing consistency দেয় না।** নাম শুনে মনে হয় দেয়, কিন্তু "consistent" এখানে শুধু "node বদলালে mapping বেশি বদলায় না"। এখন একটা ঘটনা ভাবো যা ring এ যাওয়ার পরে সত্যিই ঘটতে পারে: 9.4 এর health check `cache-2` কে ৩০ সেকেন্ডের জন্য নাগালের বাইরে দেখল (network এর একটা ঝাঁকুনি — machine টা মরেনি, তার memory অক্ষত), আর registry তাকে ring থেকে বাদ দিল। ওই ৩০ সেকেন্ডে তার key গুলো অন্য node এ গেল; সেখানে miss হলো, ভরে গেল, আর কিছু task এর **write** হলো — cache-aside (4.2) অনুযায়ী DB update, তারপর cache এর key delete — কিন্তু delete গেল **তখনকার** মালিকের কাছে, `cache-2` এর কাছে না। তারপর `cache-2` ফিরল, পুরনো data সহ, আর ring তার key গুলো তাকেই ফেরত দিল:
 
 ```
-ফিরে আসার সময়                    stale read (10 s)    আলাদা stale key  miss (10 s)
-কিছু না করে ring এ ফেরানো                        6,429              320          197
-আগে flush, তারপর ফেরানো                            0                0        4,278
+on return                     stale read (10 s)  distinct stale keys  miss (10 s)
+put back on the ring as is                6,429                 320          197
+flush first, then put back                    0                   0        4,278
 ```
 
 **দশ সেকেন্ডে ৬,৪২৯টা পুরনো উত্তর, ৩২০টা আলাদা key এ** — আর cache এ TTL না থাকলে এগুলো চিরকাল পুরনোই থাকবে। User এর চোখে: "আমি task টা Done এ সরালাম, কিন্তু board এ এখনো In Progress" — কয়েক ঘণ্টা ধরে, শুধু কিছু task এ, আর refresh করলেও না। 6.1 এর মূল কথা এখানে ফিরছে: বাইরে থেকে "ধীর" আর "মৃত" আলাদা করা যায় না, আর যে node কে তুমি মৃত ধরেছিলে সে **পুরনো অবস্থা নিয়ে** ফিরে আসে।
@@ -222,11 +222,11 @@ Hash ring একমাত্র consistent hashing না। আরও দুট
 `npm run compare` — ১০টা node, ১,০০,০০০ key:
 
 ```
-পদ্ধতি                       সবচেয়ে ভারী    node যোগ   cache-6 বাদ            lookup এর কাজ      বাড়তি memory
-ring (vnode 160)            1.12x       8.8%        10.0%       1 hash + 10.7 তুলনা        1,600 বিন্দু
-rendezvous (HRW)            1.02x       9.3%         9.9%                 10 hash              নেই
-jump hash                   1.02x       9.0%        48.5%         1 hash + 2.9 লাফ              নেই
-   আদর্শ: যোগে ১/11 = 9.1%, মাঝের একটা বাদে ১/10 = 10.0%
+method                   heaviest  node added  cache-6 removed             lookup work    extra memory
+ring (vnode 160)            1.12x        8.8%        10.0%  1 hash + 10.7 comparisons    1,600 points
+rendezvous (HRW)            1.02x        9.3%         9.9%                 10 hash            none
+jump hash                   1.02x        9.0%        48.5%      1 hash + 2.9 jumps            none
+   ideal: on add 1/11 = 9.1%, removing a middle one 1/10 = 10.0%
 ```
 
 - **Rendezvous** virtual node ছাড়াই প্রায় নিখুঁত ভাগ দেয় (১.০২x, ring এর ১৬০ virtual node এর ১.১২x এর চেয়ে ভালো), কোনো ring রাখতে হয় না, আর replica বাছাই স্বাভাবিক — score এর ক্রমে প্রথম ৩টা। দাম: **প্রতি lookup এ N টা hash**। ১০টা node এ সেটা কিছুই না; ১০,০০০ টা node এ প্রতিটা request এ ১০,০০০ hash। তাই ছোট থেকে মাঝারি cluster এ এটা প্রায়ই ring এর চেয়ে ভালো পছন্দ, আর বড় cluster এ ring (বা সংখ্যাটা ছোট রাখার কোনো কাঠামো)।
@@ -243,10 +243,10 @@ jump hash                   1.02x       9.0%        48.5%         1 hash + 2.9 �
 `npm run compare`, অংশ খ — Zipf ১.১, একসাথে ১,০০০টা request, ২০০ বার; সবচেয়ে গরম key একাই গড়ে ~১৩.৩% traffic:
 
 ```
-পদ্ধতি                                ভারী (গড়)         ভারী (সবচেয়ে খারাপ)       নিজের node এর বাইরে
+method                          heavy (avg)         heavy (worst)      off its own node
 ring (vnode 160)                     2.06x                 2.39x                  0.0%
 bounded load, c = 1.25               1.25x                 1.25x                 11.3%
-   (প্রতি node এর সীমা = ceil(1.25 × 1000 / 10) = 125; ভরা থাকলে ring এ পরের node)
+   (each node's limit = ceil(1.25 × 1000 / 10) = 125; when full, the next node on the ring)
 ```
 
 সাধারণ ring এ সবচেয়ে ব্যস্ত node গড়ে ন্যায্য ভাগের **২ গুণ**, খারাপ মুহূর্তে ২.৪ গুণ। Bounded load এ ঠিক ১.২৫x — কখনো বেশি না। দাম: **১১.৩% request তাদের নিজের node এ যায়নি।**

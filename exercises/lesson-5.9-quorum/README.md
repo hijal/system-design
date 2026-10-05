@@ -42,47 +42,47 @@ npm run partition
 **১. `npm run quorum`**
 
 ```
-   N = 3 replica: A, B একই data center এ; C অন্য data center এ (ধীর)
-   যেকোনো replica প্রতিটা লেখায় 5% সম্ভাবনায় 50 ms পিছিয়ে পড়ে (GC pause, disk stall)
+   N = 3 replicas: A, B in the same data center; C in another data center (slow)
+   any replica falls 50 ms behind on 5% of writes (GC pause, disk stall)
 
-১. লেখা সফল হওয়ার ঠিক পরেই পড়া (একই user, read-your-writes)
-   W  R  W+R>N?   stale read              লেখা p50 / p99       পড়া p50 / p99
-   1  1  না       10827/100000 (10.83%)     2.3 /   7.0 ms     2.3 /   5.6 ms
-   1  2  না         227/100000 ( 0.23%)     2.3 /   7.0 ms     4.1 /  11.1 ms
-   2  1  না        3707/100000 ( 3.71%)     4.4 /  53.1 ms     2.3 /   5.6 ms
-   2  2  হ্যাঁ         0/100000 ( 0.00%)     4.4 /  53.1 ms     4.1 /  11.1 ms
-   3  1  হ্যাঁ         0/100000 ( 0.00%)    39.6 / 103.1 ms     2.3 /   5.6 ms
-   1  3  হ্যাঁ         0/100000 ( 0.00%)     2.3 /   7.0 ms    36.8 /  86.4 ms
+1. Read right after the write succeeds (same user, read-your-writes)
+   W  R  W+R>N?   stale read              write p50 / p99      read p50 / p99
+   1  1  no       10827/100000 (10.83%)     2.3 /   7.0 ms     2.3 /   5.6 ms
+   1  2  no         227/100000 ( 0.23%)     2.3 /   7.0 ms     4.1 /  11.1 ms
+   2  1  no        3707/100000 ( 3.71%)     4.4 /  53.1 ms     2.3 /   5.6 ms
+   2  2  yes          0/100000 ( 0.00%)     4.4 /  53.1 ms     4.1 /  11.1 ms
+   3  1  yes          0/100000 ( 0.00%)    39.6 / 103.1 ms     2.3 /   5.6 ms
+   1  3  yes          0/100000 ( 0.00%)     2.3 /   7.0 ms    36.8 /  86.4 ms
 
-২. লেখা সফল হওয়ার ৫ ms পরে পড়া (অন্য একজন user)
-   1  1  না        5149/100000 ( 5.15%)   …
-   1  2  না         199/100000 ( 0.20%)   …
-   2  1  না        3303/100000 ( 3.30%)   …
-   (বাকি তিনটা হ্যাঁ — 0)
+2. Read 5 ms after the write succeeds (another user)
+   1  1  no       5149/100000 ( 5.15%)   …
+   1  2  no        199/100000 ( 0.20%)   …
+   2  1  no       3303/100000 ( 3.30%)   …
+   (the other three are yes — 0)
 
-৩. কয়টা replica মরলে কী চলে? (N = 3)
-   W  R   │ ০টা মৃত      │ ১টা মৃত      │ ২টা মৃত
-   1  1   │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✓
-   2  2   │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✓ │ লেখা ✗ পড়া ✗
-   3  1   │ লেখা ✓ পড়া ✓ │ লেখা ✗ পড়া ✓ │ লেখা ✗ পড়া ✓
-   1  3   │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✗ │ লেখা ✓ পড়া ✗
+3. How many replicas can die and what still works? (N = 3)
+   W  R   │ 0 dead         │ 1 dead         │ 2 dead
+   1  1   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✓ read ✓
+   2  2   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✗ read ✗
+   3  1   │ write ✓ read ✓ │ write ✗ read ✓ │ write ✗ read ✓
+   1  3   │ write ✓ read ✓ │ write ✓ read ✗ │ write ✓ read ✗
 ```
 
 **২. `npm run partition`**
 
 ```
-ক. CP — strict quorum (N=5, W=3, R=3)
-   রহিম (ঢাকা, ৩টা node)       লিখল "Fix login"   → সফল ✓
-   করিম (সিঙ্গাপুর, ২টা node)  লিখল "Fix signup"  → ব্যর্থ ✗ — error দেখল, আবার চেষ্টা করতে হবে
-   partition চলাকালীন পড়া: ঢাকা → "Fix login",  সিঙ্গাপুর → ✗ উত্তর নেই (quorum নেই)
-   network জোড়া লাগার পর সবাই পড়ে: "Fix login"
+A. CP — strict quorum (N=5, W=3, R=3)
+   Rahim (Dhaka, 3 nodes)         wrote "Fix login"   → success ✓
+   Karim (Singapore, 2 nodes)     wrote "Fix signup"  → failed ✗ — saw an error, has to try again
+   reads during the partition: Dhaka → "Fix login",  Singapore → ✗ no answer (no quorum)
+   after the network heals, everyone reads: "Fix login"
 
-খ. AP — যেকোনো node লেখা নেয় (W=1, R=1), পরে last-write-wins; n4 এর ঘড়ি ৩০০ ms পিছিয়ে
-   partition চলাকালীন পড়া: ঢাকা → "Fix login",  সিঙ্গাপুর → "Fix signup"  ← দুই দিকে দুই সত্য
-   network জোড়া লাগল — দুটো version পাওয়া গেল:
-     "Fix login" (রহিম), timestamp 100 ms
-     "Fix signup" (করিম), timestamp -100 ms
-   LWW বিজয়ী: "Fix login" (রহিম)
+B. AP — any node takes writes (W=1, R=1), last-write-wins afterwards; n4's clock is 300 ms behind
+   reads during the partition: Dhaka → "Fix login",  Singapore → "Fix signup"  ← two truths on two sides
+   the network healed — two versions found:
+     "Fix login" (Rahim), timestamp 100 ms
+     "Fix signup" (Karim), timestamp -100 ms
+   LWW winner: "Fix login" (Rahim)
 ```
 
 ## কী দেখার জন্য এটা বানানো

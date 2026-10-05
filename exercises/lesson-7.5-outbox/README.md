@@ -46,8 +46,8 @@ npm install
 ## Run
 
 ```bash
-npm run scenario                        # তিনটা mode পরপর (~৪০ সেকেন্ড)
-MODE=outbox npm run scenario            # একটা
+npm run scenario                        # all three modes in turn (~40 seconds)
+MODE=outbox npm run scenario            # just one
 ```
 
 Teardown:
@@ -62,22 +62,22 @@ docker compose down -v
 
 ```
 ── mode: outbox ──────────────────────────────────────────────────
-   comment এর চেষ্টা: 2000 · writer crash: 41 · user error দেখল: 0
-   database এ comment: 1959 · stream এ event: 2119 (আলাদা eventId 1959)
-   event হারাল (comment আছে, event নেই):      0
-   ভুতুড়ে event (event আছে, comment নেই):     0
-   একই comment এর বাড়তি event:               160
-   relay crash: 11 · commit থেকে stream এ পৌঁছাতে p50 118 ms, p99 457 ms · শেষে না-পাঠানো: 0
+   comment attempts: 2000 · writer crashes: 41 · user saw an error: 0
+   comments in the database: 1959 · events in the stream: 2119 (distinct eventIds 1959)
+   events lost (comment exists, no event):     0
+   phantom events (event exists, no comment):  0
+   extra events for the same comment:          160
+   relay crashes: 11 · from commit to reaching the stream p50 118 ms, p99 457 ms · unpublished at the end: 0
 
-── তুলনা ──────────────────────────────────────────────────────────
-   mode             comment   হারাল   ভুতুড়ে   বাড়তি (একই eventId)
+── comparison ────────────────────────────────────────────────────
+   mode            comments    lost  phantom    extra (same eventId)
    commit-first        2000      41        0        0
    publish-first       1959       0       41        0
    outbox              1959       0        0      160
 ```
 
 মিলতে হবে: `commit-first` এ হারাল ৪১, `publish-first` এ ভুতুড়ে ৪১ (writer এর crash সংখ্যা), `outbox` এ
-দুটোই ০, আর বাড়তি event এর সংখ্যা যাই হোক, "আলাদা eventId" = comment এর সংখ্যা।
+দুটোই ০, আর বাড়তি event এর সংখ্যা যাই হোক, "distinct eventIds" = comment এর সংখ্যা।
 
 ## কী দেখার জন্য এটা বানানো
 

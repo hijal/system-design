@@ -44,15 +44,15 @@ function scaleOut(): void {
 	const after = nodeList('cache', 4);
 	const database = new Map(keys.map((key) => [key, 0]));
 	heading(
-		`ক. TaskFlow এর cache: ৩টা node থেকে ৪টা, গরম অবস্থায় — ${RPS.toLocaleString('en-US')} read/s, Zipf ${ZIPF}`
+		`A. TaskFlow's cache: 3 nodes to 4, while warm — ${RPS.toLocaleString('en-US')} reads/s, Zipf ${ZIPF}`
 	);
 	console.log(
 		row([
 			['routing', 22],
-			['প্রথম 1 s hit', 16],
-			['প্রথম 1 s এ DB', 17],
-			['প্রথম 10 s hit', 17],
-			['মোট DB query', 15]
+			['first 1 s hit', 16],
+			['DB in first 1 s', 17],
+			['first 10 s hit', 17],
+			['total DB queries', 18]
 		])
 	);
 	const routers: [Router, Router][] = [
@@ -81,12 +81,12 @@ function scaleOut(): void {
 				[pct(firstSecondHits, RPS), 16],
 				[(RPS - firstSecondHits).toLocaleString('en-US'), 17],
 				[pct(firstTenHits, Math.min(REQUESTS, RPS * 10)), 17],
-				[misses.toLocaleString('en-US'), 15]
+				[misses.toLocaleString('en-US'), 18]
 			])
 		);
 	}
 	console.log(
-		'   (বদলের আগে hit rate ~100% — সব key গরম ছিল; তাই প্রতিটা miss এর কারণ শুধু routing বদল)'
+		'   (hit rate ~100% before the change — every key was warm; so every miss is caused only by the routing change)'
 	);
 }
 
@@ -133,18 +133,18 @@ function flappingNode(flushOnRejoin: boolean): {
 }
 
 function flapping(): void {
-	heading('খ. cache-2 ৩০ s এর জন্য নাগালের বাইরে (মরেনি), তারপর ফিরে এলো — তার পুরনো data সহ');
+	heading('B. cache-2 out of reach for 30 s (not dead), then came back — with its old data');
 	console.log(
 		row([
-			['ফিরে আসার সময়', 28],
+			['on return', 28],
 			['stale read (10 s)', 19],
-			['আলাদা stale key', 17],
+			['distinct stale keys', 20],
 			['miss (10 s)', 13]
 		])
 	);
 	const cases: [string, boolean][] = [
-		['কিছু না করে ring এ ফেরানো', false],
-		['আগে flush, তারপর ফেরানো', true]
+		['put back on the ring as is', false],
+		['flush first, then put back', true]
 	];
 	for (const [label, flush] of cases) {
 		const { stale, staleKeys, missesAfter } = flappingNode(flush);
@@ -152,13 +152,13 @@ function flapping(): void {
 			row([
 				[label, 28],
 				[stale.toLocaleString('en-US'), 19],
-				[staleKeys.toLocaleString('en-US'), 17],
+				[staleKeys.toLocaleString('en-US'), 20],
 				[missesAfter.toLocaleString('en-US'), 13]
 			])
 		);
 	}
 	console.log(
-		'   (বাইরে থাকার সময় প্রতি ৫০টা request এ একটা write — DB বদলায়, আর invalidate যায় তখনকার owner এর কাছে)'
+		'   (while it is away, one write every 50 requests — the DB changes, and the invalidate goes to the owner at that time)'
 	);
 }
 

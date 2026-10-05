@@ -74,7 +74,7 @@ const byId = (window: number): Set<number> => {
 
 const strategies: Strategy[] = [
 	{
-		name: 'একই তারিখ, শুধু amount মিলিয়ে',
+		name: 'same date, matching amounts only',
 		run: () => {
 			const flagged = new Set<number>();
 			const pool = new Map<number, number[]>();
@@ -88,20 +88,20 @@ const strategies: Strategy[] = [
 			return flagged;
 		}
 	},
-	{ name: 'আমাদের payment id (PSP এর reference এ), একই তারিখ', run: () => byId(0) },
-	{ name: 'payment id, ±১ দিনের জানালা', run: () => byId(1) }
+	{ name: "our payment id (in the PSP's reference), same date", run: () => byId(0) },
+	{ name: 'payment id, a ±1 day window', run: () => byId(1) }
 ];
 
 heading(
-	`${n(PAYMENTS)}টা payment এর একটা দিন; PSP এর দিন আমাদের থেকে ${OFFSET_H} ঘণ্টা আগে শুরু হয় (UTC বনাম UTC+${OFFSET_H}); আসল সমস্যা: ${n(realProblems)}টা`
+	`one day of ${n(PAYMENTS)} payments; the PSP's day starts ${OFFSET_H} hours before ours (UTC vs UTC+${OFFSET_H}); real problems: ${n(realProblems)}`
 );
 console.log(
 	row([
-		['মেলানোর নিয়ম', 50],
+		['matching rule', 54],
 		['alert', 10],
-		['আসল', 10],
-		['মিথ্যা alert', 13],
-		['আসল, ধরা পড়েনি', 16]
+		['real', 10],
+		['false alerts', 14],
+		['real, not caught', 18]
 	])
 );
 for (const s of strategies) {
@@ -110,14 +110,14 @@ for (const s of strategies) {
 	for (const id of flagged) if (truth.get(id) !== 'ok' && Math.floor(id / PAYMENTS) === DAY) real++;
 	console.log(
 		row([
-			[s.name, 50],
+			[s.name, 54],
 			[n(flagged.size), 10],
 			[n(real), 10],
-			[n(flagged.size - real), 13],
-			[`${n(realProblems - real)} (${pct(realProblems - real, realProblems, 0)})`, 16]
+			[n(flagged.size - real), 14],
+			[`${n(realProblems - real)} (${pct(realProblems - real, realProblems, 0)})`, 18]
 		])
 	);
 }
 console.log(
-	'\nআসল সমস্যার ধরন: webhook হারিয়েছে (আমরা ব্যর্থ ভাবছি, PSP কেটেছে), capture কখনো যায়নি, amount এ অমিল, PSP তে দুবার কাটা।'
+	'\nkinds of real problem: a lost webhook (we think it failed, the PSP charged it), a capture that never went through, a mismatched amount, charged twice at the PSP.'
 );

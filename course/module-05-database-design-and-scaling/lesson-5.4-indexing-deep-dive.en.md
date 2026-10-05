@@ -97,10 +97,10 @@ SELECT id, title, status FROM tasks WHERE "assigneeId" = 42 AND status <> 'done'
 Step 1 of the lab (on my machine, all pages warm in memory, median of 5 runs):
 
 ```
-index                                time       pages   plan
-no index                         25.76 ms     8,399   Gather → Seq Scan
-(assigneeId)                      0.15 ms       203   Bitmap Heap Scan → Bitmap Index Scan   (index: 6728 kB)
-(assigneeId) WHERE status <> done 0.07 ms        70   Bitmap Heap Scan → Bitmap Index Scan   (index: 2072 kB)
+index                                 time   pages   plan
+no index                          25.76 ms   8,399   Gather → Seq Scan
+(assigneeId)                       0.15 ms     203   Bitmap Heap Scan → Bitmap Index Scan   (index: 6728 kB)
+(assigneeId) WHERE status <> done  0.07 ms      70   Bitmap Heap Scan → Bitmap Index Scan   (index: 2072 kB)
 ```
 
 Without an index, the whole table (8,399 pages) is read. A plain index makes it ~170× faster.
@@ -138,11 +138,11 @@ The best analogy is an old-fashioned **telephone directory**: sorted by surname 
 Step 2 of the lab — the same two columns, in different orders:
 
 ```
-index                           time       pages   plan
-no index                     20.46 ms     8,473   Limit → Gather Merge → Sort → Seq Scan
-(projectId)                   0.42 ms       504   Limit → Sort → Bitmap Heap Scan → Bitmap Index Scan
-(createdAt, projectId) reversed 0.47 ms     188   Limit → Index Scan Backward
-(projectId, createdAt)        0.04 ms        23   Limit → Index Scan Backward
+index                               time   pages   plan
+no index                        20.46 ms   8,473   Limit → Gather Merge → Sort → Seq Scan
+(projectId)                      0.42 ms     504   Limit → Sort → Bitmap Heap Scan → Bitmap Index Scan
+(createdAt, projectId) reversed  0.47 ms     188   Limit → Index Scan Backward
+(projectId, createdAt)           0.04 ms      23   Limit → Index Scan Backward
 ```
 
 In `(projectId, createdAt)`, all of project 7's entries sit next to each other inside the index, **already sorted by `createdAt`**. Postgres just goes to the end of project 7's section, reads 20 going backward (`Backward`), and stops. No Sort node, no fetching 500 rows — 23 pages. Ten times faster than `(projectId)` alone.
@@ -180,9 +180,9 @@ SELECT count(*) FROM tasks WHERE "createdAt" >= '2026-09-24'
 Step 3 of the lab:
 
 ```
-index                     time       pages   plan
-(projectId, createdAt) 25.11 ms     8,399   Aggregate → Gather → Aggregate → Seq Scan
-(createdAt)             0.15 ms         8   Aggregate → Index Only Scan
+index                       time   pages   plan
+(projectId, createdAt)  25.11 ms   8,399   Aggregate → Gather → Aggregate → Seq Scan
+(createdAt)              0.15 ms       8   Aggregate → Index Only Scan
 ```
 
 The `(projectId, createdAt)` index contains `createdAt` — yet Postgres read the whole table. Like looking up "every Karim" in the telephone directory: the `createdAt` values are scattered across 2,000 separate places in the index (one run inside each project).
@@ -215,9 +215,9 @@ When the query can't be changed — for example a case-insensitive search `lower
 **LIKE.** Step 7 of the lab, with an index on `(title)`:
 
 ```
-(title) + LIKE '%bug%'                  28.25 ms   8,399 pages   Seq Scan
-(title) + LIKE 'Fix bug #1234%'         23.52 ms   8,399 pages   Seq Scan
-(title text_pattern_ops) + same LIKE     0.03 ms       5 pages   Index Only Scan
+(title) + LIKE '%bug%'                28.25 ms   8,399 pages   Seq Scan
+(title) + LIKE 'Fix bug #1234%'       23.52 ms   8,399 pages   Seq Scan
+(title text_pattern_ops) + same LIKE   0.03 ms       5 pages   Index Only Scan
 ```
 
 - `'%bug%'` — a leading `%` means "anywhere in the middle". That can't be found using a sorted order — a B-tree will never help here. It needs a different kind of index (Lesson 8.3's inverted index, or Postgres's `pg_trgm`).

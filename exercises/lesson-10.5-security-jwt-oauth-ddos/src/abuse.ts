@@ -85,7 +85,7 @@ type Policy = {
 
 const POLICIES: Policy[] = [
 	{
-		name: 'কোনো সীমা নেই',
+		name: 'no limits',
 		ipLimit: null,
 		emailLimit: null,
 		breachCheck: false,
@@ -93,7 +93,7 @@ const POLICIES: Policy[] = [
 		mfa: false
 	},
 	{
-		name: '9.5: IP ২০/ঘ + email ১০/ঘ',
+		name: '9.5: IP 20/h + email 10/h',
 		ipLimit: 20,
 		emailLimit: 10,
 		breachCheck: false,
@@ -101,7 +101,7 @@ const POLICIES: Policy[] = [
 		mfa: false
 	},
 	{
-		name: 'কঠোর: IP ৫/ঘ + email ১০/ঘ',
+		name: 'strict: IP 5/h + email 10/h',
 		ipLimit: 5,
 		emailLimit: 10,
 		breachCheck: false,
@@ -125,7 +125,7 @@ const POLICIES: Policy[] = [
 		mfa: false
 	},
 	{
-		name: `সব + MFA (${Math.round(MFA * 100)}% user)`,
+		name: `all + MFA (${Math.round(MFA * 100)}% of users)`,
 		ipLimit: 20,
 		emailLimit: 10,
 		breachCheck: true,
@@ -215,19 +215,19 @@ function simulate(policy: Policy): Outcome {
 const vulnerable = new Set(attempts.filter((a) => a.bot && a.correct).map((a) => a.email)).size;
 const perIp = ATTEMPTS / BOT_IPS / (ATTACK_MINUTES / 60);
 heading(
-	`অংশ ক — credential stuffing: ${n(ATTEMPTS)} চেষ্টা, ${n(BOT_IPS)} IP, ${ATTACK_MINUTES / 60} ঘণ্টা; সাথে ${n(LEGIT_LOGINS)} বৈধ login`
+	`Part A — credential stuffing: ${n(ATTEMPTS)} attempts, ${n(BOT_IPS)} IPs, ${ATTACK_MINUTES / 60} hours; along with ${n(LEGIT_LOGINS)} legitimate logins`
 );
 console.log(
-	`প্রতি IP গড়ে ঘণ্টায় ${perIp.toFixed(1)} চেষ্টা, প্রতি email গড়ে ১বার; তালিকার ${n(vulnerable)}টা account এর password সত্যিই মেলে\n`
+	`${perIp.toFixed(1)} attempts per IP per hour on average, once per email on average; the password really matches for ${n(vulnerable)} accounts on the list\n`
 );
 console.log(
 	row([
-		['নীতি', 34],
-		['bot password পর্যন্ত', 20],
-		['account দখল', 14],
-		['বৈধ login আটকাল', 18],
-		['বৈধ user এ ঝামেলা', 18],
-		['ধরা পড়ল', 12]
+		['policy', 34],
+		['bot reached password', 22],
+		['takeovers', 14],
+		['legit logins blocked', 22],
+		['legit user friction', 21],
+		['detected', 12]
 	])
 );
 for (const policy of POLICIES) {
@@ -235,15 +235,15 @@ for (const policy of POLICIES) {
 	console.log(
 		row([
 			[policy.name, 34],
-			[n(r.botsReached), 20],
+			[n(r.botsReached), 22],
 			[n(r.takeovers), 14],
-			[`${n(r.legitBlocked)} (${pct(r.legitBlocked, r.legitTotal)})`, 18],
-			[n(r.legitFriction), 18],
-			[r.detectedAt === null ? '—' : `${Math.round((r.detectedAt - START) / 60)} মি`, 12]
+			[`${n(r.legitBlocked)} (${pct(r.legitBlocked, r.legitTotal)})`, 22],
+			[n(r.legitFriction), 21],
+			[r.detectedAt === null ? '—' : `${Math.round((r.detectedAt - START) / 60)} min`, 12]
 		])
 	);
 }
-console.log('\n(বৈধ user এ ঝামেলা = challenge দেখল, বা breached password এর জন্য reset করতে হলো)');
+console.log('\n(legit user friction = saw a challenge, or had to reset a breached password)');
 
 type Flood = {
 	name: string;
@@ -258,34 +258,46 @@ const share = (f: Flood): number => {
 };
 
 heading(
-	'অংশ খ — volumetric: ৩০০ Gbps UDP reflection, origin এর link ১০ Gbps, বৈধ traffic ০.৮ Gbps'
+	'Part B — volumetric: 300 Gbps UDP reflection, origin link 10 Gbps, legitimate traffic 0.8 Gbps'
 );
 const volumetric: Flood[] = [
-	{ name: 'origin সরাসরি internet এ', attack: 300, legit: 0.8, capacity: 10, reaches: (x) => x },
-	{ name: 'origin এ app rate limit', attack: 300, legit: 0.8, capacity: 10, reaches: (x) => x },
 	{
-		name: 'anycast CDN/scrubbing এর পেছনে',
+		name: 'origin directly on the internet',
+		attack: 300,
+		legit: 0.8,
+		capacity: 10,
+		reaches: (x) => x
+	},
+	{
+		name: 'app rate limit at the origin',
+		attack: 300,
+		legit: 0.8,
+		capacity: 10,
+		reaches: (x) => x
+	},
+	{
+		name: 'behind anycast CDN/scrubbing',
 		attack: 300,
 		legit: 0.8,
 		capacity: 10,
 		reaches: () => 0
 	},
 	{
-		name: 'CDN, কিন্তু origin IP ফাঁস (পুরনো DNS)',
+		name: 'CDN, but origin IP leaked (old DNS)',
 		attack: 300,
 		legit: 0.8,
 		capacity: 10,
 		reaches: (x) => x
 	},
 	{
-		name: 'ফাঁস IP + origin firewall এ CDN allowlist',
+		name: 'leaked IP + CDN allowlist on origin firewall',
 		attack: 300,
 		legit: 0.8,
 		capacity: 10,
 		reaches: (x) => x
 	},
 	{
-		name: 'নতুন origin IP, শুধু CDN এর tunnel দিয়ে',
+		name: 'new origin IP, only through the CDN tunnel',
 		attack: 300,
 		legit: 0.8,
 		capacity: 10,
@@ -294,9 +306,9 @@ const volumetric: Flood[] = [
 ];
 console.log(
 	row([
-		['নকশা', 46],
-		['link এ আসে', 14],
-		['বৈধ traffic পৌঁছায়', 20]
+		['design', 46],
+		['reaches link', 14],
+		['legit traffic arrives', 23]
 	])
 );
 for (const f of volumetric)
@@ -304,47 +316,47 @@ for (const f of volumetric)
 		row([
 			[f.name, 46],
 			[`${(f.legit + f.reaches(f.attack)).toFixed(1)} Gbps`, 14],
-			[pct(share(f), 1), 20]
+			[pct(share(f), 1), 23]
 		])
 	);
 
 heading(
-	'অংশ গ — L7 flood: public share page /s/:token, ২০,০০০ IP × ৩ req/s, origin এর ক্ষমতা ২,০০০ req/s'
+	'Part C — L7 flood: public share page /s/:token, 20,000 IPs × 3 req/s, origin capacity 2,000 req/s'
 );
 const ATTACK_RPS = 20_000 * 3;
 const LEGIT_RPS = 400;
 const l7: Flood[] = [
-	{ name: 'কিছু নেই', attack: ATTACK_RPS, legit: LEGIT_RPS, capacity: 2_000, reaches: (x) => x },
+	{ name: 'nothing', attack: ATTACK_RPS, legit: LEGIT_RPS, capacity: 2_000, reaches: (x) => x },
 	{
-		name: 'per-IP ১০ req/s',
+		name: 'per-IP 10 req/s',
 		attack: ATTACK_RPS,
 		legit: LEGIT_RPS,
 		capacity: 2_000,
 		reaches: (x) => x
 	},
 	{
-		name: 'CDN cache (৬০ s, ৩০০ PoP), attacker ৫টা আসল token',
+		name: 'CDN cache (60 s, 300 PoPs), attacker with 5 real tokens',
 		attack: ATTACK_RPS,
 		legit: LEGIT_RPS * 0.2,
 		capacity: 2_000,
 		reaches: () => (5 * 300) / 60
 	},
 	{
-		name: 'CDN cache, কিন্তু ?x=এলোমেলো দিয়ে cache ভাঙা',
+		name: 'CDN cache, but busted with ?x=random',
 		attack: ATTACK_RPS,
 		legit: LEGIT_RPS * 0.2,
 		capacity: 2_000,
 		reaches: (x) => x
 	},
 	{
-		name: 'cache key normalize (অজানা query বাদ)',
+		name: 'normalized cache key (unknown query dropped)',
 		attack: ATTACK_RPS,
 		legit: LEGIT_RPS * 0.2,
 		capacity: 2_000,
 		reaches: () => (5 * 300) / 60
 	},
 	{
-		name: 'edge এ challenge (bot ৫% পার), cache ছাড়া',
+		name: 'challenge at the edge (5% of bots pass), no cache',
 		attack: ATTACK_RPS,
 		legit: LEGIT_RPS,
 		capacity: 2_000,
@@ -353,19 +365,19 @@ const l7: Flood[] = [
 ];
 console.log(
 	row([
-		['নকশা', 46],
-		['origin এ req/s', 16],
-		['বৈধ request সফল', 18]
+		['design', 58],
+		['req/s at origin', 17],
+		['legit requests ok', 19]
 	])
 );
 for (const f of l7)
 	console.log(
 		row([
-			[f.name, 46],
-			[n(f.legit + f.reaches(f.attack)), 16],
-			[pct(share(f), 1), 18]
+			[f.name, 58],
+			[n(f.legit + f.reaches(f.attack)), 17],
+			[pct(share(f), 1), 19]
 		])
 	);
 console.log(
-	'\n(সরল fluid model: origin ক্ষমতার বেশি পেলে সবাইকে সমান ভাগে ফেলে; আসল overload এ timeout আর retry এ ফল আরও খারাপ)'
+	'\n(simple fluid model: over capacity, the origin drops everyone equally; in a real overload timeouts and retries make it worse)'
 );

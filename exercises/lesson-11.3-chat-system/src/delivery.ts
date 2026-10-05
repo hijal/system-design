@@ -16,20 +16,20 @@ const REPLY_SHARE = env('REPLY_SHARE', 0.5);
 type Policy = { name: string; retry: boolean; dedupe: boolean };
 
 const policies: Policy[] = [
-	{ name: 'একবার পাঠাও, ack নেই (at-most-once)', retry: false, dedupe: false },
-	{ name: 'ack না এলে আবার পাঠাও (at-least-once)', retry: true, dedupe: false },
-	{ name: 'আবার পাঠাও + client_msg_id আর seq দিয়ে বাদ', retry: true, dedupe: true }
+	{ name: 'send once, no ack (at-most-once)', retry: false, dedupe: false },
+	{ name: 'resend if no ack (at-least-once)', retry: true, dedupe: false },
+	{ name: 'resend + drop by client_msg_id and seq', retry: true, dedupe: true }
 ];
 
 heading(
-	`অংশ ক — A → server → B, ${n(MESSAGES)} message, প্রতিটা packet ${(DROP * 100).toFixed(0)}% হারায় (mobile network)`
+	`Part A — A → server → B, ${n(MESSAGES)} messages, each packet lost ${(DROP * 100).toFixed(0)}% of the time (mobile network)`
 );
 console.log(
 	row([
-		['নীতি', 46],
-		['B পেল না', 12],
-		['B দুবার দেখল', 15],
-		['server এ দুবার জমা', 19],
+		['policy', 46],
+		['B missed it', 12],
+		['B saw it twice', 15],
+		['stored twice', 19],
 		['packet / message', 17]
 	])
 );
@@ -78,20 +78,20 @@ for (const policy of policies) {
 }
 
 heading(
-	`অংশ খ — group এ ক্রম: ${MEMBERS} জন, ফোনের ঘড়ি ±${CLOCK_SD_MS} ms (${(WRONG_CLOCK * 100).toFixed(0)}% ফোন মিনিট খানেক ভুল), ${SERVERS}টা chat server (±${SERVER_SD_MS} ms)`
+	`Part B — ordering in a group: ${MEMBERS} people, phone clocks ±${CLOCK_SD_MS} ms (${(WRONG_CLOCK * 100).toFixed(0)}% of phones a minute or so off), ${SERVERS} chat servers (±${SERVER_SD_MS} ms)`
 );
 type Order = 'client' | 'arrival' | 'server' | 'seq';
 const orders: [Order, string][] = [
-	['client', 'পাঠানোর ফোনের ঘড়ি ধরে সাজানো'],
-	['arrival', 'যে ক্রমে পৌঁছাল সেভাবে দেখানো'],
-	['server', 'chat server এর ঘড়ি ধরে সাজানো'],
-	['seq', 'conversation প্রতি seq (একটা sequencer)']
+	['client', "sorted by the sending phone's clock"],
+	['arrival', 'shown in the order they arrived'],
+	['server', "sorted by the chat server's clock"],
+	['seq', 'per-conversation seq (one sequencer)']
 ];
 console.log(
 	row([
-		['ক্রম', 44],
-		['উত্তর প্রশ্নের উপরে', 21],
-		['সদস্যরা আলাদা ক্রম দেখে', 24]
+		['order', 44],
+		['answer above question', 23],
+		['members see different orders', 31]
 	])
 );
 for (const [order, name] of orders) {
@@ -155,11 +155,11 @@ for (const [order, name] of orders) {
 	console.log(
 		row([
 			[name, 44],
-			[pct(replyAbove, replies, 2), 21],
-			[pct(diverged, concurrent, 2), 24]
+			[pct(replyAbove, replies, 2), 23],
+			[pct(diverged, concurrent, 2), 31]
 		])
 	);
 }
 console.log(
-	'"উত্তর প্রশ্নের উপরে" = C প্রশ্নটা দেখে উত্তর দিল, কিন্তু অন্তত একজনের screen এ উত্তর আগে। "আলাদা ক্রম" = প্রায় একসাথে পাঠানো দুটো message, সদস্যরা ভিন্ন ক্রমে দেখে।'
+	'"answer above question" = C saw the question and answered, but on at least one screen the answer comes first. "different orders" = two messages sent almost together, seen in different orders by members.'
 );

@@ -170,7 +170,7 @@ export function createApp(service: VodService): Express {
 			video.status.kind === 'uploaded' ||
 			video.status.kind === 'processing'
 		) {
-			res.status(404).type('text/plain').send('এখনও দেখা যায় না');
+			res.status(404).type('text/plain').send('not watchable yet');
 			return;
 		}
 		res.setHeader(

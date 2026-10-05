@@ -16,13 +16,13 @@ type Policy =
 	| { name: string; kind: 'tail'; rate: number };
 
 const POLICIES: Policy[] = [
-	{ name: 'সব রাখো', kind: 'head', rate: 1 },
-	{ name: 'head ১০%', kind: 'head', rate: 0.1 },
-	{ name: 'head ১%', kind: 'head', rate: 0.01 },
-	{ name: 'head ০.১%', kind: 'head', rate: 0.001 },
-	{ name: 'tail: error + ধীর + ১%', kind: 'tail', rate: 0.01 },
-	{ name: 'tail: error + ধীর + ০.১%', kind: 'tail', rate: 0.001 },
-	{ name: 'প্রতি service নিজে ১০%', kind: 'independent', rate: 0.1 }
+	{ name: 'keep all', kind: 'head', rate: 1 },
+	{ name: 'head 10%', kind: 'head', rate: 0.1 },
+	{ name: 'head 1%', kind: 'head', rate: 0.01 },
+	{ name: 'head 0.1%', kind: 'head', rate: 0.001 },
+	{ name: 'tail: error + slow + 1%', kind: 'tail', rate: 0.01 },
+	{ name: 'tail: error + slow + 0.1%', kind: 'tail', rate: 0.001 },
+	{ name: 'each service its own 10%', kind: 'independent', rate: 0.1 }
 ];
 
 type Tally = {
@@ -85,18 +85,18 @@ for (let i = 0; i < total; i++) {
 }
 
 heading(
-	`ক. একদিনে ${n(total)}টা trace (${RPS} req/s, প্রতিটায় ${SPANS}টা span ≈ ${bytes(traceBytes)}); error ${n(errors)}টা, ১ s এর বেশি ধীর ${n(slow)}টা, আর একটা বিরল bug (একটা workspace) ${n(rare)}বার`
+	`A. ${n(total)} traces in a day (${RPS} req/s, ${SPANS} spans each ≈ ${bytes(traceBytes)}); ${n(errors)} errors, ${n(slow)} slower than 1 s, and one rare bug (one workspace) ${n(rare)} times`
 );
 console.log(
 	row([
-		['নীতি', 26],
-		['রাখা trace', 12],
-		['পুরো trace', 12],
+		['policy', 26],
+		['traces kept', 12],
+		['full trace', 12],
 		['error', 10],
-		['ধীর', 10],
-		['বিরল bug', 10],
-		['জমা/দিন', 11],
-		['collector এ আসে', 17]
+		['slow', 10],
+		['rare bug', 10],
+		['stored/day', 11],
+		['into collector', 17]
 	])
 );
 POLICIES.forEach((policy, index) => {
@@ -116,21 +116,21 @@ POLICIES.forEach((policy, index) => {
 	);
 });
 console.log(
-	`   "পুরো trace" = রাখা trace এর কত % এ সব ${SERVICES}টা service এর span আছে; error/ধীর/বিরল bug = পুরো trace হিসেবে রাখা`
+	`   "full trace" = what % of kept traces have spans from all ${SERVICES} services; error/slow/rare bug = kept as a full trace`
 );
 const buffer = RPS * traceBytes * (DECISION_WAIT + 1);
 console.log(
-	`   tail sampling এ সিদ্ধান্তের আগে প্রতিটা trace collector এর memory তে ~${DECISION_WAIT} s অপেক্ষা করে: যেকোনো মুহূর্তে ~${bytes(buffer)}`
+	`   with tail sampling every trace waits ~${DECISION_WAIT} s in the collector's memory before the decision: ~${bytes(buffer)} at any moment`
 );
 
 heading(
-	`খ. বিরল bug টার একটা পুরো trace হাতে থাকার সম্ভাবনা — দিনে ${RARE_PER_DAY}বার ঘটে, head sampling এর হার বদলে`
+	`B. The chance of having a full trace of the rare bug — it happens ${RARE_PER_DAY} times a day, varying the head sampling rate`
 );
 console.log(
 	row([
-		['head হার', 12],
-		['১ দিনে', 10],
-		['১ সপ্তাহে', 12]
+		['head rate', 12],
+		['in 1 day', 10],
+		['in 1 week', 12]
 	])
 );
 for (const rate of [0.1, 0.01, 0.001, 0.0001]) {

@@ -18,63 +18,65 @@ const uploadHoursPerDay = UPLOAD_H_PER_MIN * 60 * 24;
 const storedPerDay = uploadHoursPerDay * 3_600 * (((LADDER_MBPS + SOURCE_MBPS) * 1e6) / 8);
 const cpuHoursPerDay = uploadHoursPerDay * CPU_H_PER_H;
 
-heading(`অংশ ক — দেখা: ${big(DAU)} DAU, দিনে গড়ে ${WATCH_MIN} মিনিট, গড় ${AVG_MBPS} Mbps`);
+heading(
+	`Part A — watching: ${big(DAU)} DAU, ${WATCH_MIN} minutes a day on average, ${AVG_MBPS} Mbps on average`
+);
 const line = (label: string, value: string, note = ''): void =>
 	console.log(
 		row([
-			[label, 46],
+			[label, 52],
 			[value, 18]
 		]) + (note === '' ? '' : `   ${note}`)
 	);
-line('দিনে বের হওয়া data (egress)', bytes(bytesPerDay));
-line('গড় bandwidth', `${n((bytesPerDay * 8) / DAY / 1e12)} Tbps`);
+line('data out per day (egress)', bytes(bytesPerDay));
+line('average bandwidth', `${n((bytesPerDay * 8) / DAY / 1e12)} Tbps`);
 line(
 	`peak bandwidth (${PEAK}×)`,
 	`${n(((bytesPerDay * 8) / DAY / 1e12) * PEAK)} Tbps`,
-	'কোনো একটা data center এর বাইরে'
+	'beyond any single data center'
 );
-line('একসাথে দেখছে (peak)', big(((DAU * WATCH_MIN * 60) / DAY) * PEAK));
+line('watching at once (peak)', big(((DAU * WATCH_MIN * 60) / DAY) * PEAK));
 
-heading(`অংশ খ — upload: প্রতি মিনিটে ${UPLOAD_H_PER_MIN} ঘণ্টার video`);
-line('দিনে upload', `${n(uploadHoursPerDay)} ঘণ্টা`);
+heading(`Part B — uploads: ${UPLOAD_H_PER_MIN} hours of video every minute`);
+line('uploaded per day', `${n(uploadHoursPerDay)} hours`);
 line(
-	`জমা (মূল ${SOURCE_MBPS} + সব resolution ${LADDER_MBPS} Mbps)`,
-	`${bytes(storedPerDay)}/দিন`,
-	`বছরে ${bytes(storedPerDay * 365)}`
+	`stored (original ${SOURCE_MBPS} + all resolutions ${LADDER_MBPS} Mbps)`,
+	`${bytes(storedPerDay)}/day`,
+	`${bytes(storedPerDay * 365)} a year`
 );
 line(
-	`transcoding (ঘণ্টায় ${CPU_H_PER_H} CPU-ঘণ্টা)`,
-	`${n(cpuHoursPerDay / 24)} core`,
-	'সারাক্ষণ চালু'
+	`transcoding (${CPU_H_PER_H} CPU-hours per hour)`,
+	`${n(cpuHoursPerDay / 24)} cores`,
+	'running all the time'
 );
 
-heading('অংশ গ — মাসিক খরচ (আনুমানিক দাম)');
+heading('Part C — monthly cost (approximate prices)');
 const egress = (bytesPerDay / 1e9) * CDN_PER_GB * 30;
 const storageMonth = ((storedPerDay * 365) / 1e9) * STORAGE_PER_GB;
 const compute = cpuHoursPerDay * CPU_HOUR * 30;
 const total = egress + storageMonth + compute;
 console.log(
 	row([
-		['', 46],
-		['মাসে', 18],
-		['ভাগ', 10]
+		['', 52],
+		['monthly', 18],
+		['share', 10]
 	])
 );
 for (const [label, value] of [
 	[`CDN egress ($${CDN_PER_GB}/GB)`, egress],
-	[`storage, এক বছরের জমা ($${STORAGE_PER_GB}/GB-মাস)`, storageMonth],
-	[`transcoding ($${CPU_HOUR}/CPU-ঘণ্টা)`, compute]
+	[`storage, one year's accumulation ($${STORAGE_PER_GB}/GB-month)`, storageMonth],
+	[`transcoding ($${CPU_HOUR}/CPU-hour)`, compute]
 ] as const)
 	console.log(
 		row([
-			[label, 46],
+			[label, 52],
 			[`$${n(value)}`, 18],
 			[pct(value, total, 1), 10]
 		])
 	);
 console.log(
-	`\nএকটা ঘণ্টা দেখার খরচ: $${(((3_600 * ((AVG_MBPS * 1e6) / 8)) / 1e9) * CDN_PER_GB).toFixed(4)} egress — প্রতিটা দর্শক প্রতিবার।`
+	`\nthe cost of watching one hour: $${(((3_600 * ((AVG_MBPS * 1e6) / 8)) / 1e9) * CDN_PER_GB).toFixed(4)} egress — for every viewer, every time.`
 );
 console.log(
-	`একটা ঘণ্টা transcode এর খরচ: $${(CPU_H_PER_H * CPU_HOUR).toFixed(2)} — একবার। ${n((CPU_H_PER_H * CPU_HOUR) / (((3_600 * ((AVG_MBPS * 1e6) / 8)) / 1e9) * CDN_PER_GB))} ঘণ্টা দেখা = এক ঘণ্টা transcode।`
+	`the cost of transcoding one hour: $${(CPU_H_PER_H * CPU_HOUR).toFixed(2)} — once. ${n((CPU_H_PER_H * CPU_HOUR) / (((3_600 * ((AVG_MBPS * 1e6) / 8)) / 1e9) * CDN_PER_GB))} hours watched = one hour transcoded.`
 );

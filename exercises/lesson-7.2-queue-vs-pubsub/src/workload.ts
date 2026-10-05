@@ -1,7 +1,7 @@
 import { uniform } from './random';
 
-// TaskFlow এর ঘটনার ধারা: প্রতিটা task তৈরি হয়, assign হয়, কয়েকটা comment পায়, তারপর complete।
-// একই task এর ঘটনাগুলোর একটা ক্রম আছে (seq) — "completed" এর আগে "assigned" প্রক্রিয়া হওয়ার কথা।
+// TaskFlow's event stream: every task is created, assigned, gets a few comments, then completed.
+// The events of the same task have an order (seq) — "assigned" should be processed before "completed".
 
 export type EventType = 'task.created' | 'task.assigned' | 'comment.created' | 'task.completed';
 

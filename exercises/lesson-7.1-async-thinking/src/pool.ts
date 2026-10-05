@@ -1,8 +1,8 @@
-// Lesson 7.1 §১.৩ — Sequelize এর connection pool এর একটা ছোট নকল (Lesson 5.6 এর `pool` option)।
+// Lesson 7.1 §1.3 — a small imitation of Sequelize's connection pool (the `pool` option from Lesson 5.6).
 //
-// আসল Postgres নেই — "query" মানে শুধু কিছুক্ষণ অপেক্ষা। কিন্তু আজকের lesson এর জন্য যা দরকার,
-// সেটা হুবহু আছে: সর্বোচ্চ `max` টা connection, সব ব্যস্ত হলে লাইন, আর `acquireTimeoutMs` পরে
-// error (Sequelize এর `ConnectionAcquireTimeoutError` এর মতো)।
+// No real Postgres — a "query" just means waiting a while. But what today's lesson needs
+// is exactly there: at most `max` connections, a queue when all are busy, and an error after `acquireTimeoutMs`
+// (like Sequelize's `ConnectionAcquireTimeoutError`).
 
 export class AcquireTimeoutError extends Error {
 	override readonly name = 'AcquireTimeoutError';
@@ -67,7 +67,7 @@ export class Pool {
 			release: () => {
 				if (released) return;
 				released = true;
-				// লাইনে কেউ থাকলে connection সরাসরি তার হাতে — busy সংখ্যা একই থাকে
+				// if someone is waiting, the connection goes straight to them — the busy count stays the same
 				const next = this.#waiters.shift();
 				if (next) {
 					clearTimeout(next.timer);

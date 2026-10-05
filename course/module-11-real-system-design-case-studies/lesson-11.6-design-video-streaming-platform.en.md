@@ -54,20 +54,20 @@ Left out                                     live streaming, recommendations, co
 
 ```
 ── Part A — watching: 200 million DAU, 60 minutes a day on average, 3 Mbps on average ──
-data out per day (egress)                                      270 PB
-average bandwidth                                             25 Tbps
-peak bandwidth (2.5×)                                         63 Tbps   beyond any single data center
-watching at once (peak)                                    21 million
+data out per day (egress)                                       270 PB
+average bandwidth                                              25 Tbps
+peak bandwidth (2.5×)                                          63 Tbps   beyond any single data center
+watching at once (peak)                                   20.8 million
 
 ── Part B — uploads: 300 hours of video every minute ──
-uploaded per day                                        432,000 hours
-stored (original 20 + all resolutions 10.4 Mbps)          5.9 PB/day   2157 PB a year
-transcoding (4 CPU-hours per hour)                       72,000 cores   running all the time
+uploaded per day                                         432,000 hours
+stored (original 20 + all resolutions 10.4 Mbps)            5.9 PB/day   2157 PB a year
+transcoding (4 CPU-hours per hour)                        72,000 cores   running all the time
 
 ── Part C — monthly cost (approximate prices) ──
 CDN egress ($0.01/GB)                                $81,000,000     78.2%
-storage, one year's accumulation ($0.01/GB-month)    $21,570,624     20.8%
-transcoding ($0.02/CPU-hour)                          $1,036,800      1.0%
+storage, one year's accumulation ($0.01/GB-month)          $21,570,624     20.8%
+transcoding ($0.02/CPU-hour)                                $1,036,800      1.0%
 
 the cost of watching one hour: $0.0135 egress — for every viewer, every time.
 the cost of transcoding one hour: $0.08 — once. 6 hours watched = one hour transcoded.
@@ -106,11 +106,11 @@ Two terms that everything else is built on:
 Making the ladder's five versions from the uploaded original (often a big 15–20 Mbps file) takes 4 CPU-hours for an hour of video. `npm run transcode`: forty 1-hour uploads, **spot workers** (10.7: much cheaper, but the cloud can take them back at any time; here 0.2 times per CPU-hour on average), and 20 s for a worker to start again after being taken back:
 
 ```
-plan                                                    publish p50        p99    360p watchable    wasted CPU
-one worker, the whole video, one resolution after another    4.0 h     10.6 h       27.3 min    13.72%
-one worker per resolution (5)                                2.1 h      3.0 h       18.1 min    13.72%
-4 s pieces, 100 workers                                    2.9 min    3.0 min          38 s     0.02%
-the same, but 360p pieces first                            2.9 min    3.0 min          32 s     0.02%
+plan                                                        publish p50        p99  360p watchable  wasted CPU
+one worker, the whole video, one resolution after another          4.0 h     10.6 h        27.3 min      13.72%
+one worker per resolution (5)                                     2.1 h      3.0 h        18.1 min      13.72%
+4 s pieces, 100 workers                                         2.9 min    3.0 min            38 s       0.02%
+the same, but 360p pieces first                                 2.9 min    3.0 min            32 s       0.02%
 ```
 
 - **The whole video as one job:** four hours, and one spot interruption wastes that resolution's whole job. p99 **10.6 hours**, 14% of the CPU thrown away. Experiment 2: with one interruption an hour, p99 25 hours, 60% wasted.
@@ -127,12 +127,12 @@ With a ladder and pieces, the player decides which quality to show, piece by pie
 `npm run abr`: 300 sessions, a 10-minute video, 4 s pieces, a mobile network that swings between 0.4 and 12 Mbps:
 
 ```
-policy                                                      start-up delay   stalled   avg bitrate  quality switches
-always 1080p                                                       5.4 s     32.63%   5.00 Mbps         0.0
-always 240p                                                        0.4 s      0.00%   0.40 Mbps         0.0
-throughput: the highest under 80% of the last 3 rates              0.8 s      0.22%   2.35 Mbps        32.9
-buffer: lowest below 8 s, highest at 24 s                          0.4 s      0.40%   3.06 Mbps        46.9
-mixed: throughput, drop when the buffer is low, climb step by step 0.4 s      0.08%   2.32 Mbps        34.5
+policy                                                                start-up delay    stalled  avg bitrate  quality switches
+always 1080p                                                                   5.4 s     32.63%   5.00 Mbps               0.0
+always 240p                                                                    0.4 s      0.00%   0.40 Mbps               0.0
+throughput: the highest under 80% of the last 3 rates                          0.8 s      0.22%   2.35 Mbps              32.9
+buffer: lowest below 8 s, highest at 24 s                                      0.4 s      0.40%   3.06 Mbps              46.9
+mixed: throughput, drop when the buffer is low, climb step by step             0.4 s      0.08%   2.32 Mbps              34.5
 ```
 
 - **Always the highest:** stopped for **a third** of the watching time. That is what handing out the 15 GB file directly leads to.
@@ -148,10 +148,10 @@ And one more design aspect: the piece length. Short pieces (2 s) mean quality sw
 Like 11.1 and 11.4, popularity is sharp. `npm run cdn`: 100 million videos (10 minutes on average), 6 billion hours watched a month, Zipf (s = 1.2):
 
 ```
-most popular                          videos    share of watching   space at the edge (all resolutions)
+most popular                           video  share of watching  space at the edge (all resolutions)
 0.1%                                 103,359       92.4%                     80.6 TB
 1%                                 1,023,965       96.1%                      799 TB
-10%                               10 million       98.5%                      7.9 PB
+10%                             10.1 million              98.5%                               7.9 PB
 
 videos not watched even once a month (approx.): 4.0%
 videos whose monthly watching egress costs less than their transcode: 62.1%
@@ -166,10 +166,10 @@ videos whose monthly watching egress costs less than their transcode: 62.1%
 extra encode for a 10-minute video: $0.120; saved per hour watched $0.00405
 break-even: at ~30 hours watched a month (assuming it pays back within a month)
 
-policy                                      videos     extra encode/month   egress saved/month           net
-all videos                              100 million       $12,000,000       $24,300,000   $12,300,000
-over 30 hours a month                     2,235,202          $268,224       $23,589,440   $23,321,215
-over 296 hours a month                      333,367           $40,004       $22,971,363   $22,931,359
+policy                                     video  extra encode/month  egress saved/month           net
+all videos                           100 million         $12,000,000         $24,300,000   $12,300,000
+over 30 hours a month                  2,235,202            $268,224         $23,589,440   $23,321,215
+over 296 hours a month                   333,367             $40,004         $22,971,363   $22,931,359
 ```
 
 Moving every video to AV1 is still a gain (net $12.3 million). But moving only the 2.2 million videos (2.2%) watched more than 30 hours a month is **almost double the gain** ($23.3 million), because they deliver almost all the savings for only 2% of the extra encoding. Experiment 4: if encoding is 30 times more expensive, AV1 on every video is a **loss** (−$14.4 million), but on the popular ones still +$23 million. And another real-world aspect: not every device can decode AV1, so the H.264 copy always stays, and AV1 is an extra copy only for devices that can play it.
@@ -179,13 +179,13 @@ Moving every video to AV1 is still a gain (net $12.3 million). But moving only t
 `npm run smoke` runs an Express service: after upload, piece × resolution jobs go into a queue, workers are run by hand, states (`uploaded → processing → playable → ready`), and real HLS master and media playlists:
 
 ```
-#   step                                                  result
-1   upload done, jobs in the pipeline                     id 1; 75 jobs in the queue (15 pieces × 5)
+#   step                                            result
+1   upload done, jobs in the pipeline          id 1; 75 jobs in the queue (15 pieces × 5)
 2   master playlist, nothing built yet                    404
 3   30 jobs (360p and 240p first)                         playable (30/75)
 4   the master playlist now                               240p/index.m3u8, 360p/index.m3u8; Cache-Control: public, max-age=2
 5   the remaining jobs; the worker on 720p piece 3 died   ready; failed 1, ran 76
-6   master playlist (ready)                               Cache-Control: public, max-age=86400
+6   master playlist (ready)                           Cache-Control: public, max-age=86400
                                                       #EXTM3U
                                                       #EXT-X-STREAM-INF:BANDWIDTH=400000,RESOLUTION=427x240
                                                       240p/index.m3u8
@@ -197,7 +197,7 @@ Moving every video to AV1 is still a gain (net $12.3 million). But moving only t
 9   player, network 3 Mbps (80% rule)                     480p; first piece 700 B
 10  player, network 8 Mbps (80% rule)                     1080p; first piece 2500 B
 11  a piece's Cache-Control                               public, max-age=31536000, immutable
-12  the queue handed out the same job again (at-least-once)   75 new writes in total, 1 skipped
+12  the queue handed out the same job again (at-least-once)  75 new writes in total, 1 skipped
 ```
 
 **The spaced repetition answer:** change the content without changing the name and the CDN's edges keep serving the old one until the TTL runs out, and purging (4.5) is slow and uncertain. The fix: when the content changes, change the name too (a version or hash), and make whatever has that name `immutable`, cached forever. Here every piece never changes once built, so a year and `immutable` (step 11). But the master playlist changes during processing (two qualities first, five later), so `max-age=2` then (step 4), and a day once it's `ready` (step 6). The mistake would have been caching the master from during processing for a day: viewers would have got nothing above 360p for a day.

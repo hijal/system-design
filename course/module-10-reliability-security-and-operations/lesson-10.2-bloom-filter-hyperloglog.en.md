@@ -37,10 +37,10 @@ Both incidents come down to the same kind of question — "is this here?" and "h
 First, a measured number. The exercise's `npm run redis` — one million distinct user IDs on a real Redis 8, stored three ways:
 
 ```
-structure                       MEMORY USAGE                          what it can tell you
-SET (SADD)                       35.55 MB               exactly 1,000,000, and who
-HyperLogLog (PFADD)               14.0 KB        ~999,674 (-0.03% error), not who
-Bloom (BF.RESERVE 0.01)           1.31 MB            "is it here?" — 0.51% wrong "yes"
+structure                    MEMORY USAGE                  what it can tell
+SET (SADD)                       35.55 MB        exactly 1,000,000, and who
+HyperLogLog (PFADD)               14.0 KB    ~999,674 (-0.03% off), not who
+Bloom (BF.RESERVE 0.01)           1.31 MB  "is it there?" — 0.51% wrong "yes"
 ```
 
 A `SET` answers every question exactly — how many, who, whether so-and-so is there — because it **remembers everyone**. Its price is 35.55 MB. The other two do not remember: HyperLogLog, in a mere 14 KB (about **1/2,600**), only says "how many"; a Bloom filter, in 1.31 MB (1/27), only says "is so-and-so here". Both are wrong now and then.
@@ -93,7 +93,7 @@ And notice what is **missing**: the item itself is never stored anywhere in the 
 `npm run bloom`, part A — insert one million names, then look up one million names that were **never** inserted:
 
 ```
-bits / name      k     measured false positive     theory      memory
+bits/name       k      measured FP rate    theory      memory
 4               3               14.680%   14.689%      488 KB
 6               4                5.593%    5.606%      732 KB
 8               6                2.163%    2.158%      977 KB
@@ -101,7 +101,7 @@ bits / name      k     measured false positive     theory      memory
 12              8                0.313%    0.314%    1,465 KB
 16             11                0.047%    0.046%    1,953 KB
 20             14                0.006%    0.007%    2,441 KB
-   of the 1,000,000 inserted names, how many it called "not here" (false negative): 0
+   inserted names called "absent" (false negatives), out of 1,000,000: 0
    1.0% needs 9.59 bits/name; 0.1% needs 14.38
 ```
 
@@ -114,7 +114,7 @@ Three things to read:
 How many hashes? More hashes means checking more bits per lookup (good), but setting more bits per insert (the filter fills faster, bad). Part B — fixed at 10 bits/name, varying `k`:
 
 ```
-k         measured false positive     theory   % of bits set to 1
+k          measured FP rate    theory   % of bits set
 1                    9.483%    9.516%            9.5%
 3                    1.761%    1.741%           25.9%
 5                    0.937%    0.943%           39.3%
@@ -132,7 +132,7 @@ The same calculation on real Redis (`BF.RESERVE key 0.01 1000000`) took 1.31 MB,
 A Bloom filter's size has to be fixed **in advance** — `m` and `k` are chosen for a particular `n`. What happens if you insert more? Part C — a filter built for one million at 1%:
 
 ```
-inserted               of capacity     measured false positive   % of bits set to 1
+inserted        of capacity      measured FP rate   % of bits set
 500,000                0.5x                 0.03%           30.6%
 1,000,000                1x                 0.99%           51.8%
 1,500,000              1.5x                 5.77%           66.6%
@@ -146,10 +146,10 @@ At twice the capacity the FPR is 16 times higher; at five times, the filter says
 Redis's `BF` has its own answer. `npm run redis`, part C — 750,000 inserted into a filter built for 250,000:
 
 ```
-filter             MEMORY USAGE    inner filters     measured false positive   inserted names "not here"
+filter             MEMORY USAGE  inner filters      measured FP rate    inserted → "no"
 default                 1.07 MB              2                 0.74%                  0
 NONSCALING             292.6 KB              1                 1.00%            494,508
-   NONSCALING: in BF.MADD's reply, "non scaling filter is full" — 499,558 names not inserted, and no exception
+   NONSCALING: BF.MADD's reply says "non scaling filter is full" — 499,558 names not inserted, and no exception
 ```
 
 - When a **default** filter fills up, Redis adds a new, larger filter alongside it (2 here), and checks all of them on lookup. The FPR stays bounded (0.74%) and memory grows. This is called a scalable Bloom filter — it saves you even if you misjudged capacity, at the price of checking several filters on every lookup.
@@ -158,10 +158,10 @@ NONSCALING             292.6 KB              1                 1.00%            
 Now deletion. A user deleted their account, and their username is free again. Can you take it out of the filter? Part D — delete 100,000 of one million names:
 
 ```
-method                                 memory       remaining names "not here"   deleted names "here"   new false positive
-don't delete, leave it                  1,170 KB                  0             100.0%                0.99%
-plain bloom, clear the bits             1,170 KB            360,187               0.0%                0.36%
-counting bloom (4-bit counters)         4,680 KB                  0               0.6%                0.60%
+approach                            memory        kept → "no"    deleted → "yes"   new false positive
+don't delete, keep them           1,170 KB                  0             100.0%                0.99%
+plain bloom, clear bits           1,170 KB            360,187               0.0%                0.36%
+counting bloom (4-bit)            4,680 KB                  0               0.6%                0.60%
 ```
 
 - **Clearing bits in a plain Bloom filter is a disaster.** One bit is shared by many items; clearing the bits of 100,000 names turned **360,187 remaining names** into "not here" too — 40% of the 900,000. No structure at all is better than a structure whose safety promise is broken.
@@ -177,8 +177,8 @@ One more name worth knowing, because you will see it next to these in Redis: the
 Now let us measure Tuesday's incident. `npm run penetration`, part A — 200,000 share links, 5,000 requests/s of which 20% are bots' random guesses, real users' traffic Zipf-distributed (some boards very popular), room for 50,000 entries in the cache:
 
 ```
-method                         DB query/s       of which "missing"  real user hit   "missing" entries in cache     evicted
-cache only                         2,074            48.4%            73.2%                   0   164,145
+approach                    DB query/s  of which "none"   real user hits    negative entries     evict
+cache only                       2,074            48.4%            73.2%                   0   164,145
 + negative cache 30 s            2,320            43.2%            67.0%              18,647   414,036
 + bloom filter 1%                1,081             0.9%            73.2%                   0   164,145
    filter: 234 KB, k = 7 — built once, in every app instance's memory
@@ -206,10 +206,10 @@ And one more point: the filter protects the DB, but it does not stop the bots. 1
 A Bloom filter's core promise: if it says "not here", it definitely is not. But the promise has a hidden condition — **every item that exists has been added to the filter.** Share links are being created every second. If the filter is built from the DB once at startup, it does not know about new links. `npm run penetration`, part B — 20 new links per second, and 5% of requests go to freshly created links (people create a link and send it straight away, and colleagues open it within minutes):
 
 ```
-filter upkeep rule                          404 on real links   share of new-link requests
-built once at startup                                 49,773                   99.7%
-rebuilt from DB every 60 s                            24,766                   49.6%
-added to the filter on creation                            0                    0.0%
+filter upkeep                      404 on a real link    of new-link requests
+built once at startup                          49,773                   99.7%
+rebuilt from the DB every 60 s                   24,766                   49.6%
+add to the filter on create                         0                    0.0%
 ```
 
 **99.7% of requests for new links got a 404.** In the user's eyes: "I shared the board and nobody on my team can open it." This is the worst kind of bug — the feature is broken **at exactly its key moment**, and the person seeing it assumes the link itself is wrong.
@@ -266,7 +266,7 @@ estimate = α · m² / Σ 2^(−register[j])        (m = 16,384; harmonic mean �
 `npm run hll`, part A — one HLL (p = 14, 12,288 bytes), fed from 10 to 10 million distinct users (one in three of them twice, to test duplicates):
 
 ```
-distinct users            estimate      error   without correction       error   to count exactly ≥
+real users              estimate    error  no correction        error  exact needs ≥
 10                        10    +0.03%            11,822  +118117.81%           80 B
 100                      100    +0.31%            11,864   +11764.38%          800 B
 1,000                  1,002    +0.20%            12,304    +1130.41%           8 KB
@@ -284,7 +284,7 @@ distinct users            estimate      error   without correction       error  
 How many registers? Part B — 100,000 users, 40 different days (40 different sets of users), varying the precision:
 
 ```
-p       registers    memory      theory (1.04/√m)    measured typical error      worst day
+p       register     memory  theory (1.04/√m)     measured RMS         worst day
 4             16       12 B            26.00%           26.54%            69.00%
 8            256      192 B             6.50%            6.15%            14.34%
 10         1,024      768 B             3.25%            3.57%             8.62%
@@ -298,10 +298,10 @@ The error falls with the inverse **square root** of the number of registers — 
 Redis's HLL is fixed at p = 14 (so always ~0.81%), and comes in two forms. `npm run redis`, part B:
 
 ```
-structure                       MEMORY USAGE         answer
+structure                    MEMORY USAGE      answer
 SET (listpack)                      475 B          50
 HyperLogLog (sparse)                252 B          50
-HyperLogLog, at 5,000 people       14.0 KB        5025
+HyperLogLog, at 5,000             14.0 KB        5025
 ```
 
 With few users, Redis keeps an HLL in a dense compressed form (sparse) — 252 bytes at 50 people, smaller even than a small `SET`. As it grows (past the default `hll-sparse-max-bytes` of 3,000 bytes) it switches to the full 12 KB form, and then grows no further — a million or a hundred million, 14 KB. For TaskFlow this means: most workspaces are small, so the total cost of keeping one HLL per workspace per day is set by the number of large workspaces.
@@ -311,11 +311,11 @@ With few users, Redis keeps an HLL in a dense compressed form (sparse) — 252 b
 Back to Thursday's dashboard. `npm run hll`, part C — 7 days, ~200,000 active users per day, 150,000 of them regulars (who come daily), the rest drawn at random from a large population:
 
 ```
-method                                      users this week        error
-truth (one Set of all IDs)                  472,981      +0.00%
-sum of the 7 daily numbers                     1,415,230    +199.21%
-merge of 7 HLLs (max per register)           469,026      -0.84%
-   each day's HLL is 12,288 bytes; the same size after the merge — even when merging 30 days
+approach                              weekly users       error
+exact (a Set of every ID)                  472,981      +0.00%
+sum of the 7 daily counts                1,415,230    +199.21%
+merge 7 HLLs (max per register)            469,026      -0.84%
+   each day's HLL is 12,288 bytes; still the same size after merging — even merging 30 days
 ```
 
 **Summing the daily numbers gives +199%** — the dashboard's "1.4 million". The 150,000 regulars were counted seven times. This error is not HLL's, it is the addition's — even if the daily numbers were **perfectly exact**, the sum would be just as wrong. Cardinalities cannot be added.
@@ -335,7 +335,7 @@ Three practical benefits come from this one property:
 After the success of merging, a product manager's next request: "How many users do two workspaces have in common?" (Two companies are merging.) By inclusion–exclusion: `|A ∩ B| = |A| + |B| − |A ∪ B|`, and all three can be obtained from HLLs. Part D — two workspaces, a million viewers each:
 
 ```
-true overlap         true in both          via HLL          error
+real overlap    real in both      with HLL       error
 50.0%                500,000       499,187      -0.16%
 10.0%                100,000        89,831     -10.17%
 1.0%                  10,000        10,618      +6.18%
@@ -359,12 +359,12 @@ The third question has been hanging since 10.1. The decision there was: "a 2-sec
 Why "the smallest": every counter holds your item's true count **plus** the counts of the others sharing that counter. The row with the least sharing is closest to the truth. `npm run heavy` — 2 million requests, ~124,000 distinct boards, Zipf 1.1 (like 10.1's hot key; the hottest board alone is 13.1%):
 
 ```
-width × depth       memory   top 10 caught      overcount in top 10      on cold boards (≤5 times)
-64 × 4                1 KB        1/10             ≤ 66.80%            7969.3x the truth
-256 × 4               4 KB        5/10             ≤ 10.56%            1534.2x the truth
-1024 × 4             16 KB        7/10              ≤ 2.53%             284.6x the truth
-4096 × 4             64 KB       10/10              ≤ 0.31%              48.3x the truth
-16384 × 4           256 KB       10/10              ≤ 0.10%               7.7x the truth
+width × depth       memory  top 10 hit     top 10 overcount  cold boards (≤5 times)
+64 × 4                1 KB        1/10             ≤ 66.80%          7969.3x actual
+256 × 4               4 KB        5/10             ≤ 10.56%          1534.2x actual
+1024 × 4             16 KB        7/10              ≤ 2.53%           284.6x actual
+4096 × 4             64 KB       10/10              ≤ 0.31%            48.3x actual
+16384 × 4           256 KB       10/10              ≤ 0.10%             7.7x actual
 ```
 
 - **The whole top 10 in 64 KB, with counts off by under 0.31%.** Instead of a `Map` of 124,000 counters.

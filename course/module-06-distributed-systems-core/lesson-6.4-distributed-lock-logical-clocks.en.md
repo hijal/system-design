@@ -83,8 +83,8 @@ The machinery of ticket 1: each write carries the timestamp of the clock of the 
 The exercise's `npm run lww` — like TaskFlow's pilot: three replicas, n3 (Singapore) with its clock 400 ms behind, n2 30 ms ahead. 6 humans and 2 automation bots edit the same title for two minutes — read from a replica, think (humans 3 s on average, bots 50–300 ms), then write to some replica. The simulation knows the **real** causality of every write (which version it was written after seeing), and counts every discarded write in two groups:
 
 ```
-   rule                  total edits  later edit lost to the    concurrent edit     app asked      not in the final   replicas
-                                      earlier one               silently dropped    to merge       title's history    agree?
+   rule                   total edits   later edit lost to   concurrent edit   app asked to   not in final     replicas
+                                       the earlier one       silently dropped  merge           title history    agree?
    LWW — wall clock          164               10                   43               0               100       yes
 ```
 
@@ -129,17 +129,17 @@ The simplest way to capture happens-before in a number:
 **Lamport clock** — a counter per process: it goes up by one on every event; it's sent along with every message; on receiving a message, own counter = max(own, received) + 1.
 
 ```
-   event  process  kind      Lamport   what happened
+   event process  kind      Lamport   what happened
    a1    A        local        1      Rahim wrote the title
    c1    C        local        1      Karim wrote a comment offline
    a2    A        send m1      2      sent the title to the server
-   b1    B        recv m1      3      server got the title          ← max(0, 2) + 1
+   b1    B        recv m1      3      the server got the title        ← max(0, 2) + 1
    a3    A        local        3      Rahim changed the description
-   b2    B        send m2      4      server notified Karim
-   b3    B        local        5      server wrote the audit log
-   c2    C        recv m2      5      Karim got the notification    ← max(1, 4) + 1
+   b2    B        send m2      4      the server notified Karim
+   b3    B        local        5      the server wrote an audit log
+   c2    C        recv m2      5      Karim got the notification      ← max(1, 4) + 1
    c3    C        send m3      6      Karim replied to Rahim
-   a4    A        recv m3      7      Rahim got the reply           ← max(3, 6) + 1
+   a4    A        recv m3      7      Rahim got the reply             ← max(3, 6) + 1
 ```
 
 The guarantee: **if a → b, then L(a) < L(b).** An event that could have influenced another always has a smaller number. And if equal numbers are broken by process name (a `(L, process)` pair), you get a **total order** of all events that never contradicts causality.
@@ -155,7 +155,7 @@ So doing LWW with a Lamport clock removes ticket 1's problem:
 But "concurrent edit silently dropped" — still **45.** Because Lamport's guarantee is **one-directional**: if a → b then L(a) < L(b) — but if L(a) < L(b), it does **not** follow that a → b. The last part of `clocks`:
 
 ```
-   pair        Lamport says      vector clock says
+   pair       Lamport says      vector clock says
    c1, a2      c1 < a2           concurrent — neither knew about the other
    a3, b3      a3 < b3           concurrent — neither knew about the other
 ```

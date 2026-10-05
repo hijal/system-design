@@ -161,14 +161,14 @@ The `sync-in-tx` mode in the exercise's `npm run compare` — exactly the code a
 ```
 ── mode: sync-in-tx ────────────────────────────────────────
    phase            assign p50 / p99   assign failed    list p99   list failed
-   normal            168 ms / 195 ms           0%       27 ms          0%
-   provider slow      3.0 s / 5.0 s           57%       3.0 s         52%
-   after recovery    168 ms / 1.4 s            0%       1.2 s          0%
+   normal            168 ms / 195 ms              0%       27 ms            0%
+   provider slow      3.0 s / 5.0 s              57%       3.0 s           52%
+   after recovery    168 ms / 1.4 s               0%       1.2 s            0%
 
-   assign: succeeded 386, failed 91  (pool exhausted 81, client timeout 10, other 0)
+   assign: ok 387, failed 91  (pool exhausted 81, client timeout 10, other 0)
    list:   failed 207 / 1188   ← this route never touches email
-   longest line in the pool: 209
-   told "failed", yet the email went: 10
+     max pool queue: 210
+   told "failed", yet email sent: 10
 ```
 
 (The script prints its labels in Bangla; the output shown in this edition is translated — the numbers are identical.)
@@ -196,11 +196,11 @@ Sending the email after the commit returns the connection in 5 ms — `sync-afte
 ```
 ── mode: sync-after-commit ─────────────────────────────────
    phase            assign p50 / p99   assign failed    list p99   list failed
-   normal            168 ms / 186 ms           0%       26 ms          0%
-   provider slow      4.0 s / 4.0 s           37%       27 ms          0%
-   after recovery    166 ms / 185 ms           1%       27 ms          0%
+   normal            168 ms / 186 ms              0%       26 ms            0%
+   provider slow      4.0 s / 4.0 s              37%       27 ms            0%
+   after recovery    165 ms / 184 ms              1%       26 ms            0%
 
-   assign: succeeded 417, failed 61  (pool exhausted 0, client timeout 0, other 61)
+   assign: ok 417, failed 61  (pool exhausted 0, client timeout 0, other 61)
    list:   failed 0 / 1187
    provider returned 429 (rate limited): 61
 ```
@@ -224,13 +224,13 @@ res.json({ taskId: task.id, assigneeId });    // answer immediately
 ```
 ── mode: fire-and-forget ───────────────────────────────────
    phase            assign p50 / p99   assign failed    list p99   list failed
-   normal             10 ms / 27 ms            0%       26 ms          0%
-   provider slow      10 ms / 27 ms            0%       27 ms          0%
-   after recovery     10 ms / 26 ms            0%       27 ms          0%
+   normal             10 ms / 27 ms               0%       26 ms            0%
+   provider slow      11 ms / 25 ms               0%       27 ms            0%
+   after recovery     11 ms / 24 ms               0%       26 ms            0%
 
-   most at the provider at once: 50
+  max concurrent at provider: 50
    provider returned 429 (rate limited): 60
-   told "succeeded", the email never went: 60
+   told "ok", email never sent: 61
 ```
 
 It looks perfect: assign is always 10 ms, nobody saw a single error. But read the last line — **60 users were told "succeeded", and their assignees never got an email.** And nobody knows. No error page, no alert, just a `.catch(() => {})` that silently swallowed it.
@@ -266,13 +266,13 @@ The assign route now just writes down an "intent to do work" and answers. Sendin
 ```
 ── mode: queue ─────────────────────────────────────────────
    phase            assign p50 / p99   assign failed    list p99   list failed
-   normal             11 ms / 27 ms            0%       27 ms          0%
-   provider slow      10 ms / 26 ms            0%       27 ms          0%
-   after recovery      9 ms / 26 ms            0%       27 ms          0%
+   normal             11 ms / 27 ms               0%       27 ms            0%
+   provider slow       9 ms / 26 ms               0%       26 ms            0%
+   after recovery   9 ms / 26 ms            0%       27 ms          0%
 
-   emails pending (max): 152   most at the provider at once: 8
+   emails pending (max): 152  max concurrent at provider: 8
    provider returned 429 (rate limited): 0   email delivery (from assign) p99: 7.6 s
-   told "succeeded", the email never went: 0
+   told "ok", email never sent: 0
 ```
 
 Assign is 10 ms, list is untouched, the provider never saw more than 8 at once, so there's not one `429`, and **not a single email was lost**. So where did the damage go? Because the provider really was 4 seconds slow — that time has to be paid somewhere.
@@ -302,9 +302,9 @@ The queue separated two things that were one in the synchronous code:
 **Second: this queue is in memory.** Experiment 2: `CRASH_AT_MS=14000` — in the middle of the slow phase the API process is `SIGKILL`ed (like any deploy or crash), and a new process starts:
 
 ```
-    14.0 s  API process SIGKILL — deploy/crash; a new process is starting
+    14.0 s  API process SIGKILL — deploy/crash; starting a new process
    …
-   told "succeeded", the email never went: 103
+   told "ok", email never sent: 103
 ```
 
 103 users saw "succeeded"; their jobs were in line in the process's memory; they vanished along with the process. Fire-and-forget's "no memory" problem, just bigger — because the queue now deliberately holds work. Lesson 3.4's graceful shutdown would have saved some (draining the queue before shutting down) — but not on a crash, an OOM kill, or a dead machine.

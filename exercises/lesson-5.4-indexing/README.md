@@ -27,14 +27,14 @@ Port **5435** — তোমার মেশিনের Postgres (5432) বা �
 ```bash
 docker compose up -d --wait
 npm install
-npm run seed        # কয়েক সেকেন্ড
+npm run seed        # a few seconds
 ```
 
 ## Run
 
 ```bash
 npm run lab
-npm run writecost   # ~১ মিনিট
+npm run writecost   # ~1 minute
 ```
 
 Lab এর প্রতিটা variant শুরু হয় primary key ছাড়া **সব index মুছে**, তারপর শুধু সেই variant এর
@@ -47,40 +47,40 @@ median)। তোমার সময় ভিন্ন হবে; **plan এর
 deterministic:
 
 ```
-১. "আমার খোলা task" — foreign key এ index
-   index                                              সময়    pages  plan
-   index নেই                                      25.76 ms    8,399  Gather → Seq Scan
+1. "My open tasks" — an index on the foreign key
+   index                                              time    pages  plan
+   no index                                       25.76 ms    8,399  Gather → Seq Scan
    (assigneeId)                                    0.15 ms      203  Bitmap Heap Scan → Bitmap Index Scan [tasks_assignee]  (index: 6728 kB)
    (assigneeId) WHERE status <> done               0.07 ms       70  Bitmap Heap Scan → Bitmap Index Scan [tasks_assignee_open]  (index: 2072 kB)
 
-২. Project feed — composite index এ column এর ক্রম
-   index নেই                                      20.46 ms    8,473  Limit → Gather Merge → Sort → Seq Scan
+2. Project feed — column order in a composite index
+   no index                                       20.46 ms    8,473  Limit → Gather Merge → Sort → Seq Scan
    (projectId)                                     0.42 ms      504  Limit → Sort → Bitmap Heap Scan → Bitmap Index Scan [tasks_project]
-   (createdAt, projectId) — উল্টো                  0.47 ms      188  Limit → Index Scan Backward [tasks_created_project]
+   (createdAt, projectId) — reversed               0.47 ms      188  Limit → Index Scan Backward [tasks_created_project]
    (projectId, createdAt)                          0.04 ms       23  Limit → Index Scan Backward [tasks_project_created]
 
-৩. Leftmost prefix — composite index এর দ্বিতীয় column একা
+3. Leftmost prefix — the second column of a composite index alone
    (projectId, createdAt)                         25.11 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (createdAt)                                     0.15 ms        8  Aggregate → Index Only Scan [tasks_created]
 
-৪. Column এর উপর function — index থাকলেও কাজে লাগে না
+4. A function on the column — the index exists but does not help
    (createdAt) + createdAt::date = …              33.54 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (createdAt) + range                             0.16 ms        8  Aggregate → Index Only Scan [tasks_created]
    (title) + lower(title) = …                     67.23 ms    8,399  Gather → Seq Scan
    (lower(title)) — expression index               0.03 ms        4  Index Scan [tasks_title_lower]
 
-৫. Selectivity — index আছে, তবু Postgres নেয় না
+5. Selectivity — the index exists, but Postgres does not use it
    (status) + status = 'done'                     89.11 ms    8,399  Seq Scan
    (status) + status = 'blocked'                   5.60 ms    5,810  Bitmap Heap Scan → Bitmap Index Scan [tasks_status]
 
-৬. Covering index — table এ না গিয়েই উত্তর
+6. Covering index — the answer without going to the table
    (projectId, createdAt)                          0.04 ms       23  Limit → Index Scan Backward [tasks_project_created]
    (projectId, createdAt) INCLUDE (id, title)      0.04 ms        4  Limit → Index Only Scan Backward [tasks_project_created_cover]
 
-৭. LIKE — B-tree এর সীমা
+7. LIKE — the B-tree's limit
    (title) + LIKE '%bug%'                         28.25 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (title) + LIKE 'Fix bug #1234%'                23.52 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
-   (title text_pattern_ops) + একই LIKE             0.03 ms        5  Aggregate → Index Only Scan [tasks_title_pattern]
+   (title text_pattern_ops) + same LIKE            0.03 ms        5  Aggregate → Index Only Scan [tasks_title_pattern]
 ```
 
 (পুরো table টা ৮,৩৯৯টা page — তাই যেখানে `pages` ৮,৩৯৯, সেখানে পুরো table পড়া হয়েছে।)
@@ -88,10 +88,10 @@ deterministic:
 **`npm run writecost`** — আমার মেশিনে, দুবার চালিয়ে:
 
 ```
-  index (primary key বাদে)      সময়        WAL       index এর মোট আকার
-   0টা                           418 ms (1.0x)    31.7 MB      4.3 MB
-   3টা                          1218 ms (2.9x)    77.9 MB     21.5 MB
-   6টা                          1999 ms (4.8x)   126.9 MB     43.4 MB
+  indexes (besides the PK)         time               WAL  index size
+   0                             418 ms (1.0x)    31.7 MB      4.3 MB
+   3                            1218 ms (2.9x)    77.9 MB     21.5 MB
+   6                            1999 ms (4.8x)   126.9 MB     43.4 MB
 ```
 
 WAL আর আকার প্রতিবার একই আসে; সময় রান ভেদে একটু বদলায় (দ্বিতীয়বার ৬টা index এ ৫.৪x)।

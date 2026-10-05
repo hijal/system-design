@@ -34,7 +34,7 @@ Port হিসেবে **5433** (Postgres) আর **6380** (Redis) ব্যব
 ```bash
 docker compose up -d     # Postgres + Redis
 npm install
-npm run seed             # ৫০০০ task তৈরি করে user 7 এর জন্য
+npm run seed             # creates 5000 tasks for user 7
 ```
 
 ## Run
@@ -82,20 +82,20 @@ Expected (আমার মেশিনে মাপা — তোমারটা
 **৪. Invalidation কাজ করছে?**
 
 ```bash
-# cache গরম করো — দুইটা view ই
+# warm the cache — both views
 curl -s "http://localhost:3000/api/tasks?userId=7" > /dev/null
 curl -s "http://localhost:3000/api/tasks?userId=7&completed=true" > /dev/null
 redis-cli -p 6380 KEYS 'tasks:user:7*'
-# Expected: tasks:user:7  এবং  tasks:user:7:completed
+# Expected: tasks:user:7  and  tasks:user:7:completed
 
-# একটা task বদলাও
+# change one task
 curl -s -X PATCH http://localhost:3000/api/tasks/1 \
   -H 'Content-Type: application/json' \
-  -d '{"title":"নতুন নাম"}'
-# Expected: response এ "invalidated": ["tasks:user:7", "tasks:user:7:completed"]
+  -d '{"title":"New name"}'
+# Expected: "invalidated": ["tasks:user:7", "tasks:user:7:completed"] in the response
 
 redis-cli -p 6380 KEYS 'tasks:user:7*'
-# Expected: খালি — দুইটাই মুছে গেছে
+# Expected: empty — both were deleted
 ```
 
 **৫. Cache stampede (Lesson 4.6)**
@@ -108,8 +108,8 @@ npm run stampede
 ছাড়া, একবার সহ। Expected (আমার মেশিনে মাপা):
 
 ```
-  single-flight ছাড়া : DB query  50 টা   (802 ms)
-  single-flight সহ   : DB query   1 টা   (254 ms)
+  without single-flight : DB queries  50   (802 ms)
+  with single-flight    : DB queries   1   (254 ms)
 ```
 
 **script টা `?delay=200` দিয়ে একটা "দামি query" নকল করে — আর সেটা ইচ্ছাকৃত।** আসল

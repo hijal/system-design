@@ -18,7 +18,7 @@ async function main(): Promise<void> {
 	await new Promise<void>((done) => server.once('listening', done));
 	const address = server.address();
 	if (address === null || typeof address === 'string')
-		throw new Error('server এর port পাওয়া গেল না');
+		throw new Error('could not get the server port');
 	const { port } = address;
 	const base = `http://127.0.0.1:${port}`;
 
@@ -58,12 +58,12 @@ async function main(): Promise<void> {
 	};
 	const codeOf = (json: unknown): string => {
 		const created = Created.safeParse(json);
-		if (!created.success) throw new Error(`link তৈরি হয়নি: ${JSON.stringify(json)}`);
+		if (!created.success) throw new Error(`link was not created: ${JSON.stringify(json)}`);
 		return created.data.code;
 	};
 
-	heading('অংশ ক — API এর আচরণ (একটা আসল Express server, in-memory store, নকল ঘড়ি)');
-	console.log(padEnd('#', 4) + padEnd('request', 54) + padEnd('status', 8) + 'ফল');
+	heading('Part A — API behaviour (a real Express server, in-memory store, fake clock)');
+	console.log(padEnd('#', 4) + padEnd('request', 54) + padEnd('status', 8) + 'result');
 	let step = 0;
 	const show = (request: string, status: number, detail: string): void => {
 		step++;
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
 	const first = await post('/api/links', { url: article });
 	show(`POST /api/links  ${article.slice(0, 30)}…`, first.status, describe(first.json));
 	const again = await post('/api/links', { url: article });
-	show('POST /api/links  (একই URL আবার)', again.status, describe(again.json));
+	show('POST /api/links  (the same URL again)', again.status, describe(again.json));
 	const a = codeOf(first.json);
 	const b = codeOf(again.json);
 
@@ -85,11 +85,11 @@ async function main(): Promise<void> {
 
 	for (const [label, body] of [
 		['url: javascript:alert(1)', { url: 'javascript:alert(1)' }],
-		['url: https://sho.rt/abc (নিজের domain)', { url: 'https://sho.rt/abc' }],
+		['url: https://sho.rt/abc (own domain)', { url: 'https://sho.rt/abc' }],
 		['url: "not a url"', { url: 'not a url' }],
 		['alias: launch-2026', { url: 'https://example.com/launch', alias: 'launch-2026' }],
-		['alias: launch-2026 (আবার)', { url: 'https://example.com/other', alias: 'launch-2026' }],
-		['alias: abcDEF1 (৭ অক্ষর base62)', { url: 'https://example.com/x', alias: 'abcDEF1' }],
+		['alias: launch-2026 (again)', { url: 'https://example.com/other', alias: 'launch-2026' }],
+		['alias: abcDEF1 (7-char base62)', { url: 'https://example.com/x', alias: 'abcDEF1' }],
 		['alias: admin', { url: 'https://example.com/x', alias: 'admin' }]
 	] as const) {
 		const res = await post('/api/links', body);
@@ -100,16 +100,16 @@ async function main(): Promise<void> {
 		url: 'https://example.com/flash-sale',
 		expiresAt: new Date(clock + 3_600_000).toISOString()
 	});
-	show('POST /api/links  expiresAt = এখন + ১ ঘণ্টা', expiring.status, describe(expiring.json));
+	show('POST /api/links  expiresAt = now + 1 hour', expiring.status, describe(expiring.json));
 	const e = codeOf(expiring.json);
 	const beforeExpiry = await get(`/${e}`);
 	show(`GET /${e}`, beforeExpiry.status, describe(beforeExpiry.json, beforeExpiry.location));
 	clock += 2 * 3_600_000;
 	const afterExpiry = await get(`/${e}`);
-	show(`GET /${e}  (২ ঘণ্টা পরে)`, afterExpiry.status, describe(afterExpiry.json));
+	show(`GET /${e}  (2 hours later)`, afterExpiry.status, describe(afterExpiry.json));
 
 	const disabled = await post(`/api/links/${a}/disable`, {});
-	show(`POST /api/links/${a}/disable`, disabled.status, 'abuse report → বন্ধ');
+	show(`POST /api/links/${a}/disable`, disabled.status, 'abuse report → disabled');
 	const afterDisable = await get(`/${a}`);
 	show(`GET /${a}`, afterDisable.status, describe(afterDisable.json));
 
@@ -118,15 +118,15 @@ async function main(): Promise<void> {
 	const pending = shortener.clicks.pendingCount();
 	const before = await get(`/api/links/${b}/stats`);
 	show(
-		`GET /api/links/${b}/stats  (৫ click, flush এর আগে)`,
+		`GET /api/links/${b}/stats  (5 clicks, before flush)`,
 		before.status,
-		`${describe(before.json)}; buffer এ ${pending}`
+		`${describe(before.json)}; ${pending} in buffer`
 	);
 	shortener.clicks.flush();
 	const after = await get(`/api/links/${b}/stats`);
-	show(`GET /api/links/${b}/stats  (flush এর পরে)`, after.status, describe(after.json));
+	show(`GET /api/links/${b}/stats  (after flush)`, after.status, describe(after.json));
 
-	heading(`অংশ খ — ${n(BULK)}টা link তৈরি, block size ${n(BLOCK_SIZE)}`);
+	heading(`Part B — ${n(BULK)} links created, block size ${n(BLOCK_SIZE)}`);
 	const callsBefore = shortener.sequence.calls;
 	const codes = new Set<string>();
 	const sample: string[] = [];
@@ -136,10 +136,10 @@ async function main(): Promise<void> {
 		codes.add(code);
 		if (i < 6) sample.push(code);
 	}
-	console.log(`আলাদা code: ${n(codes.size)} / ${n(BULK)}`);
-	console.log(`sequence (database) এ যেতে হলো: ${n(shortener.sequence.calls - callsBefore)} বার`);
-	console.log(`পরপর তৈরি হওয়া code: ${sample.join(' ')}`);
-	console.log(`store এ মোট link: ${n(shortener.store.size())}`);
+	console.log(`distinct codes: ${n(codes.size)} / ${n(BULK)}`);
+	console.log(`trips to the sequence (database): ${n(shortener.sequence.calls - callsBefore)}`);
+	console.log(`consecutive codes: ${sample.join(' ')}`);
+	console.log(`total links in the store: ${n(shortener.store.size())}`);
 
 	server.close();
 }

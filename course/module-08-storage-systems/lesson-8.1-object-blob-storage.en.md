@@ -72,7 +72,7 @@ First question: how bad is TaskFlow's hackathon path, really? The exercise's `np
 
 ```
 ── 1. Storing (4 uploads at a time) ─────────────────────────────
-   where                               time      WAL written   database grew   in object storage
+   where                               time         WAL         DB growth    object storage
    Postgres (bytea)                  1.14 s    336.9 MB          327.2 MB                 —
    object storage + metadata row     1.69 s       49 KB             80 KB          314.5 MB
    (for comparison: the whole tasks table of 200k tasks + indexes = 23.3 MB)
@@ -92,7 +92,7 @@ Storing takes about the same time — nothing to blame the database for here. Th
 
 ```
 ── 3. Board queries while files are served (8 OLTP clients, pool max 10; 8 downloading files) ──
-   step                                          OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99
+   step                                        OLTP q/s   OLTP p50   OLTP p99   file/s     MB/s   file p50 / p99
    OLTP only                                      14437     0.4 ms     0.8 ms        0        0   —
    + files, Postgres → through the app              350    20.9 ms    66.1 ms      192      289   27.9 ms / 170.8 ms
    + files, Postgres → separate process           14687     0.4 ms     0.8 ms      194      290   23.3 ms / 218.0 ms
@@ -117,7 +117,7 @@ Which one is bigger? Experiment 1: with the pool at 20 (enough room for the file
 The team lead's proposal: files on each Express instance's own disk. All of the database problems go away — but this is where the spaced repetition question bites. The exercise's `npm run stateless`: two Express instances behind a load balancer, 20 users each upload 10 files; then the uploader opens them again, a teammate opens them, and finally instance A is replaced (a deploy, a crash, an autoscaling scale-in — a new container, an empty disk):
 
 ```
-   where files live · load balancer      uploader reopened: 404   teammate opened: 404   after replacing instance A: gone
+   where files live · load balancer   own reopen 404    teammate open 404     lost after replacing A
    local disk, round robin                       50%                  47%                  148 / 200
    local disk, sticky (per user)                  0%                  47%                  100 / 200
    object storage, round robin                    0%                   0%                    0 / 200
@@ -182,13 +182,13 @@ The exercise's `npm run durability`, part A — a simple model: disks die indepe
 
 ```
 ── A. Calculation (AFR 2%, 24 hours to repair, disks die independently) ──
-   scheme       disk to store 1 TB   survives     annual loss probability   durability   lost per year out of 1 billion objects
-   1 copy                1.00 TB  0 disks                   2.0e-2    1.7 nines                     20000000
-   2 copies              2.00 TB  1 disk                    2.2e-6    5.7 nines                         2192
-   3 copies              3.00 TB  2 disks                  1.8e-10    9.7 nines                          0.2
-   EC 4+2                1.50 TB  2 disks                   3.6e-9    8.4 nines                            4
-   EC 6+3                1.50 TB  3 disks                  1.7e-12   11.8 nines                        0.002
-   EC 10+4               1.40 TB  4 disks                  1.8e-15   14.7 nines                     0.000002
+   scheme          disk for 1 TB   survives     annual loss chance   durability        lost/yr of 1B objects
+   1 copy                1.00 TB    0 disks                 2.0e-2    1.7 nines                     20000000
+   2 copies              2.00 TB     1 disk                 2.2e-6    5.7 nines                         2192
+   3 copies              3.00 TB    2 disks                1.8e-10    9.7 nines                          0.2
+   EC 4+2                1.50 TB    2 disks                 3.6e-9    8.4 nines                            4
+   EC 6+3                1.50 TB    3 disks                1.7e-12   11.8 nines                        0.002
+   EC 10+4               1.40 TB    4 disks                1.8e-15   14.7 nines                     0.000002
 ```
 
 - **3 copies vs EC 6+3:** EC gives more durability on half the disk (1.5 TB vs 3 TB) — because it survives not one extra copy but three dead disks. At petabyte scale, "half the disk" means a fortune. That's why nearly every large object store uses erasure coding (e.g. Facebook's f4 system, in a 2014 paper, with Reed–Solomon 10+4).
@@ -205,11 +205,11 @@ Part B — 10 racks × 12 disks, 100,000 objects; fragments placed on random dis
 
 ```
 ── B. Failure domain (10 racks × 12 disks, 100,000 objects) ──
-   scheme · where the fragments are       unreadable when down:    1 rack   2 racks   3 racks
-   3 copies · random disks                                          89       718     2,541
-   3 copies · each on a different rack                               0         0       860
-   EC 6+3 · random disks                                           611     8,021    26,556
-   EC 6+3 · each on a different rack                                 0         0         0
+   scheme · where the fragments are     unreadable when down:   1 rack  2 racks  3 racks
+   3 copies · random disks                                        89      718    2,541
+   3 copies · each on a different rack                             0        0      860
+   EC 6+3 · random disks                                         611    8,021   26,556
+   EC 6+3 · each on a different rack                               0        0        0
 ```
 
 - **EC 6+3, random:** a single rack going down makes 611 objects unreadable — **more** than 3 copies. Place 9 fragments randomly and the chance that four of them land on the same rack isn't small. Part A's 11.8 nines mean nothing here — that number assumed independent disks.
@@ -259,7 +259,7 @@ No append, no "write at this offset" — a direct consequence of 1.4's internal 
 
 ```
    unconditional:         ["draft","Karim: deploy"]   ← Rahim's item silently lost (last writer wins)
-   If-Match (ETag):       Rahim's write succeeded · Karim rejected (412 PreconditionFailed) · Karim re-read and wrote
+   If-Match (ETag):       Rahim wrote · Karim rejected (412 PreconditionFailed) · after re-reading, Karim wrote
                           ["draft","Rahim: review","Karim: deploy"]
    If-None-Match: * (on a key that already exists): rejected (412 PreconditionFailed)
 ```

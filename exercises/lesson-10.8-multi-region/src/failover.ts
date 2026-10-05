@@ -40,32 +40,32 @@ const walTransfer = 300 * PRICE.interRegionGb;
 
 const STRATEGIES: Strategy[] = [
 	{
-		name: 'এক region, ফেরার অপেক্ষা',
-		steps: [['region ফেরা', OUTAGE_MINUTES]],
+		name: 'one region, wait for it to return',
+		steps: [['region returns', OUTAGE_MINUTES]],
 		rpoSeconds: 0,
 		extraMonthly: 0,
-		note: 'data টিকে থাকলে'
+		note: 'if the data survives'
 	},
 	{
-		name: 'backup & restore (রোজ snapshot অন্য region এ)',
+		name: 'backup & restore (daily snapshot to another region)',
 		steps: [
-			['ধরা', DETECT],
-			['সিদ্ধান্ত', DECIDE],
-			['IaC দিয়ে infra', 30],
+			['detect', DETECT],
+			['decide', DECIDE],
+			['infra via IaC', 30],
 			[`DB restore (${DB_GB} GB)`, restoreMinutes],
-			['যাচাই', 15],
+			['verify', 15],
 			['DNS', 5]
 		],
 		rpoSeconds: (BACKUP_HOURS / 2) * 3_600,
 		extraMonthly: DB_GB * 3 * PRICE.snapshotGb + 50 * 30 * PRICE.interRegionGb + 18_000 * 0.004,
-		note: 'snapshot + Glacier এ attachment'
+		note: 'snapshots + attachments in Glacier'
 	},
 	{
-		name: 'pilot light (DB replica চালু, app বন্ধ)',
+		name: 'pilot light (DB replica running, app off)',
 		steps: [
-			['ধরা', DETECT],
-			['সিদ্ধান্ত', DECIDE],
-			['app শূন্য থেকে চালু', 15],
+			['detect', DETECT],
+			['decide', DECIDE],
+			['start app from zero', 15],
 			['replica promote', 2],
 			['DNS', 5]
 		],
@@ -74,23 +74,23 @@ const STRATEGIES: Strategy[] = [
 		note: 'async replica + S3 replication'
 	},
 	{
-		name: 'warm standby (ছোট app চালু)',
+		name: 'warm standby (small app running)',
 		steps: [
-			['ধরা', DETECT],
-			['সিদ্ধান্ত', 10],
+			['detect', DETECT],
+			['decide', 10],
 			['scale out', 5],
 			['replica promote', 2],
 			['DNS', 5]
 		],
 		rpoSeconds: LAG_SECONDS,
 		extraMonthly: replicaDb + attachmentReplica + walTransfer + 2 * PRICE.app * H + PRICE.cache * H,
-		note: '২টা app + ১টা cache সবসময়'
+		note: '2 apps + 1 cache always'
 	},
 	{
-		name: 'active-active (সব region এ চলছে)',
+		name: 'active-active (running in every region)',
 		steps: [
-			['ধরা', 2],
-			['স্বয়ংক্রিয় promote (witness সহ)', 1],
+			['detect', 2],
+			['automatic promote (with witness)', 1],
 			['global LB / anycast', 1]
 		],
 		rpoSeconds: LAG_SECONDS,
@@ -99,23 +99,23 @@ const STRATEGIES: Strategy[] = [
 			attachmentReplica +
 			3 * walTransfer +
 			1_500 * PRICE.interRegionGb,
-		note: '৩টা বাড়তি region, পূর্ণ মাপে'
+		note: '3 extra regions, full size'
 	}
 ];
 
 heading(
-	`অংশ ক — সিঙ্গাপুর region ${duration(OUTAGE_MINUTES)} বন্ধ: ${RPS} req/s, তার ${Math.round(WRITE_SHARE * 100)}% লেখা`
+	`Part A — the Singapore region down for ${duration(OUTAGE_MINUTES)}: ${RPS} req/s, ${Math.round(WRITE_SHARE * 100)}% of them writes`
 );
 console.log(
 	row([
-		['কৌশল', 46],
+		['strategy', 54],
 		['RTO', 8],
 		['RPO', 10],
-		['হারানো লেখা', 13],
-		['ব্যর্থ request', 15],
-		['বাড়তি / মাস', 13],
+		['lost writes', 13],
+		['failed requests', 17],
+		['extra / month', 15],
 		['', 2],
-		['RTO কোথায় যায়', 60]
+		['where the RTO goes', 60]
 	])
 );
 for (const s of STRATEGIES) {
@@ -127,16 +127,16 @@ for (const s of STRATEGIES) {
 	const failed = rto * 60 * RPS;
 	console.log(
 		row([
-			[s.name, 46],
+			[s.name, 54],
 			[duration(rto), 8],
-			[rpo === 0 ? '০' : duration(rpo / 60), 10],
+			[rpo === 0 ? '0' : duration(rpo / 60), 10],
 			[n(lost), 13],
-			[n(failed), 15],
-			[usd(s.extraMonthly), 13],
+			[n(failed), 17],
+			[usd(s.extraMonthly), 15],
 			['', 2],
 			[
 				regionBackFirst && s.steps.length > 1
-					? `  failover শেষ হওয়ার আগেই region ফিরল (পরিকল্পনা ${duration(planned)})`
+					? `  the region came back before failover finished (plan ${duration(planned)})`
 					: `  ${s.steps.map(([name, m]) => `${name} ${duration(m)}`).join(' → ')}`,
 				60
 			]
@@ -144,10 +144,10 @@ for (const s of STRATEGIES) {
 	);
 }
 console.log(
-	`\n(RPO = শেষ যেখান পর্যন্ত data অন্য region এ পৌঁছেছিল; "হারানো লেখা" = RPO × ${writesPerSecond} লেখা/s। বাড়তি খরচ 10.7 এর $8,276 এর উপরে)`
+	`\n(RPO = how far the data had reached the other region; "lost writes" = RPO × ${writesPerSecond} writes/s. Extra cost on top of 10.7's $8,276)`
 );
 
-heading('অংশ খ — DNS বদলানোর পরে: কত % traffic এখনও মরা region এ যায়');
+heading('Part B — after changing DNS: what % of traffic still goes to the dead region');
 const HONOR = 0.7;
 const CLAMP = 0.2;
 const STICKY = 0.1;
@@ -163,46 +163,46 @@ const remaining = (ttl: number, t: number): number => {
 const MOMENTS = [60, 300, 900, 1_800, 3_600];
 console.log(
 	row([
-		['routing', 34],
+		['routing', 44],
 		...MOMENTS.map((t): [string, number] => [`+${duration(t / 60)}`, 10]),
-		['প্রথম ঘণ্টায় ব্যর্থ', 20]
+		['failed in hour 1', 20]
 	])
 );
 for (const [name, ttl] of [
-	['DNS, TTL ৬০ s', 60],
-	['DNS, TTL ৩০০ s', 300],
-	['DNS, TTL ৩,৬০০ s', 3_600],
-	['anycast / global LB (DNS বদলায় না)', 0]
+	['DNS, TTL 60 s', 60],
+	['DNS, TTL 300 s', 300],
+	['DNS, TTL 3,600 s', 3_600],
+	["anycast / global LB (DNS doesn't change)", 0]
 ] as const) {
 	let failedHour = 0;
 	for (let t = 0; t < 3_600; t++) failedHour += remaining(ttl, t) * RPS;
 	console.log(
 		row([
-			[name, 34],
+			[name, 44],
 			...MOMENTS.map((t): [string, number] => [pct(remaining(ttl, t), 1, 0), 10]),
 			[n(failedHour), 20]
 		])
 	);
 }
 console.log(
-	`\n(ধরা: ${Math.round(HONOR * 100)}% client TTL মানে; ${Math.round(CLAMP * 100)}% এর resolver TTL কে অন্তত ${CLAMP_SECONDS / 60} মিনিট ধরে; ${Math.round(STICKY * 100)}% পুরনো IP ধরে থাকে এক ঘণ্টা পর্যন্ত — খোলা connection, app এর নিজের cache)`
+	`\n(assumed: ${Math.round(HONOR * 100)}% of clients honour the TTL; ${Math.round(CLAMP * 100)}% have a resolver that treats the TTL as at least ${CLAMP_SECONDS / 60} minutes; ${Math.round(STICKY * 100)}% hold on to the old IP for up to an hour — open connections, the app's own cache)`
 );
 
 heading(
-	`অংশ গ — সিঙ্গাপুর মরেনি, শুধু বাকিদের থেকে বিচ্ছিন্ন, ${PARTITION_MINUTES} মিনিট (লেখার ${Math.round(SG_WRITE_SHARE * 100)}% সিঙ্গাপুরের user এর)`
+	`Part C — Singapore is not dead, only cut off from the rest, for ${PARTITION_MINUTES} minutes (${Math.round(SG_WRITE_SHARE * 100)}% of writes are from Singapore users)`
 );
 type Policy = { name: string; failoverAt: number | null; fence: boolean };
 const POLICIES: Policy[] = [
-	{ name: 'স্বয়ংক্রিয় failover নেই', failoverAt: null, fence: false },
-	{ name: 'মুম্বাই ২ মিনিটে নিজেই promote করে', failoverAt: 2, fence: false },
-	{ name: 'witness সহ (majority + lease, fencing)', failoverAt: 2, fence: true }
+	{ name: 'no automatic failover', failoverAt: null, fence: false },
+	{ name: 'Mumbai promotes itself after 2 minutes', failoverAt: 2, fence: false },
+	{ name: 'with a witness (majority + lease, fencing)', failoverAt: 2, fence: true }
 ];
 console.log(
 	row([
-		['নীতি', 42],
-		['ব্যর্থ লেখা', 13],
-		['দুই দিকে আলাদা লেখা', 22],
-		['কে লিখতে পারল', 40]
+		['policy', 46],
+		['failed writes', 15],
+		['divergent writes', 22],
+		['who could write', 40]
 	])
 );
 for (const p of POLICIES) {
@@ -214,26 +214,26 @@ for (const p of POLICIES) {
 			return {
 				failed: rest * PARTITION_MINUTES,
 				divergent: 0,
-				who: 'শুধু সিঙ্গাপুর; বাকি সবার লেখা ব্যর্থ'
+				who: "Singapore only; everyone else's writes fail"
 			};
 		if (!p.fence)
 			return {
 				failed: rest * p.failoverAt,
 				divergent: sg * (PARTITION_MINUTES - p.failoverAt),
-				who: 'দুই দিকেই — দুটো primary (split brain)'
+				who: 'both sides — two primaries (split brain)'
 			};
 		const leaseSeconds = 30;
 		return {
 			failed: rest * p.failoverAt + sg * (PARTITION_MINUTES - leaseSeconds / 60),
 			divergent: 0,
-			who: 'মুম্বাই পক্ষ; সিঙ্গাপুর ৩০ s পরে নিজেকে থামায়'
+			who: 'the Mumbai side; Singapore stops itself after 30 s'
 		};
 	};
 	const { failed, divergent, who } = outcome();
 	console.log(
 		row([
-			[p.name, 42],
-			[n(failed), 13],
+			[p.name, 46],
+			[n(failed), 15],
 			[n(divergent), 22],
 			[`  ${who}`, 40]
 		])

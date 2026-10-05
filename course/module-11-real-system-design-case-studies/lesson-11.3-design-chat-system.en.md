@@ -60,25 +60,25 @@ The one line on end-to-end encryption: a message is encrypted on the phone, and 
 
 ```
 ── Part A — connections: 500 million DAU, 30% online at peak ──
-connections open at once                                       150 million   each is a TCP + TLS + WebSocket
-connection memory (20.0 KB each, approximate)                       3.0 TB   kernel buffers, TLS, app state
-gateway servers (500,000 connections each)                             300   when one dies, this many people reconnect at once
-heartbeats / s (every 30 s)                                      5,000,000   more than the messages
+connections open at once                                   150 million   each is a TCP + TLS + WebSocket
+connection memory (20.0 KB each, approximate)                   3.0 TB   kernel buffers, TLS, app state
+gateway servers (500,000 connections each)                         300   when one dies, this many people reconnect at once
+heartbeats / s (every 30 s)                                  5,000,000   more than the messages
 
 ── Part B — messages: 40 a day per user, 30% in groups (20 people on average) ──
-messages sent / s (peak, 3×)                                       694,444
-deliveries per message (fan-out)                                       6.4   each group member is a separate delivery
-deliveries / s (peak)                                            4,444,444
-receipts (delivered + read) / s (peak)                           8,888,889   two from each delivery — more writes than messages
+messages sent / s (peak, 3×)                                   694,444
+deliveries per message (fan-out)                                   6.4   each group member is a separate delivery
+delivery / s (peak)                                          4,444,444
+receipt (delivered + read) / s (peak)                        8,888,889   two from each delivery — more writes than messages
 
 ── Part C — storage: 200 B per message ──
-all history forever (10 years, one copy)                           14.6 PB   history on the server (like Messenger/Slack)
-only undelivered messages (deleted once delivered)                  3.2 TB   50% of deliveries wait 6 hours on average
-difference                                                     4,562 times   a product decision, not a storage one
+all history forever (10 years, one copy)                       14.6 PB   history on the server (like Messenger/Slack)
+only undelivered messages (deleted once delivered)              3.2 TB   50% of deliveries wait 6 hours on average
+difference                                                 4,562 times   a product decision, not a storage one
 
 ── Part D — presence: 200 contacts on average, online ↔ offline 20 times a day ──
-push to every contact / s                                       23,148,148   presence storm
-only those with the chat open (1%) / s                             231,481   lazy presence: only if subscribed
+push to every contact / s                                   23,148,148   presence storm
+only those with the chat open (1%) / s                         231,481   lazy presence: only if subscribed
 ```
 
 1. **The real cost is in connections.** 150 million open connections, 3 TB of memory just to hold them, 300 gateways. And heartbeats (small pings to check a connection is alive) at 5 million a second, **7 times** the peak messages. The heartbeat interval is a trade-off: short, and dead connections are caught quickly, but the phone's battery and the server's CPU go; long, and the NAT and mobile network boxes in between silently cut the connection, and the server does not notice for a long time.
@@ -127,11 +127,11 @@ A message's key is `(conv_id, seq)`: all of a conversation's messages side by si
 Now 2.4's question: the chat service knows the message is for Bob. Which gateway is Bob on? `npm run gateway` part A, 4.4 million deliveries a second at peak, 300 gateways:
 
 ```
-path                                                                   received/s per gateway   useful    op/s in the middle layer
-broadcast to every gateway (one pub/sub channel)                                 4,444,444       0.3%     1,333,333,200
-a channel per user, Redis Cluster's old PUBLISH (spread over 10 nodes)              14,815     100.0%        44,444,440
-a channel per user, sharded pub/sub (SPUBLISH)                                      14,815     100.0%         4,444,444
-session registry (user → gateway) + direct send                                     14,815     100.0%         8,888,888
+path                                                                      received/s per gateway     useful  op/s in the middle layer
+broadcast to every gateway (one pub/sub channel)                                       4,444,444       0.3%             1,333,333,200
+a channel per user, Redis Cluster's old PUBLISH (spread over 10 nodes)                    14,815     100.0%                44,444,440
+a channel per user, sharded pub/sub (SPUBLISH)                                            14,815     100.0%                 4,444,444
+session registry (user → gateway) + direct send                                           14,815     100.0%                 8,888,888
 ```
 
 - **The simplest form of 2.4's "one shared pub/sub", everything on one channel, dies at this size.** Every gateway gets every delivery (4.4 million/s), 0.3% of which are its own. 1.33 billion a second in the middle layer. At a small size (a few servers) it is the right answer, and 2.4 was talking about that size.
@@ -145,11 +145,11 @@ Both paths share a weakness, which is the centre of the next section: **the regi
 Half a million connections on one gateway. The gateway crashed (or was shut down for a deploy). Half a million phones find out at almost the same moment, and they all want to come back. Every return means TCP, TLS, auth, a registry write, and a sync. Say the rest of the fleet's total capacity is 20,000 such handshakes a second. And one real-world detail: **a rejected attempt is not free either.** Some TCP and TLS work happens before the server says no because of overload; say 0.2 of a full handshake. `npm run gateway` part B:
 
 ```
-policy                                                 attempts/s (peak)    total attempts   per client   50% back   99% back          all back
-at once, and again at once on failure                       5,000,000   3,000,000,000       6,000         —         —     0% (in 10 min)
-at once, and exactly 1 s later on failure                   5,000,000     300,000,000         600         —         —     0% (in 10 min)
-exponential backoff, no jitter                              5,000,000       7,500,000          15         —         —     0% (in 10 min)
-first one spread over 0–10 s + full jitter                    251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
+policy                                          attempts/s (peak)  total attempts  per client  50% back  99% back        all back
+at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         —         —  0% (in 10 min)
+at once, and exactly 1 s later on failure               5,000,000     300,000,000         600         —         —  0% (in 10 min)
+exponential backoff, no jitter                          5,000,000       7,500,000          15         —         —  0% (in 10 min)
+first one spread over 0–10 s + full jitter                251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
 best possible: 500,000 ÷ 20,000/s = 25.00 s.
 ```
 
@@ -164,9 +164,9 @@ So in the gateway's design: jitter on the client's reconnect from the very first
 **The time the registry is stale.** Part C: these half a million people are receiving ~14,800 messages a second, and the registry keeps pointing at the dead gateway until they come back somewhere else:
 
 ```
-policy                                                push only: lost        store first, then push: lost    delay p50    delay p99
-at once, and again at once on failure                    444,444 (100%)                             0    > 10 min    > 10 min
-first one spread over 0–10 s + full jitter                391,250 (88%)                             0   16.82 s   64.77 s
+policy                                           push only: lost  store first, then push: lost  delay p50  delay p99
+at once, and again at once on failure             444,444 (100%)                             0   > 10 min   > 10 min
+first one spread over 0–10 s + full jitter          391,250 (88%)                             0   16.82 s   64.77 s
 ```
 
 If messages are only pushed (look up the registry, send to the gateway, done), 88% of the first 30 seconds are lost. If it is **store first, then push**, nothing is lost: the message is durable in the store, the push is only a fast path, and the phone takes whatever it missed in a sync when it comes back. The only price is delay (p99 65 s, the time for the phone to return). This is the most important rule of this design:
@@ -178,10 +178,10 @@ If messages are only pushed (look up the registry, send to the gateway, done), 8
 On mobile networks packets get lost, connections drop, phones go into tunnels. `npm run delivery` part A: A → server → B, each packet lost 3% of the time:
 
 ```
-policy                                                 B didn't get it   B saw it twice   stored twice on server   packets / message
-send once, no ack (at-most-once)                              5.94%          0.00%              0.00%             3.94
-resend if no ack (at-least-once)                              0.00%          5.80%              2.92%             4.31
-resend + drop by client_msg_id and seq                        0.00%          0.00%              0.00%             4.25
+policy                                          B missed it  B saw it twice       stored twice  packet / message
+send once, no ack (at-most-once)                     5.94%          0.00%              0.00%             3.94
+resend if no ack (at-least-once)                     0.00%          5.80%              2.92%             4.31
+resend + drop by client_msg_id and seq               0.00%          0.00%              0.00%             4.25
 ```
 
 - **Without retries, almost 6% is lost** (two hops, 3% on each). Experiment 3: 19% on a network losing 10%.
@@ -197,11 +197,11 @@ The cursor idea cuts the receipt load: when Bob reads ten messages together, it 
 Two problems in a group: (1) **causality**: C saw a question and answered it; the answer must not appear above the question on anyone's screen. (2) **agreement**: two people wrote at almost the same time; everyone must see the same order, or the conversation means different things to different people. Part B, a group of 5, phone clocks ±500 ms (2% of phones a minute or so off), three chat servers (±30 ms):
 
 ```
-order                                                   answer above question        members see different orders
-sorted by the sending phone's clock                                  10.21%                   0.00%
-shown in the order they arrived                                       0.41%                  47.59%
-sorted by the chat server's clock                                     0.00%                   0.00%
-per-conversation seq (one sequencer)                                  0.00%                   0.00%
+order                                         answer above question   members see different orders
+sorted by the sending phone's clock                          10.21%                          0.00%
+shown in the order they arrived                               0.41%                         47.59%
+sorted by the chat server's clock                             0.00%                          0.00%
+per-conversation seq (one sequencer)                          0.00%                          0.00%
 ```
 
 - **The phone's clock:** everyone sees the same order (the same timestamps), but **10% of answers are above their question.** 6.4's point: clocks can't be trusted, and phone clocks least of all. Someone whose phone is two minutes behind has every answer jump up.
@@ -216,18 +216,18 @@ The real value of seq is not just ordering: it is **the language of sync.** "I h
 `npm run smoke` runs every rule above in one place: two real WebSocket gateways (`ws`), a `ChatCore` (registry, the conversation's log and seq, dedupe, fan-out, receipts, sync), three users:
 
 ```
-#   step                                                     result
-1   alice → bob: "hi"                                        ack seq 1 (✓ durable on the server)
-2   bob received it (on gw2, via the registry)               1:hi
-3   bob's phone sends "delivered" automatically              alice got receipt: delivered (✓✓)
-4   bob read it                                              alice got receipt: read (blue ✓✓)
-5   alice resent the same client_msg_id (as if the ack was lost)   ack seq 1, duplicate: true; 1 at bob
-6   alice → team, 3 messages, carol offline                  bob: 1:standup?, 2:at 10, 3:ok; offline push: 3
-7   carol online (gw1), sync { }                             1:standup?, 2:at 10, 3:ok
-8   gw2 crashes; alice → bob 2 messages (registry still gw2) stale route: 2, 3 in dm in the store
-9   bob reconnects on gw1, sync { dm: 1, team: 3 }           2:you there?, 3:call me
-10  alice and bob in team at the same time                   carol sees: 4:me first, 5:no, me; seq: 4, 5
-11  the core's counts                                        stored 8, duplicate 1, other gateway 9, same gateway 8
+#   step                                                            result
+1   alice → bob: "hi"                                               ack seq 1 (✓ durable on the server)
+2   bob received it (on gw2, via the registry)                      1:hi
+3   bob's phone sends "delivered" automatically                     alice got receipt: delivered (✓✓)
+4   bob read it                                                     alice got receipt: read (blue ✓✓)
+5   alice resent the same client_msg_id (as if the ack was lost)    ack seq 1, duplicate: true; 1 at bob
+6   alice → team, 3 messages, carol offline                         bob: 1:standup?, 2:at 10, 3:ok; offline push: 3
+7   carol online (gw1), sync { }                                    1:standup?, 2:at 10, 3:ok
+8   gw2 crashes; alice → bob 2 messages (registry still gw2)        stale route: 2, 3 in dm in the store
+9   bob reconnects on gw1, sync { dm: 1, team: 3 }                  2:you there?, 3:call me
+10  alice and bob in team at the same time                          carol sees: 4:me first, 5:no, me; seq: 4, 5
+11  the core's counts                                               stored 8, duplicate 1, other gateway 9, same gateway 8
 ```
 
 - Steps 1–4: three ticks, three separate events. Alice is on gw1, Bob on gw2; messages and receipts go both ways via the registry.

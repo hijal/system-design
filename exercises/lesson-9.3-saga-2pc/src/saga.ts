@@ -14,15 +14,15 @@ import {
 } from './db';
 import { mulberry32, ms, pad, percentile, sleep } from './random';
 
-// Lesson 9.3 §১.৪–১.৭ — Saga: প্রতিটা ধাপ নিজের database এ একটা ছোট local transaction, আর ব্যর্থ হলে
-// আগের ধাপ গুলোর উল্টো কাজ (compensation)।
+// Lesson 9.3 §1.4–1.7 — Saga: every step a small local transaction in its own database, and on failure
+// the reverse of the earlier steps (compensation).
 //
-// "Task তৈরি" এর saga — orchestrator work service (tasks_svc), যে নিজের database এ saga এর log রাখে:
-//   ১. billing.reserve  — workspace এর সীমার মধ্যে থাকলে task_count + 1 (সংরক্ষণ); নইলে "সীমা শেষ"
-//   ২. work.createTask  — project archived হলে ব্যর্থ (ব্যবসার কারণে) → compensation: billing.release
-//   ক. crash (billing এ লেখার পরে, log এ লেখার আগে) আর archived project — saga ছাড়া, saga, recovery সহ,
-//      আর idempotent না হলে recovery কী করে
-//   খ. saga এ isolation নেই: সীমার কাছে একসাথে অনেক "task তৈরি" — দুই নিয়মে কী ভুল হয়
+// The "create task" saga — the orchestrator is the work service (tasks_svc), which keeps the saga's log in its own database:
+//   1. billing.reserve  — task_count + 1 if within the workspace's limit (a reservation); otherwise "limit reached"
+//   2. work.createTask  — fails if the project is archived (a business reason) → compensation: billing.release
+//   a. crash (after writing to billing, before writing the log) and archived projects — without a saga, a saga, with recovery,
+//      and what recovery does when the steps aren't idempotent
+//   b. a saga has no isolation: many "create task" at once near the limit — what goes wrong under two rules
 
 const cfg = z
 	.object({
@@ -55,7 +55,7 @@ async function reset(
 ): Promise<void> {
 	await clearPrepared();
 	const work = pool('tasks_svc', 1);
-	// sagas — orchestrator এর log: প্রতিটা saga কোন ধাপে আছে। tasks.saga_id UNIQUE — একই saga দুবার task বানাতে পারে না।
+	// sagas — the orchestrator's log: which step each saga is at. tasks.saga_id UNIQUE — the same saga can't create a task twice.
 	await work.query(`
 		DROP TABLE IF EXISTS tasks; DROP TABLE IF EXISTS sagas; DROP TABLE IF EXISTS projects; DROP TABLE IF EXISTS twopc_log;
 		CREATE TABLE projects (id int PRIMARY KEY, archived boolean NOT NULL);
@@ -68,17 +68,17 @@ async function reset(
 		'INSERT INTO projects (id, archived) SELECT * FROM unnest($1::int[], $2::boolean[])',
 		[ids, ids.map(archived)]
 	);
-	// আগে থেকে থাকা task (সীমার কাছে থাকার জন্য) — project 0, archived না
+	// pre-existing tasks (to sit near the limit) — project 0, not archived
 	if (used > 0)
 		await work.query(
 			`INSERT INTO tasks (workspace_id, project_id, title)
-			 SELECT w, 0, 'পুরনো' FROM generate_series(1, $1::int) w, generate_series(1, $2::int)`,
+			 SELECT w, 0, 'old' FROM generate_series(1, $1::int) w, generate_series(1, $2::int)`,
 			[workspaces, used]
 		);
 	await work.end();
 	const billing = pool('billing_svc', 1);
-	// reservations — billing এর নিজের খাতা: কোন saga এর জন্য সংরক্ষণ, আর তার অবস্থা। এটাই reserve আর release
-	// কে idempotent করে — একই saga_id দ্বিতীয়বার এলে আগের উত্তর।
+	// reservations — billing's own ledger: reservations for which saga, and their state. This is what makes reserve and release
+	// idempotent — when the same saga_id comes a second time, the earlier answer.
 	await billing.query(`
 		DROP TABLE IF EXISTS workspaces; DROP TABLE IF EXISTS reservations;
 		CREATE TABLE workspaces (id int PRIMARY KEY, plan text NOT NULL, task_limit int NOT NULL, task_count int NOT NULL);
@@ -108,8 +108,8 @@ const closeServices = async (s: Services): Promise<void> => {
 
 const statusRow = z.object({ status: z.enum(['reserved', 'rejected', 'released']) });
 
-// ধাপ ১: সীমার মধ্যে থাকলে task_count + 1। Idempotent রূপ: saga_id ধরে খাতায় লেখা — একই saga আবার
-// এলে (recovery, retry) আগের উত্তর ফেরত, দ্বিতীয়বার গোনা না।
+// step 1: task_count + 1 if within the limit. The idempotent form: write to the ledger by saga_id — if the same saga comes
+// again (recovery, retry) return the earlier answer, never count it twice.
 async function reserve(
 	s: Services,
 	sagaId: string,
@@ -147,7 +147,7 @@ async function reserve(
 	}
 }
 
-// Compensation: সংরক্ষণ ফেরত। Idempotent রূপ: শুধু 'reserved' অবস্থা থেকে 'released' এ — দুবার ডাকলেও একবার কমে।
+// Compensation: return the reservation. The idempotent form: only from 'reserved' to 'released' — called twice, it decreases once.
 async function release(s: Services, sagaId: string, workspaceId: number): Promise<void> {
 	if (!s.idempotent) {
 		await s.billing.query('UPDATE workspaces SET task_count = task_count - 1 WHERE id = $1', [
@@ -167,9 +167,9 @@ async function release(s: Services, sagaId: string, workspaceId: number): Promis
 const archivedRow = z.object({ archived: z.boolean() });
 type NewTask = { sagaId: string | null; workspaceId: number; projectId: number; title: string };
 
-// ধাপ ২: task তৈরি — আর saga এর অবস্থা 'done', একই local transaction এ (work এর নিজের database)।
+// step 2: create the task — and the saga's state 'done', in the same local transaction (work's own database).
 async function createTask(s: Services, t: NewTask): Promise<'done' | 'archived'> {
-	if (s.stepMs > 0) await sleep(s.stepMs); // service এর কাজ আর network এর সময়
+	if (s.stepMs > 0) await sleep(s.stepMs); // the service's work and the network time
 	const c = await s.work.connect();
 	try {
 		await c.query('BEGIN');
@@ -197,7 +197,7 @@ async function createTask(s: Services, t: NewTask): Promise<'done' | 'archived'>
 	}
 }
 
-// ── orchestrator (work service এর ভেতরে) ──
+// ── the orchestrator (inside the work service) ──
 
 const states = ['started', 'reserved', 'done', 'compensating', 'compensated', 'rejected'] as const;
 type SagaState = (typeof states)[number];
@@ -224,7 +224,7 @@ async function startSaga(s: Services, op: Op): Promise<Result> {
 		title: op.title,
 		state: 'started'
 	};
-	// প্রথমে log — "এই saga শুরু হলো"। এরপর যেকোনো মুহূর্তে মরলেও recovery জানে কোথা থেকে ধরতে হবে।
+	// the log first — "this saga started". After this, whenever it dies, recovery knows where to pick up.
 	await s.work.query(
 		'INSERT INTO sagas (id, workspace_id, project_id, title, state) VALUES ($1, $2, $3, $4, $5)',
 		[saga.id, saga.workspace_id, saga.project_id, saga.title, saga.state]
@@ -232,12 +232,12 @@ async function startSaga(s: Services, op: Op): Promise<Result> {
 	return advance(s, saga, op.crash);
 }
 
-// Saga কে তার এখনকার অবস্থা থেকে শেষ পর্যন্ত নেওয়া — নতুন saga আর recovery, দুটোই এটা ব্যবহার করে
+// Take a saga from its current state to the end — both new sagas and recovery use this
 async function advance(s: Services, saga: SagaRow, crashAfterReserve: boolean): Promise<Result> {
 	let state: SagaState = saga.state;
 	if (state === 'started') {
 		const r = await reserve(s, saga.id, saga.workspace_id);
-		if (crashAfterReserve) throw new Crash(); // billing এ লেখা হয়ে গেছে, log এ এখনো 'started'
+		if (crashAfterReserve) throw new Crash(); // billing is written, the log still says 'started'
 		if (r === 'rejected') {
 			await setState(s, saga.id, 'rejected');
 			return 'rejected';
@@ -253,7 +253,7 @@ async function advance(s: Services, saga: SagaRow, crashAfterReserve: boolean): 
 			title: saga.title
 		});
 		if (r === 'done') return 'done';
-		await setState(s, saga.id, 'compensating'); // আগে log, তারপর উল্টো কাজ
+		await setState(s, saga.id, 'compensating'); // the log first, then the reverse action
 		state = 'compensating';
 	}
 	if (state === 'compensating') {
@@ -264,7 +264,7 @@ async function advance(s: Services, saga: SagaRow, crashAfterReserve: boolean): 
 	return state === 'done' ? 'done' : state === 'compensated' ? 'compensated' : 'rejected';
 }
 
-// Orchestrator আবার চালু হলো: log এ যেগুলো মাঝপথে, প্রতিটাকে সেখান থেকে এগিয়ে নেওয়া
+// The orchestrator came back: advance each saga that is midway in the log from where it stopped
 async function recover(s: Services): Promise<void> {
 	const r = await s.work.query(
 		"SELECT id, workspace_id, project_id, title, state FROM sagas WHERE state IN ('started', 'reserved', 'compensating')"
@@ -287,7 +287,7 @@ async function sagaStates(s: Services): Promise<Record<SagaState, number>> {
 	return out;
 }
 
-// ── ক. crash, archived, recovery ──
+// ── a. crash, archived, recovery ──
 
 type Row = {
 	name: string;
@@ -306,7 +306,7 @@ async function printRow(row: Row, s: Services): Promise<void> {
 		cfg.WORKSPACES
 	);
 	console.log(
-		`   ${row.name.padEnd(40)} ${pad(row.done, 6)} ${pad(row.archived, 9)} ${pad(row.crashed, 6)} ${pad(row.unfinished, 9)} ${pad(t.taskRows, 8)} ${pad(t.counterSum, 8)} ${pad(t.mismatched, 8)}   ${verdict(t).padEnd(20)} ${pad(row.opsPerSec, 6)} ${pad(row.p50, 8)}`
+		`   ${row.name.padEnd(40)} ${pad(row.done, 6)} ${pad(row.archived, 9)} ${pad(row.crashed, 6)} ${pad(row.unfinished, 9)} ${pad(t.taskRows, 8)} ${pad(t.counterSum, 8)} ${pad(t.mismatched, 8)}   ${verdict(t).padEnd(22)} ${pad(row.opsPerSec, 6)} ${pad(row.p50, 8)}`
 	);
 }
 
@@ -337,7 +337,7 @@ async function withoutSaga(ops: Op[]): Promise<void> {
 	let done = 0;
 	let archived = 0;
 	let crashed = 0;
-	// Saga ছাড়া: billing আগে (সীমা দেখা আর গোনা), তারপর task — কোনো log নেই, কোনো উল্টো কাজ নেই
+	// Without a saga: billing first (check the limit and count), then the task — no log, no reverse action
 	const time = await timed(ops, async (op) => {
 		await reserve(s, `x${op.i}`, op.workspaceId);
 		if (op.crash) {
@@ -350,7 +350,7 @@ async function withoutSaga(ops: Op[]): Promise<void> {
 	});
 	await printRow(
 		{
-			name: 'দুটো লেখা, saga ছাড়া',
+			name: 'two writes, no saga',
 			done,
 			archived,
 			crashed: String(crashed),
@@ -377,7 +377,7 @@ async function withSaga(ops: Op[], idempotent: boolean): Promise<void> {
 	const before = await sagaStates(s);
 	await printRow(
 		{
-			name: idempotent ? 'saga (idempotent ধাপ)' : 'saga, ধাপ idempotent না',
+			name: idempotent ? 'saga (idempotent steps)' : 'saga, steps not idempotent',
 			done: before.done,
 			archived: before.compensated,
 			crashed: String(crashed),
@@ -392,7 +392,7 @@ async function withSaga(ops: Op[], idempotent: boolean): Promise<void> {
 	const after = await sagaStates(s);
 	await printRow(
 		{
-			name: `  … recovery: log পড়ে এগোনো (${took})`,
+			name: `  … recovery from the log (${took})`,
 			done: after.done,
 			archived: after.compensated,
 			crashed: '—',
@@ -405,7 +405,7 @@ async function withSaga(ops: Op[], idempotent: boolean): Promise<void> {
 	await closeServices(s);
 }
 
-// ── খ. সীমার কাছে — isolation নেই ──
+// ── b. near the limit — no isolation ──
 
 async function nearLimit(
 	policy: 'reserve' | 'check',
@@ -420,17 +420,17 @@ async function nearLimit(
 	const no = (ws: number): void => {
 		rejected.set(ws, (rejected.get(ws) ?? 0) + 1);
 	};
-	// একই workspace এর ATTEMPTS টা operation তালিকায় পাশাপাশি — তাই একসাথে চলে
+	// the same workspace's ATTEMPTS operations side by side in the list — so they run together
 	await runWorkers(ops, cfg.ATTEMPTS * 4, async (op) => {
 		if (policy === 'reserve') {
-			// Saga: আগে সংরক্ষণ (billing এ গোনা হয়ে যায়, task হওয়ার আগেই) → task → archived হলে ফেরত
+			// Saga: reserve first (counted in billing, before the task exists) → task → return it if archived
 			const r = await startSaga(s, op);
 			if (r === 'done') created++;
 			else if (r === 'compensated') compensated++;
 			else no(op.workspaceId);
 			return;
 		}
-		// আগে দেখা ("সীমা আছে?"), তারপর task, শেষে usage বাড়ানো — মাঝে কিছুই ধরে রাখা হয় না
+		// check first ("is there room?"), then the task, then increment usage at the end — nothing is held in between
 		const r = await s.billing.query(
 			'SELECT task_count < task_limit AS ok FROM workspaces WHERE id = $1',
 			[op.workspaceId]
@@ -456,13 +456,11 @@ async function nearLimit(
 			overWs++;
 			extra += n - cfg.LIMIT;
 		}
-		// শেষে জায়গা খালি ছিল, তবু "সীমা শেষ" বলা হয়েছিল
+		// at the end there was room, yet "limit reached" had been said
 		falseNo += Math.min(r, Math.max(0, cfg.LIMIT - n));
 	}
 	const label =
-		policy === 'reserve'
-			? 'আগে সংরক্ষণ → task → দরকারে ফেরত (saga)'
-			: 'আগে দেখা → task → শেষে usage বাড়ানো';
+		policy === 'reserve' ? 'reserve → task → release (saga)' : 'check → task → count usage at end';
 	console.log(
 		`   ${label.padEnd(40)} ${pad(created, 5)} ${pad(policy === 'reserve' ? compensated : '—', 7)} ${pad(saidNo, 11)} ${pad(overWs, 14)} ${pad(extra, 11)} ${pad(falseNo, 15)}`
 	);
@@ -482,10 +480,10 @@ async function main(): Promise<void> {
 	const archivedOps = ops.filter((o) => !o.crash && archivedIn(o.projectId)).length;
 
 	console.log(
-		`\n── ক. ${cfg.OPS} টা "task তৈরি" — ${crashes} টায় billing এ লেখার পরে crash (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${archivedOps} টার project archived, ${cfg.CONCURRENCY} টা একসাথে ──`
+		`\n── A. ${cfg.OPS} "create task" — crash after writing to billing in ${crashes} (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${archivedOps} with an archived project, ${cfg.CONCURRENCY} concurrent ──`
 	);
 	console.log(
-		`   ${'পথ'.padEnd(40)}  সম্পন্ন  archived  crash  অসমাপ্ত  task row  counter  অমিল ws   ফল                    ops/s      p50`
+		'   path                                       done  archived  crash   pending    tasks  counter   bad ws   result                  ops/s      p50'
 	);
 	await withoutSaga(ops);
 	await withSaga(ops, true);
@@ -503,15 +501,15 @@ async function main(): Promise<void> {
 			.map((o) => o.projectId)
 	);
 	console.log(
-		`\n── খ. সীমার কাছে: ${cfg.NEAR_WORKSPACES} টা workspace, সীমা ${cfg.LIMIT}, আগে থেকে ${cfg.USED} টা task — প্রতিটায় ${cfg.ATTEMPTS} টা "task তৈরি" একসাথে, ${archivedNear.size} টার project archived ──`
+		`\n── B. Near the limit: ${cfg.NEAR_WORKSPACES} workspaces, limit ${cfg.LIMIT}, ${cfg.USED} tasks already — ${cfg.ATTEMPTS} concurrent "create task" in each, ${archivedNear.size} with an archived project ──`
 	);
 	console.log(
-		`   ${'নিয়ম'.padEnd(40)}  তৈরি  ফেরানো  "সীমা শেষ"  সীমা পেরোনো ws  বাড়তি task  ভুল "সীমা শেষ"`
+		'   rule                                      made  undone     refused  ws over limit       extra  false refusals'
 	);
 	await nearLimit('reserve', near, archivedNear);
 	await nearLimit('check', near, archivedNear);
 	console.log(
-		'\n   (ভুল "সীমা শেষ" = শেষে workspace এ জায়গা খালি ছিল, তবু না বলা হয়েছিল — জায়গাটা ধরে রেখেছিল এমন একটা saga যেটা পরে ফেরত দিল।)\n'
+		'\n   (false refusals = at the end the workspace had room, yet it was told no — the room was held by a saga that later gave it back.)\n'
 	);
 }
 

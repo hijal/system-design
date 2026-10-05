@@ -81,10 +81,10 @@ Exercise এর `npm run partition` — ৫টা node, ঢাকায় ৩�
 **CP — strict quorum:** লেখা বা পড়া সফল হতে ৫টার মধ্যে অন্তত ৩টা node লাগবে (majority)।
 
 ```
-রহিম (ঢাকা, ৩টা node)       লিখল "Fix login"   → সফল ✓
-করিম (সিঙ্গাপুর, ২টা node)  লিখল "Fix signup"  → ব্যর্থ ✗ — error দেখল, আবার চেষ্টা করতে হবে
-partition চলাকালীন পড়া: ঢাকা → "Fix login",  সিঙ্গাপুর → ✗ উত্তর নেই (quorum নেই)
-network জোড়া লাগার পর সবাই পড়ে: "Fix login"
+   Rahim (Dhaka, 3 nodes)         wrote "Fix login"   → success ✓
+   Karim (Singapore, 2 nodes)     wrote "Fix signup"  → failed ✗ — saw an error, has to try again
+   reads during the partition: Dhaka → "Fix login",  Singapore → ✗ no answer (no quorum)
+   after the network heals, everyone reads: "Fix login"
 ```
 
 সবাই সবসময় একই সত্য দেখেছে — কিন্তু সিঙ্গাপুরের user রা তিন মিনিট কিছু করতে পারেনি। Majority থাকা দিক চলে, অন্য দিক থেমে যায় — এই নিয়ম থাকায় দুই দিক কখনো একসাথে ভিন্ন কিছু লিখতে পারে না।
@@ -92,11 +92,11 @@ network জোড়া লাগার পর সবাই পড়ে: "Fix l
 **AP — যেকোনো node লেখা নেয়, পরে মেলানো হয় last-write-wins (LWW) দিয়ে।** আর বাস্তবের মতো, সিঙ্গাপুরের n4 এর ঘড়ি ৩০০ ms পিছিয়ে:
 
 ```
-partition চলাকালীন পড়া: ঢাকা → "Fix login",  সিঙ্গাপুর → "Fix signup"  ← দুই দিকে দুই সত্য
-network জোড়া লাগল — দুটো version পাওয়া গেল:
-  "Fix login" (রহিম), timestamp 100 ms
-  "Fix signup" (করিম), timestamp -100 ms
-LWW বিজয়ী: "Fix login" (রহিম)
+   reads during the partition: Dhaka → "Fix login",  Singapore → "Fix signup"  ← two truths on two sides
+   the network healed — two versions found:
+     "Fix login" (Rahim), timestamp 100 ms
+     "Fix signup" (Karim), timestamp -100 ms
+   LWW winner: "Fix login" (Rahim)
 ```
 
 দুজনেই কাজ চালিয়ে গেছে, দুজনেই "saved" দেখেছে। কিন্তু network ফেরার পর করিমের লেখা — যেটা আসলে **পরে** হয়েছিল — **নীরবে হারিয়ে গেল**, কারণ "পরে" ঠিক হয়েছে n4 এর ভুল ঘড়ি দিয়ে। কোনো error নেই, কোনো log নেই। (Lesson 5.7 এর multi-leader conflict এর সাথে মেলাও — আর কেন wall clock বিশ্বাস করা যায় না, সেটা Lesson 6.4।)
@@ -145,13 +145,13 @@ replica:      A      B      C
 এটা শুধু একটা গণিতের যুক্তি — তিনটা বাক্সে চারটা বল রাখলে কোনো একটা বাক্সে দুটো পড়বেই। এবার মেপে দেখা যাক। Exercise এর `npm run quorum` — N = ৩, দুটো replica একই data center এ, একটা অন্য data center এ (ধীর); আর বাস্তবের মতো যেকোনো replica মাঝে মাঝে (৫% লেখায়) ৫০ ms পিছিয়ে পড়ে (GC pause, disk stall)। প্রতিটা জোড়ায় ১ লাখ বার "লেখো, সফল হলে সাথে সাথে পড়ো":
 
 ```
-W  R  W+R>N?   stale read              লেখা p50 / p99       পড়া p50 / p99
-1  1  না       10827/100000 (10.83%)     2.3 /   7.0 ms     2.3 /   5.6 ms
-1  2  না         227/100000 ( 0.23%)     2.3 /   7.0 ms     4.1 /  11.1 ms
-2  1  না        3707/100000 ( 3.71%)     4.4 /  53.1 ms     2.3 /   5.6 ms
-2  2  হ্যাঁ         0/100000 ( 0.00%)     4.4 /  53.1 ms     4.1 /  11.1 ms
-3  1  হ্যাঁ         0/100000 ( 0.00%)    39.6 / 103.1 ms     2.3 /   5.6 ms
-1  3  হ্যাঁ         0/100000 ( 0.00%)     2.3 /   7.0 ms    36.8 /  86.4 ms
+   W  R  W+R>N?   stale read              write p50 / p99      read p50 / p99
+   1  1  no       10827/100000 (10.83%)     2.3 /   7.0 ms     2.3 /   5.6 ms
+   1  2  no         227/100000 ( 0.23%)     2.3 /   7.0 ms     4.1 /  11.1 ms
+   2  1  no        3707/100000 ( 3.71%)     4.4 /  53.1 ms     2.3 /   5.6 ms
+   2  2  yes          0/100000 ( 0.00%)     4.4 /  53.1 ms     4.1 /  11.1 ms
+   3  1  yes          0/100000 ( 0.00%)    39.6 / 103.1 ms     2.3 /   5.6 ms
+   1  3  yes          0/100000 ( 0.00%)     2.3 /   7.0 ms    36.8 /  86.4 ms
 ```
 
 তিনটা শিক্ষা:
@@ -163,11 +163,11 @@ W  R  W+R>N?   stale read              লেখা p50 / p99       পড়া
 **Availability এর দিক** — একই exercise:
 
 ```
-W  R   │ ০টা মৃত      │ ১টা মৃত      │ ২টা মৃত
-1  1   │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✓
-2  2   │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✓ │ লেখা ✗ পড়া ✗
-3  1   │ লেখা ✓ পড়া ✓ │ লেখা ✗ পড়া ✓ │ লেখা ✗ পড়া ✓
-1  3   │ লেখা ✓ পড়া ✓ │ লেখা ✓ পড়া ✗ │ লেখা ✓ পড়া ✗
+   W  R   │ 0 dead         │ 1 dead         │ 2 dead
+   1  1   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✓ read ✓
+   2  2   │ write ✓ read ✓ │ write ✓ read ✓ │ write ✗ read ✗
+   3  1   │ write ✓ read ✓ │ write ✗ read ✓ │ write ✗ read ✓
+   1  3   │ write ✓ read ✓ │ write ✓ read ✗ │ write ✓ read ✗
 ```
 
 `W = R = 2` (N = ৩) — একটা replica মরলেও সব চলে, consistency ও থাকে। এজন্যই এটা সবচেয়ে প্রচলিত বাছাই। সাধারণ নিয়ম: N টা replica তে `W = R = ⌊N/2⌋ + 1` (majority) — `N = 5` হলে ৩, আর তখন ২টা replica মরলেও চলে।

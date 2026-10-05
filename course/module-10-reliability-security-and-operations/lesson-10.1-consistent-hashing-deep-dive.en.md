@@ -51,7 +51,7 @@ In 5.8 we saw a number: going from 3 to 4 shards with `hash % N` moves ~75% of k
 But that number is half the story. The exercise's `npm run rebalance`, 4 to 5 nodes, 100,000 keys:
 
 ```
-routing                        moved      to new node    among old nodes
+routing                        moved  to the new node    among the old
 hash % N                       79.9%         25.2%            74.8%
 ring (vnode 1)                 30.7%        100.0%             0.0%
 ring (vnode 160)               20.1%        100.0%             0.0%
@@ -110,7 +110,7 @@ route(key: string): string {
 But look at the second row of the table above: placing each node at a single point (`vnode 1`) moved **30.7%**, not 20%. That is because the hash decides where on the circle the new node lands — and it landed somewhere with a long arc before it. In a one-point ring each node's share is **the length of its arc**, and that length is random. The consequence is even worse when a node is removed:
 
 ```
-routing                      cache-1   cache-2   cache-4   cache-5       heaviest
+routing                      cache-1   cache-2   cache-4   cache-5      heaviest
 ring (vnode 1)                    0%      100%        0%        0%         1.45x
 ring (vnode 160)                 29%       19%       25%       27%         1.04x
 ```
@@ -124,7 +124,7 @@ When `cache-3` dies in a one-point ring, **all** of its keys land on a single ne
 `npm run vnodes` — 10 nodes, 200,000 keys:
 
 ```
-vnode / node           heaviest          lightest       points on ring   lookup steps
+vnode / node          heaviest       lightest  points on ring   lookup steps
 1                        3.06x          0.02x             10            3.4
 10                       1.51x          0.61x            100            6.7
 50                       1.23x          0.80x            500            9.0
@@ -149,7 +149,7 @@ What the numbers look like in practice: the well-known **ketama** library for me
 Virtual nodes come with a bonus: machines of different sizes are easy to handle. Give a machine with twice the RAM twice the virtual nodes, and it gets twice the share:
 
 ```
-node                weight          got         fair share
+node                weight         got    fair share
 cache-1                  1       19.6%         20.0%
 cache-2                  1       18.7%         20.0%
 cache-3                  1       20.3%         20.0%
@@ -167,10 +167,10 @@ A cache usually keeps one copy of each key. But if a database partitions data wi
 The simplest rule — "the next 3 points on the ring" — hides a trap once there are virtual nodes: the next two points are often two virtual nodes of the **same physical node**. `npm run vnodes`, part C — 6 nodes, 3 AZs (availability zone — separate data centres within one cloud region; a whole AZ can go down at once), 3 copies per key:
 
 ```
-rule                          not 3 distinct nodes   not 3 distinct AZs   one AZ loses all copies
-next 3 points                          45.3%              76.8%                  11.2%
-next 3 distinct nodes                   0.0%              59.1%                   0.0%
-next 3 distinct AZs                     0.0%               0.0%                   0.0%
+rule                         not 3 distinct nodes  not 3 distinct AZs  one AZ loss kills all copies
+the next 3 points                 45.3%              76.8%                  11.2%
+the next 3 distinct nodes          0.0%              59.1%                   0.0%
+the next 3 distinct AZs            0.0%               0.0%                   0.0%
 ```
 
 - **Under the first rule, 45.3% of keys' "3 copies" actually sit on 2 (or 1) machines.** The config says replication factor 3, the dashboard says 3, but nearly half the data loses its quorum when one machine dies. And for 11.2% of keys all three copies are in one AZ — if that AZ goes, those keys are lost entirely.
@@ -184,7 +184,7 @@ The third rule has a cost not in the table (we come back to it in Reflection que
 Now let us measure the incident from the story. `npm run cache` — from 3 cache nodes to 4, every key warm beforehand (so the hit rate before the change is ~100%), 5,000 reads/s, traffic following a Zipf distribution (a few keys very popular, the rest less so — like real cache traffic):
 
 ```
-routing                    first 1 s hit     DB in first 1 s    first 10 s hit    total DB queries
+routing                  first 1 s hit  DB in first 1 s   first 10 s hit  total DB queries
 hash % N                         56.8%            2,162            75.4%         26,370
 ring (vnode 160)                 85.3%              737            91.6%          9,066
 ```
@@ -198,9 +198,9 @@ One thing might surprise you: if `hash % N` moves 75% of keys, why is the first-
 **The ring's own trap: consistent hashing does not give consistency.** The name suggests it does, but "consistent" here only means "the mapping does not change much when nodes change". Now picture an incident that really can happen after moving to the ring: 9.4's health check sees `cache-2` as unreachable for 30 seconds (a network blip — the machine did not die, its memory is intact), and the registry removes it from the ring. During those 30 seconds its keys go to other nodes; there they miss, get filled, and some tasks get **written** — per cache-aside (4.2), update the DB, then delete the cache key — but the delete goes to **the owner at that moment**, not to `cache-2`. Then `cache-2` comes back, with its old data, and the ring hands its keys straight back to it:
 
 ```
-on return                              stale reads (10 s)  distinct stale keys  misses (10 s)
-put back on the ring as is                       6,429              320          197
-flush first, then put back                           0                0        4,278
+on return                     stale read (10 s)  distinct stale keys  miss (10 s)
+put back on the ring as is                6,429                 320          197
+flush first, then put back                    0                   0        4,278
 ```
 
 **6,429 stale answers in ten seconds, across 320 distinct keys** — and if the cache has no TTL, they stay stale forever. In the user's eyes: "I moved the task to Done, but the board still says In Progress" — for hours, only on some tasks, and not even a refresh fixes it. 6.1's central point returns here: from outside you cannot tell "slow" from "dead", and the node you declared dead comes back **carrying old state**.
@@ -222,11 +222,11 @@ The hash ring is not the only consistent hashing. Two other methods are used in 
 `npm run compare` — 10 nodes, 100,000 keys:
 
 ```
-method                      heaviest    add node   remove cache-6         lookup work       extra memory
-ring (vnode 160)            1.12x       8.8%        10.0%       1 hash + 10.7 compares     1,600 points
-rendezvous (HRW)            1.02x       9.3%         9.9%                 10 hashes            none
-jump hash                   1.02x       9.0%        48.5%         1 hash + 2.9 jumps            none
-   ideal: 1/11 = 9.1% on add, 1/10 = 10.0% when removing one from the middle
+method                   heaviest  node added  cache-6 removed             lookup work    extra memory
+ring (vnode 160)            1.12x        8.8%        10.0%  1 hash + 10.7 comparisons    1,600 points
+rendezvous (HRW)            1.02x        9.3%         9.9%                 10 hash            none
+jump hash                   1.02x        9.0%        48.5%      1 hash + 2.9 jumps            none
+   ideal: on add 1/11 = 9.1%, removing a middle one 1/10 = 10.0%
 ```
 
 - **Rendezvous** gives an almost perfect split without any virtual nodes (1.02x, better than the ring's 1.12x with 160 virtual nodes), needs no ring, and picks replicas naturally — the top 3 by score. The cost: **N hashes per lookup**. With 10 nodes that is nothing; with 10,000 nodes it is 10,000 hashes on every request. So in small to medium clusters it is often a better choice than a ring, and in large clusters a ring (or some structure that keeps that number small) wins.
@@ -243,10 +243,10 @@ There is one thing none of the methods above do: **a hash splits keys evenly, no
 `npm run compare`, part B — Zipf 1.1, 1,000 concurrent requests, 200 times; the single hottest key carries ~13.3% of traffic on average:
 
 ```
-method                                heaviest (avg)     heaviest (worst)        off its own node
+method                          heavy (avg)         heavy (worst)      off its own node
 ring (vnode 160)                     2.06x                 2.39x                  0.0%
 bounded load, c = 1.25               1.25x                 1.25x                 11.3%
-   (cap per node = ceil(1.25 × 1000 / 10) = 125; when full, the next node on the ring)
+   (each node's limit = ceil(1.25 × 1000 / 10) = 125; when full, the next node on the ring)
 ```
 
 On a plain ring the busiest node carries **twice** its fair share on average, 2.4 times at bad moments. With bounded load it is exactly 1.25x — never more. The cost: **11.3% of requests did not go to their own node.**

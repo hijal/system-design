@@ -15,39 +15,39 @@ const FIRST_SPREAD_MS = env('FIRST_SPREAD_MS', 10_000);
 const REJECT_COST = env('REJECT_COST', 0.2);
 
 heading(
-	`অংশ ক — কোন gateway কে message পাঠাব: peak এ ${n(DELIVERIES)} delivery/s, ${GATEWAYS}টা gateway`
+	`Part A — which gateway to send a message to: ${n(DELIVERIES)} deliveries/s at peak, ${GATEWAYS} gateways`
 );
 console.log(
 	row([
-		['পথ', 50],
-		['gateway প্রতি গৃহীত/s', 22],
-		['কাজে লাগে', 11],
-		['মাঝের স্তরে op/s', 18]
+		['path', 72],
+		['received/s per gateway', 24],
+		['useful', 11],
+		['op/s in the middle layer', 26]
 	])
 );
 const perGateway = DELIVERIES / GATEWAYS;
 const routes: [string, number, number][] = [
-	['সব gateway কে broadcast (একটা pub/sub channel)', DELIVERIES, DELIVERIES * GATEWAYS],
+	['broadcast to every gateway (one pub/sub channel)', DELIVERIES, DELIVERIES * GATEWAYS],
 	[
-		`user প্রতি channel, Redis Cluster এর পুরনো PUBLISH (${REDIS_NODES} node এ ছড়ায়)`,
+		`a channel per user, Redis Cluster's old PUBLISH (spread over ${REDIS_NODES} nodes)`,
 		perGateway,
 		DELIVERIES * REDIS_NODES
 	],
-	['user প্রতি channel, sharded pub/sub (SPUBLISH)', perGateway, DELIVERIES],
-	['session registry (user → gateway) + সরাসরি পাঠানো', perGateway, DELIVERIES * 2]
+	['a channel per user, sharded pub/sub (SPUBLISH)', perGateway, DELIVERIES],
+	['session registry (user → gateway) + direct send', perGateway, DELIVERIES * 2]
 ];
 for (const [name, received, middle] of routes) {
 	console.log(
 		row([
-			[name, 50],
-			[n(received), 22],
+			[name, 72],
+			[n(received), 24],
 			[pct(perGateway, received, 1), 11],
-			[n(middle), 18]
+			[n(middle), 26]
 		])
 	);
 }
 console.log(
-	'"মাঝের স্তরে op/s" — broadcast এ প্রতিটা delivery প্রতিটা gateway পর্যন্ত; registry তে একটা lookup + একটা পাঠানো।'
+	'"op/s in the middle layer" — with broadcast every delivery reaches every gateway; with the registry one lookup + one send.'
 );
 
 type Policy = {
@@ -58,16 +58,21 @@ type Policy = {
 };
 
 const policies: Policy[] = [
-	{ name: 'সাথে সাথে, ব্যর্থ হলে আবার সাথে সাথে', first: () => 0, delay: () => 0, jitter: false },
-	{ name: 'সাথে সাথে, ব্যর্থ হলে ঠিক ১ s পরে', first: () => 0, delay: () => 1_000, jitter: false },
+	{ name: 'at once, and again at once on failure', first: () => 0, delay: () => 0, jitter: false },
 	{
-		name: 'exponential backoff, jitter ছাড়া',
+		name: 'at once, and exactly 1 s later on failure',
+		first: () => 0,
+		delay: () => 1_000,
+		jitter: false
+	},
+	{
+		name: 'exponential backoff, no jitter',
 		first: () => 0,
 		delay: (attempt) => Math.min(CAP_MS, BASE_MS * 2 ** attempt),
 		jitter: false
 	},
 	{
-		name: `প্রথমটা ০–${FIRST_SPREAD_MS / 1_000} s এ ছড়ানো + full jitter`,
+		name: `first one spread over 0–${FIRST_SPREAD_MS / 1_000} s + full jitter`,
 		first: (random) => random() * FIRST_SPREAD_MS,
 		delay: (attempt, random) => random() * Math.min(CAP_MS, BASE_MS * 2 ** attempt),
 		jitter: true
@@ -131,21 +136,21 @@ function storm(policy: Policy): Storm {
 }
 
 heading(
-	`অংশ খ — একটা gateway মরল: ${n(CLIENTS)} connection একসাথে reconnect, বাকি fleet এর handshake + auth + sync এর ক্ষমতা ${n(CAPACITY)}/s, প্রত্যাখ্যাত চেষ্টার খরচ ${REJECT_COST}`
+	`Part B — a gateway died: ${n(CLIENTS)} connections reconnect at once, the rest of the fleet's handshake + auth + sync capacity ${n(CAPACITY)}/s, cost of a rejected attempt ${REJECT_COST}`
 );
 console.log(
 	row([
-		['নীতি', 46],
-		['চেষ্টা/s (শীর্ষ)', 16],
-		['মোট চেষ্টা', 16],
-		['প্রতি client', 12],
-		['৫০% ফিরল', 10],
-		['৯৯% ফিরল', 10],
-		['সব ফিরল', 16]
+		['policy', 46],
+		['attempts/s (peak)', 19],
+		['total attempts', 16],
+		['per client', 12],
+		['50% back', 10],
+		['99% back', 10],
+		['all back', 16]
 	])
 );
 const show = (value: number): string =>
-	Number.isFinite(value) ? ms(value) : `> ${HORIZON_S / 60} মি`;
+	Number.isFinite(value) ? ms(value) : `> ${HORIZON_S / 60} min`;
 const results = policies.map((policy) => ({ policy, result: storm(policy) }));
 for (const { policy, result } of results) {
 	const at = (p: number): string =>
@@ -153,7 +158,7 @@ for (const { policy, result } of results) {
 	console.log(
 		row([
 			[policy.name, 46],
-			[n(result.peakAttempts), 16],
+			[n(result.peakAttempts), 19],
 			[n(result.attempts), 16],
 			[n(result.attempts / CLIENTS), 12],
 			[at(50), 10],
@@ -161,28 +166,28 @@ for (const { policy, result } of results) {
 			[
 				result.reconnected.length === CLIENTS
 					? at(100)
-					: `${pct(result.reconnected.length, CLIENTS, 0)} (${HORIZON_S / 60} মি এ)`,
+					: `${pct(result.reconnected.length, CLIENTS, 0)} (in ${HORIZON_S / 60} min)`,
 				16
 			]
 		])
 	);
 }
 console.log(
-	`সবচেয়ে ভালো সম্ভব: ${n(CLIENTS)} ÷ ${n(CAPACITY)}/s = ${ms((CLIENTS / CAPACITY) * 1_000)}।`
+	`best possible: ${n(CLIENTS)} ÷ ${n(CAPACITY)}/s = ${ms((CLIENTS / CAPACITY) * 1_000)}.`
 );
 
-heading('অংশ গ — reconnect এর জানালায় ওই user দের কাছে যাওয়া message');
+heading('Part C — messages to those users during the reconnect window');
 const perUser = DELIVERIES / ONLINE;
 console.log(
-	`user প্রতি ${perUser.toFixed(4)} delivery/s → এই ${n(CLIENTS)} জনের কাছে ${n(perUser * CLIENTS)}/s। Registry তখনও মরা gateway দেখায়।\n`
+	`${perUser.toFixed(4)} deliveries/s per user → ${n(perUser * CLIENTS)}/s to these ${n(CLIENTS)} people. The registry still points at the dead gateway.\n`
 );
 console.log(
 	row([
-		['নীতি', 46],
-		['শুধু push: হারাল', 18],
-		['আগে store, তারপর push: হারাল', 30],
-		['দেরি p50', 10],
-		['দেরি p99', 10]
+		['policy', 46],
+		['push only: lost', 18],
+		['store first, then push: lost', 30],
+		['delay p50', 11],
+		['delay p99', 11]
 	])
 );
 for (const { policy, result } of results) {
@@ -206,11 +211,11 @@ for (const { policy, result } of results) {
 			[policy.name, 46],
 			[`${n(lost)} (${pct(lost, count, 0)})`, 18],
 			['0', 30],
-			[show(percentile(delays, 50)), 10],
-			[show(percentile(delays, 99)), 10]
+			[show(percentile(delays, 50)), 11],
+			[show(percentile(delays, 99)), 11]
 		])
 	);
 }
 console.log(
-	'প্রথম ৩০ s এ পাঠানো message। "শুধু push" এ registry এর পুরনো gateway এ গিয়ে হারায়; "আগে store" এ inbox এ থাকে, reconnect এর পরে sync এ আসে — দেরি নিয়ে।'
+	'messages sent in the first 30 s. With "push only" they go to the registry\'s stale gateway and are lost; with "store first" they stay in the inbox and arrive by sync after the reconnect — late.'
 );
