@@ -28,4 +28,10 @@ Round 1 এর ১৬টা issue বাদে। Local production build (`wrang
 
 যা ঠিক আছে: Lighthouse (`/lesson-5.4`) — Performance ৯৮, Accessibility ১০০, Best Practices ১০০, SEO ১০০; heading level skip ০, duplicate id ০; সব code fence language এর Prism grammar আছে; CLS ০.০১৪ এর নিচে; skip link কাজ করে; deep link এ heading sticky header এর নিচে লুকায় না।
 
-Round 2 এর ১১টাই ঠিক হয়ে `todo_done.md` এ গেছে — এই মুহূর্তে কোনো open issue নেই।
+Round 2 এর ১১টাই ঠিক হয়ে `todo_done.md` এ গেছে।
+
+## Round 3 — বাইরের audit report যাচাই (2026-10-05)
+
+একটা বাইরের audit report এর প্রতিটা দাবি live site এ মিলিয়ে দেখা হয়েছে, সাথে নিজের কিছু নতুন check (সব focusable element এর focus ring, placeholder contrast pixel মেপে, ৩২০px reflow, WCAG text-spacing, forced-colors, reduced motion)। যেসব আগে থেকেই ঠিক আছে বা report এর দাবি ভুল, সেগুলো এখানে নেই — শুধু আসল ঘাটতি। **এখনো implement করা হয়নি।**
+
+Round 3 এর ৩টাই ঠিক হয়ে `todo_done.md` এ গেছে — এই মুহূর্তে কোনো open issue নেই।

@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { cspDirectives } from './src/lib/server/csp';
 
 export default defineConfig({
 	plugins: [
@@ -15,18 +16,7 @@ export default defineConfig({
 			adapter: adapter(),
 			csp: {
 				mode: 'auto',
-				directives: {
-					'default-src': ['self'],
-					'script-src': ['self'],
-					'style-src': ['self', 'unsafe-inline'],
-					'img-src': ['self', 'data:'],
-					'font-src': ['self'],
-					'connect-src': ['self'],
-					'object-src': ['none'],
-					'base-uri': ['self'],
-					'form-action': ['self'],
-					'frame-ancestors': ['none']
-				}
+				directives: cspDirectives
 			}
 		})
 	],

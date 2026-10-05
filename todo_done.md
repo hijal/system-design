@@ -327,3 +327,39 @@
 - **How to test:** `curl` — 308 + সঠিক `location`।
 - **Fix:** `(docs)/[slug]/+page.server.ts`: alias redirect `307` → `308` (permanent)। সাথে একটা ঝুঁকি এড়ানো হয়েছে — browser permanent redirect cache করে, আর আগের target এ cookie থেকে `?lang=` বসত; cache হওয়া `/caching → ?lang=bn` পরে English এ চলে যাওয়া user এর cookie আবার bn করে দিত। তাই target এখন locale-neutral (`/lesson-4.1`, page নিজে cookie পড়ে); request URL এ বৈধ `?lang=bn|en` থাকলে শুধু তখন সেটা রাখা হয়। নতুন `page.server.spec.ts`।
 - **Tested:** `bun run test` — ৩৫/৩৫ pass (নতুন ৩টা: `caching` আর `load-balancing` 308 + lang ছাড়া, cookie en হলেও; `?lang=en` থাকলে রাখে, `?lang=xx` বাদ দেয়; আসল lesson redirect হয় না)। Local dev `curl`: `/caching` → 308 `/lesson-4.1`, `/load-balancing` → 308 `/lesson-3.1`, `/caching?lang=en` → `/lesson-4.1?lang=en`; cookie `course-language=en` নিয়ে `/caching` follow করলে `<html lang="en">`, title "4.1 Cache Hierarchy"।
+
+## SD-28 · Search placeholder এর contrast ২.৪৩:১ (light) / ৩.১০:১ (dark)
+
+- **Priority:** Medium
+- **Category:** Accessibility
+- **Where:** topbar search input এর `::placeholder` — Tailwind preflight `color-mix(in oklab, currentColor 50%, transparent)` দেয়, `src/routes/layout.css` এ override নেই
+- **Found by:** Live site screenshot থেকে pixel মেপে — light এ সবচেয়ে গাঢ় placeholder pixel `rgb(154,163,164)` on `rgb(246,249,246)` = ২.৪৩:১; dark এ `rgb(96,108,103)` on `rgb(23,30,26)` = ৩.১০:১। axe placeholder check করে না, তাই আগের দুই round এ ধরা পড়েনি।
+- **Problem:** "কোন বিষয়টি খুঁজছো?" hint কম দৃষ্টিশক্তির user পড়তে পারে না; WCAG 1.4.3 (৪.৫:১) fail।
+- **Expected:** দুই theme এ placeholder ≥ ৪.৫:১ (যেমন `--muted` token)।
+- **How to test:** একই pixel measurement — light আর dark দুটোতেই ≥ ৪.৫:১।
+- **Fix:** `layout.css` এ `.search-wrap input::placeholder { color: var(--muted); opacity: 1 }` — Tailwind preflight এর ৫০% `color-mix` এর বদলে theme token (Firefox placeholder এ নিজে opacity কমায়, তাই `opacity: 1`)। কাজ করতে গিয়ে আরেকটা জিনিস বেরোলো: typed text আগে থেকেই `--muted` ছিল (wrapper থেকে inherit), ফলে fix এর পর placeholder আর লেখা query একই রঙ হয়ে যেত — input এ `color: var(--ink)`, তাই লেখা text এখন স্বাভাবিক গাঢ় রঙে, hint হালকা।
+- **Tested:** Local dev, screenshot pixel মেপে (সবচেয়ে গাঢ় placeholder pixel vs background): light bn/en 1440px আর bn 375px — ৪.৭৩–৪.৭৫:১ (আগে ২.৪৩:১); dark — ৫.৭২:১ (আগে ৩.১০:১)। Typed text: light `rgb(32,41,45)`, dark `rgb(221,229,224)` — placeholder থেকে আলাদা। Dark screenshot এ hint পরিষ্কার পড়া যায়। `prettier --check` pass।
+
+## SD-29 · CSP তে `style-src 'unsafe-inline'` আছে, অথচ দরকার মাত্র একটা জায়গায়
+
+- **Priority:** Low
+- **Category:** Security
+- **Where:** `vite.config.ts` এর `csp.directives['style-src']`; একমাত্র inline style `src/app.html` এর `<div style="display: contents">`
+- **Found by:** বাইরের audit এর মন্তব্য, যাচাই করে দেখা হয়েছে — live HTML এ `<style>` tag ০টা, `style=""` attribute ১টা (ওই div)
+- **Problem:** `'unsafe-inline'` থাকায় কেউ HTML এ `style` inject করতে পারলে (CSS-based data exfiltration, UI redress) CSP আটকায় না।
+- **Expected:** ওই div এর style CSS এ সরিয়ে `'unsafe-inline'` বাদ; `bun run dev` এ Vite এর inline style কাজ করে কি না আলাদা করে দেখা।
+- **How to test:** prod আর dev দুটোতেই CSP violation ০ (theme, search, nav, copy, print); inject করা `style` attribute/`<style>` block হয়।
+- **Fix:** `src/app.html` এর `<div style="display: contents">` → `<div class="app-root">`, `layout.css` এ `.app-root { display: contents }`। CSP directive গুলো `vite.config.ts` থেকে নতুন `src/lib/server/csp.ts` এ (`satisfies` SvelteKit এর CSP type), `style-src` এখন শুধু `'self'`। Test এ ধরা পড়ল আরেকটা inline style: SvelteKit এর route announcer (`#svelte-announcer`, page বদলের কথা screen reader কে জানায়) এর template এ `style="…"` আছে, যা Svelte `innerHTML` দিয়ে বানায় — প্রতি page এ console এ CSP error দিচ্ছিল। আবার `'unsafe-inline'` খোলার বদলে শুধু ওই হুবহু style string টা অনুমোদন: `style-src-attr 'unsafe-hashes' 'sha256-S8qM…'` (Chrome এর বলা hash আর `.svelte-kit/generated/root.svelte` থেকে হিসাব করা hash একই)। নতুন `csp.spec.ts` — generated root থেকে announcer style পড়ে hash মেলায়, তাই SvelteKit upgrade এ style বদলালে test fail করবে; আর কোনো directive এ `unsafe-inline` নেই সেটাও দেখে। `bun run dev` এ SvelteKit নিজে `style-src` এ `unsafe-inline` যোগ করে (Vite এর HMR style এর জন্য), তাই dev অপরিবর্তিত।
+- **Tested:** Production build (`wrangler dev`): header `style-src 'self'; style-src-attr 'unsafe-hashes' 'sha256-S8qM…'`। Playwright: normal load এ violation ০; ১১ ধাপের interaction (theme, search, client nav, Markdown/code copy, lesson, 404 ইত্যাদি) — violation ০, page error ০; announcer ১×১px লুকানো থাকে আর navigation এর পর "1.2 The Design Framework — System Design" ঘোষণা করে; `.app-root` computed `display: contents`, layout অপরিবর্তিত (sidebar ২৭২px, article left ৩০৮px)। Negative test: inject করা `<style>` (body লাল হয় না), `setAttribute("style")` আর `innerHTML` এর `style` — সব block (`style-src-elem`, `style-src-attr` ×২); JS `element.style` আগের মতো চলে। Sitemap এর ১৪৪টা page crawl — `style=""` বা `<style>` ০। Hash ইচ্ছা করে ভুল করলে `csp.spec.ts` fail করে (দেখা হয়েছে), ঠিক করলে ৩৭/৩৭ pass। `svelte-check` ০ error, `eslint` clean।
+
+## SD-30 · Share preview এ কোনো image নেই (`og:image` / `twitter:image`)
+
+- **Priority:** Low
+- **Category:** SEO
+- **Where:** `src/lib/docs/SocialMeta.svelte`
+- **Found by:** বাইরের audit; live HTML এ `og:image`/`twitter:image` নেই (SD-07 এ জেনেশুনে বাদ ছিল, কারণ কোনো image ছিল না)
+- **Problem:** Facebook/LinkedIn/X/Slack এ link শুধু text card হিসেবে আসে, চোখে কম পড়ে।
+- **Expected:** একটা ১২০০×৬৩০ brand image (logo + "System Design Handbook", bn/en), `og:image` + `og:image:width/height/alt`, `twitter:card` → `summary_large_image`। প্রতি lesson এ আলাদা image বানানো (Worker এ render) আলাদা, বড় কাজ — আপাতত একটা static image।
+- **How to test:** SSR HTML এ tag; image URL 200 `image/png`, সঠিক মাপ; কোনো OG validator / debugger এ preview।
+- **Fix:** নতুন `static/og-bn.png` আর `static/og-en.png` (১২০০×৬৩০, ~১৭৫KB করে) — site এর নিজের brand: dark green background, layers logo, "systemdesign / THE LEARNING HANDBOOK", homepage এর headline (bn: "বড় system-এর চিন্তা। শুরু হোক ছোট থেকে।", en: "Think in systems. Start with the fundamentals."), একটা tagline আর "বাংলা · English" pill। HTML template থেকে headless Chrome এ site এর self-hosted font দিয়ে render করা। `SocialMeta.svelte` এ locale অনুযায়ী `og:image` (absolute URL), `og:image:type/width/height/alt`, `twitter:card` → `summary_large_image`, `twitter:image` + `twitter:image:alt` (alt = brand + headline, i18n `copy` থেকে)। আপাতত সব page এ একটা site-wide image; প্রতি lesson এর আলাদা image (Worker এ render) আলাদা কাজ।
+- **Tested:** Render: দুই image এ font loaded (Inter, Noto Sans Bengali, JetBrains Mono), কোনো overflow নেই, চোখে দেখে নেওয়া (প্রথম version এর "English · EN" pill বদলে "English · বাংলা")। Production build (`wrangler dev`): `/og-bn.png`, `/og-en.png` 200 `image/png`; `/?lang=bn`, `/lesson-5.4?lang=en`, `/lesson-1-challenge` এর SSR HTML এ সব tag, locale অনুযায়ী ঠিক image; bn lesson এ `og-bn.png` → EN switch (client nav) এর পর `og-en.png`, tag একটাই। axe ৪ mode = ০, CSP ১১ ধাপ = ০ violation। `prettier`/`eslint`/`svelte-check`/test ৩৭/৩৭/build pass। Deploy এর পর আসল preview দেখতে Facebook Sharing Debugger / LinkedIn Post Inspector এ URL দেওয়া যাবে — localhost এ সেটা সম্ভব না।

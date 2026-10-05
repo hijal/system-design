@@ -32,6 +32,9 @@
 body {
 	margin: 0;
 }
+.app-root {
+	display: contents;
+}
 button,
 input {
 	font: inherit;
@@ -152,6 +155,7 @@ html {
 	position: relative;
 }
 .search-wrap input {
+	color: var(--ink);
 	background: 0 0;
 	border: 0;
 	outline: none;
@@ -159,6 +163,10 @@ html {
 	min-width: 0;
 	font-size: 14px;
 	line-height: 1.5;
+}
+.search-wrap input::placeholder {
+	color: var(--muted);
+	opacity: 1;
 }
 .search-wrap:focus-within {
 	border-color: var(--green);
