@@ -16,7 +16,7 @@
 	const continueLesson = $derived(
 		allLessons.find((l) => l.id === courseProgress.lastVisited && l.available)
 	);
-	const completedCount = $derived(lessons.filter((l) => courseProgress.isCompleted(l.id)).length);
+	const completedCount = $derived(available.filter((l) => courseProgress.isCompleted(l.id)).length);
 	const canonical = $derived(`${page.url.origin}${localizedHref('/', data.locale)}`);
 	const schema = $derived({
 		'@context': 'https://schema.org',
@@ -77,7 +77,12 @@
 					<span class="progress-strip-number">{completedCount}</span><span
 						class="progress-strip-total">/{available.length}</span
 					>
-					<progress value={completedCount} max={Math.max(1, available.length)}></progress>
+					<progress
+						value={completedCount}
+						max={Math.max(1, available.length)}
+						aria-label={t.courseProgress}
+						aria-valuetext={t.progressLabel(completedCount, available.length)}
+					></progress>
 				</div>
 				{#if continueLesson}<a class="continue-link" href={continueLesson.href}
 						>{t.continueReading}<Icon name="arrow" size={16} /></a

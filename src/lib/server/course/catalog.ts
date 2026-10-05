@@ -90,3 +90,28 @@ export function createCatalog(
 		throw new Error('No modules found: expected "## ৯. Curriculum" … "## ১০." in course/main.md');
 	return { modules, contents, lessons: modules.flatMap((module) => module.lessons) };
 }
+const objective =
+	/\*\*(?:তুমি এই lesson শেষে পারবে|By the end of this lesson you will be able to):\*\*\s*\n+\s*(?:\d+\.|[-*])\s+(.+)/i;
+function plainText(markdown: string): string {
+	return markdown
+		.replace(/\[([^\]]*)]\([^)]*\)/g, '$1')
+		.replace(/\*\*|`/g, '')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+function truncate(text: string, max: number): string {
+	if (text.length <= max) return text;
+	const cut = text.slice(0, max - 1);
+	const space = cut.lastIndexOf(' ');
+	return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:—–-]+$/, '')}…`;
+}
+export function lessonDescription(lesson: Lesson, moduleTitle: string, raw: string): string {
+	const body = lessonBody(raw);
+	const summary =
+		lesson.kind === 'challenge'
+			? body.split(/\n\s*\n/).find((block) => /^[^\s#>*|`<\d-]/.test(block.trim()))
+			: body.match(objective)?.[1];
+	if (!lesson.available || !summary)
+		return `${lesson.title} (${moduleTitle}) — System Design Handbook`;
+	return truncate(`${lesson.title.split(' — ')[0]} — ${plainText(summary)}`, 160);
+}

@@ -1,5 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import { catalogs } from '$lib/server/course';
+import { lessonDescription } from '$lib/server/course/catalog';
 import { renderLesson } from '$lib/server/course/render';
 import { localizedHref } from '$lib/docs/i18n';
 import type { PageServerLoad } from './$types';
@@ -16,16 +17,14 @@ function cachedRender(key: string, raw: string, locale: Parameters<typeof render
 export const load: PageServerLoad = ({ params, locals, url }) => {
 	url.searchParams.get('lang'); // Rerun this load when the selected language changes.
 	const locale = locals.courseLocale;
+	const requested = url.searchParams.get('lang');
+	const keepLanguage = (target: string) =>
+		requested === 'bn' || requested === 'en' ? localizedHref(target, requested) : target;
 	const aliases: Record<string, string> = { caching: '4.1', 'load-balancing': '3.1' };
-	if (aliases[params.slug]) {
-		const target = `/lesson-${aliases[params.slug]}`;
-		const requested = url.searchParams.get('lang');
-		redirect(
-			308,
-			requested === 'bn' || requested === 'en' ? localizedHref(target, requested) : target
-		);
-	}
+	if (aliases[params.slug]) redirect(308, keepLanguage(`/lesson-${aliases[params.slug]}`));
 	const course = catalogs[locale];
+	if (!params.slug.startsWith('lesson-') && course.lessons.some((l) => l.id === params.slug))
+		redirect(308, keepLanguage(`/lesson-${params.slug}`));
 	const id = params.slug.replace(/^lesson-/, '');
 	const index = course.lessons.findIndex((l) => l.id === id);
 	const lesson = course.lessons[index];
@@ -37,10 +36,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const key = `${id}:${locale}`;
 	const raw = course.contents.get(key) ?? '';
 	const page = lesson.available ? cachedRender(key, raw, locale) : { html: '', headings: [] };
+	const lessonModule = course.modules.find((m) => m.id === lesson.moduleId)!;
 	return {
 		lesson,
 		...page,
-		module: course.modules.find((m) => m.id === lesson.moduleId)!,
+		description: lessonDescription(lesson, lessonModule.title, raw),
+		module: lessonModule,
 		previous: course.lessons[index - 1] ?? null,
 		next: course.lessons[index + 1] ?? null
 	};

@@ -11,9 +11,6 @@
 	const pageTitle = $derived(
 		`${data.lesson.kind === 'lesson' ? `${data.lesson.id} ` : ''}${titleParts[0].replace(/\s*\([^)]*\)/g, '')} — System Design`
 	);
-	const description = $derived(
-		`${data.lesson.title} (${data.module.title}) — System Design Handbook`
-	);
 	const editions = $derived(
 		(['bn', 'en'] as const).filter((locale) =>
 			locale === data.locale ? data.lesson.available : data.lesson.otherAvailable
@@ -21,6 +18,8 @@
 	);
 	const canonical = $derived(`${page.url.origin}${localizedHref(page.url.pathname, data.locale)}`);
 	let copyState = $state<'idle' | 'copying' | 'copied' | 'error'>('idle');
+	let aiMenu = $state<HTMLDetailsElement>();
+	let mobileToc = $state<HTMLDetailsElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const mdUrl = $derived(`${page.url.origin}${page.url.pathname}.md?lang=${data.locale}`);
 	const isDone = $derived(courseProgress.isCompleted(data.lesson.id));
@@ -33,7 +32,7 @@
 					'@context': 'https://schema.org',
 					'@type': 'LearningResource',
 					name: titleParts[0],
-					description: `${data.module.title} — ${data.lesson.title}`,
+					description: data.description,
 					inLanguage: data.locale,
 					learningResourceType: data.lesson.kind === 'challenge' ? 'Exercise' : 'Lesson',
 					isPartOf: { '@type': 'Course', name: 'System Design Handbook', url: page.url.origin },
@@ -77,6 +76,26 @@
 			window.removeEventListener('afterprint', restore);
 		};
 	});
+	function closeAiMenu() {
+		if (aiMenu) aiMenu.open = false;
+	}
+	function closeAiMenuOnEscape(event: KeyboardEvent) {
+		if (event.key !== 'Escape' || !aiMenu?.open) return;
+		const hadFocus = aiMenu.contains(document.activeElement);
+		aiMenu.open = false;
+		if (hadFocus) aiMenu.querySelector('summary')?.focus();
+	}
+	function closeAiMenuOutside(event: MouseEvent) {
+		if (aiMenu?.open && event.target instanceof Node && !aiMenu.contains(event.target))
+			aiMenu.open = false;
+	}
+	function closeAiMenuOnFocusLeave(event: FocusEvent) {
+		if (event.relatedTarget instanceof Node && !aiMenu?.contains(event.relatedTarget))
+			closeAiMenu();
+	}
+	function closeMobileToc() {
+		if (mobileToc) mobileToc.open = false;
+	}
 	async function copyMarkdown() {
 		copyState = 'copying';
 		const markdown = fetch(mdUrl).then((response) => {
@@ -152,8 +171,9 @@
 	}
 </script>
 
+<svelte:window onkeydown={closeAiMenuOnEscape} onclick={closeAiMenuOutside} />
 <svelte:head
-	><title>{pageTitle}</title><meta name="description" content={description} /><link
+	><title>{pageTitle}</title><meta name="description" content={data.description} /><link
 		rel="canonical"
 		href={canonical}
 	/>{#if !data.lesson.available}<meta name="robots" content="noindex" />{/if}
@@ -170,7 +190,13 @@
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- schemaScript is our own JSON.stringify output (lesson title + static copy, never user input), with "<" escaped -->
 	{@html schemaScript}</svelte:head
 >
-<SocialMeta title={pageTitle} {description} url={canonical} locale={data.locale} type="article" />
+<SocialMeta
+	title={pageTitle}
+	description={data.description}
+	url={canonical}
+	locale={data.locale}
+	type="article"
+/>
 <div class="reader-page">
 	<div class="breadcrumb">
 		<a href={localizedHref('/', data.locale)} aria-label={t.home}><Icon name="book" size={15} /></a
@@ -212,17 +238,19 @@
 								>{isDone ? t.markIncomplete : t.markComplete}</span
 							></button
 						>
-						<details class="ai-actions">
+						<details class="ai-actions" bind:this={aiMenu} onfocusout={closeAiMenuOnFocusLeave}>
 							<summary><Icon name="external" size={14} /><span>{t.moreWays}</span></summary>
 							<div class="ai-actions-menu">
-								<a href={mdUrl} target="_blank" rel="noopener"
+								<a href={mdUrl} target="_blank" rel="noopener" onclick={closeAiMenu}
 									><Icon name="external" size={13} />{t.viewMarkdown}</a
 								><a
 									href={`https://chatgpt.com/?q=${encodeURIComponent(aiPrompt)}`}
+									onclick={closeAiMenu}
 									target="_blank"
 									rel="noopener"><Icon name="external" size={13} />{t.openChatGPT}</a
 								><a
 									href={`https://claude.ai/new?q=${encodeURIComponent(aiPrompt)}`}
+									onclick={closeAiMenu}
 									target="_blank"
 									rel="noopener"><Icon name="external" size={13} />{t.openClaude}</a
 								>
@@ -231,11 +259,12 @@
 				</div>
 			</header>
 			{#if data.lesson.available}
-				{#if data.headings.length}<details class="mobile-toc">
+				{#if data.headings.length}<details class="mobile-toc" bind:this={mobileToc}>
 						<summary>{t.onPage}</summary>
 						<nav aria-label={t.onPage}>
-							{#each data.headings as heading (heading.id)}<a href={`#${heading.id}`}
-									>{heading.text}</a
+							{#each data.headings as heading (heading.id)}<a
+									href={`#${heading.id}`}
+									onclick={closeMobileToc}>{heading.text}</a
 								>{/each}
 						</nav>
 					</details>{/if}

@@ -25,6 +25,15 @@ describe('lesson aliases', () => {
 		});
 		expect(redirectOf('caching', '?lang=xx')).toMatchObject({ location: '/lesson-4.1' });
 	});
+	it('send a lesson number without the lesson- prefix to the real URL', () => {
+		expect(redirectOf('1.1')).toMatchObject({ status: 308, location: '/lesson-1.1' });
+		expect(redirectOf('1.1', '?lang=en')).toMatchObject({
+			status: 308,
+			location: '/lesson-1.1?lang=en'
+		});
+		expect(redirectOf('1-challenge')).toMatchObject({ location: '/lesson-1-challenge' });
+		expect(redirectOf('99.1')).toMatchObject({ status: 404 });
+	});
 	it('does not redirect real lessons', () => {
 		expect(redirectOf('lesson-1.1')).toBeNull();
 	});

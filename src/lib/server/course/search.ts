@@ -11,6 +11,8 @@ type SearchIndexEntry = {
 	plain: string;
 };
 export type SearchResult = { id: string; title: string; href: string; snippet: string };
+export type SearchResponse = { results: SearchResult[]; total: number };
+const maxQueryLength = 100;
 
 function toPlainText(raw: string): string {
 	return lessonBody(raw)
@@ -53,16 +55,19 @@ function snippet(entry: SearchIndexEntry, query: string): string {
 
 // Lessons whose number or title match rank above lessons that only mention the query;
 // within each group the curriculum order is kept.
-export function search(index: SearchIndexEntry[], rawQuery: string, limit = 20): SearchResult[] {
-	const query = rawQuery.trim().toLocaleLowerCase();
-	if (query.length < 2) return [];
+export function search(index: SearchIndexEntry[], rawQuery: string, limit = 20): SearchResponse {
+	const query = rawQuery.slice(0, maxQueryLength).trim().toLocaleLowerCase();
+	if (query.length < 2) return { results: [], total: 0 };
 	const matches = index.filter((entry) => entry.haystack.includes(query));
 	const titled = matches.filter((entry) => entry.heading.includes(query));
 	const mentioned = matches.filter((entry) => !entry.heading.includes(query));
-	return [...titled, ...mentioned].slice(0, limit).map((entry) => ({
-		id: entry.id,
-		title: entry.title,
-		href: entry.href,
-		snippet: snippet(entry, query)
-	}));
+	return {
+		total: matches.length,
+		results: [...titled, ...mentioned].slice(0, limit).map((entry) => ({
+			id: entry.id,
+			title: entry.title,
+			href: entry.href,
+			snippet: snippet(entry, query)
+		}))
+	};
 }

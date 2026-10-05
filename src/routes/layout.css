@@ -202,8 +202,14 @@ html {
 	top: calc(100% + 8px);
 	left: 0;
 	right: 0;
-	overflow: auto;
+	overflow: hidden;
+	flex-direction: column;
+	display: flex;
 	box-shadow: 0 14px 45px var(--shadow);
+}
+.search-results [role='listbox'] {
+	overflow: auto;
+	min-height: 0;
 }
 .search-caption {
 	border-bottom: 1px solid var(--line);

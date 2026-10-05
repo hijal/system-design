@@ -16,6 +16,8 @@
 	let mobileToggle: HTMLButtonElement;
 	let expanded = $state<Record<number, boolean>>({});
 	let searchResults = $state<SearchResult[]>([]);
+	let searchTotal = $state(0);
+	const tooShort = $derived(query.trim().length < 2);
 	let searching = $state(false);
 	let activeResult = $state(-1);
 	let shortcutKey = $state('Ctrl');
@@ -35,8 +37,9 @@
 	$effect(() => {
 		const q = query.trim();
 		activeResult = -1;
-		if (!browser || !q) {
+		if (!browser || q.length < 2) {
 			searchResults = [];
+			searchTotal = 0;
 			searching = false;
 			return;
 		}
@@ -44,12 +47,16 @@
 		let cancelled = false;
 		const timer = setTimeout(() => {
 			fetch(`/search?q=${encodeURIComponent(q)}&lang=${data.locale}`)
-				.then((res) => res.json() as Promise<{ results: SearchResult[] }>)
+				.then((res) => res.json() as Promise<{ results: SearchResult[]; total: number }>)
 				.then((body) => {
-					if (!cancelled) searchResults = body.results;
+					if (cancelled) return;
+					searchResults = body.results;
+					searchTotal = body.total;
 				})
 				.catch(() => {
-					if (!cancelled) searchResults = [];
+					if (cancelled) return;
+					searchResults = [];
+					searchTotal = 0;
 				})
 				.finally(() => {
 					if (!cancelled) searching = false;
@@ -79,10 +86,13 @@
 	function toggle(id: number) {
 		expanded = { ...expanded, [id]: !(expanded[id] ?? active?.moduleId === id) };
 	}
+	const themeColors = { light: '#ffffff', dark: '#0d1210' } as const;
 	function toggleTheme() {
 		const next = effectiveTheme === 'dark' ? 'light' : 'dark';
 		theme = next;
 		document.documentElement.setAttribute('data-theme', next);
+		for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'))
+			meta.content = themeColors[next];
 		try {
 			localStorage.setItem('course-theme', next);
 		} catch {
@@ -120,6 +130,10 @@
 		wide.addEventListener('change', close);
 		return () => wide.removeEventListener('change', close);
 	});
+	function closeSearchOnFocusLeave(event: FocusEvent) {
+		if (event.relatedTarget instanceof Node && !searchWrap.contains(event.relatedTarget))
+			query = '';
+	}
 	function closeSearchOutside(event: MouseEvent) {
 		if (query.trim() && searchWrap && !searchWrap.contains(event.target as Node)) query = '';
 	}
@@ -144,7 +158,7 @@
 			>system<span class="brand-light">design</span> <small>THE LEARNING HANDBOOK</small></span
 		></a
 	>
-	<div class="search-wrap" bind:this={searchWrap}>
+	<div class="search-wrap" bind:this={searchWrap} onfocusout={closeSearchOnFocusLeave}>
 		<Icon name="search" size={18} /><input
 			bind:this={searchInput}
 			bind:value={query}
@@ -156,17 +170,26 @@
 			aria-activedescendant={activeResult >= 0 ? `search-result-${activeResult}` : undefined}
 			onkeydown={navigateResults}
 			placeholder={t.search}
+			maxlength={100}
 			autocomplete="off"
 		/><kbd>{shortcutKey} K</kbd>
 		{#if query.trim()}
 			<div class="search-results">
 				<div class="search-caption" role="status">
-					{searching ? t.searching : t.found(searchResults.length)}
+					{tooShort
+						? t.typeMore
+						: searching
+							? t.searching
+							: searchTotal > searchResults.length
+								? t.foundSome(searchResults.length, searchTotal)
+								: t.found(searchResults.length)}
 				</div>
-				<div id="search-listbox" role="listbox" aria-label={t.searchResults}>
+				<div id="search-listbox" role="listbox" tabindex="-1" aria-label={t.searchResults}>
 					{#each searchResults as result, i (result.id)}<a
 							id={`search-result-${i}`}
 							role="option"
+							tabindex="-1"
+							onmousedown={(event) => event.preventDefault()}
 							aria-selected={i === activeResult}
 							class:active={i === activeResult}
 							href={result.href}
@@ -178,7 +201,7 @@
 							/></a
 						>{/each}
 				</div>
-				{#if !searching && !searchResults.length}<p>{t.noResults}</p>{/if}
+				{#if !tooShort && !searching && !searchResults.length}<p>{t.noResults}</p>{/if}
 			</div>
 		{/if}
 	</div>

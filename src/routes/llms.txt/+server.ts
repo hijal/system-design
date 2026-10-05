@@ -8,7 +8,7 @@ export const GET: RequestHandler = ({ url }) => {
 		'',
 		'> বাংলা/English bilingual System Design course. Fundamentals থেকে distributed systems পর্যন্ত practical, progressive lessons — TaskFlow নামের একটা running example app-কে ঘিরে।',
 		'',
-		'Each lesson is available as clean Markdown at `<lesson-url>.md` (e.g. `/lesson-1.1.md`), or `?lang=en` for the English edition where translated.',
+		'Each lesson is available as clean Markdown at `<lesson-url>.md`: `/lesson-1.1.md` is always the Bangla edition, and `/lesson-1.1.md?lang=en` is the English edition where translated.',
 		''
 	];
 	for (const courseModule of catalogs.bn.modules) {

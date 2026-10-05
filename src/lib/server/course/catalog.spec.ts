@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createCatalog } from './catalog';
+import { createCatalog, lessonDescription } from './catalog';
 import { renderLesson } from './render';
 const base = `## ৯. Curriculum
 ### Module 1: Fundamentals + Thinking Framework
@@ -96,5 +96,50 @@ describe('lesson rendering', () => {
 			const rendered = renderLesson(`# Title\n\n\`\`\`${language}\n${code}\n\`\`\``, 'bn');
 			expect(rendered.html, `${language} fence rendered without Prism tokens`).toContain('token');
 		}
+	});
+	it('describes a lesson by its first objective and a challenge by its opening paragraph', () => {
+		const course = createCatalog(base, {
+			...sources,
+			'/course/module-01/lesson-1.1-topic.md':
+				'# Lesson 1.1 — Topic\n\n**তুমি এই lesson শেষে পারবে:**\n\n1. **Trade-off** নিয়ে `কথা` বলতে পারবে।\n2. দ্বিতীয়টা।',
+			'/course/module-01/lesson-1.1-topic.en.md':
+				'# Lesson 1.1 — Topic\n\n**By the end of this lesson you will be able to:**\n\n1. Explain [trade-offs](x.md) clearly\n2. Second',
+			'/course/module-01/module-1-exit-challenge.md':
+				'# Challenge\n\n**Module 1 — Fundamentals**\n\n---\n\nসব lesson শেষ, এবার **একসাথে** design।\n\n## ১. Task'
+		});
+		const [lesson, upcoming, challenge] = course.lessons;
+		expect(lessonDescription(lesson, 'M', course.contents.get('1.1:bn') ?? '')).toBe(
+			'System Design আসলে কী — Trade-off নিয়ে কথা বলতে পারবে।'
+		);
+		expect(lessonDescription(challenge, 'M', course.contents.get('1-challenge:bn') ?? '')).toBe(
+			'Module 1 Exit Challenge — সব lesson শেষ, এবার একসাথে design।'
+		);
+		expect(lessonDescription(upcoming, 'Fundamentals', '')).toBe(
+			'The Design Framework (Fundamentals) — System Design Handbook'
+		);
+		const english = createCatalog(
+			base,
+			{
+				'/course/module-01/lesson-1.1-topic.en.md':
+					'# Lesson 1.1 — Topic\n\n**By the end of this lesson you will be able to:**\n\n1. Explain [trade-offs](x.md) clearly'
+			},
+			'en'
+		);
+		expect(lessonDescription(english.lessons[0], 'M', english.contents.get('1.1:en') ?? '')).toBe(
+			'What is System Design? — Explain trade-offs clearly'
+		);
+	});
+	it('cuts a long description at a word boundary within 160 characters', () => {
+		const objective = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
+		const course = createCatalog(base, {
+			'/course/module-01/lesson-1.1-topic.md': `# 1.1\n\n**তুমি এই lesson শেষে পারবে:**\n\n1. ${objective}`
+		});
+		const description = lessonDescription(
+			course.lessons[0],
+			'M',
+			course.contents.get('1.1:bn') ?? ''
+		);
+		expect(description.length).toBeLessThanOrEqual(160);
+		expect(description).toMatch(/word\d+…$/);
 	});
 });

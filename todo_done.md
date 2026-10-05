@@ -363,3 +363,183 @@
 - **How to test:** SSR HTML এ tag; image URL 200 `image/png`, সঠিক মাপ; কোনো OG validator / debugger এ preview।
 - **Fix:** নতুন `static/og-bn.png` আর `static/og-en.png` (১২০০×৬৩০, ~১৭৫KB করে) — site এর নিজের brand: dark green background, layers logo, "systemdesign / THE LEARNING HANDBOOK", homepage এর headline (bn: "বড় system-এর চিন্তা। শুরু হোক ছোট থেকে।", en: "Think in systems. Start with the fundamentals."), একটা tagline আর "বাংলা · English" pill। HTML template থেকে headless Chrome এ site এর self-hosted font দিয়ে render করা। `SocialMeta.svelte` এ locale অনুযায়ী `og:image` (absolute URL), `og:image:type/width/height/alt`, `twitter:card` → `summary_large_image`, `twitter:image` + `twitter:image:alt` (alt = brand + headline, i18n `copy` থেকে)। আপাতত সব page এ একটা site-wide image; প্রতি lesson এর আলাদা image (Worker এ render) আলাদা কাজ।
 - **Tested:** Render: দুই image এ font loaded (Inter, Noto Sans Bengali, JetBrains Mono), কোনো overflow নেই, চোখে দেখে নেওয়া (প্রথম version এর "English · EN" pill বদলে "English · বাংলা")। Production build (`wrangler dev`): `/og-bn.png`, `/og-en.png` 200 `image/png`; `/?lang=bn`, `/lesson-5.4?lang=en`, `/lesson-1-challenge` এর SSR HTML এ সব tag, locale অনুযায়ী ঠিক image; bn lesson এ `og-bn.png` → EN switch (client nav) এর পর `og-en.png`, tag একটাই। axe ৪ mode = ০, CSP ১১ ধাপ = ০ violation। `prettier`/`eslint`/`svelte-check`/test ৩৭/৩৭/build pass। Deploy এর পর আসল preview দেখতে Facebook Sharing Debugger / LinkedIn Post Inspector এ URL দেওয়া যাবে — localhost এ সেটা সম্ভব না।
+
+## SD-31 · একাধিক tab খোলা থাকলে lesson progress মুছে যায়
+
+- **Priority:** High
+- **Category:** Bug
+- **Where:** `src/lib/docs/progress.svelte.ts` — `ProgressStore.toggle()` / `visit()`
+- **Found by:** Playwright, একই browser context এ দুটো tab: Tab A `/lesson-1.1?lang=en` এ "Mark as complete" → storage `{"completed":["1.1"]}`; আগে থেকে খোলা Tab B `/lesson-2.1` থেকে "Next" চাপলে → storage `{"completed":[],"lastVisited":"2.2"}`
+- **Problem:** Store শুধু প্রথমবার `load()` এ localStorage পড়ে, তারপর প্রতিটা `visit()`/`toggle()` এ নিজের memory তে থাকা পুরনো set পুরোটা লিখে দেয়। তাই অন্য tab এ চিহ্নিত করা "সম্পন্ন" lesson পুরনো tab এ শুধু next lesson এ গেলেই নিঃশব্দে মুছে যায়। `storage` event শোনা হয় না, তাই এক tab এর ✓ অন্য tab এর sidebar এ দেখাও যায় না। একসাথে কয়েকটা lesson tab এ খুলে পড়া খুব সাধারণ ব্যাপার, তাই ব্যবহারকারীর progress হারানোর ঝুঁকি বাস্তব।
+- **Expected:** লেখার আগে storage থেকে নতুন করে পড়ে merge করবে (শুধু নিজের পরিবর্তনটা প্রয়োগ করবে), আর `window` এর `storage` event শুনে অন্য tab এর পরিবর্তন memory তে আনবে।
+- **How to test:** উপরের দুই-tab Playwright scenario: B navigate করার পরেও storage এ `1.1` থাকবে; B তে `2.2` mark করলে storage এ `1.1` আর `2.2` দুটোই; A এর sidebar reload ছাড়াই `2.2` এর ✓ দেখাবে। `progress.spec.ts` এ stale-instance test।
+- **Fix:** `progress.svelte.ts`: প্রতিটা `toggle()`/`visit()` লেখার আগে storage থেকে নতুন করে পড়ে memory মিলিয়ে নেয় (`#sync`), তারপর শুধু নিজের পরিবর্তনটা প্রয়োগ করে লেখে। `load()` এখন `window` এর `storage` event শোনে, তাই অন্য tab এর ✓ reload ছাড়াই আসে। দুটো method এর ভেতরটা `untrack` এ মোড়ানো, কারণ না হলে page এর `visit()` effect `lastVisited` কে dependency ধরে ফেলে, আর `storage` event এ দুই tab একে অন্যের `lastVisited` বারবার উল্টে লেখে (প্রথম চেষ্টায় Playwright এ এই ping-pong ধরা পড়েছিল)। `read()` এখন "storage নেই/access নিষেধ" (`null`, memory অক্ষত থাকে) আর "data নষ্ট" (খালি progress) আলাদা করে।
+- **Tested:** `progress.spec.ts` এ নতুন ৩টা test (stale instance এ visit/toggle, `storage` event, storage ছাড়া একাধিক toggle)। Playwright দুই tab: A তে 1.1 mark → B (আগে খোলা 2.1) Next → storage `{"completed":["1.1"],"lastVisited":"2.2"}`; B তে 2.2 mark → `["1.1","2.2"]`; A এর sidebar এ reload ছাড়াই 2.2 এর ✓; ১.৫ সেকেন্ডে storage event ≤ ২ (ping-pong নেই)।
+
+## SD-32 · `/lesson-x.md` edge cache থেকে ভুল ভাষার edition আসে
+
+- **Priority:** High
+- **Category:** Bug
+- **Where:** `src/routes/[slug].md/+server.ts` (ভাষা `locals.courseLocale` থেকে, অর্থাৎ cookie থেকে; header `vary: Cookie`)
+- **Found by:** `curl -H "cookie: course-language=bn" https://recall.hijal.dev/lesson-1.2.md` → English edition (`# Lesson 1.2 — The Design Framework`, `cf-cache-status: HIT`, `cache-control: public, max-age=14400`); cookie ছাড়া, `en` cookie দিয়েও একই English উত্তর
+- **Problem:** `?lang` ছাড়া `.md` URL এর content cookie অনুযায়ী বদলায়, কিন্তু Cloudflare এর edge cache `Vary: Cookie` মানে না। প্রথম request টা যে ভাষায় এসেছিল, ৪ ঘণ্টা ধরে সবাই সেই ভাষাই পায়। `llms.txt` নিজেই `/lesson-1.1.md` (lang ছাড়া) form টা উদাহরণ হিসেবে দেখায়, তাই AI agent আর হাতে লেখা link এই পথেই আসে।
+- **Expected:** `.md` এর ভাষা শুধু URL থেকে আসবে: `?lang=en` হলে English, না থাকলে সবসময় Bangla (base edition)। cookie এর উপর নির্ভরতা আর `vary: Cookie` থাকবে না, তাই একই URL এর উত্তর সবসময় এক। `llms.txt` এর লেখাও সেভাবে মিলিয়ে দেওয়া।
+- **How to test:** `bn`/`en`/কোনো cookie ছাড়া `curl /lesson-1.2.md` → তিনবারই Bangla; `?lang=en` → English; `[slug].md/server.spec.ts` এ cookie থাকলেও lang ছাড়া Bangla test।
+- **Fix:** `[slug].md/+server.ts`: ভাষা শুধু URL থেকে আসে (`?lang=en` হলে English, বাকি সব Bangla); `locals.courseLocale`/cookie আর `vary: Cookie` বাদ। `llms.txt` এর লেখা বদলানো: "`/lesson-1.1.md` is always the Bangla edition, and `/lesson-1.1.md?lang=en` is the English edition"।
+- **Tested:** `curl` cookie ছাড়া / `bn` / `en` cookie দিয়ে `/lesson-1.2.md` → তিনবারই একই md5 (Bangla file); `?lang=en` → আলাদা (English)। `server.spec.ts` এ cookie ছাড়াই lang অনুযায়ী test, `vary` header নেই।
+
+## SD-33 · `http://recall.hijal.dev` HTTPS এ redirect হয় না
+
+- **Priority:** Medium
+- **Category:** Security
+- **Where:** `src/hooks.server.ts` (code দিয়ে ঠিক করা যায়) আর/অথবা Cloudflare dashboard → SSL/TLS → Edge Certificates → "Always Use HTTPS"
+- **Found by:** `curl -w "%{http_code} %{redirect_url}" http://recall.hijal.dev/` → `200`, কোনো redirect নেই; `/lesson-1.1` ও একই
+- **Problem:** কেউ `http://` টাইপ করলে বা পুরনো link থেকে এলে প্রথম page টা plain HTTP তে আসে, যেটা মাঝপথে বদলানো যায়। HSTS header শুধু আগে একবার HTTPS এ আসা browser কে রক্ষা করে, প্রথম visit কে না।
+- **Expected:** HTTP এর যেকোনো request `301` দিয়ে একই path + query সহ `https://` এ যাবে। Local `wrangler dev` (`localhost`/`127.0.0.1`) এ redirect হবে না।
+- **How to test:** `curl -sI http://recall.hijal.dev/lesson-1.1?lang=en` → `301`, `location: https://recall.hijal.dev/lesson-1.1?lang=en`; local `http://localhost:8787/` → `200`; `hooks.server.spec.ts` এ test।
+- **Fix:** `hooks.server.ts`: `http:` request (host `localhost`/`127.0.0.1`/`[::1]` বাদে) সবার আগে `301` দিয়ে একই path + query এর `https://` এ যায়। Static asset (যেমন `/og-bn.png`) Worker এ আসার আগেই Cloudflare assets থেকে serve হয়, তাই সেগুলোর জন্য dashboard এ SSL/TLS → Edge Certificates → "Always Use HTTPS" চালু করাও ভালো।
+- **Tested:** `hooks.server.spec.ts`: `http://recall.hijal.dev/lesson-1.1?lang=en` → `301` `location: https://recall.hijal.dev/lesson-1.1?lang=en`; HTTPS আর local host এ redirect নেই। Local `wrangler dev` এ `Host: recall.hijal.dev` দিলে `301` আসে, কিন্তু location `http://` দেখায়। আলাদা একটা probe worker দিয়ে দেখা গেছে, worker `https://` location পাঠালেও `wrangler dev` এর proxy সেটা `http://` বানিয়ে দেয়, তাই এটা local এর আচরণ, code এর না। Deploy এর পরে `curl -sI http://recall.hijal.dev/lesson-1.1?lang=en` দিয়ে দেখতে হবে।
+
+## SD-34 · `/1.1` (`lesson-` ছাড়া) একই lesson এর duplicate page দেয়
+
+- **Priority:** Medium
+- **Category:** SEO
+- **Where:** `src/routes/(docs)/[slug]/+page.server.ts` আর `src/routes/[slug].md/+server.ts` — `params.slug.replace(/^lesson-/, '')`
+- **Found by:** `curl https://recall.hijal.dev/1.1` → `200` আর পুরো lesson, `<link rel="canonical" href="https://recall.hijal.dev/1.1?lang=bn"/>`; `/1.1.md` ও `200`
+- **Problem:** `lesson-` prefix optional হওয়ায় প্রতিটা lesson আর challenge এর (`/1-challenge`) দুটো করে URL আছে, আর duplicate টার canonical নিজের দিকেই দেখায়, আসল `/lesson-1.1` এর দিকে না। Search engine দুটোকে আলাদা page ভাবতে পারে, আর কেউ ভুল URL share করলে সেটাই ছড়ায়।
+- **Expected:** `lesson-` ছাড়া slug যদি কোনো lesson এর সাথে মেলে, তাহলে `308` দিয়ে `/lesson-<id>` এ যাবে (`?lang` থাকলে রেখে)। না মিললে আগের মতো ৪০৪। `.md` এর জন্যও একই।
+- **How to test:** `curl -sI /1.1?lang=en` → `308` → `/lesson-1.1?lang=en`; `/1-challenge` → `/lesson-1-challenge`; `/1.1.md` → `/lesson-1.1.md`; `/lesson-1.1` আগের মতো `200`; `page.server.spec.ts` এ test।
+- **Fix:** `(docs)/[slug]/+page.server.ts` আর `[slug].md/+server.ts`: `lesson-` ছাড়া slug কোনো lesson/challenge এর id এর সাথে মিললে `308` দিয়ে `/lesson-<id>` (বা `/lesson-<id>.md`) এ যায়, valid `?lang` থাকলে রেখে। Alias redirect আর এটা একই `keepLanguage` helper ব্যবহার করে।
+- **Tested:** `curl`: `/1.1?lang=en` → `308` `/lesson-1.1?lang=en`; `/1-challenge` → `/lesson-1-challenge`; `/1.1.md` → `/lesson-1.1.md`; `/lesson-1.1` → `200`; `/99.1` → `404`। `page.server.spec.ts` আর `[slug].md/server.spec.ts` এ test।
+
+## SD-35 · `/search` আর `.md` response language cookie set করে, অথচ সেগুলো public cache হয়
+
+- **Priority:** Medium
+- **Category:** Security
+- **Where:** `src/hooks.server.ts` — `?lang=` থাকলে যেকোনো request এ `course-language` cookie set হয়
+- **Found by:** `curl -sI "/search?q=…&lang=en"` → `cache-control: public, max-age=300` এর সাথে `set-cookie: course-language=en`; `.md?lang=en` এর ক্ষেত্রেও একই, আর `.md` Cloudflare edge এ `HIT` হয়
+- **Problem:** Shared cache এ রাখা যায় এমন response এ `Set-Cookie` রাখা ঠিক না: cache এর নিয়ম বদলালে একজনের cookie অন্যদের কাছে চলে যাওয়ার ঝুঁকি থাকে। এছাড়া শুধু "View Markdown" খুললে বা `llms.txt` এর `?lang=` link এ গেলেই পুরো site এর মনে রাখা ভাষা বদলে যায়, অথচ ব্যবহারকারী language switch চাপেননি।
+- **Expected:** Cookie শুধু page navigation এ set হবে (`(docs)` route, আর client navigation এর `__data.json` request)। `/search`, `.md`, `sitemap.xml`, `llms.txt`, `robots.txt` এ কখনো `Set-Cookie` থাকবে না।
+- **How to test:** `curl -sI "/search?q=redis&lang=en"` আর `"/lesson-1.1.md?lang=en"` এ `set-cookie` নেই; `/lesson-1.1?lang=en` এ আছে; client-side language switch এর পরে reload করলেও ভাষা থাকে; `hooks.server.spec.ts` এ test।
+- **Fix:** `hooks.server.ts`: `course-language` cookie শুধু তখনই set হয় যখন `event.route.id` `/(docs)` দিয়ে শুরু (page আর তার `__data.json` request)। `/search`, `.md`, `sitemap.xml`, `llms.txt`, `robots.txt` এ আর `Set-Cookie` নেই।
+- **Tested:** `curl -sI`: `/search?q=redis&lang=en` আর `/lesson-1.1.md?lang=en` এ `set-cookie` নেই, `sitemap.xml`/`llms.txt`/`robots.txt` এও নেই; `/lesson-1.1?lang=en` আর `/lesson-1.1/__data.json?lang=en` এ আছে। Playwright: client-side language switch (EN → বাংলা) এর পর reload এ `lang="bn"` থাকে। `hooks.server.spec.ts` এ test।
+
+## SD-36 · Search popup: result গুলো Tab order এ, আর focus বাইরে গেলেও popup খোলা থাকে
+
+- **Priority:** Medium
+- **Category:** Accessibility
+- **Where:** `src/routes/(docs)/+layout.svelte` — `#search-listbox` এর `<a role="option">`
+- **Found by:** Playwright: `redis` লিখে Tab → focus প্রথম `<a role="option">` এ যায়, আর বারবার Tab চাপলে ২০টা option পার হতে হয়; শেষে page এ পৌঁছালেও popup খোলা থাকে আর content ঢেকে রাখে
+- **Problem:** ARIA combobox pattern এ option গুলো arrow key দিয়ে বাছা হয় (SD-06 এ যোগ করা হয়েছে), Tab দিয়ে না। Tab এ focus combobox ছেড়ে পরের control এ যাওয়ার কথা, আর popup বন্ধ হওয়ার কথা। এখন keyboard user কে search পার হতে ২০+ বার Tab চাপতে হয়, আর screen reader option গুলোকে আলাদা link হিসেবে পড়ে।
+- **Expected:** Option গুলোতে `tabindex="-1"` (mouse click আগের মতোই কাজ করবে); `.search-wrap` থেকে focus বেরিয়ে গেলে (`focusout`, যেখানে `relatedTarget` wrap এর বাইরে) query খালি হয়ে popup বন্ধ হবে।
+- **How to test:** Playwright: `redis` → Tab → focus language switch এ যায়, popup বন্ধ; ArrowDown + Enter আগের মতো কাজ করে; mouse দিয়ে result click করলে navigate হয়; axe খোলা আর বন্ধ দুই অবস্থায় ০।
+- **Fix:** `+layout.svelte`: option গুলোতে `tabindex="-1"` আর `onmousedown` এ `preventDefault` (click এ focus input এই থাকে, popup বন্ধ হয় না); `.search-wrap` এর `focusout` এ `relatedTarget` wrap এর বাইরে হলে query খালি হয়ে popup বন্ধ। Listbox এও `tabindex="-1"`, কারণ ভেতরে focus নেওয়ার মতো কিছু না থাকলে Chrome scroll container কে নিজেই Tab stop বানায়। Scroll `.search-results` থেকে সরিয়ে listbox এ আনা হয়েছে (`layout.css`): caption উপরে স্থির থাকে, আর axe এর `scrollable-region-focusable` combobox popup কে নিজেই বাদ দেয়।
+- **Tested:** Playwright: `redis` → Tab → focus language switch এ, popup বন্ধ; ArrowDown + Enter → `/lesson-4.4`; mouse click → navigate হয়। axe search popup খোলা অবস্থায় light/dark × 1440/375 = ০ (প্রথমে scroll wrapper এ থাকায় `scrollable-region-focusable` ধরা পড়েছিল, listbox এ সরানোর পরে ০)।
+
+## SD-37 · Search এর count ২০ এ আটকানো, আর ১ অক্ষরে "০টা lesson পাওয়া গেছে"
+
+- **Priority:** Medium
+- **Category:** UX
+- **Where:** `src/lib/server/course/search.ts` (`limit = 20`, `query.length < 2` এ `[]`), `src/routes/(docs)/+layout.svelte` (`t.found(searchResults.length)`), `src/lib/docs/i18n.ts`
+- **Found by:** Playwright + `grep`: "cache" লিখলে caption "20 lessons found", অথচ ৫৪টা English lesson এ শব্দটা আছে ("redis" ৫৬টা); "r" লিখলে "0 lessons found — Try another topic or lesson number."
+- **Problem:** Result list ২০টায় কাটা, কিন্তু caption বলে মোট ২০টাই পাওয়া গেছে, তাই ব্যবহারকারী ভাবে বাকি lesson গুলোতে শব্দটা নেই। ১ অক্ষরে server ইচ্ছা করেই খোঁজে না, কিন্তু UI বলে "কিছু পাওয়া যায়নি, অন্য topic চেষ্টা করো", যা ভুল তথ্য।
+- **Expected:** API মোট match সংখ্যা (`total`) ফেরত দেবে; caption এ "৫৪টার মধ্যে প্রথম ২০টা" ধরনের লেখা (bn/en)। ১ অক্ষরে "আরও অন্তত ১টা অক্ষর লেখো" ধরনের hint, "পাওয়া যায়নি" না।
+- **How to test:** Playwright: "cache" (en) → caption এ ৫৪ আর ২০ দুটো সংখ্যাই; "r" → hint text, no-results text নেই; `search.spec.ts` এ `total` test; axe ০।
+- **Fix:** `search.ts` এখন `{ results, total }` ফেরত দেয় (`total` = মোট match)। UI caption: সব দেখালে "`n`টি lesson পাওয়া গেছে", কাটা হলে "৫০টি lesson পাওয়া গেছে, প্রথম ২০টি দেখানো হচ্ছে" / "50 lessons found, showing the first 20"। ১ অক্ষরে client fetch করে না, caption এ "খুঁজতে আরও অন্তত ১টি অক্ষর লেখো" / "Type at least one more character to search", "পাওয়া যায়নি" লেখা আসে না। English এ "1 lessons found" এর বদলে "1 lesson found"।
+- **Tested:** Playwright: "cache" (en) → "50 lessons found, showing the first 20"; "r" → hint, no-results `<p>` নেই। `search.spec.ts` এ `total` test, route spec এ `{ results: [], total: 0 }`। axe ০।
+
+## SD-38 · "আরও উপায়ে পড়ো" menu Escape বা বাইরে click এ বন্ধ হয় না
+
+- **Priority:** Medium
+- **Category:** UX
+- **Where:** `src/routes/(docs)/[slug]/+page.svelte` — `<details class="ai-actions">`
+- **Found by:** Playwright: menu খুলে Escape → `open` attribute থেকে যায়; page এর অন্য জায়গায় click → তবুও খোলা; কোনো link (নতুন tab এ খোলে) বেছে নেওয়ার পরে ফিরে এলে menu তখনও খোলা
+- **Problem:** দেখতে dropdown menu এর মতো, কিন্তু dropdown এর স্বাভাবিক dismiss আচরণ নেই। খোলা menu নিচের lesson content ঢেকে রাখে, আর keyboard user কে আবার summary তে ফিরে গিয়ে বন্ধ করতে হয়।
+- **Expected:** Escape চাপলে বন্ধ হবে আর focus `summary` তে ফিরবে; menu এর বাইরে click বা focus গেলে বন্ধ হবে; menu এর link বেছে নিলে বন্ধ হবে।
+- **How to test:** Playwright: খুলে Escape → বন্ধ, focus summary তে; খুলে বাইরে click → বন্ধ; খুলে link click → বন্ধ; axe ০।
+- **Fix:** `[slug]/+page.svelte`: Escape চাপলে menu বন্ধ হয়, focus menu এর ভেতরে থাকলে `summary` তে ফেরে; menu এর বাইরে click বা `focusout` (focus বাইরে গেলে) এ বন্ধ; তিনটা link এর যেকোনোটা বেছে নিলে বন্ধ।
+- **Tested:** Playwright: খুলে Escape → বন্ধ, focus summary তে; খুলে `h1` এ click → বন্ধ; খুলে link click (নতুন tab) → বন্ধ; keyboard দিয়ে খুলে Tab করে বাইরে গেলে → বন্ধ। axe menu খোলা অবস্থায় light/dark × 1440/375 = ০।
+
+## SD-39 · প্রতিটা lesson এর meta description শুধু title + module এর template
+
+- **Priority:** Medium
+- **Category:** SEO
+- **Where:** `src/routes/(docs)/[slug]/+page.svelte` — `description = "${title} (${module}) — System Design Handbook"`; `src/lib/server/course/catalog.ts`
+- **Found by:** sitemap crawl (১৪৪ URL): প্রতিটা description title এর পুনরাবৃত্তি, যেমন `/lesson-4.5?lang=en` → "How CDNs Work (Caching) — System Design Handbook" (৪৮ অক্ষর); ১০টা bn/en challenge জোড়ার description হুবহু এক
+- **Problem:** Search result আর share preview এ lesson টা কী শেখায় তার কোনো কথা নেই, শুধু title আবার দেখায়। Search engine এমন description প্রায়ই ফেলে দিয়ে page থেকে এলোমেলো অংশ তুলে নেয়।
+- **Expected:** প্রতিটা available lesson এ "By the end of this lesson you will be able to" / "তুমি এই lesson শেষে পারবে" এর প্রথম objective আছে; challenge এ শুরুর অনুচ্ছেদ আছে। সেখান থেকে markdown ছাড়ানো plain text নিয়ে "<title> — <summary>" বানানো হবে, শব্দের সীমায় ~১৬০ অক্ষরে কেটে। কিছু না পাওয়া গেলে (upcoming lesson) এখনকার template থাকবে। `og:description`/`twitter:description` ও একই লেখা পাবে।
+- **How to test:** আবার crawl: কোনো available lesson এর description এ "(module) — System Design Handbook" template নেই, দৈর্ঘ্য ৫০–১৬০, bn/en এ আলাদা লেখা; catalog/render spec এ summary extraction test।
+- **Fix:** `catalog.ts` এ নতুন `lessonDescription()`: lesson এর জন্য "তুমি এই lesson শেষে পারবে" / "By the end of this lesson you will be able to" এর প্রথম objective, challenge এর জন্য শুরুর সাধারণ অনুচ্ছেদ। Markdown (bold, code, link) ছাড়িয়ে "<title> — <summary>" বানায়, ১৬০ অক্ষরের মধ্যে শব্দের সীমায় কেটে `…`। কিছু না পেলে (upcoming lesson) আগের template। Page server এ হিসাব হয় (layout data তে ১৪০টা summary পাঠানো লাগে না)। `meta description`, `og:description`, `twitter:description` আর JSON-LD `description` সব একই লেখা পায়।
+- **Tested:** আসল course এর ১৪২টা available bn/en page: template ০টা, দৈর্ঘ্য ৯৭–১৬০, bn/en আলাদা লেখা। Playwright: `/lesson-4.5?lang=en` → "How CDNs Work — Explain how a user's request reaches the nearest edge server, and what the cache key there is built from"; bn আর `/lesson-3-challenge?lang=en` ও ঠিক, তিনটা meta একই; `/lesson-12.1` এ template। `catalog.spec.ts` এ extraction আর truncation test।
+
+## SD-40 · English edition এ homepage progress মোটের চেয়ে বেশি দেখাতে পারে
+
+- **Priority:** Low
+- **Category:** Bug
+- **Where:** `src/routes/(docs)/+page.svelte` — `completedCount` সব lesson থেকে গোনা হয়, কিন্তু ভাগ হয় শুধু `available.length` দিয়ে
+- **Found by:** Playwright: storage এ `completed: ["12.1","12.2","12.3","1.1"]` (12.x এর English edition নেই) রেখে `/?lang=en` → strip এ "4/57"; সব Bangla lesson শেষ করা কেউ English এ গেলে "৬৪/৫৭" ধরনের অসম্ভব সংখ্যা দেখবে
+- **Problem:** লব আর হর আলাদা set থেকে আসে। Progress অর্থহীন হয়ে যায়, আর `<progress>` bar ১০০% ছাড়িয়ে যায় (browser clamp করে)।
+- **Expected:** `completedCount` শুধু এই edition এ available lesson থেকে গোনা হবে, তাই সংখ্যাটা কখনো মোটের বেশি হবে না।
+- **How to test:** একই storage দিয়ে `/?lang=en` → "1/57"; `/?lang=bn` → "4/64"।
+- **Fix:** `(docs)/+page.svelte`: `completedCount` এখন শুধু এই edition এর available lesson থেকে গোনা হয়।
+- **Tested:** Playwright, storage এ `["11.1","11.2","1.1"]` (11.x এর English নেই): `/?lang=en` → "1/57", `/?lang=bn` → "3/64"। (Issue তে দেওয়া 12.x এর উদাহরণ খাটে না, কারণ 12.x এর Bangla edition ও এখনো লেখা হয়নি।)
+
+## SD-41 · Homepage এর progress bar এর কোনো accessible নাম নেই
+
+- **Priority:** Low
+- **Category:** Accessibility
+- **Where:** `src/routes/(docs)/+page.svelte` — `.progress-strip progress`
+- **Found by:** Playwright aria snapshot: `- text: 2 /64` তারপর নামহীন `- progressbar`। axe এই rule টা শুধু explicit `role="progressbar"` এ চালায়, তাই native `<progress>` এ ধরা পড়েনি। TOC এর progress এ `aria-label` আছে, এটায় নেই।
+- **Problem:** Screen reader শুধু "progress bar" পড়ে, কিসের progress সেটা বলে না (ARIA তে progressbar এর accessible নাম লাগে)।
+- **Expected:** `aria-label` (bn/en, যেমন "Course progress" / "কোর্সে অগ্রগতি") আর `aria-valuetext` এর মতো পড়ার উপযোগী মান ("৬৪টার মধ্যে ২টা lesson সম্পন্ন")।
+- **How to test:** Aria snapshot এ `progressbar "…"` নামসহ; axe ০।
+- **Fix:** `<progress>` এ `aria-label` ("কোর্সে অগ্রগতি" / "Course progress") আর `aria-valuetext` ("64টির মধ্যে 3টি lesson সম্পন্ন" / "1 of 57 lessons done")। আগে কোথাও ব্যবহার না হওয়া `progressLabel` copy টাই এই কাজে লাগানো হয়েছে।
+- **Tested:** Playwright aria snapshot: `progressbar "Course progress"`; bn এ `aria-label="কোর্সে অগ্রগতি"`। axe homepage (progress সহ) = ০।
+
+## SD-42 · Mobile TOC section এ jump করার পরেও খোলা থাকে
+
+- **Priority:** Low
+- **Category:** UX
+- **Where:** `src/routes/(docs)/[slug]/+page.svelte` — `<details class="mobile-toc">`
+- **Found by:** Playwright (375px, `/lesson-5.4?lang=en`): "On this page" খুলে তৃতীয় link এ চাপ → URL `#11-learning-to-read-explain-analyze` এ যায়, কিন্তু `details` এ `open` থাকে
+- **Problem:** উপরে ফিরে এলে লম্বা TOC খোলা পড়ে থাকে আর lesson এর শুরু নিচে ঠেলে দেয়; প্রতিবার হাতে বন্ধ করতে হয়।
+- **Expected:** TOC এর কোনো link এ চাপলে `details` বন্ধ হবে, তারপর jump।
+- **How to test:** Playwright (375px): link চাপার পরে `open` নেই, URL এ hash, heading viewport এ।
+- **Fix:** `[slug]/+page.svelte`: mobile TOC এর প্রতিটা link এর click এ `details` বন্ধ হয়, তারপর browser নিজেই hash এ jump করে।
+- **Tested:** Playwright (375px, `/lesson-5.4?lang=en`): তৃতীয় link → `open` নেই, URL `#11-learning-to-read-explain-analyze`, heading viewport এ। axe TOC খোলা অবস্থায় ০।
+
+## SD-43 · হাতে theme বদলালে `theme-color` বদলায় না
+
+- **Priority:** Low
+- **Category:** UX
+- **Where:** `src/app.html` (দুটো `media` সহ `theme-color` meta), `src/routes/(docs)/+layout.svelte` — `toggleTheme()`
+- **Found by:** Playwright: light OS এ toggle → `data-theme="dark"`, কিন্তু meta তখনও `#ffffff (prefers-color-scheme: light)` / `#0d1210 (dark)`, তাই mobile browser এর address bar সাদা থাকে আর page কালো
+- **Problem:** Mobile Chrome/Safari তে browser UI আর page এর রঙ মেলে না, উল্টো theme বেছে নেওয়া ব্যবহারকারীর কাছে দেখতে ভাঙা লাগে।
+- **Expected:** হাতে theme বেছে নিলে (আর reload এ `app.html` এর inline script থেকে) দুটো meta এর `content` বেছে নেওয়া theme এর রঙে বসবে; system theme এ ফিরলে আগের মতো।
+- **How to test:** Playwright: light OS + toggle dark → দুটো meta `#0d1210`; reload এর পরেও তাই; toggle light → `#ffffff`।
+- **Fix:** `+layout.svelte` এর `toggleTheme()` দুটো `theme-color` meta তেই বেছে নেওয়া theme এর রঙ বসায় (light `#ffffff`, dark `#0d1210`, `--bg` এর সাথে মেলে)। `app.html` এর inline script meta গুলোর পরে সরানো হয়েছে, আর saved theme থাকলে reload এর সময়ও একই কাজ করে।
+- **Tested:** Playwright (light OS): শুরুতে `#ffffff,#0d1210` → toggle dark → `#0d1210,#0d1210` → reload এর পরেও তাই, `data-theme="dark"` → toggle light → `#ffffff,#ffffff`। নতুন inline script এ কোনো CSP violation নেই।
+
+## SD-44 · Search API তে query এর দৈর্ঘ্যের কোনো সীমা নেই
+
+- **Priority:** Low
+- **Category:** Performance
+- **Where:** `src/routes/search/+server.ts`, `src/lib/server/course/search.ts`
+- **Found by:** Playwright/`curl`: ৫০০০ অক্ষরের query → `200`; server প্রতিটা request এ পুরো query দিয়ে ২০০+ lesson এর haystack এ `includes` চালায়, আর প্রতিটা আলাদা query edge cache এ নতুন key বানায়
+- **Problem:** বড় query কখনো কোনো lesson এ মেলে না, শুধু CPU আর cache নষ্ট করে। Worker এর CPU সময় সীমিত, তাই এভাবে request পাঠিয়ে খরচ বাড়ানো সহজ।
+- **Expected:** Query trim করে ~১০০ অক্ষরে কাটা হবে (server এ, আর input এ `maxlength`)। এর বেশি হলে কাটা অংশ দিয়েই খোঁজা হবে বা খালি result যাবে, ৫০০ না।
+- **How to test:** `curl "/search?q=<5000 a>"` → দ্রুত `{"results":[]}`; input এ `maxlength="100"`; `search.spec.ts` এ test।
+- **Fix:** `search.ts`: query এর প্রথম ১০০ অক্ষর নিয়ে trim করে খোঁজা হয়; input এ `maxlength={100}`।
+- **Tested:** `curl` ৫০০০ অক্ষরের query → `{"total":0,"results":[]}`, ~১৪ms। `search.spec.ts` আর route spec এ test (১০০ এর পরের অংশ উপেক্ষা হয়)।
+
+## SD-45 · `.md` route এ canonical নেই, আর ৪০৪ হলে JSON বা unstyled page আসে
+
+- **Priority:** Low
+- **Category:** SEO
+- **Where:** `src/routes/[slug].md/+server.ts`
+- **Found by:** `curl /lesson-99.9.md` → `application/json` `{"message":"Lesson not found"}`; browser (`Accept: text/html`) এ SvelteKit এর default unstyled fallback page; `/lesson-1.1.md` এর response এ কোনো `Link: rel="canonical"` বা `x-robots-tag` নেই
+- **Problem:** প্রতিটা lesson এর Markdown copy আলাদা URL এ একই content, আর search engine এটাকে HTML page এর duplicate হিসেবে index করতে পারে। Markdown চাওয়া client (AI agent, `curl`) ৪০৪ এ JSON পায়, যা অপ্রত্যাশিত।
+- **Expected:** সফল response এ `Link: <https://recall.hijal.dev/lesson-x?lang=…>; rel="canonical"` header (HTML page কে canonical ধরে)। ৪০৪ হবে `text/plain; charset=utf-8`, ভাষা অনুযায়ী ছোট বার্তা সহ।
+- **How to test:** `curl -sI /lesson-1.1.md?lang=en` → `link: <…/lesson-1.1?lang=en>; rel="canonical"`; `curl -i /lesson-99.9.md` → `404 text/plain`; `server.spec.ts` এ test।
+- **Fix:** `[slug].md/+server.ts`: সফল response এ `Link: <origin/lesson-x?lang=…>; rel="canonical"` (একই edition এর HTML page); ৪০৪ এখন `text/plain; charset=utf-8`, ভাষা অনুযায়ী "এই lesson-টি পাওয়া যায়নি।" / "Lesson not found."। Lesson যেমন নেই, তেমনি এখনো লেখা হয়নি এমন lesson এর ক্ষেত্রেও এটাই আসে।
+- **Tested:** `curl -sI /lesson-1.1.md?lang=en` → `link: <…/lesson-1.1?lang=en>; rel="canonical"`; `curl -i /lesson-99.9.md` → `404`, `text/plain`, Bangla বার্তা; `?lang=en` → English। `server.spec.ts` এ test।

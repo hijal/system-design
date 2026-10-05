@@ -11,8 +11,7 @@ const indexes: Record<Locale, ReturnType<typeof buildSearchIndex>> = {
 
 export const GET: RequestHandler = ({ url }) => {
 	const locale: Locale = url.searchParams.get('lang') === 'en' ? 'en' : 'bn';
-	return json(
-		{ results: search(indexes[locale], url.searchParams.get('q') ?? '') },
-		{ headers: { 'cache-control': 'public, max-age=300' } }
-	);
+	return json(search(indexes[locale], url.searchParams.get('q') ?? ''), {
+		headers: { 'cache-control': 'public, max-age=300' }
+	});
 };

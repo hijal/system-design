@@ -12,7 +12,7 @@ Audit date: 2026-10-05. Live site `https://recall.hijal.dev` এ চালান
 ## SD-XX · ছোট শিরোনাম
 
 - **Priority:** High | Medium | Low
-- **Category:** Accessibility | SEO | Security | UX | Performance
+- **Category:** Accessibility | SEO | Security | UX | Performance | Bug
 - **Where:** URL / file
 - **Found by:** কোন tool বা check
 - **Problem:** কী ভুল, কার উপর প্রভাব
@@ -32,6 +32,16 @@ Round 2 এর ১১টাই ঠিক হয়ে `todo_done.md` এ গে�
 
 ## Round 3 — বাইরের audit report যাচাই (2026-10-05)
 
-একটা বাইরের audit report এর প্রতিটা দাবি live site এ মিলিয়ে দেখা হয়েছে, সাথে নিজের কিছু নতুন check (সব focusable element এর focus ring, placeholder contrast pixel মেপে, ৩২০px reflow, WCAG text-spacing, forced-colors, reduced motion)। যেসব আগে থেকেই ঠিক আছে বা report এর দাবি ভুল, সেগুলো এখানে নেই — শুধু আসল ঘাটতি। **এখনো implement করা হয়নি।**
+একটা বাইরের audit report এর প্রতিটা দাবি live site এ মিলিয়ে দেখা হয়েছে, সাথে নিজের কিছু নতুন check (সব focusable element এর focus ring, placeholder contrast pixel মেপে, ৩২০px reflow, WCAG text-spacing, forced-colors, reduced motion)। যেসব আগে থেকেই ঠিক আছে বা report এর দাবি ভুল, সেগুলো এখানে নেই — শুধু আসল ঘাটতি। Round 4 এর ১৫টাই ঠিক হয়ে `todo_done.md` এ গেছে।
 
-Round 3 এর ৩টাই ঠিক হয়ে `todo_done.md` এ গেছে — এই মুহূর্তে কোনো open issue নেই।
+Round 3 এর ৩টাই ঠিক হয়ে `todo_done.md` এ গেছে।
+
+## Round 4 — action, form আর edge case audit (2026-10-05)
+
+Live site এ (commit `3238959` deploy হওয়ার পরে) চালানো হয়েছে। এবার নজর ছিল আগের round গুলো যেসব অবস্থা ছোঁয়নি সেগুলোতে: progress থাকা অবস্থা (sidebar এ ✓, homepage progress strip), একাধিক tab, English edition এর "Coming soon" lesson, "আরও উপায়ে পড়ো" menu, mobile TOC, search এর edge case (১ অক্ষর, ৫০০০ অক্ষর, `<script>`, বাংলা query, Tab/Escape), theme toggle + reload, language switch, Markdown/code copy, `.md` route, alias route, HTTP method, HTTP→HTTPS, Cloudflare edge cache আর cookie এর আচরণ। Tool: Playwright (Chromium) + axe-core 4.13 (WCAG 2.2 AA + best-practice), `curl`, sitemap এর ১৪৪টা URL crawl।
+
+যা ঠিক আছে: ১০টা interactive অবস্থায় axe ০ violation (light/dark, desktop/mobile); নতুন strict CSP (`style-src 'self'`) এ কোনো CSP violation বা console error নেই (search → result → copy → mark complete → next → back → language switch পুরো flow দুই viewport এ); ৪৫টা external link এর সবগুলো চলে; `POST`/`PUT`/`DELETE` → ৪০৫, ৫০০ না; search এ `<script>` query নিরাপদ (JSON + Svelte text); Markdown copy আর code copy clipboard এ ঠিক জিনিস দেয়; theme reload এর পরেও থাকে; sticky header কোনো focused content ঢাকে না; HTML page Cloudflare edge এ cache হয় না।
+
+ইচ্ছা করে বাদ: ৭০ এর বেশি অক্ষরের ১৬টা `<title>` (SD-09 এ content এর সিদ্ধান্ত হিসেবে রাখা); bn/en challenge page এর একই title (এগুলো hreflang জোড়া); বাংলা অক্ষরে "ক্যাশ" search এ ০ result (content এ term গুলো English এ লেখা, তাই এটা bug না); language switch এ `#section` hash হারানো (দুই edition এর heading id আলাদা, তাই hash রাখা যায় না)।
+
+Round 4 এর ১৫টাই ঠিক হয়ে `todo_done.md` এ গেছে।

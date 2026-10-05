@@ -1,3 +1,4 @@
+import { untrack } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 
 const STORAGE_KEY = 'course-progress-v1';
@@ -15,11 +16,15 @@ function isProgressData(value: unknown): value is ProgressData {
 	);
 }
 
-function read(): ProgressData {
-	if (typeof localStorage === 'undefined') return { completed: [], lastVisited: null };
+function read(): ProgressData | null {
+	let raw: string | null;
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (!raw) return { completed: [], lastVisited: null };
+		raw = localStorage.getItem(STORAGE_KEY);
+	} catch {
+		return null;
+	}
+	if (!raw) return { completed: [], lastVisited: null };
+	try {
 		const parsed: unknown = JSON.parse(raw);
 		if (isProgressData(parsed)) return parsed;
 	} catch {
@@ -46,9 +51,19 @@ export class ProgressStore {
 	load(): void {
 		if (this.#loaded) return;
 		this.#loaded = true;
+		this.#sync();
+		if (typeof window !== 'undefined')
+			window.addEventListener('storage', (event) => {
+				if (event.key === STORAGE_KEY || event.key === null) this.#sync();
+			});
+	}
+
+	#sync(): void {
 		const saved = read();
+		if (!saved) return;
+		for (const id of this.completed) if (!saved.completed.includes(id)) this.completed.delete(id);
 		for (const id of saved.completed) this.completed.add(id);
-		this.lastVisited ??= saved.lastVisited;
+		this.lastVisited = saved.lastVisited ?? this.lastVisited;
 	}
 
 	isCompleted(id: string): boolean {
@@ -56,17 +71,23 @@ export class ProgressStore {
 	}
 
 	toggle(id: string): void {
-		this.load();
-		if (this.completed.has(id)) this.completed.delete(id);
-		else this.completed.add(id);
-		write({ completed: [...this.completed], lastVisited: this.lastVisited });
+		untrack(() => {
+			this.load();
+			this.#sync();
+			if (this.completed.has(id)) this.completed.delete(id);
+			else this.completed.add(id);
+			write({ completed: [...this.completed], lastVisited: this.lastVisited });
+		});
 	}
 
 	visit(id: string): void {
-		this.load();
-		if (this.lastVisited === id) return;
-		this.lastVisited = id;
-		write({ completed: [...this.completed], lastVisited: id });
+		untrack(() => {
+			this.load();
+			this.#sync();
+			if (this.lastVisited === id) return;
+			this.lastVisited = id;
+			write({ completed: [...this.completed], lastVisited: id });
+		});
 	}
 }
 

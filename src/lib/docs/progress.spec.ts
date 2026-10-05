@@ -75,6 +75,45 @@ describe('course progress', () => {
 		expect(reloaded.isCompleted('5.5')).toBe(true);
 	});
 
+	it('keeps what another tab saved when a stale tab records a visit or a toggle', () => {
+		const tabA = new ProgressStore();
+		const tabB = new ProgressStore();
+		tabA.load();
+		tabB.load();
+		tabA.toggle('1.1');
+		tabB.visit('2.2');
+		expect(JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
+			completed: ['1.1'],
+			lastVisited: '2.2'
+		});
+		tabB.toggle('2.2');
+		const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}') as { completed: string[] };
+		expect(saved.completed.sort()).toEqual(['1.1', '2.2']);
+	});
+
+	it('picks up changes from another tab through the storage event', () => {
+		const events = new EventTarget();
+		vi.stubGlobal('window', events);
+		const store = new ProgressStore();
+		store.load();
+		storage.setItem(STORAGE_KEY, JSON.stringify({ completed: ['3.1'], lastVisited: '3.1' }));
+		events.dispatchEvent(Object.assign(new Event('storage'), { key: STORAGE_KEY }));
+		expect(store.isCompleted('3.1')).toBe(true);
+		expect(store.lastVisited).toBe('3.1');
+		storage.setItem(STORAGE_KEY, JSON.stringify({ completed: [], lastVisited: '3.1' }));
+		events.dispatchEvent(Object.assign(new Event('storage'), { key: STORAGE_KEY }));
+		expect(store.isCompleted('3.1')).toBe(false);
+	});
+
+	it('keeps several in-memory toggles when storage is unavailable', () => {
+		vi.stubGlobal('localStorage', undefined);
+		const store = new ProgressStore();
+		store.toggle('4.1');
+		store.toggle('4.2');
+		expect(store.isCompleted('4.1')).toBe(true);
+		expect(store.isCompleted('4.2')).toBe(true);
+	});
+
 	it.each([
 		['corrupt JSON', '{not json'],
 		['wrong shape', JSON.stringify({ completed: 'all', lastVisited: null })],
