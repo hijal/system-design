@@ -10,6 +10,7 @@
 	--green: #087f66;
 	--green-dark: #0b6040;
 	--green-soft: #edf7f2;
+	--on-green: #fff;
 	--mono: 'JetBrains Mono', monospace;
 	--bg: #fff;
 	--surface: #fff;
@@ -69,7 +70,9 @@ button {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+.doc-content pre:focus-visible,
+.doc-content table:focus-visible {
 	outline: 2px solid var(--green);
 	outline-offset: 4px;
 }
@@ -85,7 +88,7 @@ html {
 }
 .skip-link {
 	background: var(--green);
-	color: #fff;
+	color: var(--on-green);
 	z-index: 100;
 	padding: 12px;
 	position: fixed;
@@ -210,7 +213,8 @@ html {
 	line-height: 1.6;
 	display: flex;
 }
-.search-results a:hover {
+.search-results a:hover,
+.search-results a.active {
 	background: var(--green-soft);
 }
 .search-results a svg {
@@ -426,7 +430,7 @@ html {
 	display: flex;
 }
 .primary-button {
-	color: #fff;
+	color: var(--on-green);
 	background: var(--green);
 	border: 1px solid var(--green);
 	border-radius: 7px;
@@ -1197,7 +1201,7 @@ html {
 	display: flex;
 }
 .code-toolbar button {
-	color: var(--muted);
+	color: #b8cbbf;
 	background: 0 0;
 	border: 1px solid #3b5143;
 	border-radius: 4px;
@@ -2427,6 +2431,9 @@ body:has(.reader-page) .workspace {
 	font-size: 11px;
 	list-style: none;
 }
+.ai-actions summary svg {
+	display: none;
+}
 .ai-actions summary::-webkit-details-marker {
 	display: none;
 }
@@ -2471,9 +2478,34 @@ body:has(.reader-page) .workspace {
 	display: inline-flex;
 }
 @media (width<=560px) {
+	.mark-complete {
+		position: relative;
+	}
 	.mark-complete span,
+	.ai-actions summary span {
+		clip-path: inset(50%);
+		white-space: nowrap;
+		width: 1px;
+		height: 1px;
+		position: absolute;
+		overflow: hidden;
+	}
 	.ai-actions summary {
-		display: none;
+		display: flex;
+		position: relative;
+	}
+	.ai-actions summary svg {
+		display: block;
+	}
+	.lesson-meta {
+		position: relative;
+	}
+	.ai-actions {
+		position: static;
+	}
+	.ai-actions-menu {
+		left: 0;
+		right: auto;
 	}
 	.mark-complete,
 	.ai-actions summary {
@@ -2545,6 +2577,20 @@ body:has(.reader-page) .workspace {
 	.ai-actions summary {
 		padding: 9px 10px;
 	}
+	.reader-page > .breadcrumb a {
+		justify-content: center;
+		align-items: center;
+		min-width: 24px;
+		min-height: 24px;
+		display: inline-flex;
+	}
+	.mobile-toc summary,
+	.mobile-toc nav a {
+		padding: 4px 0;
+	}
+	.mobile-toc nav {
+		gap: 2px;
+	}
 }
 
 /* ============================================================
@@ -2566,6 +2612,7 @@ body:has(.reader-page) .workspace {
 		--green: #3ecb9b;
 		--green-dark: #6fe0b6;
 		--green-soft: #12241c;
+		--on-green: #0d1210;
 		--bg: #0d1210;
 		--surface: #121815;
 		--surface-2: #171e1a;
@@ -2587,6 +2634,7 @@ body:has(.reader-page) .workspace {
 	--green: #3ecb9b;
 	--green-dark: #6fe0b6;
 	--green-soft: #12241c;
+	--on-green: #0d1210;
 	--bg: #0d1210;
 	--surface: #121815;
 	--surface-2: #171e1a;
@@ -2600,5 +2648,5 @@ body:has(.reader-page) .workspace {
 	color-scheme: dark;
 }
 /* A couple of surfaces are painted with a fixed light/near-black pair
-   instead of a token (self-contained brand tile, primary-button text) —
+   instead of a token (self-contained brand tile) —
    they read fine unchanged on a dark page, so they're deliberately left out. */

@@ -1,5 +1,13 @@
 import type { Handle } from '@sveltejs/kit';
-export const handle: Handle = ({ event, resolve }) => {
+export const securityHeaders: Record<string, string> = {
+	'x-content-type-options': 'nosniff',
+	'referrer-policy': 'strict-origin-when-cross-origin',
+	'x-frame-options': 'DENY',
+	'content-security-policy': "frame-ancestors 'none'",
+	'strict-transport-security': 'max-age=31536000',
+	'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()'
+};
+export const handle: Handle = async ({ event, resolve }) => {
 	const requested = event.url.searchParams.get('lang');
 	const saved = event.cookies.get('course-language');
 	const locale =
@@ -11,7 +19,9 @@ export const handle: Handle = ({ event, resolve }) => {
 			maxAge: 60 * 60 * 24 * 365,
 			sameSite: 'lax'
 		});
-	return resolve(event, {
+	const response = await resolve(event, {
 		transformPageChunk: ({ html }) => html.replace('%course.lang%', locale)
 	});
+	for (const [name, value] of Object.entries(securityHeaders)) response.headers.set(name, value);
+	return response;
 };

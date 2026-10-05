@@ -16,18 +16,24 @@
 	let expanded = $state<Record<number, boolean>>({});
 	let searchResults = $state<SearchResult[]>([]);
 	let searching = $state(false);
+	let activeResult = $state(-1);
+	let shortcutKey = $state('Ctrl');
 	let theme = $state<'light' | 'dark' | null>(null);
 	const allLessons = $derived(data.modules.flatMap((m) => m.lessons));
 	const active = $derived(allLessons.find((l) => l.href.split('?')[0] === page.url.pathname));
 	let systemDark = $state(false);
 	const effectiveTheme = $derived<'light' | 'dark'>(theme ?? (systemDark ? 'dark' : 'light'));
-	onMount(() => courseProgress.load());
+	onMount(() => {
+		courseProgress.load();
+		if (/Mac|iPhone|iPad|iPod/.test(navigator.userAgent)) shortcutKey = '⌘';
+	});
 	afterNavigate(() => {
 		mobileOpen = false;
 		query = '';
 	});
 	$effect(() => {
 		const q = query.trim();
+		activeResult = -1;
 		if (!browser || !q) {
 			searchResults = [];
 			searching = false;
@@ -82,6 +88,22 @@
 			// storage unavailable — theme choice just won't persist across visits
 		}
 	}
+	function navigateResults(event: KeyboardEvent) {
+		const count = searchResults.length;
+		if (!count || searching) return;
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			const step = event.key === 'ArrowDown' ? 1 : -1;
+			activeResult =
+				activeResult < 0 ? (step > 0 ? 0 : count - 1) : (activeResult + step + count) % count;
+			document
+				.getElementById(`search-result-${activeResult}`)
+				?.scrollIntoView({ block: 'nearest' });
+		} else if (event.key === 'Enter') {
+			event.preventDefault();
+			document.getElementById(`search-result-${Math.max(0, activeResult)}`)?.click();
+		}
+	}
 	function closeSearchOutside(event: MouseEvent) {
 		if (query.trim() && searchWrap && !searchWrap.contains(event.target as Node)) query = '';
 	}
@@ -110,23 +132,36 @@
 		<Icon name="search" size={18} /><input
 			bind:this={searchInput}
 			bind:value={query}
+			role="combobox"
 			aria-label="Search lessons"
+			aria-autocomplete="list"
+			aria-expanded={!!query.trim()}
+			aria-controls={query.trim() ? 'search-listbox' : undefined}
+			aria-activedescendant={activeResult >= 0 ? `search-result-${activeResult}` : undefined}
+			onkeydown={navigateResults}
 			placeholder={t.search}
 			autocomplete="off"
-		/><kbd>⌘ K</kbd>
+		/><kbd>{shortcutKey} K</kbd>
 		{#if query.trim()}
 			<div class="search-results">
-				<div class="search-caption">
+				<div class="search-caption" role="status">
 					{searching ? t.searching : t.found(searchResults.length)}
 				</div>
-				{#each searchResults as result (result.id)}<a href={result.href}
-						><span class="result-row"
-							><span class="mono">{result.id}</span><span>{result.title}</span></span
-						>{#if result.snippet}<span class="result-snippet">{result.snippet}</span>{/if}<Icon
-							name="arrow"
-							size={15}
-						/></a
-					>{/each}
+				<div id="search-listbox" role="listbox" aria-label={t.searchResults}>
+					{#each searchResults as result, i (result.id)}<a
+							id={`search-result-${i}`}
+							role="option"
+							aria-selected={i === activeResult}
+							class:active={i === activeResult}
+							href={result.href}
+							><span class="result-row"
+								><span class="mono">{result.id}</span><span>{result.title}</span></span
+							>{#if result.snippet}<span class="result-snippet">{result.snippet}</span>{/if}<Icon
+								name="arrow"
+								size={15}
+							/></a
+						>{/each}
+				</div>
 				{#if !searching && !searchResults.length}<p>{t.noResults}</p>{/if}
 			</div>
 		{/if}

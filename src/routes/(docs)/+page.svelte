@@ -3,6 +3,7 @@
 	import Icon from '$lib/docs/Icon.svelte';
 	import { copy, moduleDescriptions, localizedHref } from '$lib/docs/i18n';
 	import { courseProgress } from '$lib/docs/progress.svelte';
+	import SocialMeta from '$lib/docs/SocialMeta.svelte';
 	let { data } = $props();
 	const lessons = $derived(
 		data.modules.flatMap((m) => m.lessons).filter((l) => l.kind === 'lesson')
@@ -16,6 +17,7 @@
 		allLessons.find((l) => l.id === courseProgress.lastVisited && l.available)
 	);
 	const completedCount = $derived(lessons.filter((l) => courseProgress.isCompleted(l.id)).length);
+	const canonical = $derived(`${page.url.origin}${localizedHref('/', data.locale)}`);
 	const schema = $derived({
 		'@context': 'https://schema.org',
 		'@type': 'Course',
@@ -34,13 +36,20 @@
 <svelte:head>
 	<title>{t.title}</title>
 	<meta name="description" content={t.intro} />
-	<link rel="canonical" href={`${page.url.origin}${localizedHref('/', data.locale)}`} />
+	<link rel="canonical" href={canonical} />
 	<link rel="alternate" hreflang="bn" href={`${page.url.origin}${localizedHref('/', 'bn')}`} />
 	<link rel="alternate" hreflang="en" href={`${page.url.origin}${localizedHref('/', 'en')}`} />
 	<link rel="alternate" hreflang="x-default" href={`${page.url.origin}/`} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- schemaScript is our own JSON.stringify output (curriculum titles + static copy, never user input), with "<" escaped -->
 	{@html schemaScript}
 </svelte:head>
+<SocialMeta
+	title={t.title}
+	description={t.intro}
+	url={canonical}
+	locale={data.locale}
+	type="website"
+/>
 <div class="overview-page">
 	<div class="breadcrumb">
 		<Icon name="book" size={15} /><span>The handbook</span><span>/</span><strong>Overview</strong>

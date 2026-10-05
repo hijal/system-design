@@ -4,9 +4,22 @@
 	import { copy, localizedHref } from '$lib/docs/i18n';
 	import { courseProgress } from '$lib/docs/progress.svelte';
 	import Toc from '$lib/docs/Toc.svelte';
+	import SocialMeta from '$lib/docs/SocialMeta.svelte';
 	let { data } = $props();
 	const t = $derived(copy[data.locale]);
 	const titleParts = $derived(data.lesson.title.split(' — '));
+	const pageTitle = $derived(
+		`${data.lesson.kind === 'lesson' ? `${data.lesson.id} ` : ''}${titleParts[0].replace(/\s*\([^)]*\)/g, '')} — System Design`
+	);
+	const description = $derived(
+		`${data.lesson.title} (${data.module.title}) — System Design Handbook`
+	);
+	const editions = $derived(
+		(['bn', 'en'] as const).filter((locale) =>
+			locale === data.locale ? data.lesson.available : data.lesson.otherAvailable
+		)
+	);
+	const canonical = $derived(`${page.url.origin}${localizedHref(page.url.pathname, data.locale)}`);
 	let copyState = $state<'idle' | 'copying' | 'copied' | 'error'>('idle');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	const mdUrl = $derived(`${page.url.origin}${page.url.pathname}.md?lang=${data.locale}`);
@@ -101,9 +114,19 @@
 				});
 			}
 		}
+		function syncScrollable() {
+			for (const region of node.querySelectorAll<HTMLElement>('pre, table')) {
+				if (region.scrollWidth > region.clientWidth) region.tabIndex = 0;
+				else region.removeAttribute('tabindex');
+			}
+		}
 		setup();
+		syncScrollable();
+		const resize = new ResizeObserver(syncScrollable);
+		resize.observe(node);
 		return {
 			destroy() {
+				resize.disconnect();
 				cleanups.forEach((fn) => fn());
 			}
 		};
@@ -111,29 +134,30 @@
 </script>
 
 <svelte:head
-	><title>{data.lesson.title} — System Design</title><meta
-		name="description"
-		content={`${data.module.title} — ${data.lesson.title}. System Design Handbook.`}
-	/><link
+	><title>{pageTitle}</title><meta name="description" content={description} /><link
 		rel="canonical"
-		href={`${page.url.origin}${localizedHref(page.url.pathname, data.locale)}`}
-	/><link
-		rel="alternate"
-		hreflang="bn"
-		href={`${page.url.origin}${localizedHref(page.url.pathname, 'bn')}`}
-	/><link
-		rel="alternate"
-		hreflang="en"
-		href={`${page.url.origin}${localizedHref(page.url.pathname, 'en')}`}
-	/><link rel="alternate" hreflang="x-default" href={`${page.url.origin}${page.url.pathname}`} />
+		href={canonical}
+	/>{#if !data.lesson.available}<meta name="robots" content="noindex" />{/if}
+	{#each editions as edition (edition)}<link
+			rel="alternate"
+			hreflang={edition}
+			href={`${page.url.origin}${localizedHref(page.url.pathname, edition)}`}
+		/>{/each}
+	{#if editions.includes('bn')}<link
+			rel="alternate"
+			hreflang="x-default"
+			href={`${page.url.origin}${page.url.pathname}`}
+		/>{/if}
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- schemaScript is our own JSON.stringify output (lesson title + static copy, never user input), with "<" escaped -->
 	{@html schemaScript}</svelte:head
 >
+<SocialMeta title={pageTitle} {description} url={canonical} locale={data.locale} type="article" />
 <div class="reader-page">
 	<div class="breadcrumb">
-		<a href={localizedHref('/', data.locale)}><Icon name="book" size={15} /></a><a
-			href={localizedHref('/#curriculum', data.locale)}>{t.overview}</a
-		><span>/</span><strong>{data.module.title}</strong>
+		<a href={localizedHref('/', data.locale)} aria-label={t.home}><Icon name="book" size={15} /></a
+		><a href={localizedHref('/#curriculum', data.locale)}>{t.overview}</a><span>/</span><strong
+			>{data.module.title}</strong
+		>
 	</div>
 	<div class="reader-grid">
 		<div class="reader-main">
@@ -170,7 +194,7 @@
 							></button
 						>
 						<details class="ai-actions">
-							<summary>{t.moreWays}</summary>
+							<summary><Icon name="external" size={14} /><span>{t.moreWays}</span></summary>
 							<div class="ai-actions-menu">
 								<a href={mdUrl} target="_blank" rel="noopener"
 									><Icon name="external" size={13} />{t.viewMarkdown}</a
