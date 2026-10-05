@@ -58,6 +58,25 @@
 	$effect(() => {
 		if (data.lesson.available) courseProgress.visit(data.lesson.id);
 	});
+	$effect(() => {
+		let opened: HTMLDetailsElement[] = [];
+		const openAll = () => {
+			opened = [
+				...document.querySelectorAll<HTMLDetailsElement>('.doc-content details:not([open])')
+			];
+			for (const details of opened) details.open = true;
+		};
+		const restore = () => {
+			for (const details of opened) details.open = false;
+			opened = [];
+		};
+		window.addEventListener('beforeprint', openAll);
+		window.addEventListener('afterprint', restore);
+		return () => {
+			window.removeEventListener('beforeprint', openAll);
+			window.removeEventListener('afterprint', restore);
+		};
+	});
 	async function copyMarkdown() {
 		copyState = 'copying';
 		const markdown = fetch(mdUrl).then((response) => {
@@ -214,7 +233,7 @@
 			{#if data.lesson.available}
 				{#if data.headings.length}<details class="mobile-toc">
 						<summary>{t.onPage}</summary>
-						<nav>
+						<nav aria-label={t.onPage}>
 							{#each data.headings as heading (heading.id)}<a href={`#${heading.id}`}
 									>{heading.text}</a
 								>{/each}
@@ -245,7 +264,7 @@
 					</div>
 				</section>
 			{/if}
-			<nav class="lesson-pagination" aria-label="Lesson navigation">
+			<nav class="lesson-pagination" aria-label={t.lessonNav}>
 				{#if data.previous}<a href={data.previous.href}
 						><span>← {t.prev}</span><strong
 							>{data.previous.kind === 'lesson' ? data.previous.id : '◇'}

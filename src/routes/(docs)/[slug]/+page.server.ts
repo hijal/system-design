@@ -17,7 +17,14 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	url.searchParams.get('lang'); // Rerun this load when the selected language changes.
 	const locale = locals.courseLocale;
 	const aliases: Record<string, string> = { caching: '4.1', 'load-balancing': '3.1' };
-	if (aliases[params.slug]) redirect(307, localizedHref(`/lesson-${aliases[params.slug]}`, locale));
+	if (aliases[params.slug]) {
+		const target = `/lesson-${aliases[params.slug]}`;
+		const requested = url.searchParams.get('lang');
+		redirect(
+			308,
+			requested === 'bn' || requested === 'en' ? localizedHref(target, requested) : target
+		);
+	}
 	const course = catalogs[locale];
 	const id = params.slug.replace(/^lesson-/, '');
 	const index = course.lessons.findIndex((l) => l.id === id);

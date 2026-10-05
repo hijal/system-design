@@ -13,6 +13,7 @@
 	let mobileOpen = $state(false);
 	let searchInput: HTMLInputElement;
 	let searchWrap: HTMLDivElement;
+	let mobileToggle: HTMLButtonElement;
 	let expanded = $state<Record<number, boolean>>({});
 	let searchResults = $state<SearchResult[]>([]);
 	let searching = $state(false);
@@ -104,6 +105,21 @@
 			document.getElementById(`search-result-${Math.max(0, activeResult)}`)?.click();
 		}
 	}
+	function closeMobileNav() {
+		mobileOpen = false;
+		mobileToggle?.focus({ preventScroll: true });
+	}
+	$effect(() => {
+		document.documentElement.classList.toggle('nav-locked', mobileOpen);
+	});
+	$effect(() => {
+		const wide = window.matchMedia('(width > 850px)');
+		const close = () => {
+			if (wide.matches) mobileOpen = false;
+		};
+		wide.addEventListener('change', close);
+		return () => wide.removeEventListener('change', close);
+	});
 	function closeSearchOutside(event: MouseEvent) {
 		if (query.trim() && searchWrap && !searchWrap.contains(event.target as Node)) query = '';
 	}
@@ -114,8 +130,8 @@
 		}
 		if (event.key === 'Escape') {
 			query = '';
-			mobileOpen = false;
 			searchInput?.blur();
+			if (mobileOpen) closeMobileNav();
 		}
 	}
 </script>
@@ -123,9 +139,9 @@
 <svelte:window onkeydown={keys} onclick={closeSearchOutside} />
 <a class="skip-link" href="#main-content">{t.skip}</a>
 <header class="topbar">
-	<a class="brand" href={localizedHref('/', data.locale)} aria-label="System Design home"
+	<a class="brand" href={localizedHref('/', data.locale)}
 		><span class="brand-mark"><Icon name="layers" size={22} /></span><span
-			>system<span class="brand-light">design</span><small>THE LEARNING HANDBOOK</small></span
+			>system<span class="brand-light">design</span> <small>THE LEARNING HANDBOOK</small></span
 		></a
 	>
 	<div class="search-wrap" bind:this={searchWrap}>
@@ -133,7 +149,7 @@
 			bind:this={searchInput}
 			bind:value={query}
 			role="combobox"
-			aria-label="Search lessons"
+			aria-label={t.searchLabel}
 			aria-autocomplete="list"
 			aria-expanded={!!query.trim()}
 			aria-controls={query.trim() ? 'search-listbox' : undefined}
@@ -166,7 +182,7 @@
 			</div>
 		{/if}
 	</div>
-	<nav class="language-switch" aria-label="Reading language">
+	<nav class="language-switch" aria-label={t.readingLanguage}>
 		<a
 			href={localizedHref(page.url.pathname, 'bn')}
 			class:selected={data.locale === 'bn'}
@@ -179,26 +195,24 @@
 	</nav>
 	<button
 		class="icon-button theme-toggle"
-		aria-label={effectiveTheme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+		aria-label={effectiveTheme === 'dark' ? t.toLightTheme : t.toDarkTheme}
 		onclick={toggleTheme}
 		><span class="theme-icon-sun"><Icon name="sun" size={18} /></span><span class="theme-icon-moon"
 			><Icon name="moon" size={18} /></span
 		></button
 	>
 	<button
+		bind:this={mobileToggle}
 		class="icon-button mobile-toggle"
-		aria-label={mobileOpen ? 'Close curriculum' : 'Open curriculum'}
+		aria-label={mobileOpen ? t.closeNav : t.openNav}
 		aria-expanded={mobileOpen}
 		onclick={() => (mobileOpen = !mobileOpen)}
 		><Icon name={mobileOpen ? 'close' : 'menu'} size={18} /></button
 	>
 </header>
-{#if mobileOpen}<button
-		class="nav-backdrop"
-		aria-label="Close curriculum"
-		onclick={() => (mobileOpen = false)}
+{#if mobileOpen}<button class="nav-backdrop" aria-label={t.closeNav} onclick={closeMobileNav}
 	></button>{/if}
-<aside class:mobile-open={mobileOpen} class="sidebar" aria-label="Course curriculum">
+<aside class:mobile-open={mobileOpen} class="sidebar" aria-label={t.curriculumNav}>
 	<div class="sidebar-inner">
 		<div class="sidebar-caption">YOUR LEARNING SPACE</div>
 		<a
@@ -210,7 +224,7 @@
 		<div class="sidebar-caption curriculum-caption">
 			CURRICULUM <span>{data.modules.length} MODULES</span>
 		</div>
-		<nav>
+		<nav aria-label={t.curriculum}>
 			{#each data.modules as module (module.id)}
 				{@const open = expanded[module.id] ?? active?.moduleId === module.id}
 				<div class="nav-module" class:module-active={active?.moduleId === module.id}>
@@ -230,9 +244,9 @@
 										>{lesson.title.split(' — ')[0]}</span
 									>{#if lesson.available && courseProgress.isCompleted(lesson.id)}<span
 											class="lesson-done"
-											aria-label="Completed"
-											title="Completed"><Icon name="check" size={11} /></span
-										>{:else if !lesson.available}<span class="pending-dot" aria-label="Coming soon"
+											aria-label={t.completed}
+											title={t.completed}><Icon name="check" size={11} /></span
+										>{:else if !lesson.available}<span class="pending-dot" aria-label={t.coming}
 										></span>{/if}</a
 								>{/each}
 						</div>{/if}
@@ -246,4 +260,6 @@
 		</div>
 	</div>
 </aside>
-<main id="main-content" class="workspace" tabindex="-1">{@render children()}</main>
+<main id="main-content" class="workspace" tabindex="-1" inert={mobileOpen}>
+	{@render children()}
+</main>

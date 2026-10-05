@@ -11,7 +11,8 @@
 	--green-dark: #0b6040;
 	--green-soft: #edf7f2;
 	--on-green: #fff;
-	--mono: 'JetBrains Mono', monospace;
+	--sans: 'Inter Variable', 'Noto Sans Bengali Variable', sans-serif;
+	--mono: 'JetBrains Mono Variable', monospace;
 	--bg: #fff;
 	--surface: #fff;
 	--surface-2: #f6f9f6;
@@ -23,10 +24,7 @@
 	--bg-translucent: #fffffff7;
 	color-scheme: light;
 	background: var(--bg);
-	font-family:
-		Inter,
-		Noto Sans Bengali,
-		sans-serif;
+	font-family: var(--sans);
 }
 * {
 	box-sizing: border-box;
@@ -136,7 +134,7 @@ html {
 	letter-spacing: 2.1px;
 	color: var(--muted);
 	margin-top: 7px;
-	font-family: Inter, sans-serif;
+	font-family: 'Inter Variable', sans-serif;
 	font-size: 9px;
 	font-weight: 550;
 	display: block;
@@ -706,6 +704,9 @@ html {
 	.sidebar.mobile-open {
 		display: block;
 	}
+	.nav-locked {
+		overflow: hidden;
+	}
 	.mobile-toggle {
 		flex-shrink: 0;
 		display: grid;
@@ -1206,10 +1207,7 @@ html {
 	border: 1px solid #3b5143;
 	border-radius: 4px;
 	padding: 3px 7px;
-	font-family:
-		Inter,
-		Noto Sans Bengali,
-		sans-serif;
+	font-family: var(--sans);
 	font-size: 11px;
 }
 .code-toolbar button:hover {
@@ -1991,7 +1989,7 @@ body:has(.reader-page) .workspace {
 	margin-bottom: 28px;
 }
 .lesson-header h1 {
-	font-family: 'Inter', 'Noto Sans Bengali', sans-serif;
+	font-family: var(--sans);
 	color: var(--heading);
 	font-size: 34px;
 	line-height: 1.42;
@@ -2650,3 +2648,79 @@ body:has(.reader-page) .workspace {
 /* A couple of surfaces are painted with a fixed light/near-black pair
    instead of a token (self-contained brand tile) —
    they read fine unchanged on a dark page, so they're deliberately left out. */
+
+@media print {
+	@page {
+		margin: 15mm;
+	}
+	:root:is([data-theme], :not([data-theme])) {
+		--ink: #20292d;
+		--heading: #16211a;
+		--muted: #4f595d;
+		--line: #d5dbd9;
+		--green: #087f66;
+		--green-dark: #0b6040;
+		--green-soft: #edf7f2;
+		--on-green: #fff;
+		--bg: #fff;
+		--surface: #fff;
+		--surface-2: #f6f9f6;
+		--underline: #bad6c5;
+		color-scheme: light;
+	}
+	.skip-link,
+	.topbar,
+	.sidebar,
+	.nav-backdrop,
+	.reader-aside,
+	.mobile-toc,
+	.lesson-pagination,
+	.copy-markdown,
+	.mark-complete,
+	.ai-actions,
+	.code-toolbar button {
+		display: none;
+	}
+	body:has(.reader-page) .workspace,
+	.workspace {
+		min-height: 0;
+		margin-left: 0;
+	}
+	.workspace .reader-page,
+	.reader-page {
+		max-width: none;
+		padding: 0;
+	}
+	.reader-grid {
+		grid-template-columns: minmax(0, 1fr);
+		padding-top: 12px;
+		display: block;
+	}
+	.reader-main {
+		max-width: none;
+	}
+	.doc-content pre,
+	.code-toolbar {
+		print-color-adjust: exact;
+	}
+	.doc-content pre {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		background-image: none;
+		overflow: visible;
+	}
+	.doc-content table {
+		background-image: none;
+		overflow: visible;
+	}
+	.doc-content pre,
+	.doc-content table,
+	.doc-content blockquote,
+	.doc-content tr {
+		break-inside: avoid;
+	}
+	.doc-content h2,
+	.doc-content h3 {
+		break-after: avoid;
+	}
+}

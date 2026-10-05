@@ -39,6 +39,7 @@
 		<nav aria-label={copy[locale].onPage}>
 			{#each sections as heading (heading.id)}<a
 					class:active={activeId === heading.id}
+					aria-current={activeId === heading.id ? 'location' : undefined}
 					class:subheading={heading.level === 3}
 					href={`#${heading.id}`}>{heading.text}</a
 				>{/each}

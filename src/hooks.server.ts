@@ -3,7 +3,6 @@ export const securityHeaders: Record<string, string> = {
 	'x-content-type-options': 'nosniff',
 	'referrer-policy': 'strict-origin-when-cross-origin',
 	'x-frame-options': 'DENY',
-	'content-security-policy': "frame-ancestors 'none'",
 	'strict-transport-security': 'max-age=31536000',
 	'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()'
 };

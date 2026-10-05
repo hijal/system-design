@@ -32,6 +32,9 @@ export const GET: RequestHandler = ({ url }) => {
 	}
 	lines.push('');
 	return new Response(lines.join('\n'), {
-		headers: { 'content-type': 'text/plain; charset=utf-8' }
+		headers: {
+			'content-type': 'text/plain; charset=utf-8',
+			'cache-control': 'public, max-age=300'
+		}
 	});
 };

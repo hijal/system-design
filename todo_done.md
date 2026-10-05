@@ -195,3 +195,135 @@
 - **How to test:** payload size আগে/পরে; client-side navigation এ lesson ঠিকমতো render হয়।
 - **Fix:** **Won't fix (তদন্তের পর)** — code বদলানো হয়নি। SvelteKit server `load` এর পুরো return value hydration এর জন্য page এ serialize করে, field বাদ দেওয়ার কোনো public option নেই। বিকল্প গুলোও কাজ করে না: universal `+page.ts` থেকে `fetch` করলে SvelteKit সেই response ও SSR page এ inline করে (একই duplication); hydration এর সময় DOM থেকে article পড়ে নেওয়া hack, আর client-side navigation এ `__data.json` থেকে `html` লাগবেই। লাভও ছোট (নিচে দেখো), তাই hack এর ঝুঁকি নেওয়ার মানে নেই। যদি কখনো দরকার হয়, পথ হবে lesson কে prerender করে static HTML বানানো — সেটা locale cookie এর design বদলায়, আলাদা কাজ।
 - **Tested:** Production build (`wrangler dev`) এর `/lesson-5.4?lang=bn` (সবচেয়ে ভারী lesson গুলোর একটা): মোট ১২২.৮KB, hydration script ৬৩.৪KB যার মধ্যে `html` field ৪৪.৪KB। `html` সরালে কতটা কমে, মাপা হয়েছে: brotli q4 (Cloudflare এর মতো) ৩১.৯KB → ২৩.৮KB (−৮.১KB), brotli q11 ২২.৮KB → ১৮.৯KB (−৩.৯KB)। ছোট lesson এ লাভ আরও কম।
+
+## SD-17 · Nested URL এ unstyled SvelteKit default 404
+
+- **Priority:** Medium
+- **Category:** UX
+- **Where:** `/a/b`, `/lesson-1.1/extra` এর মতো এক segment এর বেশি URL — `src/routes/(docs)/[slug]` শুধু এক segment ধরে
+- **Found by:** Playwright — `/a/b` এ title নেই, topbar নেই, শুধু "404 Not Found" plain text
+- **Problem:** ভুল বা পুরনো link এ আসা user site এর কোনো navigation, theme, বা ফিরে যাওয়ার link পায় না; `(docs)/+error.svelte` এখানে চলে না।
+- **Expected:** যেকোনো অচেনা URL একই styled 404 page দেখায় (topbar, sidebar, "Curriculum-এ ফিরে যাও")।
+- **How to test:** `/a/b`, `/lesson-1.1/x`, `/x/y/z` — status 404, topbar আছে, locale অনুযায়ী text।
+- **Fix:** নতুন catch-all route `src/routes/(docs)/[...rest]/+page.server.ts` — যেকোনো অচেনা multi-segment URL এ locale অনুযায়ী message দিয়ে `error(404, …)` ("এই ঠিকানায় কোনো পাতা নেই।" / "There is no page at this address.")। Route টা `(docs)` group এর ভেতরে, তাই `(docs)/+layout` (topbar, sidebar, theme) আর `(docs)/+error.svelte` দুটোই পায়। SvelteKit এর route priority তে `/`, `[slug]`, `[slug].md`, `/search`, `/llms.txt`, `/sitemap.xml`, `/robots.txt` আগে আসে, তাই ওগুলোর কিছু বদলায় না।
+- **Tested:** Production build (`wrangler dev`): `/a/b`, `/lesson-1.1/x`, `/x/y/z`, `/a/b?lang=en` → 404, `<title>404 — System Design</title>`, topbar + sidebar আছে; bn এ "এই পাতাটি পাওয়া যায়নি। / এই ঠিকানায় কোনো পাতা নেই। / Curriculum-এ ফিরে যাও", en এ English, `<html lang>` ঠিক; "ফিরে যাও" link → `/?lang=…`। বাকি route গুলো আগের মতো: `/`, `/lesson-1.1` 200, `/lesson-99.9` 404 (lesson message), `/sitemap.xml`, `/llms.txt`, `/search`, `/lesson-1.1.md`, `/robots.txt` 200 সঠিক content-type সহ।
+
+## SD-18 · Mobile curriculum drawer এ focus আর scroll ঠিকমতো manage হয় না
+
+- **Priority:** Medium
+- **Category:** Accessibility / UX
+- **Where:** mobile (≤ drawer breakpoint) — `src/routes/(docs)/+layout.svelte`, `.sidebar.mobile-open`
+- **Found by:** Playwright 375px — drawer খোলা অবস্থায় Escape চাপলে focus `<body>` এ হারিয়ে যায়; drawer খোলা অবস্থায় পেছনের page scroll হয় (scrollY ১৫০০ → ১৯১৪); পেছনের `main` inert না, তাই Tab drawer থেকে বেরিয়ে আড়ালের content এ যায়
+- **Problem:** Keyboard user drawer বন্ধ করে কোথায় আছে হারিয়ে ফেলে; touch user drawer scroll করতে গিয়ে পেছনের lesson এ নিজের জায়গা হারায়।
+- **Expected:** Escape বা backdrop এ বন্ধ হলে focus toggle button এ ফেরে; drawer খোলা থাকলে page scroll lock আর `main` inert।
+- **How to test:** Playwright — Escape এর পর focus `.mobile-toggle`; খোলা অবস্থায় wheel এ scrollY বদলায় না; Tab শুধু topbar/drawer এর ভেতরে ঘোরে; বন্ধ করলে scroll আগের জায়গায়।
+- **Fix:** `(docs)/+layout.svelte`: নতুন `closeMobileNav()` — drawer বন্ধ করে `mobileToggle.focus({ preventScroll: true })`; Escape আর backdrop দুটোই এটা ডাকে (link এ navigate করলে `afterNavigate` আগের মতো বন্ধ করে, focus SvelteKit সামলায়)। Drawer খোলা থাকলে `<html>` এ `nav-locked` class (`layout.css` এর ≤850px block এ `overflow: hidden`) আর `<main inert>` — তাই পেছনের page scroll বা Tab হয় না। `matchMedia("(width > 850px)")` — drawer খোলা অবস্থায় window চওড়া হলে drawer বন্ধ, যাতে desktop এ `main` inert থেকে না যায়। প্রথম চেষ্টায় `focus()` toggle কে "scroll into view" করে page ১৫০০ → ১১১৪ এ সরিয়ে দিচ্ছিল, `preventScroll` দিয়ে ঠিক।
+- **Tested:** Playwright 375px `/lesson-5.4`: scrollY ১৫০০ এ drawer খোলা → `nav-locked` + `overflow: hidden` + `main.inert`; backdrop এর উপর wheel এ scrollY ১৫০০ ই থাকে, drawer নিজে scroll হয় (০ → ৩০০); ৪০ বার Tab — focus শুধু topbar/drawer এ, `main` এ যায় না; Escape → focus `.mobile-toggle`, scrollY ১৫০০ অপরিবর্তিত, lock/inert উঠে যায়; backdrop click → focus toggle; drawer এর lesson link → `/lesson-5.5`, drawer বন্ধ, lock/inert নেই; খোলা অবস্থায় 1200px এ resize → বন্ধ, inert/lock নেই। `svelte-check` 0 error, `eslint` clean।
+
+## SD-19 · Google Fonts render-blocking, আর CSS এর ৪৫০/৫৫০/৬৫০/৭৫০ weight আসলে render হয় না
+
+- **Priority:** Medium
+- **Category:** Performance
+- **Where:** `src/app.html` এর Google Fonts `<link>`; `src/routes/layout.css`
+- **Found by:** Lighthouse — "Render blocking requests", আনুমানিক ৭১০–৯৪০ms সাশ্রয় সম্ভব (third-party CSS → তারপর font file, দুটো আলাদা origin); প্রতি page এ ৪টা font file ২০৬KB; CSS এ `font-weight: 550` (১১ জায়গায়), `650` (৫), `450` (৩), `750` (১) — static font এ শুধু ৪০০/৫০০/৬০০/৭০০/৮০০ আছে, তাই browser কাছের weight এ snap করে
+- **Problem:** প্রথম paint একটা অন্য origin এর CSS এর জন্য আটকে থাকে; design এ যে মাঝামাঝি weight লেখা সেটা কখনো দেখা যায় না।
+- **Expected:** Font self-host (same origin, hashed + immutable cache), variable font যাতে যেকোনো weight ঠিক render হয়; Google Fonts এর render-blocking request আর থাকে না।
+- **How to test:** Lighthouse render-blocking audit pass; network এ `fonts.googleapis.com` / `fonts.gstatic.com` request ০; `document.fonts` এ তিনটা family loaded; screenshot এ Bangla/English/mono text ঠিক।
+- **Fix:** Google Fonts `<link>` আর দুটো `preconnect` `src/app.html` থেকে সরানো; `@fontsource-variable/inter`, `@fontsource-variable/noto-sans-bengali`, `@fontsource-variable/jetbrains-mono` (OFL-1.1, `package.json` + `bun.lock` এ নতুন dependency) root `+layout.svelte` এ import — Vite hashed `woff2` হিসেবে bundle করে, same-origin, `immutable` cache, `unicode-range` এর কারণে শুধু দরকারি subset নামে। `layout.css` এ নতুন `--sans` token (`Inter Variable`, `Noto Sans Bengali Variable`), `--mono` → `JetBrains Mono Variable`; চারটা আলাদা font stack এখন token থেকে। Variable font তাই CSS এর ৪৫০/৫৫০/৬৫০/৭৫০ weight এখন হুবহু render হয় (আগে কাছের static weight এ snap করত — heading গুলো একটু হালকা দেখাবে, কারণ এটাই CSS এ লেখা ছিল)। **Font preload চেষ্টা করে বাদ দেওয়া হয়েছে** — নিচের মাপে real throttled load এ preload ধীর করছিল।
+- **Tested:** একই machine এ A/B — HEAD (Google Fonts) একটা git worktree এ build করে port 8798 এ, নতুনটা 8799 এ, দুটোই `wrangler dev`। Network: Google এর request ০, ৩টা font file (Inter latin ৪৭KB, Noto Bengali ১০৫KB, JetBrains latin ৩৯KB = ১৯২KB, আগে ২০৬KB), `font/woff2` + `public, immutable, max-age=31536000`; `document.fonts` এ তিন family loaded; computed weight `.lesson-header h1` = ৬৫০, `.module-card h3` = ৫৫০। Lighthouse **simulated**: render-blocking audit fail → pass, `/lesson-5.4?lang=bn` perf ৮১–৮২ → ৯৫–৯৬ (FCP ৩.৬s → ১.৬s), কিন্তু en homepage LCP ১.৬s → ২.৬–২.৭s (preload এর কারণে simulation artifact)। Lighthouse **real devtools throttling** (যেটা বেশি বিশ্বাসযোগ্য): Google Fonts FCP/LCP ১.৪–১.৬s; self-host + preload ১.৬–১.৮s (খারাপ); self-host preload ছাড়া ১.৫–১.৭s, perf ৯২–১০০ — অর্থাৎ **গতিতে প্রায় সমান**, বড় জয় না। তবু রাখা হয়েছে কারণ: weight এখন design অনুযায়ী, third-party request নেই (user এর IP Google এ যায় না, Google down হলেও font আসে), আর SD-20 এর CSP সহজ হয়। CLS দুই ক্ষেত্রেই একই (lesson ০.০৬৭)। Screenshot এ bn/en/mono text ঠিক।
+
+## SD-20 · পূর্ণ Content-Security-Policy নেই
+
+- **Priority:** Medium
+- **Category:** Security
+- **Where:** `vite.config.ts` (SvelteKit config), `src/app.html`
+- **Found by:** Round 1 এ শুধু `frame-ancestors` দেওয়া হয়েছিল; live HTML এ Cloudflare এর inject করা কোনো script নেই, তাই পূর্ণ CSP সম্ভব
+- **Problem:** Rendered markdown বা কোনো dependency দিয়ে কখনো script ঢুকলে browser এর কোনো দ্বিতীয় স্তরের বাধা নেই।
+- **Expected:** SvelteKit `kit.csp` (hash mode) দিয়ে `default-src 'self'`, `script-src 'self'` + hash, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` ইত্যাদি; theme init inline script এর hash।
+- **How to test:** সব page type এ CSP header; browser console এ CSP violation ০ (home, lesson, search, theme toggle, copy, 404); inline script hash ভুল হলে violation ধরা পড়ে তা নিশ্চিত করা।
+- **Fix:** `vite.config.ts` এ SvelteKit `csp` — **`mode: "auto"`** (তোমার কথা মতো; dynamic SSR page এ প্রতি request এ নতুন nonce, prerender করা page থাকলে hash): `default-src 'self'`, `script-src 'self'` (+ SvelteKit এর nonce), `style-src 'self' 'unsafe-inline'` (`app.html` এর `style="display: contents"` attribute এর জন্য), `img-src 'self' data:` (hashed SVG favicon data URI), `font-src 'self'`, `connect-src 'self'` (search fetch), `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`। `src/app.html` এর theme script এ `nonce="%sveltekit.nonce%"`। `hooks.server.ts` এর আগের আলাদা `content-security-policy: frame-ancestors` header সরানো (নইলে SvelteKit এর CSP overwrite করত; `frame-ancestors` এখন এই CSP তে, `X-Frame-Options: DENY` আগের মতো সব response এ)। Test এ ধরা পড়ল Vite ৪KB এর ছোট font (JetBrains Mono `cyrillic-ext`, ২KB) CSS এর ভেতর `data:` URI করে inline করছে, যা `font-src` block করে — `font-src` এ `data:` খোলার বদলে `build.assetsInlineLimit` দিয়ে `.woff2` inline বন্ধ, তাই সব font আলাদা same-origin file (CSS ২.৭KB ছোট হয়েছে)। প্রথমে hash mode + build-time hash চেষ্টা করেছিলাম, `auto` তে nonce দিয়ে সেটার দরকার নেই, তাই সরানো।
+- **Tested:** Production build (`wrangler dev`): CSP header প্রতি request এ আলাদা nonce (`script-src 'self' 'nonce-…'`), HTML এর দুটো inline script (theme + SvelteKit hydration) এ একই nonce; `/search` (endpoint) এ CSP header নেই, যা ঠিক। Playwright `securitypolicyviolation` listener + console: home, theme toggle, search fetch, search থেকে Enter এ client nav, Markdown কপি ("কপি হয়েছে"), code copy, next lesson, `/lesson-5.4?lang=en`, `/lesson-12.6`, `/lesson-99.9`, `/a/b`, `/lesson-1-challenge` — সব জায়গায় violation ০, page error ০; saved dark theme আগের মতো প্রথম paint এর আগেই বসে (`data-theme=dark`), ৩টা font loaded। Negative test (prod আর `bun run dev` দুটোতেই): JS দিয়ে inject করা inline script চলে না আর external script block হয় (`script-src-elem` ×২)। `bun run test` ৩০/৩০, `svelte-check` ০ error।
+
+## SD-21 · Bangla UI তে screen reader label গুলো ইংরেজিতে hardcoded
+
+- **Priority:** Low
+- **Category:** Accessibility
+- **Where:** `src/routes/(docs)/+layout.svelte`, `src/routes/(docs)/[slug]/+page.svelte` — "Search lessons", "Reading language", "Open/Close curriculum", "Switch to dark/light theme", "Course curriculum", "Lesson navigation", "Completed", "Coming soon"
+- **Found by:** Source + aria snapshot — bn mode এ sidebar link পড়ে "1.1 System Design আসলে কী… Completed"
+- **Problem:** `lang="bn"` page এ Bangla voice ইংরেজি label ভুল উচ্চারণে পড়ে; visible UI বাংলা কিন্তু শোনা যায় ইংরেজি।
+- **Expected:** এই label গুলো `copy` (i18n) থেকে locale অনুযায়ী।
+- **How to test:** bn আর en দুই mode এ aria snapshot।
+- **Fix:** `i18n.ts` এর `copy` তে bn/en দুই locale এ নতুন key: `searchLabel`, `readingLanguage`, `openNav`, `closeNav`, `toLightTheme`, `toDarkTheme`, `curriculumNav`, `lessonNav`, `completed` ("Coming soon" এর জন্য আগের `coming` key)। `(docs)/+layout.svelte` এর search input, language switch, theme toggle, mobile toggle, backdrop, sidebar `aside`, completed ✓ (aria-label + title), pending dot, আর `[slug]/+page.svelte` এর pagination `nav` এখন `t.*` থেকে। Brand link এর label SD-22 তে আলাদা করে।
+- **Tested:** Playwright (375px), bn: aria-label গুলো "Lesson খোঁজো · পড়ার ভাষা · Dark theme এ যাও · Curriculum খোলো · কোর্সের curriculum · শীঘ্রই আসছে · আগের আর পরের lesson", খোলার পর toggle "Curriculum বন্ধ করো"; sidebar link "1.1 System Design আসলে কী… সম্পন্ন", "12.5 … শীঘ্রই আসছে"। en: "Search lessons · Reading language · Switch to dark theme · Open curriculum · Course curriculum · Coming soon · Lesson navigation", "1.1 What is System Design? Completed"। Source এ `aria-label="<English>"` hardcoded বাকি শুধু brand link (SD-22)।
+
+## SD-22 · Brand link এর accessible নাম visible text এর সাথে মেলে না
+
+- **Priority:** Low
+- **Category:** Accessibility
+- **Where:** topbar `.brand` — `aria-label="System Design home"`, visible "systemdesign THE LEARNING HANDBOOK"
+- **Found by:** Lighthouse `label-content-name-mismatch` (WCAG 2.5.3 Label in Name)
+- **Problem:** Voice control user যা দেখে ("system design") বললে link match নাও হতে পারে।
+- **Expected:** Accessible নাম visible text দিয়ে শুরু হয়।
+- **How to test:** Lighthouse `label-content-name-mismatch` pass।
+- **Fix:** `(docs)/+layout.svelte` এ brand link থেকে `aria-label="System Design home"` সরানো — নাম এখন visible text থেকেই আসে, তাই কখনো mismatch হবে না। `design</span>` আর `<small>` এর মাঝে একটা space, যাতে নাম "systemdesignTHE…" না হয়ে "systemdesign THE LEARNING HANDBOOK" হয়; `<small>` `display: block`, তাই space চোখে পড়ে না।
+- **Tested:** Playwright aria snapshot: homepage (1440px আর 375px) `link "systemdesign THE LEARNING HANDBOOK"`, lesson page এ (যেখানে `<small>` `display: none`) `link "systemdesign"` — দুটোই visible text এর সাথে হুবহু মেলে। Screenshot এ logo আগের মতো, আকার একই (২৪৪×৪০)। Lighthouse accessibility `/` আর `/lesson-5.4`: ১০০, `label-content-name-mismatch` আর প্রযোজ্য নয় (আগে fail)।
+
+## SD-23 · দুটো `nav` landmark এর আলাদা নাম নেই
+
+- **Priority:** Low
+- **Category:** Accessibility
+- **Where:** sidebar এর ভেতরের `<nav>` (label নেই) — `src/routes/(docs)/+layout.svelte`
+- **Found by:** axe `landmark-unique` (moderate) — mobile drawer খোলা অবস্থায়
+- **Problem:** Screen reader এর landmark list এ নামহীন "navigation" — কোনটা কী বোঝা যায় না।
+- **Expected:** Curriculum `nav` এর নিজের label।
+- **How to test:** mobile drawer খোলা অবস্থায় axe clean।
+- **Fix:** `(docs)/+layout.svelte` এ sidebar এর `<nav>` এ `aria-label={t.curriculum}` ("তোমার curriculum" / "Your curriculum"), যা বাইরের `aside` এর label ("কোর্সের curriculum") থেকে আলাদা। পরীক্ষার সময় আরেকটা নামহীন `nav` পাওয়া গেছে — mobile TOC এর — সেটাতেও desktop TOC এর মতো `aria-label={t.onPage}` (`[slug]/+page.svelte`)।
+- **Tested:** axe (WCAG 2.2 + best-practice), local dev `/lesson-1.1`: 375px এ drawer খোলা bn/en — `landmark-unique` আর নেই; 1440px — clean। সব landmark এর নাম: bn "পড়ার ভাষা · কোর্সের curriculum · তোমার curriculum · এই lesson-এ · আগের আর পরের lesson", en এর মতো। Drawer খোলা অবস্থায় axe `landmark-one-main` আর `page-has-heading-one` (best-practice) দেখায় — এটা ইচ্ছাকৃত, কারণ SD-18 এ drawer খোলা থাকলে `main` inert করা হয়েছে (modal এর মতো); drawer বন্ধ থাকলে দুটোই নেই।
+
+## SD-24 · TOC এর active section screen reader কে জানানো হয় না
+
+- **Priority:** Low
+- **Category:** Accessibility
+- **Where:** `src/lib/docs/Toc.svelte` — `.toc a.active`
+- **Found by:** DOM check — active link এ `aria-current` নেই
+- **Problem:** চোখে দেখা highlight শুধু রঙে; screen reader জানে না কোন section এ আছে।
+- **Expected:** Active link এ `aria-current="location"`।
+- **How to test:** scroll করলে `aria-current` active link এর সাথে সরে।
+- **Fix:** `src/lib/docs/Toc.svelte` এ প্রতিটা TOC link এ `aria-current={activeId === heading.id ? "location" : undefined}` — চোখে দেখা `.active` highlight যে state থেকে আসে, সেই একই `activeId` থেকে।
+- **Tested:** Playwright 1440px `/lesson-5.4?lang=en`: শুরুতে, scrollY ৩০০০, ৯০০০, ২০০০০ এ, আর TOC link click এর পর — প্রতিবার ঠিক ১টা link এ `aria-current`, আর সেটাই `.active` link ("0. Where TaskFlow…" → "1.1 Learning to read EXPLAIN…" → "1.6 Selectivity…" → "7. Progress Ledger" → click এ "1.2 The first step…")। `prettier --check` pass।
+
+## SD-25 · Print stylesheet নেই
+
+- **Priority:** Low
+- **Category:** UX
+- **Where:** `src/routes/layout.css`
+- **Found by:** Playwright `emulateMedia({ media: 'print' })` — topbar, sidebar, TOC, pagination, code copy toolbar সব print হয়
+- **Problem:** Lesson বা answer key print/PDF করলে অর্ধেক পাতা navigation এ যায়, article সরু হয়ে থাকে।
+- **Expected:** Print এ শুধু lesson header + article, পুরো চওড়া; `<details>` answer key খোলা; code block wrap হয়।
+- **How to test:** print emulate করে screenshot আর PDF; chrome element গুলো `display: none`।
+- **Fix:** `layout.css` এর শেষে `@media print` block: `@page { margin: 15mm }`; light token জোর করে (`:root:is([data-theme], :not([data-theme]))` — যেকোনো theme এ মেলে আর dark rule গুলোর পরে আসে, তাই dark mode থেকেও print এ কাগজে সাদা background + গাঢ় text); skip link, topbar, sidebar, backdrop, TOC (desktop + mobile), pagination, Markdown/সম্পন্ন/আরও উপায়ে button, code copy button লুকানো; workspace এর sidebar margin আর reader grid সরিয়ে article পুরো চওড়া; code block `pre-wrap` (কাটা যায় না) আর `print-color-adjust: exact` (syntax রঙ থাকে); scroll-shadow background বন্ধ; code/table/blockquote ভাঙে না, heading এর পর page break হয় না। `[slug]/+page.svelte` এ `beforeprint` এ article এর বন্ধ `<details>` (Answer Key) খোলে, `afterprint` এ শুধু ওইগুলো আবার বন্ধ করে।
+- **Tested:** Playwright, dark theme (localStorage + OS dark), `/lesson-1.1?lang=en`: print media তে topbar/sidebar/TOC/pagination/copy button `display: none`, article left ০ আর পুরো চওড়া, body text `rgb(32,41,45)` সাদা background এ, `pre` → `pre-wrap`। `beforeprint` event → details [১ টা, খোলা ১], `afterprint` → আবার বন্ধ ০। A4 PDF (৭ পাতা) চোখে দেখে নেওয়া: হালকা পাতা, শুধু lesson, code block রঙিন। Headless `page.pdf()` নিজে `beforeprint` fire করে না (CDP এর সীমা), তাই event dispatch করে PDF বানালে "Answer Key / Question 1: Usually the database connections…" PDF এ আসে; আসল browser এর Ctrl+P `beforeprint` fire করে।
+
+## SD-26 · `/search` আর `/llms.txt` এ কোনো cache header নেই
+
+- **Priority:** Low
+- **Category:** Performance
+- **Where:** `src/routes/search/+server.ts`, `src/routes/llms.txt/+server.ts`
+- **Found by:** `curl -D -` — `cache-control` নেই
+- **Problem:** Content শুধু deploy এ বদলায়, তবু একই query (debounce করা প্রতিটা keystroke) প্রতিবার worker এ যায়।
+- **Expected:** অল্প সময়ের public cache (যেমন `max-age=300`), `.md` route এর মতো।
+- **How to test:** `curl -D -` এ header; unit/route check।
+- **Fix:** `src/routes/search/+server.ts` আর `src/routes/llms.txt/+server.ts` এ `cache-control: public, max-age=300` — `.md` route এর মতোই। দুটোর ফল শুধু URL (`q`, `lang`) আর deploy এর উপর নির্ভর করে, cookie এর উপর না, তাই `Vary` লাগে না; ৫ মিনিট পরে নতুন deploy এর content আসে। নতুন `src/routes/search/server.spec.ts`।
+- **Tested:** `bun run test` — ৩২/৩২ pass (নতুন ২টা: header + en result এর সব href `lang=en`; খালি আর এক অক্ষরের query তে `results: []`)। Local dev `curl -D -`: `/search?q=redis&lang=bn` আর `/llms.txt` দুটোতেই `cache-control: public, max-age=300`। `eslint` clean।
+
+## SD-27 · `/caching`, `/load-balancing` alias এ temporary (307) redirect
+
+- **Priority:** Low
+- **Category:** SEO
+- **Where:** `src/routes/(docs)/[slug]/+page.server.ts` — `redirect(307, …)`
+- **Found by:** `curl` — `/caching` → 307 → `/lesson-4.1?lang=bn`
+- **Problem:** Alias স্থায়ী, কিন্তু 307 বলে "সাময়িক" — search engine পুরনো URL রেখে দেয়, link equity সরে না।
+- **Expected:** Permanent redirect (308)।
+- **How to test:** `curl` — 308 + সঠিক `location`।
+- **Fix:** `(docs)/[slug]/+page.server.ts`: alias redirect `307` → `308` (permanent)। সাথে একটা ঝুঁকি এড়ানো হয়েছে — browser permanent redirect cache করে, আর আগের target এ cookie থেকে `?lang=` বসত; cache হওয়া `/caching → ?lang=bn` পরে English এ চলে যাওয়া user এর cookie আবার bn করে দিত। তাই target এখন locale-neutral (`/lesson-4.1`, page নিজে cookie পড়ে); request URL এ বৈধ `?lang=bn|en` থাকলে শুধু তখন সেটা রাখা হয়। নতুন `page.server.spec.ts`।
+- **Tested:** `bun run test` — ৩৫/৩৫ pass (নতুন ৩টা: `caching` আর `load-balancing` 308 + lang ছাড়া, cookie en হলেও; `?lang=en` থাকলে রাখে, `?lang=xx` বাদ দেয়; আসল lesson redirect হয় না)। Local dev `curl`: `/caching` → 308 `/lesson-4.1`, `/load-balancing` → 308 `/lesson-3.1`, `/caching?lang=en` → `/lesson-4.1?lang=en`; cookie `course-language=en` নিয়ে `/caching` follow করলে `<html lang="en">`, title "4.1 Cache Hierarchy"।
