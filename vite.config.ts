@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { cspDirectives } from './src/lib/server/csp';
+import { cspDirectives } from './src/lib/server/csp.ts';
 
 export default defineConfig({
 	plugins: [
