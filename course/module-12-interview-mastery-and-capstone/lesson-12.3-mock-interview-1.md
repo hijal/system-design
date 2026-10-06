@@ -1,4 +1,4 @@
-# Lesson 12.3 — Mock Interview #1: তুমি Interviewer, আমি Candidate
+# Lesson 12.3 — Mock Interview #1: আমি Interviewer, তুমি Candidate
 
 **Module 12 — Interview Mastery & Capstone**
 
