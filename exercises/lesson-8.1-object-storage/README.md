@@ -18,7 +18,7 @@ TaskFlow এর task attachment কোথায় রাখব — চারট
 - Object store টা **SeaweedFS** (S3 API বলে এমন একটা open-source system) — AWS S3 না। S3 API এর যে অংশ এখানে
   ব্যবহার হয়েছে (PUT, GET, Range, HEAD, LIST, Copy, If-Match/If-None-Match, versioning) সেটা এখানে S3 এর মতোই
   আচরণ করেছে; কিন্তু অন্য S3-compatible system (বা পুরনো version) সব feature সমর্থন নাও করতে পারে — ব্যবহারের আগে
-  যাচাই করো। (MinIO এর community Docker image আর Docker Hub এ পাওয়া যায় না, তাই এটা।) যাচাই করা হয়েছে SeaweedFS
+  যাচাই করুন। (MinIO এর community Docker image আর Docker Hub এ পাওয়া যায় না, তাই এটা।) যাচাই করা হয়েছে SeaweedFS
   4.47 আর Postgres 17 এ।
 - `where` আসল database, আসল সময় — সংখ্যা মেশিন ভেদে বদলাবে, আকৃতি একই থাকার কথা। File এর content এলোমেলো byte —
   আসল PDF, ছবি, zip এর মতোই আর চাপা যায় না। Postgres আর SeaweedFS দুটোই `cpus: 2` এ।
@@ -131,7 +131,7 @@ docker compose down -v
 - **`durability` এর EC 6+3:** ৩ কপির অর্ধেক disk এ বেশি durability — কিন্তু fragment গুলো rack না ভেবে বসালে একটা
   rack বন্ধ হলেই ৩ কপির চেয়েও বেশি object পড়া যায় না। Erasure coding এর শক্তি আসে failure domain জুড়ে ছড়ানো থেকে।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Pool নাকি app?** `POOL_MAX=20 npm run where` — file এর জন্য pool এ যথেষ্ট জায়গা। (এই মেশিনে: "app এর ভেতর দিয়ে"
    সারিতে board তবু ৩৭৪ q/s, p50 ২০ ms।) তাহলে ক্ষতির বড় অংশ কোথা থেকে আসছে?
@@ -142,12 +142,12 @@ docker compose down -v
 3. **মেরামত ধীর হলে:** `REPAIR_HOURS=168 npm run durability` — বড় disk এর data আবার বানাতে এক সপ্তাহ লাগলে। (এই
    মেশিনে: ৩ কপি ৯.৭ থেকে ৮.১ nines, EC 6+3 ১১.৮ থেকে ৯.২।) কোন সারি সবচেয়ে বেশি পড়ল, কেন? তারপর `RACKS=4` — EC 6+3
    এর "প্রতিটা আলাদা rack" সারিটা কেন নেই?
-4. **Sticky by workspace:** `stateless.ts` এ sticky এর hash `userId` এর বদলে workspace ধরে করো (ধরো ৪ জন user এর একটা
-   workspace — `Math.floor(userId / 4)`), আর teammate কে একই workspace থেকে বাছো। Teammate কলাম কী হলো? আর instance
+4. **Sticky by workspace:** `stateless.ts` এ sticky এর hash `userId` এর বদলে workspace ধরে করুন (ধরুন ৪ জন user এর একটা
+   workspace — `Math.floor(userId / 4)`), আর teammate কে একই workspace থেকে বাছুন। Teammate কলাম কী হলো? আর instance
    বদলানোর কলাম? এই পথে কী কী নতুন সমস্যা আসে (একটা বড় workspace — hot instance, Lesson 5.8)?
-5. **Versioning এর দাম:** `inspect.ts` এর versioning অংশে একই key তে ১০০ বার PUT করো, তারপর `ListObjectVersions` এ কয়টা
-   version? প্রতিটা version কি জায়গা নেয়? Lesson এর §১.৭ এর lifecycle rule এর কথা মাথায় রেখে ঠিক করো TaskFlow এ পুরনো
-   version কতদিন রাখবে।
+5. **Versioning এর দাম:** `inspect.ts` এর versioning অংশে একই key তে ১০০ বার PUT করুন, তারপর `ListObjectVersions` এ কয়টা
+   version? প্রতিটা version কি জায়গা নেয়? Lesson এর §১.৭ এর lifecycle rule এর কথা মাথায় রেখে ঠিক করুন TaskFlow এ পুরনো
+   version কতদিন রাখবেন।
 
 ## Project Structure
 

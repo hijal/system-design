@@ -23,7 +23,7 @@ TaskFlow সিঙ্গাপুরের একটা region থেকে চ�
 - **Failover এর ধাপের সময় ধরে নেওয়া** — ধরা ৫ মিনিট, মানুষের সিদ্ধান্ত ১৫ মিনিট, app চালু ১৫ মিনিট, ৯০০ GB restore ২৫০ MB/s
   এ। Replication এর lag ৫ s। খরচ 10.7 এর দামের সাথে মেলানো, আনুমানিক।
 - **DNS এর client এর আচরণ ধরে নেওয়া** — ৭০% TTL মানে, ২০% এর resolver অন্তত ৫ মিনিট রাখে, ১০% পুরনো IP এক ঘণ্টা পর্যন্ত
-  ধরে থাকে। আসল অনুপাত তোমার client আর তাদের ISP এর উপর।
+  ধরে থাকে। আসল অনুপাত আপনার client আর তাদের ISP এর উপর।
 - **`conflicts` এর session আর edit synthetic** — ২০,০০০টা যৌথ session, ৩০% এ অন্য region এর মানুষ। "হারানো" মানে LWW এর
   নিয়মে বাদ পড়া edit, আসল database এর replication না।
 - **`residency` একটা নকশার checklist, আইনি পরামর্শ না।** কোন data কোথায় থাকতে হবে, সেটা চুক্তি আর দেশের আইনের প্রশ্ন।
@@ -116,7 +116,7 @@ the cell's cost as % of revenue                                13%
 - **Data residency শুধু database না।** Backup, log, trace, search, analytics, identity, email, error tracker — প্রতিটা একটা
   পথ।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **বেশি দূরের সহযোগিতা:** `AWAY_SHARE=0.5 npm run latency`। Cell এর overall p50 আর p95 কত হলো (মাপা: ২৫৩ ms, ৭৯৩ ms)? কোন
    topology এখন ভালো, আর কোন ধরনের customer এর জন্য cell ভুল নকশা?
@@ -125,7 +125,7 @@ the cell's cost as % of revenue                                13%
 3. **ভালো link:** `INCIDENT_LAG_S=2 npm run conflicts`। হারানো edit কত কমল (মাপা: row LWW ২,০৬৮ → ৫১৮)? বাকিগুলো কোথা থেকে?
 4. **খারাপ ঘড়ি:** `FRANKFURT_SKEW_MS=-2000 npm run conflicts`। "ঘড়ির জন্য উল্টো" কলাম কী হলো (মাপা: row ৪৩ → ৬৮৫, HLC এ ০)?
    6.4 এর কোন কথা মেলে?
-5. **নিজের region:** `src/geo.ts` এ একটা পঞ্চম region যোগ করো (ধরো `tokyo`), RTT সহ। Consensus এর টেবিলে পাঁচটা region এ
+5. **নিজের region:** `src/geo.ts` এ একটা পঞ্চম region যোগ করুন (ধরুন `tokyo`), RTT সহ। Consensus এর টেবিলে পাঁচটা region এ
    commit কত, আর কয়টা region হারানো সহ্য করে?
 
 ## Project Structure

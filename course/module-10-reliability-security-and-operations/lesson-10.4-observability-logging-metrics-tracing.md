@@ -2,15 +2,15 @@
 
 **Module 10 — Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 6.4):** দুটো আলাদা machine এর log এর লাইন timestamp ধরে সাজালে কী ভুল হতে পারে — আর কেন "আগের timestamp" মানে "আগে ঘটেছে" না? আজ চারটা service এর log একসাথে পড়তে হবে, আর তোমার হাতে থাকবে এমন একটা জিনিস যেটা ঘড়ির উপর নির্ভর না করেই বলে কোন কাজ কোন কাজের **ভেতরে** ঘটেছে।
+> **Spaced Repetition (Lesson 6.4):** দুটো আলাদা machine এর log এর লাইন timestamp ধরে সাজালে কী ভুল হতে পারে — আর কেন "আগের timestamp" মানে "আগে ঘটেছে" না? আজ চারটা service এর log একসাথে পড়তে হবে, আর আপনার হাতে থাকবে এমন একটা জিনিস যেটা ঘড়ির উপর নির্ভর না করেই বলে কোন কাজ কোন কাজের **ভেতরে** ঘটেছে।
 
 **Prerequisite:** Lesson 1.5 (Percentile, SLO, error budget), Lesson 5.6 (N+1, connection pool), Lesson 6.4 (Clock skew), Lesson 7.3 (Background job), Lesson 9.2 (Gateway, request id), Lesson 10.2 (Cardinality), Lesson 10.3 (Steady state, brownout)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Log, metric আর trace এর প্রতিটা **কোন প্রশ্নের** উত্তর দেয় আর কোনটার দেয় না সেটা বলতে পারবে — আর একটা latency metric এমনভাবে নকশা করতে পারবে (histogram, bucket, label) যাতে p99 সৎ থাকে আর metric system মরে না
-2. একটা request কে চারটা service জুড়ে একটা trace এ বাঁধতে পারবে — `traceparent` header, context propagation, log এ trace id — আর বলতে পারবে কোন trace রাখবে (head বনাম tail sampling) আর তার দাম কী
-3. SLO থেকে **burn rate** এর alert বানাতে পারবে, আর সংখ্যা দিয়ে বলতে পারবে কেন "error > ১%, ৫ মিনিট" ধরনের alert একই সাথে ধীর ক্ষয় মিস করে আর রোজ অকারণে মানুষকে জাগায়
+1. Log, metric আর trace এর প্রতিটা **কোন প্রশ্নের** উত্তর দেয় আর কোনটার দেয় না সেটা বলতে পারবেন — আর একটা latency metric এমনভাবে নকশা করতে পারবেন (histogram, bucket, label) যাতে p99 সৎ থাকে আর metric system মরে না
+2. একটা request কে চারটা service জুড়ে একটা trace এ বাঁধতে পারবেন — `traceparent` header, context propagation, log এ trace id — আর বলতে পারবেন কোন trace রাখবেন (head বনাম tail sampling) আর তার দাম কী
+3. SLO থেকে **burn rate** এর alert বানাতে পারবেন, আর সংখ্যা দিয়ে বলতে পারবেন কেন "error > ১%, ৫ মিনিট" ধরনের alert একই সাথে ধীর ক্ষয় মিস করে আর রোজ অকারণে মানুষকে জাগায়
 
 **Tier:** 1 — Runnable Code (চারটা deterministic simulation — percentile, cardinality, sampling, burn rate; আর localhost এ চারটা আসল HTTP service দিয়ে distributed trace; Docker লাগে না)
 
@@ -26,7 +26,7 @@ TaskFlow এর "দেখার" ব্যবস্থা এখন এরক�
 
 **বুধবার বিকেল।** On-call engineer log খুলল। ছয়টা instance, লাখ লাখ লাইন। `loading board`, `board loaded`, `query done` — কোনো লাইনে request এর কোনো id নেই। Gateway এর log এ একটা ৪.২ সেকেন্ডের request পাওয়া গেল, কিন্তু work service এর কোন লাইনগুলো ওই request এর, বলার উপায় নেই। Timestamp মিলিয়ে চেষ্টা করল — ছয়টা machine এর ঘড়ি কয়েক ms এদিক-ওদিক (6.4), আর ওই মুহূর্তে সেকেন্ডে ৩০০টা request।
 
-**বুধবার রাত।** আরেকজন engineer একটা বুদ্ধি করল: latency metric এ `user_id` আর আসল `path` label যোগ করো, তাহলে দেখা যাবে কোন user আর কোন board ধীর। Deploy করল। চল্লিশ মিনিট পরে Prometheus এর memory শেষ, process মরল। Restart হলো, আবার ভরল, আবার মরল। সেই রাতে TaskFlow এর **কোনো metric আর কোনো alert ছিল না।**
+**বুধবার রাত।** আরেকজন engineer একটা বুদ্ধি করল: latency metric এ `user_id` আর আসল `path` label যোগ করুন, তাহলে দেখা যাবে কোন user আর কোন board ধীর। Deploy করল। চল্লিশ মিনিট পরে Prometheus এর memory শেষ, process মরল। Restart হলো, আবার ভরল, আবার মরল। সেই রাতে TaskFlow এর **কোনো metric আর কোনো alert ছিল না।**
 
 **বৃহস্পতিবার।** কেউ সব instance এ `DEBUG` log চালু করল। Log এর আয়তন পঁচিশ গুণ, log store এর ingestion দুই ঘণ্টা পিছিয়ে — মানে এখনকার log দুই ঘণ্টা পরে দেখা যায়। মাসের শেষে log এর bill।
 
@@ -56,7 +56,7 @@ TaskFlow এর যা ছিল সেটা **monitoring**: কয়েকট
 
 ### ১.২ গড় কী লুকায়
 
-1.5 এ শিখেছিলে average বিভ্রান্তিকর, p99 দেখো। এবার সংখ্যাটা দেখি। Exercise এর `npm run percentiles` — এক ঘণ্টার board খোলা (১০.৮ লাখ request), ছয়টা instance, তিনটা replica; `r3` এর disk ঘণ্টায় তিনবার ৯০ সেকেন্ড করে আটকে যায়:
+1.5 এ শিখেছিলেন average বিভ্রান্তিকর, p99 দেখুন। এবার সংখ্যাটা দেখি। Exercise এর `npm run percentiles` — এক ঘণ্টার board খোলা (১০.৮ লাখ request), ছয়টা instance, তিনটা replica; `r3` এর disk ঘণ্টায় তিনবার ৯০ সেকেন্ড করে আটকে যায়:
 
 ```
 average          p50       p90       p99     p99.9       max     > 1 s
@@ -65,7 +65,7 @@ average          p50       p90       p99     p99.9       max     > 1 s
 
 গড় ১৭২ ms — dashboard এর ৩০০ ms এর সীমার নিচে, সবুজ। p99 ৩.৭৯ সেকেন্ড। আর **২.৫% request এক সেকেন্ডের বেশি** — প্রতি ৪০টা board খোলায় একটা।
 
-২.৫% শুনতে ছোট। কিন্তু user একটা board একবার খোলে না। একজন project manager দিনে ধরো ২০টা board খোলে। তার অন্তত একবার ধীর অভিজ্ঞতা হওয়ার সম্ভাবনা:
+২.৫% শুনতে ছোট। কিন্তু user একটা board একবার খোলে না। একজন project manager দিনে ধরুন ২০টা board খোলে। তার অন্তত একবার ধীর অভিজ্ঞতা হওয়ার সম্ভাবনা:
 
 ```
 1 − (1 − 0.025)^20 = 1 − 0.975^20 ≈ 40%
@@ -73,11 +73,11 @@ average          p50       p90       p99     p99.9       max     > 1 s
 
 **প্রতিদিন ৪০% user অন্তত একবার ৪ সেকেন্ড অপেক্ষা করছে**, আর dashboard বলছে সব ঠিক। এজন্যই support এ ticket আসছিল — তারা ব্যতিক্রম না, প্রায় অর্ধেক user। Percentile এর লেজটাই সেই জায়গা যেখানে user রা থাকে, কারণ প্রতিটা user অনেকগুলো request করে, আর তাদের যেকোনো একটা ধীর হলেই অভিজ্ঞতা ধীর।
 
-আর গড় ১৭২ ms কোথা থেকে এলো খেয়াল করো: স্বাভাবিক request ~৮৪ ms, আর ২.৫% এর ~৩.৫ সেকেন্ড মিলে গড় দ্বিগুণ। গড় নড়েছিল — কিন্তু সীমা পেরোয়নি, আর "৮৪ থেকে ১৭২" কে কেউ একটা সংকেত ভাবেনি।
+আর গড় ১৭২ ms কোথা থেকে এলো খেয়াল করুন: স্বাভাবিক request ~৮৪ ms, আর ২.৫% এর ~৩.৫ সেকেন্ড মিলে গড় দ্বিগুণ। গড় নড়েছিল — কিন্তু সীমা পেরোয়নি, আর "৮৪ থেকে ১৭২" কে কেউ একটা সংকেত ভাবেনি।
 
 ### ১.৩ Percentile যোগ করা যায় না — Histogram
 
-এবার একটা সূক্ষ্ম ফাঁদ যেটায় প্রায় সব dashboard পড়ে। ধরো তুমি p99 ই দেখছ — প্রতি মিনিটে একটা p99 মাপছ। Dashboard এ "গত এক ঘণ্টার p99" দেখাতে হবে। ৬০টা মিনিটের p99 থেকে কীভাবে বানাবে? `npm run percentiles`, অংশ খ:
+এবার একটা সূক্ষ্ম ফাঁদ যেটায় প্রায় সব dashboard পড়ে। ধরুন আপনি p99 ই দেখছেন — প্রতি মিনিটে একটা p99 মাপছেন। Dashboard এ "গত এক ঘণ্টার p99" দেখাতে হবে। ৬০টা মিনিটের p99 থেকে কীভাবে বানাবেন? `npm run percentiles`, অংশ খ:
 
 ```
 true p99 (all requests together)            3.79 s
@@ -112,7 +112,7 @@ p99.9           4.50 s          4.90 s      +9%        4.86 s      +8%
    own buckets    (ms): 50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000, 4000, 5000
 ```
 
-Prometheus এর client library এর default bucket এ p90 এর অনুমান **৫৫% বেশি** — কারণ আসল p90 (১৩২ ms) ১০০ আর ২৫০ এর মাঝের একটা চওড়া ঘরে, আর ঘরের ভেতরে অনুমান সরলরেখায় করা হয়। Bucket হওয়া উচিত **যেখানে তোমার সিদ্ধান্ত হয়** — SLO এর সীমার আশেপাশে ঘন (ধরো ৩০০ ms এর SLO হলে ২০০, ২৫০, ৩০০, ৩৫০), আর দূরে পাতলা। Experiment ২: default এ শুধু ১৫০ আর ২০০ যোগ করলে p90 এর ভুল +৫৫% থেকে +৭%। কিন্তু প্রতিটা bucket একটা আলাদা time series — আর সেটা পরের অংশের দাম।
+Prometheus এর client library এর default bucket এ p90 এর অনুমান **৫৫% বেশি** — কারণ আসল p90 (১৩২ ms) ১০০ আর ২৫০ এর মাঝের একটা চওড়া ঘরে, আর ঘরের ভেতরে অনুমান সরলরেখায় করা হয়। Bucket হওয়া উচিত **যেখানে আপনার সিদ্ধান্ত হয়** — SLO এর সীমার আশেপাশে ঘন (ধরুন ৩০০ ms এর SLO হলে ২০০, ২৫০, ৩০০, ৩৫০), আর দূরে পাতলা। Experiment ২: default এ শুধু ১৫০ আর ২০০ যোগ করলে p90 এর ভুল +৫৫% থেকে +৭%। কিন্তু প্রতিটা bucket একটা আলাদা time series — আর সেটা পরের অংশের দাম।
 
 **এবার সঠিক মাত্রা।** p99 জানা গেল, কিন্তু "কেন?" এর উত্তর নেই। অংশ ঘ — একই request, দুইভাবে ভাগ করা:
 
@@ -126,7 +126,7 @@ replica r2       360,375     84 ms     78 ms    187 ms     0.00%
 replica r3       359,778    346 ms     81 ms    4.31 s     7.49%
 ```
 
-Instance ধরে ভাগ করলে ছয়টাই হুবহু এক — কোনো তথ্য নেই। Replica ধরে ভাগ করলে উত্তর এক নজরে: **r3**। বুধবার রাতের engineer এর অনুভূতি ঠিক ছিল — "একটা মাত্রা যোগ করো, ভাগ করে দেখো"। ভুল ছিল কোন মাত্রা, আর কোথায় যোগ করা।
+Instance ধরে ভাগ করলে ছয়টাই হুবহু এক — কোনো তথ্য নেই। Replica ধরে ভাগ করলে উত্তর এক নজরে: **r3**। বুধবার রাতের engineer এর অনুভূতি ঠিক ছিল — "একটা মাত্রা যোগ করুন, ভাগ করে দেখুন"। ভুল ছিল কোন মাত্রা, আর কোথায় যোগ করা।
 
 ### ১.৪ Cardinality — যে label metric system কে মারে
 
@@ -148,8 +148,8 @@ the real path instead of the route           2,529,996        37,949,940        
 টেবিলটা থেকে তিনটা জিনিস:
 
 1. **সমস্যা গুণফল।** ৪০টা route × ১০টা status × ৬টা instance = ২,৪০০। Plan (৩টা মান) যোগ করলে প্রায় তিন গুণ। প্রতিটা নতুন label আগেরগুলোকে **গুণ** করে, যোগ না।
-2. **Histogram আরও ১৫ গুণ।** প্রতিটা সমন্বয়ে ১৩টা bucket (+Inf সহ) আর `_sum`, `_count`। তাই ১.৩ এর "আরও bucket যোগ করো" এর একটা দাম আছে।
-3. **আসল path আর `user_id` — ২৫ লাখ series, ~১০৬ GB।** বুধবার রাতের OOM। আর খেয়াল করো, এটা একদিনের সংখ্যা — নতুন user, নতুন board প্রতিদিন নতুন series বানায়। Memory এর সংখ্যাটা একটা আন্দাজ (প্রতি series ~৩ KB ধরে); কিন্তু series এর **সংখ্যা** গোনা, আর ২,৪০০ থেকে ২৫ লাখ — হাজার গুণ — যেকোনো আন্দাজেই একটা মৃত্যুদণ্ড।
+2. **Histogram আরও ১৫ গুণ।** প্রতিটা সমন্বয়ে ১৩টা bucket (+Inf সহ) আর `_sum`, `_count`। তাই ১.৩ এর "আরও bucket যোগ করুন" এর একটা দাম আছে।
+3. **আসল path আর `user_id` — ২৫ লাখ series, ~১০৬ GB।** বুধবার রাতের OOM। আর খেয়াল করুন, এটা একদিনের সংখ্যা — নতুন user, নতুন board প্রতিদিন নতুন series বানায়। Memory এর সংখ্যাটা একটা আন্দাজ (প্রতি series ~৩ KB ধরে); কিন্তু series এর **সংখ্যা** গোনা, আর ২,৪০০ থেকে ২৫ লাখ — হাজার গুণ — যেকোনো আন্দাজেই একটা মৃত্যুদণ্ড।
 
 নিয়মটা তাই: **metric এর label এ শুধু ছোট, সীমিত মানের জিনিস** — route এর template (`/boards/:id`, আসল path না), status, method, instance, region, plan, replica। যার মান অসীম বা প্রতি user/request এ আলাদা — user id, board id, trace id, email, আসল URL — সেটা **log আর trace এ**, metric এ কখনো না।
 
@@ -165,7 +165,7 @@ trace, every request (20 spans)                  7.8 KB     64.4 GB
 trace, 1% sample                                   80 B      659 MB
 ```
 
-বৃহস্পতিবারের debug log — দিনে ২.৮ GB থেকে ৭০ GB। Log এর দাম ঘটনার সংখ্যায় সরাসরি বাড়ে, তাই log এর নীতি তিনটা: **প্রতি request এ একটা ভরা লাইন, দশটা খালি লাইনের চেয়ে ভালো** (শেষে একটা লাইন যাতে route, status, সময়, user, board, trace id সব আছে); debug log শুধু যেখানে লাগে (একটা instance, একটা user, কয়েক মিনিট — ধরো একটা flag দিয়ে), সবখানে না; আর সফল, সাধারণ request এর log কে sample করা যায় — error আর ধীর সবসময় রাখো।
+বৃহস্পতিবারের debug log — দিনে ২.৮ GB থেকে ৭০ GB। Log এর দাম ঘটনার সংখ্যায় সরাসরি বাড়ে, তাই log এর নীতি তিনটা: **প্রতি request এ একটা ভরা লাইন, দশটা খালি লাইনের চেয়ে ভালো** (শেষে একটা লাইন যাতে route, status, সময়, user, board, trace id সব আছে); debug log শুধু যেখানে লাগে (একটা instance, একটা user, কয়েক মিনিট — ধরুন একটা flag দিয়ে), সবখানে না; আর সফল, সাধারণ request এর log কে sample করা যায় — error আর ধীর সবসময় রাখুন।
 
 **Structured Logging** — log লাইনকে মানুষের পড়ার বাক্য হিসেবে না, field আর মানের একটা রেকর্ড হিসেবে লেখা (সাধারণত এক লাইনে একটা JSON), যাতে প্রতিটা field দিয়ে খোঁজা, ছাঁকা আর গোনা যায়; সাথে সবসময় একটা **correlation id** (trace id), যা একই request এর সব service এর লাইনকে জোড়ে।
 
@@ -177,7 +177,7 @@ trace, 1% sample                                   80 B      659 MB
         "span_id":"00f067aa…","msg":"slow query","replica":"r3","board":4821,"ms":3912}
 ```
 
-প্রথমটায় "r3 এর সব ধীর query" খুঁজতে regex লিখতে হয় আর প্রার্থনা করতে হয়; দ্বিতীয়টায় `replica = "r3" AND ms > 1000`। আর `trace_id` দিয়ে একই request এর gateway, bff, billing এর লাইন একসাথে — timestamp মেলানোর দরকারই নেই। একটা সতর্কতা যেটা 10.5 এ আবার আসবে: structured log এ সবকিছু ঢোকানো সহজ, তাই password, token, পুরো request body, ব্যক্তিগত তথ্য log এ চলে যায়। Log এর field এর একটা allowlist রাখো।
+প্রথমটায় "r3 এর সব ধীর query" খুঁজতে regex লিখতে হয় আর প্রার্থনা করতে হয়; দ্বিতীয়টায় `replica = "r3" AND ms > 1000`। আর `trace_id` দিয়ে একই request এর gateway, bff, billing এর লাইন একসাথে — timestamp মেলানোর দরকারই নেই। একটা সতর্কতা যেটা 10.5 এ আবার আসবে: structured log এ সবকিছু ঢোকানো সহজ, তাই password, token, পুরো request body, ব্যক্তিগত তথ্য log এ চলে যায়। Log এর field এর একটা allowlist রাখুন।
 
 ### ১.৫ Distributed Tracing — একটা request কে চারটা service জুড়ে দেখা
 
@@ -196,12 +196,12 @@ traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 প্রতিটা service যা করে:
 
 ```
-request আসে ──► traceparent পড়ো ──► নিজের span খোলো (trace id একই, parent = header এর span)
+request আসে ──► traceparent পড়ুন ──► নিজের span খুলুন (trace id একই, parent = header এর span)
                                     │
                                     ├─ নিজের কাজ (DB, cache) → প্রতিটা একটা child span
-                                    ├─ log লেখো → trace_id, span_id সহ
-                                    └─ অন্য service কে ডাকো → header এ traceparent (নিজের span কে parent করে)
-               ◄── span বন্ধ করো, collector এ পাঠাও
+                                    ├─ log লিখুন → trace_id, span_id সহ
+                                    └─ অন্য service কে ডাকুন → header এ traceparent (নিজের span কে parent করে)
+               ◄── span বন্ধ করুন, collector এ পাঠান
 ```
 
 Node এ একটা প্রশ্ন আসে: Express handler এর ভেতরে, পাঁচটা `await` এর পরে, একটা গভীর function যখন log লেখে বা `fetch` করে, সে কীভাবে জানবে এখনকার trace id কী? প্রতিটা function এ parameter হিসেবে পাঠানো অসম্ভব। উত্তর **`AsyncLocalStorage`** (`node:async_hooks`) — Node এর একটা built-in, যা একটা মান কে একটা async কাজের পুরো শিকলের সাথে বেঁধে রাখে, `await` আর callback পেরিয়েও। Exercise এর `src/tracing.ts` এ পুরো tracing library টা ~১৪০ লাইন: request আসার সময় `storage.run(span, handler)`, আর যেকোনো জায়গায় `storage.getStore()` দিলে এখনকার span। Production এ এই কাজটা **OpenTelemetry** করে — একটা vendor-নিরপেক্ষ standard আর SDK, যা Express, `http`, `pg`, `ioredis` এর মতো library কে নিজে থেকে instrument করে (auto-instrumentation), আর span গুলো যেকোনো backend এ পাঠায়। নিজের হাতে লেখা library শেখার জন্য; production এ OpenTelemetry।
@@ -233,7 +233,7 @@ gateway · GET /boards/:id                   1,203 ms   |███████�
 
 আর সব trace এর `db.query` span কে replica ধরে ভাগ করলে (অংশ গ) — r1 আর r2 এর max ৮ ms, r3 এর ১,২০০ ms। ১.৩ এর মাত্রা ধরে ভাগ, এবার trace থেকে — আর এখানে replica কেন, যেকোনো attribute ধরে ভাগ করা যায়, কারণ trace এ cardinality এর দাম নেই।
 
-**Spaced repetition এর উত্তর:** waterfall এর ঘরগুলো **একই machine এর ঘড়ি** দিয়ে মাপা (span এর শুরু আর শেষ — monotonic clock, 6.4)। আলাদা machine এর span এর অবস্থান (ধরো bff এর span কে gateway এর span এর ভেতরে কতটা ডানে বসাবে) ঘড়ির skew এ কয়েক ms সরে যেতে পারে — কিন্তু **কে কার ভেতরে** সেটা ঘড়ি থেকে আসে না, আসে parent span id থেকে। Trace এর গঠন causality, ঠিক Lamport এর "happens-before" এর মতো: gateway এর span bff এর span এর parent, তাই gateway এর কাজ আগে শুরু হয়েছে — যেকোনো ঘড়ি যা-ই বলুক।
+**Spaced repetition এর উত্তর:** waterfall এর ঘরগুলো **একই machine এর ঘড়ি** দিয়ে মাপা (span এর শুরু আর শেষ — monotonic clock, 6.4)। আলাদা machine এর span এর অবস্থান (ধরুন bff এর span কে gateway এর span এর ভেতরে কতটা ডানে বসাবে) ঘড়ির skew এ কয়েক ms সরে যেতে পারে — কিন্তু **কে কার ভেতরে** সেটা ঘড়ি থেকে আসে না, আসে parent span id থেকে। Trace এর গঠন causality, ঠিক Lamport এর "happens-before" এর মতো: gateway এর span bff এর span এর parent, তাই gateway এর কাজ আগে শুরু হয়েছে — যেকোনো ঘড়ি যা-ই বলুক।
 
 **একটা hop ভুল হলে।** অংশ ঘ — একই ৩০টা request, কিন্তু bff নিচের service কে ডাকার সময় `traceparent` পাঠাতে ভুলে যায় (একটা নতুন HTTP client, যেটা কেউ instrument করেনি — বাস্তবে খুব সাধারণ):
 
@@ -259,7 +259,7 @@ Span এর সংখ্যা একই (২৭০), কিন্তু trace �
 
 **Async পথ।** একই সমস্যা queue এ: 7.3 এর BullMQ job, 7.5 এর outbox event — এগুলো HTTP না, তাই header নেই। Trace চালু রাখতে job এর data তে বা event এর payload এ `traceparent` রাখতে হয়, আর worker সেটা পড়ে নিজের span খোলে। (একটা job অনেক পরে চলতে পারে — মিনিট বা ঘণ্টা — তাই অনেক সময় তাকে parent-child না করে একটা **link** দিয়ে জোড়া হয়: "এই span টা ওই span এর কারণে, কিন্তু তার ভেতরে না"। OpenTelemetry তে span link আছে।)
 
-### ১.৬ Sampling — কোন trace রাখবে
+### ১.৬ Sampling — কোন trace রাখবেন
 
 সব trace রাখলে কত? `npm run sampling` — একদিনে ২.৫৯ কোটি trace (৩০০ req/s), প্রতিটায় ২০টা span; তার মধ্যে ১৩,০৮৮টা error, ১,৩০,২৩৬টা এক সেকেন্ডের বেশি ধীর, আর একটা বিরল bug (একটা workspace এর জন্য) দিনে ৪৫বার:
 
@@ -283,19 +283,19 @@ head rate     in 1 day   in 1 week
 0.1%              3.9%       24.4%
 ```
 
-**Tail Sampling** — trace রাখার সিদ্ধান্ত request **শেষ হওয়ার পরে** নেওয়া, পুরো trace দেখে: error হলে রাখো, ধীর হলে রাখো, বিশেষ কিছু (একটা নির্দিষ্ট customer, নতুন version) হলে রাখো, আর বাকি সাধারণ trace এর একটা ছোট ভগ্নাংশ; দাম — সিদ্ধান্তের আগে প্রতিটা trace এর সব span একটা collector এ জমা রাখতে হয়।
+**Tail Sampling** — trace রাখার সিদ্ধান্ত request **শেষ হওয়ার পরে** নেওয়া, পুরো trace দেখে: error হলে রাখুন, ধীর হলে রাখুন, বিশেষ কিছু (একটা নির্দিষ্ট customer, নতুন version) হলে রাখুন, আর বাকি সাধারণ trace এর একটা ছোট ভগ্নাংশ; দাম — সিদ্ধান্তের আগে প্রতিটা trace এর সব span একটা collector এ জমা রাখতে হয়।
 
 ফল টেবিলের পঞ্চম সারি: **সব error, সব ধীর, সব বিরল bug — ৩.০ GB এ, সব রাখার ৬৪ ভাগের এক ভাগে।** এটাই আসলে চাওয়া: আকর্ষণীয় trace গুলো, আর তুলনার জন্য কিছু সাধারণ।
 
 দামটা শেষ কলামে: **collector এ আসে ১৯৩ GB** — সব রাখার সমান। Tail sampling জমার খরচ বাঁচায়, network আর collector এর খরচ না; প্রতিটা span collector পর্যন্ত যেতে হয়, আর সিদ্ধান্তের আগে কয়েক সেকেন্ড memory তে থাকতে হয় (এখানে যেকোনো মুহূর্তে ~২৫ MB)। আর একটা trace এর সব span একই collector instance এ পৌঁছাতে হয় — যাতে সে পুরো trace দেখে সিদ্ধান্ত নিতে পারে — তাই collector এর সামনে trace id ধরে ভাগ করা লাগে (10.1 এর consistent hashing, আবার)।
 
-**আর শেষ সারি — সবচেয়ে সাধারণ ভুল।** প্রতিটা service নিজে নিজে ১০% sample করে, flag না মেনে। একটা trace পুরো থাকে শুধু যদি পাঁচটা service এরই "রাখো" পড়ে: ০.১⁵ = ০.০০১%। ১ কোটি trace এর টুকরো রাখা হয়েছে, পুরো trace প্রায় শূন্য, error এর পুরো trace শূন্য। Sampling এর সিদ্ধান্ত **একবার** নেওয়া হয় আর সবাই সেটা মানে — head এ flag এর মাধ্যমে, tail এ collector এ।
+**আর শেষ সারি — সবচেয়ে সাধারণ ভুল।** প্রতিটা service নিজে নিজে ১০% sample করে, flag না মেনে। একটা trace পুরো থাকে শুধু যদি পাঁচটা service এরই "রাখুন" পড়ে: ০.১⁵ = ০.০০১%। ১ কোটি trace এর টুকরো রাখা হয়েছে, পুরো trace প্রায় শূন্য, error এর পুরো trace শূন্য। Sampling এর সিদ্ধান্ত **একবার** নেওয়া হয় আর সবাই সেটা মানে — head এ flag এর মাধ্যমে, tail এ collector এ।
 
-### ১.৭ Alert — কখন কাউকে জাগাবে
+### ১.৭ Alert — কখন কাউকে জাগাবেন
 
-বুধবারের আরেকটা অংশ: TaskFlow এর একমাত্র alert টা প্রতিদিন দুপুর ২টায় বাজত, তাই সবাই সেটা mute করেছিল। যে alert সবসময় বাজে, সে কখনো বাজে না। প্রশ্ন হলো একটা alert কে কীভাবে এমন বানাবে যা **সত্যিকারের** সমস্যায় বাজে, দ্রুত, আর অকারণে না।
+বুধবারের আরেকটা অংশ: TaskFlow এর একমাত্র alert টা প্রতিদিন দুপুর ২টায় বাজত, তাই সবাই সেটা mute করেছিল। যে alert সবসময় বাজে, সে কখনো বাজে না। প্রশ্ন হলো একটা alert কে কীভাবে এমন বানাবেন যা **সত্যিকারের** সমস্যায় বাজে, দ্রুত, আর অকারণে না।
 
-1.5 থেকে মনে করো: SLO ৯৯.৯% মানে ৩০ দিনে ০.১% request ব্যর্থ হতে পারে — **error budget**। ৩০০ req/s এ সেটা ৩০ দিনে ৭,৭৭,৬০০টা ব্যর্থ request। Alert এর আসল প্রশ্ন তাহলে "error rate কত?" না — **"এই হারে চললে budget কত দ্রুত শেষ হবে?"**
+1.5 থেকে মনে করুন: SLO ৯৯.৯% মানে ৩০ দিনে ০.১% request ব্যর্থ হতে পারে — **error budget**। ৩০০ req/s এ সেটা ৩০ দিনে ৭,৭৭,৬০০টা ব্যর্থ request। Alert এর আসল প্রশ্ন তাহলে "error rate কত?" না — **"এই হারে চললে budget কত দ্রুত শেষ হবে?"**
 
 **Burn Rate** — error budget কত দ্রুত খরচ হচ্ছে, SLO এর অনুমোদিত হারের তুলনায়: burn rate ১ মানে ঠিক ৩০ দিনে budget শেষ হবে, ১৪.৪ মানে ৩০ দিনের budget শেষ হবে ~২ দিনে (আর এক ঘণ্টায় ২% খাবে); `burn rate = দেখা error ratio ÷ (১ − SLO)`। Alert বানানো হয় burn rate এর সীমা দিয়ে, error rate দিয়ে না।
 
@@ -324,7 +324,7 @@ nothing (only the deploy blip)                       7                   7      
 - **এক ঘণ্টার burn rate:** অকারণ page শূন্য — দুই মিনিটের ঝাঁকুনি এক ঘণ্টার গড়ে মিলিয়ে যায়। কিন্তু ধীর ক্ষয় (burn ৪) কখনো ১৪.৪ ছোঁয় না।
 - **Multi-window:** অকারণ page শূন্য, বড় ঘটনা ৫ মিনিটে, আর ধীর ক্ষয় ধরে ১৪.৪ ঘণ্টায় একটা **ticket** হিসেবে — budget এর ৭.৭% এ, ৩৮.৪% এ না। দুটো window এর যুক্তি: লম্বা window (১ ঘণ্টা) বলে "যথেষ্ট budget গেছে যে কারো জাগা উচিত"; ছোট window (৫ মিনিট) বলে "আর এটা **এখনো** চলছে" — তাই ঘটনা থেমে গেলে alert নিজেই দ্রুত বন্ধ হয়।
 
-আর দামটা সৎভাবে: **মাঝারি ঘটনা (১.৫% error, দুই ঘণ্টা) ধরতে burn rate এর alert ৫৮ মিনিট নেয়** — ১% এর alert নেয় ৪ মিনিট। এক ঘণ্টা ধরে প্রতি ৬৭টা request এর একটা ব্যর্থ, আর কেউ জাগেনি। এটা নকশার সচেতন সিদ্ধান্ত: বিনিময়ে সপ্তাহে সাতটা মিথ্যা page নেই, আর মানুষ alert কে বিশ্বাস করে। কোন দিকে ঝুঁকবে, সেটা আবার error budget এর হিসাব — দুই ঘণ্টায় ৪.১% খরচ মাসের budget এর মধ্যে সহ্য করা যায়; রোজ সাতবার জাগানো মানুষ সহ্য করে না।
+আর দামটা সৎভাবে: **মাঝারি ঘটনা (১.৫% error, দুই ঘণ্টা) ধরতে burn rate এর alert ৫৮ মিনিট নেয়** — ১% এর alert নেয় ৪ মিনিট। এক ঘণ্টা ধরে প্রতি ৬৭টা request এর একটা ব্যর্থ, আর কেউ জাগেনি। এটা নকশার সচেতন সিদ্ধান্ত: বিনিময়ে সপ্তাহে সাতটা মিথ্যা page নেই, আর মানুষ alert কে বিশ্বাস করে। কোন দিকে ঝুঁকবেন, সেটা আবার error budget এর হিসাব — দুই ঘণ্টায় ৪.১% খরচ মাসের budget এর মধ্যে সহ্য করা যায়; রোজ সাতবার জাগানো মানুষ সহ্য করে না।
 
 এই সীমা আর window গুলো (১৪.৪ — ১ ঘ/৫ মি, ৬ — ৬ ঘ/৩০ মি, ১ — ৩ দিন/৬ ঘ) Google এর SRE Workbook এর "Alerting on SLOs" অধ্যায়ের প্রস্তাব (এখানে যাচাই করা না)। Exercise এর experiment ৪: SLO ৯৯.৯৯% করলে কোনো ঘটনা ছাড়াই multi-window একটা ticket তোলে — স্বাভাবিক ০.০২% error আর রোজকার deploy মিলেই সেই budget এর চেয়ে দ্রুত খায়। SLO টা নিজেই অসৎ; alert শুধু সেটা ধরিয়ে দিচ্ছে।
 
@@ -342,7 +342,7 @@ nothing (only the deploy blip)                       7                   7      
 | "কোন user / board / workspace?"           | Trace এর attribute, log এর field       | Metric এ দিলে cardinality (২,৪০০ → ২৫ লাখ series)                      |
 | "ঠিক কী ঘটেছিল, কোন মান নিয়ে?"           | Structured log, trace id সহ            | Metric এ বিস্তারিত নেই; trace এ সাধারণত শুধু সময় আর কয়েকটা attribute |
 
-**Instrumentation:** OpenTelemetry SDK প্রতিটা service এ (gateway, BFF, monolith, billing, files, worker), auto-instrumentation `http`, `express`, `pg`, `ioredis`, BullMQ এ। W3C `traceparent` সব HTTP call এ; outbox event আর BullMQ job এর payload এ `traceparent` (worker span link দিয়ে জোড়ে)। CI তে একটা test: একটা request চালিয়ে দেখো চারটা service এর span একই trace এ — ১.৫ এর ভাঙা hop যাতে merge এর আগে ধরা পড়ে (10.3 এর matrix এর মতোই)।
+**Instrumentation:** OpenTelemetry SDK প্রতিটা service এ (gateway, BFF, monolith, billing, files, worker), auto-instrumentation `http`, `express`, `pg`, `ioredis`, BullMQ এ। W3C `traceparent` সব HTTP call এ; outbox event আর BullMQ job এর payload এ `traceparent` (worker span link দিয়ে জোড়ে)। CI তে একটা test: একটা request চালিয়ে দেখুন চারটা service এর span একই trace এ — ১.৫ এর ভাঙা hop যাতে merge এর আগে ধরা পড়ে (10.3 এর matrix এর মতোই)।
 
 **Log:** সব service এ structured JSON, এক লাইনে একটা ঘটনা; প্রতিটা লাইনে `trace_id`, `span_id`, `service`, `version`। প্রতি request এ শেষে একটা "wide" লাইন (route, status, সময়, user, workspace, board, replica, cache hit)। Debug log শুধু একটা flag দিয়ে, একটা নির্দিষ্ট user বা workspace এর জন্য, ৩০ মিনিটে নিজে বন্ধ। Field এর allowlist (password, token, body কখনো না)। Retention: ১৪ দিন গরম, তারপর সস্তা storage এ।
 
@@ -356,9 +356,9 @@ nothing (only the deploy blip)                       7                   7      
 
 ## ২. Interview Angle
 
-Observability প্রায় কখনো আলাদা প্রশ্ন হয় না — আসে design এর শেষে, "how would you monitor this?" বা "এটা production এ ধীর হলে কীভাবে খুঁজবে?" হিসেবে। এখানে একটা দুর্বল উত্তর হলো "Prometheus আর Grafana বসাব, log ELK এ" — যন্ত্রের নাম, চিন্তা না। ভালো উত্তরের আকৃতি:
+Observability প্রায় কখনো আলাদা প্রশ্ন হয় না — আসে design এর শেষে, "how would you monitor this?" বা "এটা production এ ধীর হলে কীভাবে খুঁজবেন?" হিসেবে। এখানে একটা দুর্বল উত্তর হলো "Prometheus আর Grafana বসাব, log ELK এ" — যন্ত্রের নাম, চিন্তা না। ভালো উত্তরের আকৃতি:
 
-1. **SLI আর SLO দিয়ে শুরু করো** — "এই system এ user এর কাছে কী জরুরি? Feed লোড হওয়ার সফলতা আর p99 latency। SLO: ৯৯.৯% সফল, ৯৯% ৫০০ ms এর নিচে।" তারপর বলো alert হবে এই SLO এর burn rate এ।
+1. **SLI আর SLO দিয়ে শুরু করুন** — "এই system এ user এর কাছে কী জরুরি? Feed লোড হওয়ার সফলতা আর p99 latency। SLO: ৯৯.৯% সফল, ৯৯% ৫০০ ms এর নিচে।" তারপর বলুন alert হবে এই SLO এর burn rate এ।
 2. **তিনটা সংকেত, তাদের কাজ সহ** — metric (কী খারাপ), trace (কোথায়), log (কেন); আর trace id যা তিনটাকে জোড়ে।
 3. **Design এর বিশেষ জায়গাগুলো** — queue থাকলে queue এর বয়স (সবচেয়ে পুরনো message কতক্ষণ অপেক্ষা করছে), cache থাকলে hit rate, replica থাকলে lag; async পথে trace এর context।
 4. **দামের কথা** — sampling, cardinality, log এর আয়তন। একটা বাক্যও যথেষ্ট: "user id metric এ না, trace এ।"
@@ -366,8 +366,8 @@ Observability প্রায় কখনো আলাদা প্রশ্ন
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
 - _"p99 কেন, average কেন না?"_ — লেজেই user রা থাকে, কারণ প্রতিটা user অনেক request করে: ২.৫% ধীর মানে ২০টা page এ ~৪০% user অন্তত একবার ধীর। আর বোনাস: percentile গড় করা যায় না, histogram এর bucket যোগ করা যায়।
-- _"Microservice এ একটা ধীর request কীভাবে debug করবে?"_ — distributed tracing: trace id, span, context propagation (W3C traceparent), waterfall এ সময় কোথায় গেল। আর async hop এ context টেনে নেওয়া।
-- _"সব trace রাখবে?"_ — না; head sampling সস্তা কিন্তু অন্ধ, tail sampling error আর ধীর রাখে কিন্তু collector এর খরচ। সিদ্ধান্ত একবার, সবাই মানে।
+- _"Microservice এ একটা ধীর request কীভাবে debug করবেন?"_ — distributed tracing: trace id, span, context propagation (W3C traceparent), waterfall এ সময় কোথায় গেল। আর async hop এ context টেনে নেওয়া।
+- _"সব trace রাখবেন?"_ — না; head sampling সস্তা কিন্তু অন্ধ, tail sampling error আর ধীর রাখে কিন্তু collector এর খরচ। সিদ্ধান্ত একবার, সবাই মানে।
 - _"Alert কীসের উপর?"_ — লক্ষণে (SLI এর burn rate), কারণে না (CPU); multi-window, page বনাম ticket; আর alert fatigue এর নাম নেওয়া।
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ ভুলগুলো — dashboard এ শুধু গড়; percentile এর গড় করে "ঘণ্টার p99" দেখানো; একটা নতুন label (user id, আসল URL, error message এর পুরো text) যা metric system কে নিঃশব্দে ফোলায় তারপর মারে; log এ request id নেই, বা আছে কিন্তু পরের service এ যায় না; প্রতিটা service নিজে নিজে sample করে, তাই কোনো trace পুরো না; queue পেরোনোর সময় trace ভেঙে যায়; সব কিছুতে alert, তাই কোনো কিছুতেই না; আর debug log চালু করে বন্ধ করতে ভুলে যাওয়া।
@@ -378,7 +378,7 @@ Observability প্রায় কখনো আলাদা প্রশ্ন
 
 - **Monitoring জানা প্রশ্নের উত্তর দেয়, observability অজানা প্রশ্নের** — metric বলে কিছু খারাপ, trace বলে কোথায়, log বলে কেন; আর একটা trace id তিনটাকে জোড়ে
 - **গড় লেজ লুকায়** — গড় ১৭২ ms (সবুজ), p99 ৩.৭৯ s; ২.৫% ধীর মানে দিনে ২০টা board খোলা user দের ~৪০% অন্তত একবার ৪ সেকেন্ড অপেক্ষা করে
-- **Percentile যোগ বা গড় করা যায় না** — মিনিটের p99 এর গড় ৬১৭ ms, median ১৮৭ ms, আসল ৩.৭৯ s; histogram এর bucket যোগ করা যায় — আর bucket যেখানে সিদ্ধান্ত হয় সেখানে ঘন রাখো (default এ p90 +৫৫%)
+- **Percentile যোগ বা গড় করা যায় না** — মিনিটের p99 এর গড় ৬১৭ ms, median ১৮৭ ms, আসল ৩.৭৯ s; histogram এর bucket যোগ করা যায় — আর bucket যেখানে সিদ্ধান্ত হয় সেখানে ঘন রাখুন (default এ p90 +৫৫%)
 - **Metric এর দাম label এর মানের গুণফল** — ২,৪০০ series থেকে আসল path বা user id দিলে ২৫ লাখ; সীমিত মান metric এ, অসীম মান (user, board, trace id) log আর trace এ
 - **Distributed trace = একটা trace id + প্রতিটা hop এ `traceparent` + AsyncLocalStorage** — ধীর request এর ১.২ সেকেন্ড এক span এ দেখা যায়; একটা hop header না পাঠালে ৩০টা request ৯০টা trace, আর ধীর query এতিম
 - **Head sampling সস্তা কিন্তু অন্ধ** (১% এ বিরল bug এর ৪৫টার একটাও না), **tail sampling সব error আর ধীর রাখে** (৩ GB এ, কিন্তু collector এ ১৯৩ GB আসে); আর প্রতিটা service নিজে sample করলে পুরো trace ০.০০২%
@@ -402,24 +402,24 @@ Observability প্রায় কখনো আলাদা প্রশ্ন
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর "task তৈরি" endpoint এর জন্য একটা latency metric নকশা করো। SLO: ৩০ দিনে ৯৯% task তৈরি ৩০০ ms এর নিচে। (ক) কোন label রাখবে, আর তাতে কয়টা time series (histogram সহ) হবে — হিসাব দেখাও। (খ) Bucket কোথায় কোথায় রাখবে, আর কেন? (গ) Sales টিম চায় তাদের ২০টা সবচেয়ে বড় enterprise customer এর জন্য আলাদা latency graph। একজন বলল "`workspace_id` label দাও"। কেন না — আর তাদের চাওয়া কীভাবে পূরণ করবে?
+1. TaskFlow এর "task তৈরি" endpoint এর জন্য একটা latency metric নকশা করুন। SLO: ৩০ দিনে ৯৯% task তৈরি ৩০০ ms এর নিচে। (ক) কোন label রাখবেন, আর তাতে কয়টা time series (histogram সহ) হবে — হিসাব দেখান। (খ) Bucket কোথায় কোথায় রাখবেন, আর কেন? (গ) Sales টিম চায় তাদের ২০টা সবচেয়ে বড় enterprise customer এর জন্য আলাদা latency graph। একজন বলল "`workspace_id` label দিন"। কেন না — আর তাদের চাওয়া কীভাবে পূরণ করবেন?
 
-2. একজন user লিখল: "আমাকে একটা task assign করা হয়েছিল, email এলো ২০ মিনিট পরে।" Assign থেকে email এর পথ: API (task আপডেট + outbox row, 7.5) → outbox relay → Redis Streams → BullMQ worker (7.3) → email provider। (ক) এই একটা ঘটনার পুরো পথ একটা trace এ দেখতে কী কী করতে হবে — কোন hop এ context কীভাবে যাবে? (খ) Trace টা ২০ মিনিট লম্বা হবে। এটা parent-child হবে না link — কেন? Tail sampling এ এর কী সমস্যা? (গ) এই ধরনের দেরি **আগেই** ধরতে কোন metric রাখবে, আর alert কীসের উপর?
+2. একজন user লিখল: "আমাকে একটা task assign করা হয়েছিল, email এলো ২০ মিনিট পরে।" Assign থেকে email এর পথ: API (task আপডেট + outbox row, 7.5) → outbox relay → Redis Streams → BullMQ worker (7.3) → email provider। (ক) এই একটা ঘটনার পুরো পথ একটা trace এ দেখতে কী কী করতে হবে — কোন hop এ context কীভাবে যাবে? (খ) Trace টা ২০ মিনিট লম্বা হবে। এটা parent-child হবে না link — কেন? Tail sampling এ এর কী সমস্যা? (গ) এই ধরনের দেরি **আগেই** ধরতে কোন metric রাখবেন, আর alert কীসের উপর?
 
-3. Board খোলার জন্য দুটো SLO: সফলতা ৯৯.৯%, আর latency — ৩০ দিনে ৯৯% board ৫০০ ms এর নিচে। (ক) Latency SLO এর "খারাপ ঘটনা" কী, আর ৩০০ req/s এ মাসের budget কত? (খ) Burn rate ১৪.৪ এর page বাজলে এক ঘণ্টায় budget এর কত % গেছে, কয়টা ধীর request? (গ) 10.3 এর brownout চালু হলো — board এ "এরকম আরও board" আর activity panel বন্ধ, কিন্তু board দ্রুত আসছে। Latency SLO সবুজ, সফলতার SLO সবুজ। এটা কি সমস্যা? কী মাপবে, আর কীসে page করবে না?
+3. Board খোলার জন্য দুটো SLO: সফলতা ৯৯.৯%, আর latency — ৩০ দিনে ৯৯% board ৫০০ ms এর নিচে। (ক) Latency SLO এর "খারাপ ঘটনা" কী, আর ৩০০ req/s এ মাসের budget কত? (খ) Burn rate ১৪.৪ এর page বাজলে এক ঘণ্টায় budget এর কত % গেছে, কয়টা ধীর request? (গ) 10.3 এর brownout চালু হলো — board এ "এরকম আরও board" আর activity panel বন্ধ, কিন্তু board দ্রুত আসছে। Latency SLO সবুজ, সফলতার SLO সবুজ। এটা কি সমস্যা? কী মাপবেন, আর কীসে page করবেন না?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:**
 
-(ক) "Task তৈরি" একটাই route আর method, তাই সেগুলো স্থির। Label: `status_class` (2xx, 4xx, 5xx — ৩টা; পুরো status code না, কারণ ২০টা status code কোনো সিদ্ধান্তে কাজে লাগে না), `instance` (৬টা), `region` (ধরো ২টা), `plan` (৩টা — free/pro/business, কারণ plan ভেদে quota এর পথ আলাদা, 9.4)।
+(ক) "Task তৈরি" একটাই route আর method, তাই সেগুলো স্থির। Label: `status_class` (2xx, 4xx, 5xx — ৩টা; পুরো status code না, কারণ ২০টা status code কোনো সিদ্ধান্তে কাজে লাগে না), `instance` (৬টা), `region` (ধরুন ২টা), `plan` (৩টা — free/pro/business, কারণ plan ভেদে quota এর পথ আলাদা, 9.4)।
 
 ```
 সমন্বয় = ৩ × ৬ × ২ × ৩ = ১০৮
-bucket ধরো ১১টা → প্রতি সমন্বয়ে ১২টা bucket series (+Inf সহ) + _sum + _count = ১৪
+bucket ধরুন ১১টা → প্রতি সমন্বয়ে ১২টা bucket series (+Inf সহ) + _sum + _count = ১৪
 মোট = ১০৮ × ১৪ = ১,৫১২টা series
 ```
 
@@ -431,7 +431,7 @@ bucket ধরো ১১টা → প্রতি সমন্বয়ে ১�
 
 - **সীমিত তালিকা:** একটা `customer_tier` label যার মান `enterprise_top20` বা `other` — তাহলে ২০টার যোগফলের একটা graph, series দ্বিগুণ মাত্র। কিন্তু ২০টা আলাদা না।
 - **আলাদা আলাদা দরকার হলে:** একটা allowlist — একটা ছোট metric যেখানে `workspace` label এর মান শুধু ওই ২০টার নাম, বাকি সব `other` — ২১টা মান, আর তালিকাটা config এ, code এ না। দামটা সীমিত, আর কেউ ভুলে তালিকা না বাড়ালে সীমিত থাকে।
-- **বিস্তারিত বিশ্লেষণ:** trace এর attribute এ `workspace_id` সবসময় থাকে, আর tail sampling এ এই ২০টার সব trace রাখার নিয়ম ("বিশেষ customer — সব রাখো")। তাহলে যেকোনো প্রশ্ন ("এই customer এর ধীর request গুলোয় কী মিল?") trace থেকে।
+- **বিস্তারিত বিশ্লেষণ:** trace এর attribute এ `workspace_id` সবসময় থাকে, আর tail sampling এ এই ২০টার সব trace রাখার নিয়ম ("বিশেষ customer — সব রাখুন")। তাহলে যেকোনো প্রশ্ন ("এই customer এর ধীর request গুলোয় কী মিল?") trace থেকে।
 
 **প্রশ্ন ২:**
 
@@ -444,7 +444,7 @@ bucket ধরো ১১টা → প্রতি সমন্বয়ে ১�
 
 প্রতিটা hop এ ভুল হলে ১.৫ এর অংশ ঘ — trace টুকরো, আর worker এর span এতিম।
 
-(খ) **Link, parent-child না।** Parent-child মানে "এই কাজ ওই কাজের **ভেতরে**" — parent span শেষ হওয়ার আগে child শুরু হয়। কিন্তু API এর request ৫০ ms এ শেষ, user উত্তর পেয়ে গেছে; email এর কাজ ২০ মিনিট পরে। একে parent-child বানালে ২০ মিনিটের একটা "request" দেখায়, যা মিথ্যা — waterfall অর্থহীন। Link বলে "এই কাজ ওই কাজের কারণে" — দুটো আলাদা trace, জোড়া। **Tail sampling এর সমস্যা:** collector কয়েক সেকেন্ড অপেক্ষা করে সিদ্ধান্ত নেয় (এখানে ১০ s)। ২০ মিনিট পরের span এর জন্য সে অপেক্ষা করতে পারবে না — API এর trace এর সিদ্ধান্ত অনেক আগে হয়ে গেছে। তাই প্রতিটা অংশ আলাদা trace হিসেবে sample হয়; worker এর trace "ধীর" না (সে নিজে দ্রুত), তাই হয়তো ফেলা হবে। প্রতিকার: worker এর span এ "queue তে কতক্ষণ ছিল" একটা attribute (`queue.wait_ms`), আর tail sampling এর নিয়মে "queue এর অপেক্ষা > ৫ মিনিট হলে রাখো"।
+(খ) **Link, parent-child না।** Parent-child মানে "এই কাজ ওই কাজের **ভেতরে**" — parent span শেষ হওয়ার আগে child শুরু হয়। কিন্তু API এর request ৫০ ms এ শেষ, user উত্তর পেয়ে গেছে; email এর কাজ ২০ মিনিট পরে। একে parent-child বানালে ২০ মিনিটের একটা "request" দেখায়, যা মিথ্যা — waterfall অর্থহীন। Link বলে "এই কাজ ওই কাজের কারণে" — দুটো আলাদা trace, জোড়া। **Tail sampling এর সমস্যা:** collector কয়েক সেকেন্ড অপেক্ষা করে সিদ্ধান্ত নেয় (এখানে ১০ s)। ২০ মিনিট পরের span এর জন্য সে অপেক্ষা করতে পারবে না — API এর trace এর সিদ্ধান্ত অনেক আগে হয়ে গেছে। তাই প্রতিটা অংশ আলাদা trace হিসেবে sample হয়; worker এর trace "ধীর" না (সে নিজে দ্রুত), তাই হয়তো ফেলা হবে। প্রতিকার: worker এর span এ "queue তে কতক্ষণ ছিল" একটা attribute (`queue.wait_ms`), আর tail sampling এর নিয়মে "queue এর অপেক্ষা > ৫ মিনিট হলে রাখুন"।
 
 (গ) এই দেরি একটা request এর latency না — **queue এর বয়স**। Metric:
 
@@ -456,7 +456,7 @@ Alert: একটা SLO — "৯৯% assign email ২ মিনিটের ম�
 
 **প্রশ্ন ৩:**
 
-(ক) "খারাপ ঘটনা" = একটা board খোলা যা ৫০০ ms এর বেশি নিল (ব্যর্থগুলোও খারাপ ধরা হয়, বা আলাদা SLO তে থাকে — একটা ঠিক করে নিয়ম লেখো)। Budget: ১% —
+(ক) "খারাপ ঘটনা" = একটা board খোলা যা ৫০০ ms এর বেশি নিল (ব্যর্থগুলোও খারাপ ধরা হয়, বা আলাদা SLO তে থাকে — একটা ঠিক করে নিয়ম লিখুন)। Budget: ১% —
 
 ```
 ৩০০ req/s × ৮৬,৪০০ s × ৩০ = ৭৭.৭৬ কোটি board খোলা
@@ -467,9 +467,9 @@ Alert: একটা SLO — "৯৯% assign email ২ মিনিটের ম�
 
 (খ) Burn rate ১৪.৪ এক ঘণ্টা ধরে = এক ঘণ্টায় মাসের budget এর ১৪.৪ ÷ ৭২০ = **২%**। সংখ্যায়: ৭৭,৭৬,০০০ × ০.০২ ≈ **১,৫৫,৫২০টা** ধীর request, অর্থাৎ ওই ঘণ্টার ১০.৮ লাখ request এর ~১৪.৪% ৫০০ ms এর বেশি। (Burn rate এর সংজ্ঞা থেকে সরাসরি: ১৪.৪ × ১% = ১৪.৪% খারাপ।)
 
-(গ) সমস্যা — দুটো SLO ই সবুজ, অথচ user রা কম পাচ্ছে। Brownout ঠিক এটাই করার জন্য নকশা করা (10.3): latency রক্ষা করো, অংশ ছাড়ো। তাই **এটা page এর ঘটনা না** — system ঠিক যা করার কথা তাই করছে, আর কেউ জেগে কিছু করার নেই। কিন্তু **অদৃশ্যও থাকা চলবে না**:
+(গ) সমস্যা — দুটো SLO ই সবুজ, অথচ user রা কম পাচ্ছে। Brownout ঠিক এটাই করার জন্য নকশা করা (10.3): latency রক্ষা করুন, অংশ ছাড়ুন। তাই **এটা page এর ঘটনা না** — system ঠিক যা করার কথা তাই করছে, আর কেউ জেগে কিছু করার নেই। কিন্তু **অদৃশ্যও থাকা চলবে না**:
 
-- Metric: `brownout_level` (gauge) আর "পুরো page পাওয়া board খোলার %" — একটা তৃতীয় SLI, ধরো "৯৫% board খোলা পুরো page"। তার উপর **ticket** (কাজের সময়ে দেখা): brownout ঘণ্টার পর ঘণ্টা চললে মানে ক্ষমতা কম — capacity বাড়ানোর সিদ্ধান্ত লাগবে।
+- Metric: `brownout_level` (gauge) আর "পুরো page পাওয়া board খোলার %" — একটা তৃতীয় SLI, ধরুন "৯৫% board খোলা পুরো page"। তার উপর **ticket** (কাজের সময়ে দেখা): brownout ঘণ্টার পর ঘণ্টা চললে মানে ক্ষমতা কম — capacity বাড়ানোর সিদ্ধান্ত লাগবে।
 - কেন page না: brownout স্বয়ংক্রিয়ভাবে নামে; রাত ৩টায় কাউকে জাগিয়ে "panel বন্ধ আছে" বলার মানে নেই, যদি না সে কিছু বদলাতে পারে।
 - আর একটা সূক্ষ্মতা: brownout চলাকালীন latency SLO সবুজ দেখায় **কারণ** কাজ কম হচ্ছে। Brownout না থাকলে কী হতো সেটা এই সংখ্যা বলে না — তাই capacity এর পরিকল্পনায় brownout এর সময়টা "স্বাভাবিক" ধরা ভুল।
 
@@ -487,17 +487,17 @@ Alert: একটা SLO — "৯৯% assign email ২ মিনিটের ম�
 
 **সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` আর ESLint clean; প্রথম চারটা script দুবার করে, output হুবহু এক (byte ধরে মেলানো); `trace` তিনবার — trace এর গঠন আর span ও trace এর সংখ্যা প্রতিবার একই; ms এর মান কয়েক ms আলাদা (আসল সময় মাপা), আর দুটো request প্রায় সমান ধীর বলে কোনটা "সবচেয়ে ধীর" হিসেবে দেখানো হয় — আর তাই দেখানো trace id — run ভেদে বদলাতে পারে। **প্রথম চারটা script এ কোনো network, Prometheus, log store বা আসল সময় নেই** — latency seed দেওয়া এলোমেলো মান, সব সংখ্যা গোনা আর হিসাব করা। `trace` এর service গুলো আসল HTTP, কিন্তু cache, replica আর billing এর কাজ `setTimeout` দিয়ে নকল; tracing library নিজের হাতে লেখা, OpenTelemetry না। ধরে নেওয়া সংখ্যা: series প্রতি ~৩ KB memory, log লাইন ~৩৫০ byte, span ~৪০০ byte, trace এ ২০টা span — এগুলো আন্দাজ; series এর **সংখ্যা** গোনা। **যা মাপা হয়নি:** আসল Prometheus এর memory, আসল OpenTelemetry collector আর tail sampling processor, exemplar, span link, queue পেরোনো trace, আসল log store এর খরচ। ১.৭ এর burn rate এর সীমা আর window Google এর SRE Workbook থেকে; ১.৩ এর default bucket Prometheus এর client library এর; RED আর USE পরিচিত ছক — এগুলো তাদের documentation আর প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। ১.৮ এর TaskFlow এর সিদ্ধান্ত একটা নকশা, চালানো না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `percentiles` চালানোর **আগে** লিখে ফেলো — ঘণ্টায় তিনবার ৯০ সেকেন্ড, তিনটা replica এর একটা, ~৩.৫ সেকেন্ড বাড়তি: গড় কত হবে, কত % request এক সেকেন্ডের বেশি, আর p99 কোথায়? তারপর চালিয়ে মেলাও। এবার `STALL_SECONDS=20` — এবার মিনিটের p99 এর গড় আসলের চেয়ে বড় কেন?
+1. **আগে অনুমান:** `percentiles` চালানোর **আগে** লিখে ফেলুন — ঘণ্টায় তিনবার ৯০ সেকেন্ড, তিনটা replica এর একটা, ~৩.৫ সেকেন্ড বাড়তি: গড় কত হবে, কত % request এক সেকেন্ডের বেশি, আর p99 কোথায়? তারপর চালিয়ে মেলান। এবার `STALL_SECONDS=20` — এবার মিনিটের p99 এর গড় আসলের চেয়ে বড় কেন?
 
-2. **নিজের metric এর হিসাব:** প্রশ্ন ১ এর metric `cardinality.ts` এ একটা নতুন variant হিসেবে যোগ করো (task তৈরির route, `status_class`, `instance`, `plan`)। তোমার হাতের হিসাব আর গোনা series মেলে? না মিললে কেন (কোন সমন্বয় একদিনে ঘটেইনি)?
+2. **নিজের metric এর হিসাব:** প্রশ্ন ১ এর metric `cardinality.ts` এ একটা নতুন variant হিসেবে যোগ করুন (task তৈরির route, `status_class`, `instance`, `plan`)। আপনার হাতের হিসাব আর গোনা series মেলে? না মিললে কেন (কোন সমন্বয় একদিনে ঘটেইনি)?
 
-3. **Trace এ একটা নতুন hop:** `trace.ts` এ work service থেকে একটা পঞ্চম service ("flags") কে ডাকো, `call` দিয়ে। তারপর ইচ্ছা করে `propagate = false` দিয়ে ডাকো। অংশ ঘ এর মতো trace এর সংখ্যা কত হলো? Waterfall এ কী হারাল? এবার flags কে ৫০০ ms ধীর করো — 10.3 এর শনিবার রাতে এই waterfall থাকলে on-call কত দ্রুত `flags` কে খুঁজে পেত?
+3. **Trace এ একটা নতুন hop:** `trace.ts` এ work service থেকে একটা পঞ্চম service ("flags") কে ডাকুন, `call` দিয়ে। তারপর ইচ্ছা করে `propagate = false` দিয়ে ডাকুন। অংশ ঘ এর মতো trace এর সংখ্যা কত হলো? Waterfall এ কী হারাল? এবার flags কে ৫০০ ms ধীর করুন — 10.3 এর শনিবার রাতে এই waterfall থাকলে on-call কত দ্রুত `flags` কে খুঁজে পেত?
 
 4. **Alert এর সীমা:** `SLO=0.9999 npm run alerts`, তারপর `DEPLOY_BLIP=0.2 npm run alerts`। প্রথমটায় কোনো ঘটনা ছাড়া কী বাজল, আর কেন সেটা SLO এর সমস্যা, alert এর না? দ্বিতীয়টায় deploy এর ঝাঁকুনি বড় হলে multi-window কী করল — আর সেটা কি ঠিক আচরণ?
 
-5. **Design অংশ:** TaskFlow এর mobile app এর জন্য observability এর এক পাতার plan। (ক) Mobile এর SLI কী — server এর latency, নাকি user এর phone এ board দেখা পর্যন্ত সময়? দুটোর পার্থক্য কোথা থেকে আসে? (খ) Phone থেকে trace শুরু করবে? Sampling এর সিদ্ধান্ত কোথায়, আর network না থাকলে span কী হবে? (গ) Phone এর log আর crash report এ কী রাখবে না (10.5 এর দিকে তাকিয়ে)? (ঘ) পুরনো app version গুলো বছর ধরে চলে — একটা নতুন label (`app_version`) এর cardinality কীভাবে সীমিত রাখবে? (ঙ) কোন একটা জিনিসে page করবে, আর কোনটায় শুধু ticket?
+5. **Design অংশ:** TaskFlow এর mobile app এর জন্য observability এর এক পাতার plan। (ক) Mobile এর SLI কী — server এর latency, নাকি user এর phone এ board দেখা পর্যন্ত সময়? দুটোর পার্থক্য কোথা থেকে আসে? (খ) Phone থেকে trace শুরু করবেন? Sampling এর সিদ্ধান্ত কোথায়, আর network না থাকলে span কী হবে? (গ) Phone এর log আর crash report এ কী রাখবেন না (10.5 এর দিকে তাকিয়ে)? (ঘ) পুরনো app version গুলো বছর ধরে চলে — একটা নতুন label (`app_version`) এর cardinality কীভাবে সীমিত রাখবেন? (ঙ) কোন একটা জিনিসে page করবেন, আর কোনটায় শুধু ticket?
 
 ---
 
@@ -526,7 +526,7 @@ Consistent Hash, Bounded-Load Consistent Hashing, Hash Slot, Probabilistic Data 
 False Positive Rate, Counting Bloom Filter, Cardinality, HyperLogLog, Count-Min Sketch, Fault Tolerance,
 Hard / Soft Dependency, Graceful Degradation, Brownout, Static Stability, Chaos Engineering, Blast Radius,
 Observability, Histogram, Label Cardinality, Structured Logging, Trace / Span, Tail Sampling, Burn Rate
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 10.5 — Security at scale: authN vs authZ, OAuth/JWT, secret management, DDoS
 =======================
 ```
@@ -537,4 +537,4 @@ Next: 10.5 — Security at scale: authN vs authZ, OAuth/JWT, secret management, 
 
 আজকের সুতোটা: **data থাকা আর উত্তর থাকা এক জিনিস না।** গড় লেজ লুকায়, percentile গড় করলে মিথ্যা বলে, আর ভুল জায়গায় একটা label পুরো metric system কে মারে। Metric বলে কিছু খারাপ, trace বলে কোথায়, log বলে কেন — আর তিনটাকে বাঁধে একটা id, যা প্রতিটা hop এ নিজে থেকে যায় না, পাঠাতে হয়। আর alert এর প্রশ্ন "কত % error" না, "budget কত দ্রুত পুড়ছে" — কারণ যে alert রোজ বাজে, সে আসলে কখনো বাজে না।
 
-আজ বেশ কয়েকবার একটা কথা পাশ কাটিয়ে গেছি: log এ password বা token যেন না যায়; gateway JWT যাচাই করে আর একটা internal token বসায় (9.2); trace এ `user_id` আছে — তাহলে কে trace দেখতে পারে? এগুলো সব একটা বড় প্রশ্নের টুকরো। রেডি হলে `next` লিখো — **Lesson 10.5: Security at Scale — authN vs authZ, OAuth/JWT, Secret Management, DDoS** এ যাব। সেখানে প্রশ্নটা: যখন একটা request ছয়টা service পেরোয়, তখন "এই user কে?" আর "সে কি এটা করতে পারে?" কে কোথায় উত্তর দেয় — আর একটা ফাঁস হওয়া token, একটা commit এ ভুলে যাওয়া secret, বা সেকেন্ডে লাখ request এর সামনে TaskFlow কী করে।
+আজ বেশ কয়েকবার একটা কথা পাশ কাটিয়ে গেছি: log এ password বা token যেন না যায়; gateway JWT যাচাই করে আর একটা internal token বসায় (9.2); trace এ `user_id` আছে — তাহলে কে trace দেখতে পারে? এগুলো সব একটা বড় প্রশ্নের টুকরো। রেডি হলে `next` লিখুন — **Lesson 10.5: Security at Scale — authN vs authZ, OAuth/JWT, Secret Management, DDoS** এ যাব। সেখানে প্রশ্নটা: যখন একটা request ছয়টা service পেরোয়, তখন "এই user কে?" আর "সে কি এটা করতে পারে?" কে কোথায় উত্তর দেয় — আর একটা ফাঁস হওয়া token, একটা commit এ ভুলে যাওয়া secret, বা সেকেন্ডে লাখ request এর সামনে TaskFlow কী করে।

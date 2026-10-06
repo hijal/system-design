@@ -33,7 +33,7 @@ instance আছে, আর তারা মরে বা ধীর হয়। 
 - **Bulkhead এখানে একটা semaphore** — এক process এর ভেতরে slot গোনা। আসল system এ একই ধারণা আরও কয়েক জায়গায়:
   আলাদা connection pool (Lesson 5.6), আলাদা thread pool, আলাদা deployment, এমনকি আলাদা machine।
 - **যাচাই করা হয়েছে** Node 26 এ, এই machine এ, প্রতিটা script তিনবার করে: **গোনার সব কলাম প্রতি run এ হুবহু এক**
-  (নিচের acceptance criteria দেখো); সময়ের সংখ্যা ২% এর কম ওঠানামা করেছে। তোমার machine এ সময় আলাদা হবে,
+  (নিচের acceptance criteria দেখুন); সময়ের সংখ্যা ২% এর কম ওঠানামা করেছে। আপনার machine এ সময় আলাদা হবে,
   গোনা হবে না।
 
 ## Prerequisite
@@ -83,7 +83,7 @@ npm run isolation
    bulkhead (4 board)               171           0           0      2.1 ms      7.4 ms
 ```
 
-সময়ের সংখ্যা তোমার machine এ আলাদা হবে; **গোনা (100, 150, 400, 388, 12, 171, 429) হুবহু এক হওয়ার কথা**।
+সময়ের সংখ্যা আপনার machine এ আলাদা হবে; **গোনা (100, 150, 400, 388, 12, 171, 429) হুবহু এক হওয়ার কথা**।
 
 ## কী দেখার জন্য এটা বানানো
 
@@ -99,20 +99,20 @@ npm run isolation
 - **Bulkhead:** board এর p99 ৫৯৫ → ৭ ms, অথচ billing সমান ধীর। কিন্তু **create এর p99 বেড়েছে** (৮৯৮ ms → ১.২১ s) —
   bulkhead অসুস্থ পথটাকে ভালো করে না, শুধু সুস্থ পথটাকে ডুবতে দেয় না। এই trade-off টাই মূল শিক্ষা।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **TTL কমাও, heartbeat বাড়াও:** `TTL_MS=100 HEARTBEAT_MS=30 npm run discovery`. মরার পরপর ব্যর্থতা কত কমল?
+1. **TTL কমান, heartbeat বাড়ান:** `TTL_MS=100 HEARTBEAT_MS=30 npm run discovery`. মরার পরপর ব্যর্থতা কত কমল?
    এবার উল্টোটা — `TTL_MS=2000`. Registry এর TTL ছোট করার দাম কী (instance গুলো কত ঘন ঘন heartbeat পাঠাবে,
    আর একটা সাময়িক GC pause এ কী হবে)?
-2. **Threshold বদলাও:** `THRESHOLD=50 npm run circuit`. কতগুলো call billing এ পৌঁছাল, ops/s কত হলো? এবার
-   `THRESHOLD=2` — breaker কি কখনো ভুল করে খুলতে পারে (একটা সাময়িক hiccup এ)? কোনটা তোমার কাছে নিরাপদ?
+2. **Threshold বদলান:** `THRESHOLD=50 npm run circuit`. কতগুলো call billing এ পৌঁছাল, ops/s কত হলো? এবার
+   `THRESHOLD=2` — breaker কি কখনো ভুল করে খুলতে পারে (একটা সাময়িক hiccup এ)? কোনটা আপনার কাছে নিরাপদ?
 3. **Open এর মেয়াদ:** `OPEN_MS=5000 npm run circuit`. Recovery কত দেরি হলো? খুব বড় `OPEN_MS` এর দাম কী,
    আর খুব ছোট হলে মরতে থাকা service এর উপর কী হয়?
-4. **Bulkhead এর ভাগ:** `isolation.ts` এ `WORKERS - 4` আর `4` বদলে দেখো — board কে ৮, create কে ৮ দিলে দুটোর
-   p99 কী হয়? কোন ভাগটা তুমি production এ বাছবে, আর কোন সংখ্যা দেখে?
-5. **Breaker + bulkhead একসাথে (code বদলাতে হবে):** `isolation.ts` এর create path এ `CircuitBreaker` যোগ করো।
+4. **Bulkhead এর ভাগ:** `isolation.ts` এ `WORKERS - 4` আর `4` বদলে দেখুন — board কে ৮, create কে ৮ দিলে দুটোর
+   p99 কী হয়? কোন ভাগটা আপনি production এ বাছবেন, আর কোন সংখ্যা দেখে?
+5. **Breaker + bulkhead একসাথে (code বদলাতে হবে):** `isolation.ts` এর create path এ `CircuitBreaker` যোগ করুন।
    Create এর p99 কী হয়, board এর p99 কী হয়, আর shed/fail-fast এর গোনা কেমন দাঁড়ায়? তিনটা যন্ত্র একসাথে
-   কাজ করলে কোনটা কোন সমস্যাটা সারায় — এক প্যারায় লিখে ফেলো।
+   কাজ করলে কোনটা কোন সমস্যাটা সারায় — এক প্যারায় লিখে ফেলুন।
 
 ## Project Structure
 
@@ -134,4 +134,4 @@ Environment variable দিয়ে সব সংখ্যা বদলান�
 
 ## Teardown
 
-আলাদা কিছু লাগে না — প্রতিটা script শেষে নিজের server গুলো বন্ধ করে দেয়। Port আটকে থাকলে process টা বন্ধ করো।
+আলাদা কিছু লাগে না — প্রতিটা script শেষে নিজের server গুলো বন্ধ করে দেয়। Port আটকে থাকলে process টা বন্ধ করুন।

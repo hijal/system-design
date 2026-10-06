@@ -6,11 +6,11 @@
 
 **Prerequisite:** পুরো course। বিশেষ করে Lesson 1.2 (framework), 2.5 (Idempotency-Key), 5.5 (Lost update), 7.4 আর 7.5 (Retry, outbox), 9.1 (Modular monolith), 10.3 (Failure), 10.7 (খরচ), 10.8 (Multi-region), 12.2 (Estimation), 12.5 (Story bank)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা system এর পুরো design doc লিখতে পারবে, যেভাবে একটা আসল team এর design review তে যায়: লক্ষ্য আর non-goal, estimation, architecture, schema, scaling plan এর trigger, failure mode এর টেবিল, খরচ, বাতিল করা বিকল্প, আর খোলা প্রশ্ন
-2. Doc এর একটা core piece (TaskFlow এর task এর write path) আসল code এ বানিয়ে মেপে দেখাতে পারবে যে doc এর দাবিগুলো সত্যি: concurrent edit এ কিছু চুপচাপ হারায় না, retry এ duplicate নেই, crash এ email হারায় না বা ভূতুড়ে email যায় না
-3. এগারো module এর সিদ্ধান্তগুলোকে একটা সুসংগত গল্পে বাঁধতে পারবে, যেটা 12.5 এর story bank এর সবচেয়ে শক্ত গল্প
+1. একটা system এর পুরো design doc লিখতে পারবেন, যেভাবে একটা আসল team এর design review তে যায়: লক্ষ্য আর non-goal, estimation, architecture, schema, scaling plan এর trigger, failure mode এর টেবিল, খরচ, বাতিল করা বিকল্প, আর খোলা প্রশ্ন
+2. Doc এর একটা core piece (TaskFlow এর task এর write path) আসল code এ বানিয়ে মেপে দেখাতে পারবেন যে doc এর দাবিগুলো সত্যি: concurrent edit এ কিছু চুপচাপ হারায় না, retry এ duplicate নেই, crash এ email হারায় না বা ভূতুড়ে email যায় না
+3. এগারো module এর সিদ্ধান্তগুলোকে একটা সুসংগত গল্পে বাঁধতে পারবেন, যেটা 12.5 এর story bank এর সবচেয়ে শক্ত গল্প
 
 **Tier:** 1 — Runnable Code (core piece: Docker এ Postgres + Redis, Express + Sequelize + Zod + BullMQ; পাঁচটা script, আসল HTTP)
 
@@ -22,7 +22,7 @@ Module 1 এ TaskFlow ছিল একটা Express server আর একটা 
 
 কিন্তু এই পুরো ছবিটা এখনও কোথাও **এক জায়গায় লেখা নেই।** নতুন একজন engineer যোগ দিলে তাকে এগারোটা postmortem পড়তে হবে। আর কেউ যদি জিজ্ঞেস করে "আগামী বছর তিন গুণ হলে কী ভাঙবে?", উত্তরটা কারো মাথায় আছে, কোনো পাতায় না।
 
-আজ সেটা লিখব: TaskFlow এর একটা design doc, যেভাবে একটা team তার design review তে নিয়ে যায়। Curriculum বলেছিল scope আমরা একসাথে ঠিক করব। তুমি core piece হিসেবে বেছেছ **task এর write path**: task তৈরি, move আর assign, আর assign হলে notification। TaskFlow এর সবচেয়ে কেন্দ্রীয় পথ, আর যেখানে course এর চারটা সবচেয়ে বড় শিক্ষা (lost update, idempotency, dual write, at-least-once) একসাথে আসে। Doc এর বাকিটা কাগজে। এই অংশটা আসল code এ, মাপা সংখ্যা সহ।
+আজ সেটা লিখব: TaskFlow এর একটা design doc, যেভাবে একটা team তার design review তে নিয়ে যায়। Curriculum বলেছিল scope আমরা একসাথে ঠিক করব। আপনি core piece হিসেবে বেছেছেন **task এর write path**: task তৈরি, move আর assign, আর assign হলে notification। TaskFlow এর সবচেয়ে কেন্দ্রীয় পথ, আর যেখানে course এর চারটা সবচেয়ে বড় শিক্ষা (lost update, idempotency, dual write, at-least-once) একসাথে আসে। Doc এর বাকিটা কাগজে। এই অংশটা আসল code এ, মাপা সংখ্যা সহ।
 
 **Design Doc** — একটা প্রস্তাবিত (বা বর্তমান) নকশার লেখা রূপ, যা team এর review এর জন্য: কী সমস্যা, কী লক্ষ্য আর কী লক্ষ্য না, কী নকশা, কোন সংখ্যা থেকে, কী বিকল্প বাতিল হলো আর কেন, কী ভাঙতে পারে, কত খরচ, আর কী এখনও জানা নেই। এর কাজ code লেখার আগে ভুল ধরা, আর পরে "কেন এমন" এর উত্তর রেখে দেওয়া।
 
@@ -157,7 +157,7 @@ sagas(id, type, state, …)                                         -- task ত�
 | ৩   | একটা workspace একাই primary এর লেখার ১০% এর বেশি, বা অন্যদের p99 ধীর করে                             | সেই workspace কে নিজের cell এ (10.8 এর cell এর পথ, একই code)                               | Hash sharding এর আগে: cell ইতিমধ্যে আছে, আর বড় tenant ই সাধারণ চাপ |
 | ৪   | ধাপ ২-৩ এর পরেও primary এর সীমা, বা একটা region এ cell এর সংখ্যা বেশি হয়ে যায়                      | Workspace ধরে cell এর ভেতরে আরও cell — মানে workspace_id ই shard key, routing global স্তরে | সব query workspace এর ভেতরে, তাই cross-shard query প্রায় নেই       |
 
-লক্ষ্য করো: TaskFlow এর sharding এর পথ hash sharding না, **cell।** 10.8 এ EU এর জন্য যে cell বানানো হয়েছে, সেটাই বড় tenant এর জন্য, আর পরে সবার জন্য। একটা প্রক্রিয়া, তিনটা কারণ (residency, বড় tenant, আকার)। আর প্রতিটা trigger এর সংখ্যা একটা বিচার, যা production এর load test এ যাচাই করতে হবে (১.১০ এর খোলা প্রশ্ন)।
+লক্ষ্য করুন: TaskFlow এর sharding এর পথ hash sharding না, **cell।** 10.8 এ EU এর জন্য যে cell বানানো হয়েছে, সেটাই বড় tenant এর জন্য, আর পরে সবার জন্য। একটা প্রক্রিয়া, তিনটা কারণ (residency, বড় tenant, আকার)। আর প্রতিটা trigger এর সংখ্যা একটা বিচার, যা production এর load test এ যাচাই করতে হবে (১.১০ এর খোলা প্রশ্ন)।
 
 ### ১.৬ Failure modes
 
@@ -204,7 +204,7 @@ Doc এর এই অংশটা কাগজে না, code এ। নকশ�
                                                                          │
              relay: SELECT … FOR UPDATE SKIP LOCKED → queue.add(jobId = event_id) → published_at
                                                                          │
-             worker: notifications INSERT … ON CONFLICT DO NOTHING → sent? থামো → provider.send(key = event_id) → sent
+             worker: notifications INSERT … ON CONFLICT DO NOTHING → sent? থামুন → provider.send(key = event_id) → sent
 ```
 
 **Spaced repetition এর উত্তর:** lost update মানে দুটো transaction একই মান পড়ে, নিজের হিসাবে বদলে লেখে, আর একজনের লেখা অন্যজনের লেখায় চুপচাপ মুছে যায় (5.5)। Postgres এর READ COMMITTED এটা আটকায় না। REPEATABLE READ (আর SERIALIZABLE) ধরে, `40001` error দিয়ে, আর তখন application কে পুরো transaction টা retry করতে হয়। আমরা অন্য পথ নিয়েছি: READ COMMITTED এ থেকে application এর স্তরে optimistic lock (`version`), কারণ এখানে conflict এ **retry না, user কে জানানো** ঠিক আচরণ: দুজন একই task কে দুজন আলাদা মানুষকে assign করলে, system নিজে "আবার চেষ্টা" করে দ্বিতীয়জনকে জিতিয়ে দিলে সেটাও একটা চুপচাপ সিদ্ধান্ত।
@@ -266,7 +266,7 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 - **১.২ এর দুটো ধরে নেওয়া সংখ্যা** (লেখা প্রতি ১.৫ event, লেখার ২০% নতুন task) production এর metric থেকে যাচাই করতে হবে। দুটোই storage আর outbox এর আকার বদলায়, নকশা না।
 - **×৩ এ মোট বিল কত:** line ধরে মডেল দরকার (১.৭)।
 - **Idempotency key এর মেয়াদ:** ২৪ ঘণ্টা ধরা হয়েছে। Mobile client offline থেকে এক দিনের বেশি পরে retry করলে duplicate সম্ভব। Mobile এর offline queue এর আচরণ জেনে ঠিক করতে হবে।
-- **409 এর UI:** হেরে যাওয়া user কী দেখে, আর কী করতে পারে ("বর্তমান অবস্থা দেখো, আবার চেষ্টা করো")। Product এর সাথে সিদ্ধান্ত।
+- **409 এর UI:** হেরে যাওয়া user কী দেখে, আর কী করতে পারে ("বর্তমান অবস্থা দেখুন, আবার চেষ্টা করুন")। Product এর সাথে সিদ্ধান্ত।
 
 **Rollout:** core write path এর বদলগুলো (version column, idempotency, outbox) expand/contract এ (10.6): আগে column আর table যোগ, তারপর code দুটোই চালায় flag এর পেছনে, canary তে ১% workspace, 409 আর duplicate এর metric দেখে বাড়ানো, শেষে পুরনো পথ মোছা।
 
@@ -276,7 +276,7 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 
 এই doc টা interview এ তিনভাবে কাজে লাগে:
 
-- **12.5 এর প্রশ্নে:** "একটা system এর কথা বলো যেটা তুমি design করেছ"। এখন তোমার কাছে একটা পুরো design doc আর একটা মাপা core piece আছে, learning project হিসেবে, সেই নামে বলা (12.5 এর ১.৬)। ৫ মিনিটের গল্প: write path, ৫০ জনের lost update আর ৪৯টা ভুল email, optimistic lock, আর crash এর তিনটা ক্রম।
+- **12.5 এর প্রশ্নে:** "একটা system এর কথা বলুন যেটা আপনি design করেছেন"। এখন আপনার কাছে একটা পুরো design doc আর একটা মাপা core piece আছে, learning project হিসেবে, সেই নামে বলা (12.5 এর ১.৬)। ৫ মিনিটের গল্প: write path, ৫০ জনের lost update আর ৪৯টা ভুল email, optimistic lock, আর crash এর তিনটা ক্রম।
 - **Design round এ:** প্রায় যেকোনো CRUD-ভারী system ("design Trello", "design Jira", "design a todo app at scale") এর মূল এই doc। আর follow-up গুলো ঠিক ১.৬ আর ১.৯ এর সারি: "primary মরলে?", "দুজন একসাথে বদলালে?", "Kafka কেন না?"
 - **Senior এর signal:** scaling plan কে **trigger** দিয়ে বলা, তারিখ দিয়ে না; sharding এর পথ হিসেবে আগে থেকে থাকা cell কে ব্যবহার করা; আর non-goal আর খোলা প্রশ্ন নিজে থেকে বলা। একজন mid-level candidate একটা নকশা দেয়; একজন senior বলে নকশাটা কোথায় শেষ, কী এখনও জানা নেই, আর কোন সংখ্যা দেখে পরের ধাপে যাবে।
 
@@ -310,13 +310,13 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. Review তে একজন senior engineer বলল: "Optimistic lock এ 409 মানে user কে আবার করতে হবে। Task এর column বদলানো (move) একটা drag-and-drop, user এটা বারবার করে। দুজন একই board এ কাজ করলে 409 কি বিরক্তিকর হবে না?" (ক) কোন ক্ষেত্রে 409 দরকার আর কোনটায় না — move আর assign কি একই রকম? (খ) Move এর জন্য একটা বিকল্প নকশা বলো, যেটা conflict কমায় কিন্তু কিছু চুপচাপ হারায় না। (গ) এই সিদ্ধান্তটা doc এর কোন অংশে যাবে?
+1. Review তে একজন senior engineer বলল: "Optimistic lock এ 409 মানে user কে আবার করতে হবে। Task এর column বদলানো (move) একটা drag-and-drop, user এটা বারবার করে। দুজন একই board এ কাজ করলে 409 কি বিরক্তিকর হবে না?" (ক) কোন ক্ষেত্রে 409 দরকার আর কোনটায় না — move আর assign কি একই রকম? (খ) Move এর জন্য একটা বিকল্প নকশা বলুন, যেটা conflict কমায় কিন্তু কিছু চুপচাপ হারায় না। (গ) এই সিদ্ধান্তটা doc এর কোন অংশে যাবে?
 
 2. ১.৫ এর ধাপ ৩: "একটা workspace একাই primary এর লেখার ১০% এর বেশি হলে নিজের cell এ।" (ক) এই trigger মাপতে কী metric লাগবে, আর 10.4 এর label cardinality এর সমস্যা এখানে কীভাবে আসে? (খ) একটা চলমান workspace কে home cell থেকে নতুন cell এ সরানোর ধাপগুলো কী, downtime ছাড়া বা কম downtime এ? (গ) সরানোর মাঝে outbox এ থাকা unpublished event গুলোর কী হবে?
 
-3. `npm run crash` এর outbox এর সারিতে provider এ ১,০১৫টা call গেছে ১,০০০টা email এর জন্য। (ক) Provider যদি idempotency key **না** দিত, কতজন দুটো email পেত, আর কোন অবস্থায়? (খ) Worker এর ভেতরে কোন ক্রম বদলালে ("পাঠাও, তারপর sent লেখো" বনাম "sent লেখো, তারপর পাঠাও") কী হারায়? (গ) Provider এর idempotency key না থাকলে তুমি কোনটা বাছবে, আর কেন — এটা কোন lesson এর কোন সিদ্ধান্তের মতো?
+3. `npm run crash` এর outbox এর সারিতে provider এ ১,০১৫টা call গেছে ১,০০০টা email এর জন্য। (ক) Provider যদি idempotency key **না** দিত, কতজন দুটো email পেত, আর কোন অবস্থায়? (খ) Worker এর ভেতরে কোন ক্রম বদলালে ("পাঠান, তারপর sent লিখুন" বনাম "sent লিখুন, তারপর পাঠান") কী হারায়? (গ) Provider এর idempotency key না থাকলে আপনি কোনটা বাছবেন, আর কেন — এটা কোন lesson এর কোন সিদ্ধান্তের মতো?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -341,7 +341,7 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 
 (ক) ১৫ জন, যাদের worker crash এর পরে retry হয়েছে: worker email পাঠিয়েছে, তারপর "sent" লেখার আগে crash, retry এ notification এর row `pending`, তাই আবার পাঠিয়েছে। Provider dedupe না করলে এই ১৫ জন দুটো email পেত। (Relay এর আবার পাঠানো job গুলো সাধারণত consumer এর dedupe এ থামে, কারণ ততক্ষণে row `sent`।)
 
-(খ) "পাঠাও, তারপর sent লেখো" (আমাদের): মাঝে crash হলে retry এ আবার পাঠায় — **duplicate** সম্ভব, হারানো না। "Sent লেখো, তারপর পাঠাও": মাঝে crash হলে retry এ row `sent` দেখে থামে — email **হারায়**, duplicate না। প্রথমটা at-least-once, দ্বিতীয়টা at-most-once।
+(খ) "পাঠান, তারপর sent লিখুন" (আমাদের): মাঝে crash হলে retry এ আবার পাঠায় — **duplicate** সম্ভব, হারানো না। "Sent লিখুন, তারপর পাঠান": মাঝে crash হলে retry এ row `sent` দেখে থামে — email **হারায়**, duplicate না। প্রথমটা at-least-once, দ্বিতীয়টা at-most-once।
 
 (গ) সাধারণত at-least-once (আমাদের ক্রম): একটা task এর assignment এর email দুবার পাওয়া বিরক্তিকর, না পাওয়া মানে কেউ কাজটা জানে না। কিন্তু এটা email এর ধরনের উপর নির্ভর করে: একটা OTP বা "আপনার card এ চার্জ হয়েছে" এর মতো email এর জন্য duplicate ও খারাপ, আর তখন provider এর idempotency key বা আগে থেকে একটা অনন্য message id প্রায় বাধ্যতামূলক। এটা 11.5 এর notification এর সিদ্ধান্তের মতো (failover এ duplicate বনাম হারানো), আর 11.7 এর payment এর "timeout মানে জানি না" এর একটা হালকা রূপ: বাইরের system এর সাথে exactly-once নেই, শুধু at-least-once আর dedupe।
 
@@ -359,17 +359,17 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 
 **সৎ নোট:** Sandbox এ Node 26 আর Docker (`postgres:17-alpine`, `redis:8-alpine`) এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; `smoke`, `concurrency`, `idempotency` আর `crash` দুবার করে, output byte ধরে হুবহু এক; `load` দুবার (৭১১ আর ৭৫৫ move/s — machine নির্ভর, laptop এ, Docker এর Postgres, ১০ connection এর pool)। README এর experiment ১ আর ২ চালানো হয়েছে, সংখ্যা উপরে। Crash হলো একটা simulated exception (relay এর transaction rollback, worker এর job retry), আসল `SIGKILL` না (7.5 এর exercise এ আসল crash ছিল); email provider fake। Design doc এর বাকি অংশ (১.১-১.৭, ১.৯-১.১০) কাগজে, আগের lesson গুলোর সংখ্যা থেকে; ১.২ এর দুটো সংখ্যা আর ১.৫ এর trigger এর সীমা ধরে নেওয়া, ১.১০ এ খোলা প্রশ্ন হিসেবে লেখা।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `crash` চালানোর **আগে** লিখে ফেলো, ২% crash এ প্রথম দুটো সারির ক্ষতি কত হবে, আর outbox এ provider call কত হবে। তারপর চালিয়ে মেলাও। Provider call এর সংখ্যা তোমার অনুমান থেকে আলাদা হলে, কেন?
+1. **আগে অনুমান:** `crash` চালানোর **আগে** লিখে ফেলুন, ২% crash এ প্রথম দুটো সারির ক্ষতি কত হবে, আর outbox এ provider call কত হবে। তারপর চালিয়ে মেলান। Provider call এর সংখ্যা আপনার অনুমান থেকে আলাদা হলে, কেন?
 
-2. **Code বদলানো — fractional position:** প্রশ্ন ১ এর (খ)। `position` কে দুটো প্রতিবেশীর মাঝের সংখ্যা বানাও, আর `concurrency` এ একটা নতুন অংশ: ৫০ জন একই board এর ৫০টা **আলাদা** task একসাথে move করে। ঘন integer এ (যেখানে একটা move পাশেরগুলোর position বদলায়) কতগুলো 409, আর fractional এ কত?
+2. **Code বদলানো — fractional position:** প্রশ্ন ১ এর (খ)। `position` কে দুটো প্রতিবেশীর মাঝের সংখ্যা বানান, আর `concurrency` এ একটা নতুন অংশ: ৫০ জন একই board এর ৫০টা **আলাদা** task একসাথে move করে। ঘন integer এ (যেখানে একটা move পাশেরগুলোর position বদলায়) কতগুলো 409, আর fractional এ কত?
 
 3. **Code বদলানো — README এর experiment ৪ আর ৫:** 409 এ client এর retry, আর outbox এর পরিষ্কার এর job।
 
-4. **নিজের doc:** এই lesson এর doc এর ছকে (১.১-১.১০) নিজের একটা system এর design doc লেখো — 12.1 এর exercise এর প্রশ্ন, বা 12.5 এ বাছা project। অন্তত: দুটো non-goal, তিনটা "তাই" সহ estimation, তিন ধাপের scaling trigger, পাঁচ সারির failure mode এর টেবিল, তিনটা বাতিল বিকল্প, তিনটা খোলা প্রশ্ন।
+4. **নিজের doc:** এই lesson এর doc এর ছকে (১.১-১.১০) নিজের একটা system এর design doc লিখুন — 12.1 এর exercise এর প্রশ্ন, বা 12.5 এ বাছা project। অন্তত: দুটো non-goal, তিনটা "তাই" সহ estimation, তিন ধাপের scaling trigger, পাঁচ সারির failure mode এর টেবিল, তিনটা বাতিল বিকল্প, তিনটা খোলা প্রশ্ন।
 
-5. **Doc টা বলো:** এই lesson এর TaskFlow doc টা ১০ মিনিটে একজন কাল্পনিক reviewer কে বলো, জোরে, recording সহ — 12.5 এর ২০ মিনিটের রূপের একটা অনুশীলন। তারপর ১.৬ আর ১.৯ থেকে তিনটা সারি বাছো যেখানে তোমার মনে হয় reviewer সবচেয়ে বেশি চাপ দেবে, আর প্রতিটায় depth এর সিঁড়ি (12.5) চার স্তর লেখো।
+5. **Doc টা বলুন:** এই lesson এর TaskFlow doc টা ১০ মিনিটে একজন কাল্পনিক reviewer কে বলুন, জোরে, recording সহ — 12.5 এর ২০ মিনিটের রূপের একটা অনুশীলন। তারপর ১.৬ আর ১.৯ থেকে তিনটা সারি বাছুন যেখানে আপনার মনে হয় reviewer সবচেয়ে বেশি চাপ দেবে, আর প্রতিটায় depth এর সিঁড়ি (12.5) চার স্তর লিখুন।
 
 ---
 
@@ -378,7 +378,7 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1 – 11 (সম্পূর্ণ, exit challenge সহ), 12.1 – 12.5
-Current: 12.6 — Capstone: TaskFlow Complete Design Doc (core piece: task এর write path, তোমার বাছাই)
+Current: 12.6 — Capstone: TaskFlow Complete Design Doc (core piece: task এর write path, আপনার বাছাই)
 TaskFlow state: পুরো ছবি একটা design doc এ — CDN, gateway, web/mobile BFF, modular monolith (work, identity, files,
 search) + billing + files processing; Postgres primary + ৩ replica (Patroni), cache ring, limiter Redis; outbox → Redis
 Streams → BullMQ; S3 + CDN; OpenTelemetry; মুম্বাইয়ে DR (RPO ~৫ s, RTO ~৪০ মি); ফ্রাঙ্কফুর্টে EU cell। আজ ~৩০০ req/s,
@@ -392,7 +392,7 @@ Powers-of-Ten Rounding, Active Window, Headroom, Unit Slip, Sanity Check, Sorted
 Composite Score, Time-Bucketed Key, Rank Histogram, Content-Addressed Block, Content-Defined Chunking, Change Journal,
 Namespace, Conflicted Copy, Dedupe Side Channel, Design Narrative, Impact Metric, Retrospective Insight, Depth Probe,
 Ownership Signal, Story Bank, Design Doc, Non-Goal, Scaling Trigger, Failure Mode Table, Alternatives Considered
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: Module 12 Exit Challenge
 =======================
 ```
@@ -403,4 +403,4 @@ Next: Module 12 Exit Challenge
 
 আজকের সুতোটা: **এগারো module এর প্রতিটা সিদ্ধান্ত একটা খারাপ সপ্তাহ থেকে এসেছিল; design doc সেগুলোকে একটা ছবিতে বাঁধে, আর প্রতিটা ছবির পাশে তার কারণ, তার সংখ্যা, আর কোন শর্তে সে বদলাবে।** আর doc এর দাবি সবচেয়ে শক্ত হয় যখন তার একটা অংশ code এ মাপা: ৫০ জনে ৪৯টা ভুল email, ১০৪টা duplicate, ৩০টা হারানো notification — আর প্রতিটার পাশে শূন্য।
 
-রেডি হলে `next` লিখো — **Module 12 Exit Challenge,** পুরো course এর শেষ। সেখানে থাকবে একটা শেষ mock: একটা নতুন system, ৬০ মিনিট, কোনো script বা বন্ধ অংশের সাহায্য ছাড়া, যার follow-up গুলো এই module এর প্রতিটা lesson এর এক একটা দক্ষতা পরীক্ষা করে; পুরো course এর একটা self-check; আর এর পরে কী পড়বে, কী বানাবে, আর interview এর আগের সপ্তাহে কী করবে।
+রেডি হলে `next` লিখুন — **Module 12 Exit Challenge,** পুরো course এর শেষ। সেখানে থাকবে একটা শেষ mock: একটা নতুন system, ৬০ মিনিট, কোনো script বা বন্ধ অংশের সাহায্য ছাড়া, যার follow-up গুলো এই module এর প্রতিটা lesson এর এক একটা দক্ষতা পরীক্ষা করে; পুরো course এর একটা self-check; আর এর পরে কী পড়বেন, কী বানাবেন, আর interview এর আগের সপ্তাহে কী করবেন।

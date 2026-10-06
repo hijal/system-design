@@ -105,12 +105,12 @@ first one at once, then the window doubles (30 s, 1, 2… min)         6       1
 - **খরচ পরিমাণে না, channel এ।** ১% SMS খরচের ৮২%। OTP কে push এ নেওয়া বা SMS শুধু fallback রাখা সবচেয়ে বড় সাশ্রয়।
 - **একটা queue তে জরুরি আর bulk মেশালে জরুরিটা মরে**, বিশেষ করে যখন সীমা আমাদের না, provider এর।
 - **Pacing এ headroom লাগে।** Campaign কে সীমার ৯০% এ চালালে OTP এর জায়গা থাকে না (experiment ১)।
-- **Timeout মানে "জানি না", ব্যর্থতা না।** Retry করো, কিন্তু একটা key দিয়ে যা provider মানে; failover এ সেই key হারায়।
+- **Timeout মানে "জানি না", ব্যর্থতা না।** Retry করুন, কিন্তু একটা key দিয়ে যা provider মানে; failover এ সেই key হারায়।
 - **Backoff একা outage সারায় না;** provider ফিরে আসার পরেও অনেকে মিনিট খানেক অপেক্ষা করে। Breaker + দ্বিতীয় provider।
 - **User এর মনোযোগ একটা সীমিত সম্পদ।** Aggregation আর collapse key ৫০০ কে ৬ বানায়, কিছু না হারিয়ে; cap কিছু হারায়।
 - **মরা token পরিষ্কার না করলে push এর এক-তৃতীয়াংশ অপচয়।**
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **লোভী pacing:** `PACE_SHARE=0.9 npm run queue`। OTP এর কত মেয়াদ পার হলো (মাপা: ৭,৫০৩), আর কেন — ৯০% + OTP এর ২০% = ?
 2. **OTP বাড়লে:** `OTP_PER_S=90 npm run queue`। অগ্রাধিকারে campaign কবে শেষ হয় (মাপা: ২ ঘণ্টায়ও না), আর আলাদা account এ (৫০
@@ -118,8 +118,8 @@ first one at once, then the window doubles (30 s, 1, 2… min)         6       1
 3. **বেশিরভাগ timeout আসলে পাঠানো:** `SENT_ON_TIMEOUT=0.9 npm run retry`। Key ছাড়া retry তে দুবার কত (মাপা: ১.৮৩%), retry ছাড়া
    হারানো কত (১.২১%)? কোন notification এ কোনটা খারাপ?
 4. **ধীর breaker:** `BREAKER_S=120 npm run retry`। Outage এ p99 কত হলো (মাপা: ২০৩.৭৯ s)? Breaker এর সময় কে ঠিক করে?
-5. **Code বদলানোর কাজ:** `src/notify.ts` এ user প্রতি দিনে সর্বোচ্চ ৩টা marketing এর একটা সীমা যোগ করো (critical আর normal এ না)।
-   সীমা কোথায় দেখবে — গ্রহণের সময় নাকি পাঠানোর সময় — আর quiet hours এ পিছিয়ে যাওয়া notification কোন দিনের গোনায় পড়বে?
+5. **Code বদলানোর কাজ:** `src/notify.ts` এ user প্রতি দিনে সর্বোচ্চ ৩টা marketing এর একটা সীমা যোগ করুন (critical আর normal এ না)।
+   সীমা কোথায় দেখবেন — গ্রহণের সময় নাকি পাঠানোর সময় — আর quiet hours এ পিছিয়ে যাওয়া notification কোন দিনের গোনায় পড়বে?
 
 ## Project Structure
 

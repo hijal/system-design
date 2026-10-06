@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.4 (Connection Lifecycle), 2.2 (TCP/UDP, TLS), 2.3 (API paradigm)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Long Polling, SSE, আর WebSocket — এই তিনটা real-time communication পদ্ধতির কাজের ধরন এবং পার্থক্য ব্যাখ্যা করতে পারবে
-2. কোন scenario তে কোনটা উপযুক্ত সেটা bidirectional-ity এবং complexity এর ভিত্তিতে সিদ্ধান্ত নিতে পারবে
-3. Lesson 1.1 এর "TaskFlow Real-time Notification" exercise এ ফিরে গিয়ে, এখন সেই সমাধান actually বেছে নিতে পারবে, reasoning সহ
+1. Long Polling, SSE, আর WebSocket — এই তিনটা real-time communication পদ্ধতির কাজের ধরন এবং পার্থক্য ব্যাখ্যা করতে পারবেন
+2. কোন scenario তে কোনটা উপযুক্ত সেটা bidirectional-ity এবং complexity এর ভিত্তিতে সিদ্ধান্ত নিতে পারবেন
+3. Lesson 1.1 এর "TaskFlow Real-time Notification" exercise এ ফিরে গিয়ে, এখন সেই সমাধান actually বেছে নিতে পারবেন, reasoning সহ
 
 **Tier:** 3 — Design Exercise (Module 3-4 এর hands-on এ WebSocket/SSE actual implementation আসবে, আজকে conceptual foundation)
 
@@ -18,7 +18,7 @@
 
 ## ০. TaskFlow এখন কোথায়
 
-তোমার মনে আছে কি — Lesson 1.1 তে, একদম কোর্সের শুরুতে, আমরা "TaskFlow এ real-time notification" নিয়ে একটা exercise করেছিলাম? তখন তুমি নিজেই লিখেছিলে non-functional requirement হিসেবে — "socket naki push notification" — আর আমি বলেছিলাম এটা এখনই ঠিক করার বিষয় না, এটা "Solution", পরে আসবে।
+আপনার মনে আছে কি — Lesson 1.1 তে, একদম কোর্সের শুরুতে, আমরা "TaskFlow এ real-time notification" নিয়ে একটা exercise করেছিলাম? তখন আপনি নিজেই লিখেছিলেন non-functional requirement হিসেবে — "socket naki push notification" — আর আমি বলেছিলাম এটা এখনই ঠিক করার বিষয় না, এটা "Solution", পরে আসবে।
 
 **এখন সেই "পরে" এসে গেছে।** আজকে আমরা exactly সেই প্রশ্নের উত্তর দেব — client কে server থেকে "push" করে notification পাঠানোর জন্য ঠিক কোন mechanism ব্যবহার করব, আর কেন।
 
@@ -54,7 +54,7 @@ Client                                    Server
 
 ```
 Client                                    Server
-  │──"EventSource connection খোলো"───────>│
+  │──"EventSource connection খুলুন"───────>│
   │<──[connection open থেকে যায়]───────────│
   │<──"notification 1"─────────────────────│
   │<──"notification 2"─────────────────────│
@@ -119,23 +119,23 @@ Client                                    Server
 
 WebTransport হলো একটা নতুন browser API, HTTP/3 এবং QUIC (Lesson 1.4 এর সেই QUIC!) এর ওপর তৈরি, যেটা bidirectional communication দেয়, কিন্তু WebSocket এর মতো "Upgrade" এর দরকার নেই — এটা native ভাবেই HTTP/3 এর অংশ।
 
-এর সবচেয়ে বড় সুবিধা — এটা reliable stream এবং "unreliable datagram" — দুই ধরনের data-ই একসাথে পাঠাতে পারে, একই connection এ, WebSocket এর head-of-line blocking সমস্যা ছাড়াই। মানে, একটা connection এর মধ্যেই তুমি বলে দিতে পারো "এই message টা নিশ্চিতভাবে পৌঁছাতে হবে" (reliable stream) বনাম "এই data টা miss হলেও সমস্যা নেই, পরেরটা এলেই চলবে" (unreliable datagram, যেমন — Lesson 2.2 এর সেই "live cursor position" উদাহরণ)।
+এর সবচেয়ে বড় সুবিধা — এটা reliable stream এবং "unreliable datagram" — দুই ধরনের data-ই একসাথে পাঠাতে পারে, একই connection এ, WebSocket এর head-of-line blocking সমস্যা ছাড়াই। মানে, একটা connection এর মধ্যেই আপনি বলে দিতে পারেন "এই message টা নিশ্চিতভাবে পৌঁছাতে হবে" (reliable stream) বনাম "এই data টা miss হলেও সমস্যা নেই, পরেরটা এলেই চলবে" (unreliable datagram, যেমন — Lesson 2.2 এর সেই "live cursor position" উদাহরণ)।
 
 **তবে বর্তমান বাস্তবতা:** ২০২৬ সালে, WebSocket এখনও real-time communication এর সবচেয়ে নিরাপদ default choice, কারণ এটা প্রায় সর্বজনীনভাবে সাপোর্টেড। WebTransport শক্তিশালী যেখানে multiple independent stream বা unreliable datagram এর সুবিধা দরকার, কিন্তু সাধারণ reliable messaging এর জন্য WebSocket এখনও সহজ এবং যথেষ্ট ভালো পছন্দ। বেশিরভাগ team এর জন্য সঠিক approach হলো WebTransport কে একটা enhancement হিসেবে যোগ করা, WebSocket কে fallback রেখে — সম্পূর্ণ replace করে ফেলা না।
 
-**তোমার জন্য practical takeaway:** TaskFlow এর মতো একটা project এর জন্য, আজকে (২০২৬ এ) WebSocket ই সঠিক এবং safe পছন্দ। WebTransport সম্পর্কে জানাটা ভালো (এটা ভবিষ্যতের দিকনির্দেশনা বোঝায়), কিন্তু এখনই এটা ব্যবহার করার কোনো practical কারণ নেই একটা internal team tool এর জন্য।
+**আপনার জন্য practical takeaway:** TaskFlow এর মতো একটা project এর জন্য, আজকে (২০২৬ এ) WebSocket ই সঠিক এবং safe পছন্দ। WebTransport সম্পর্কে জানাটা ভালো (এটা ভবিষ্যতের দিকনির্দেশনা বোঝায়), কিন্তু এখনই এটা ব্যবহার করার কোনো practical কারণ নেই একটা internal team tool এর জন্য।
 
 ---
 
 ## ২. Interview Angle
 
-এই টপিকের classic interview প্রশ্ন — "তুমি একটা real-time chat feature ডিজাইন করছ, WebSocket, SSE, নাকি Long Polling ব্যবহার করবে?" ভালো উত্তরের মূল কাঠামো — **"এটা কি bidirectional communication দরকার?"** এই প্রশ্ন দিয়ে শুরু করা:
+এই টপিকের classic interview প্রশ্ন — "আপনি একটা real-time chat feature ডিজাইন করছেন, WebSocket, SSE, নাকি Long Polling ব্যবহার করবেন?" ভালো উত্তরের মূল কাঠামো — **"এটা কি bidirectional communication দরকার?"** এই প্রশ্ন দিয়ে শুরু করা:
 
 - Chat — bidirectional (দুই পক্ষই message পাঠায়) → **WebSocket**
 - Stock price ticker, live score update — one-way (শুধু server push করছে) → **SSE** (WebSocket দিয়েও করা যায়, কিন্তু SSE সহজ এবং এই কাজের জন্য যথেষ্ট, over-engineering এড়ানো যায়)
 - Notification badge (আমাদের TaskFlow example) — মূলত one-way, তাই SSE একটা ভালো fit, যদিও অনেক production system WebSocket ব্যবহার করে কারণ একটা connection দিয়ে অনেক ধরনের feature (chat + notification + presence) একসাথে সামলানো সহজ
 
-**একটা গুরুত্বপূর্ণ follow-up যেটা interviewer জিজ্ঞেস করতে পারে:** "WebSocket horizontal scale করবে কীভাবে?" — এটা একটা advanced প্রশ্ন যেটার উত্তর এখনই সম্পূর্ণ দেওয়া কঠিন (Module 3-4 লাগবে), কিন্তু এখন এইটুকু বলতে পারলেই যথেষ্ট: "যেহেতু WebSocket connection stateful (একটা নির্দিষ্ট server এর সাথে বাঁধা), multiple server এর মধ্যে message broadcast করতে একটা shared pub/sub layer (যেমন Redis Pub/Sub) লাগে, যাতে Server A তে connected client, Server B তে ঘটা একটা event সম্পর্কে জানতে পারে।" — এই উত্তরটা দেখায় তুমি সমস্যাটা বোঝো, যদিও পুরো সমাধান এখনও শেখোনি।
+**একটা গুরুত্বপূর্ণ follow-up যেটা interviewer জিজ্ঞেস করতে পারে:** "WebSocket horizontal scale করবেন কীভাবে?" — এটা একটা advanced প্রশ্ন যেটার উত্তর এখনই সম্পূর্ণ দেওয়া কঠিন (Module 3-4 লাগবে), কিন্তু এখন এইটুকু বলতে পারলেই যথেষ্ট: "যেহেতু WebSocket connection stateful (একটা নির্দিষ্ট server এর সাথে বাঁধা), multiple server এর মধ্যে message broadcast করতে একটা shared pub/sub layer (যেমন Redis Pub/Sub) লাগে, যাতে Server A তে connected client, Server B তে ঘটা একটা event সম্পর্কে জানতে পারে।" — এই উত্তরটা দেখায় আপনি সমস্যাটা বোঝেন, যদিও পুরো সমাধান এখনও শেখোনি।
 
 ---
 
@@ -146,7 +146,7 @@ WebTransport হলো একটা নতুন browser API, HTTP/3 এবং Q
 - **SSE** — একটা persistent connection, one-directional (server→client), built-in reconnection, simple use case এর জন্য যথেষ্ট
 - **WebSocket** — সত্যিকারের bidirectional, সবচেয়ে শক্তিশালী কিন্তু সবচেয়ে জটিল, chat/gaming/collaborative editing এর জন্য আদর্শ
 - WebSocket, TCP-based হওয়ায় head-of-line blocking এর শিকার হতে পারে; WebTransport (HTTP/3/QUIC ভিত্তিক) এটা সমাধান করে, কিন্তু ২০২৬ এ এখনও WebSocket ই practical default
-- সিদ্ধান্তের মূল প্রশ্ন: bidirectional দরকার কিনা? — উত্তর অনুযায়ী WebSocket বা SSE বেছে নাও
+- সিদ্ধান্তের মূল প্রশ্ন: bidirectional দরকার কিনা? — উত্তর অনুযায়ী WebSocket বা SSE বেছে নিন
 
 ---
 
@@ -164,8 +164,8 @@ WebTransport হলো একটা নতুন browser API, HTTP/3 এবং Q
 
 ## ৫. Reflection Questions
 
-1. Lesson 1.1 এর TaskFlow "real-time notification" exercise এ ফিরে যাও। এখন এই lesson শেখার পর, তুমি কোনটা বেছে নেবে — Long Polling, SSE, নাকি WebSocket? তোমার সিদ্ধান্তের কারণ দাও (TaskFlow এ শুধু notification push করা লাগে, নাকি bidirectional কিছু দরকার — এটা ভাবো)।
-2. WebSocket "stateful" (Lesson 1.6 এর term) কেন — এটা horizontal scaling এ কী challenge তৈরি করে, নিজের ভাষায় সংক্ষেপে বলো।
+1. Lesson 1.1 এর TaskFlow "real-time notification" exercise এ ফিরে যান। এখন এই lesson শেখার পর, আপনি কোনটা বেছে নেবেন — Long Polling, SSE, নাকি WebSocket? আপনার সিদ্ধান্তের কারণ দিন (TaskFlow এ শুধু notification push করা লাগে, নাকি bidirectional কিছু দরকার — এটা ভাবুন)।
+2. WebSocket "stateful" (Lesson 1.6 এর term) কেন — এটা horizontal scaling এ কী challenge তৈরি করে, নিজের ভাষায় সংক্ষেপে বলুন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -182,7 +182,7 @@ WebTransport হলো একটা নতুন browser API, HTTP/3 এবং Q
 
 **Tier 3 — Design Exercise**
 
-> **Scenario:** TaskFlow এ তিনটা নতুন feature প্রস্তাবিত হয়েছে। প্রতিটার জন্য বলো — Long Polling, SSE, নাকি WebSocket, আর কেন (bidirectional প্রয়োজনীয়তা এবং complexity trade-off বিবেচনা করে):
+> **Scenario:** TaskFlow এ তিনটা নতুন feature প্রস্তাবিত হয়েছে। প্রতিটার জন্য বলুন — Long Polling, SSE, নাকি WebSocket, আর কেন (bidirectional প্রয়োজনীয়তা এবং complexity trade-off বিবেচনা করে):
 >
 > 1. **"Team Presence Indicator"** — কে এখন online আছে, TaskFlow এ active আছে, সেটা একটা green dot দিয়ে সবাইকে দেখানো
 > 2. **"Live Comment Thread"** — একটা task এর নিচে সবাই comment করতে পারে, এবং নতুন comment এলে সাথে সাথে সবার screen এ update হয়ে যায় (কেউ যদি typing করছে সেটাও দেখানো হয় — "Hijikesh is typing...")
@@ -214,4 +214,4 @@ Next: 2.5 — API Design at Scale (Versioning, Pagination, Idempotency Key, Erro
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — Lesson 2.5 এ যাব, Module 2 এর শেষ lesson: API Design at Scale — versioning, pagination, idempotency key, error contract। এটা একটা বিশেষভাবে গুরুত্বপূর্ণ lesson, কারণ idempotency ছাড়া কোনো API-ই retry-এর মুখে নিরাপদ না।
+Exercise টা করে পাঠান। রেডি হলে `next` লিখুন — Lesson 2.5 এ যাব, Module 2 এর শেষ lesson: API Design at Scale — versioning, pagination, idempotency key, error contract। এটা একটা বিশেষভাবে গুরুত্বপূর্ণ lesson, কারণ idempotency ছাড়া কোনো API-ই retry-এর মুখে নিরাপদ না।

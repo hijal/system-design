@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 4.2 (Caching Strategies), Lesson 4.3 (Invalidation, TTL, Eviction)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Express + Sequelize + Redis দিয়ে একটা কাজ করা Cache-Aside layer নিজে লিখতে পারবে
-2. Cache এ রাখা data কে runtime input হিসেবে Zod দিয়ে validate করবে, `as` দিয়ে বিশ্বাস করবে না
-3. Cache এর লাভটা **মেপে** দেখাতে পারবে, আর Redis মরে গেলে ঠিক কী ঘটে সেটা চোখে দেখবে
+1. Express + Sequelize + Redis দিয়ে একটা কাজ করা Cache-Aside layer নিজে লিখতে পারবেন
+2. Cache এ রাখা data কে runtime input হিসেবে Zod দিয়ে validate করবেন, `as` দিয়ে বিশ্বাস করবেন না
+3. Cache এর লাভটা **মেপে** দেখাতে পারবেন, আর Redis মরে গেলে ঠিক কী ঘটে সেটা চোখে দেখবেন
 
 **Tier:** 1 — Runnable Code
 
@@ -28,9 +28,9 @@
 
 আজকে এই পুরো কাগুজে design টা TaskFlow এ বসিয়ে দেব — আর তারপর **মেপে দেখব সত্যিই কিছু লাভ হলো কিনা**।
 
-এটা গুরুত্বপূর্ণ, কারণ caching নিয়ে একটা সাধারণ ফাঁদ আছে: লোকে Redis বসিয়ে ধরে নেয় system এখন দ্রুত হয়ে গেছে। কিন্তু cache কতটা লাভ দিচ্ছে সেটা **না মাপলে** তুমি জানোই না তোমার TTL ঠিক আছে কিনা, key design কাজ করছে কিনা, এমনকি cache আদৌ hit হচ্ছে কিনা। আজকের exercise এ তাই একটা bench script ও আছে।
+এটা গুরুত্বপূর্ণ, কারণ caching নিয়ে একটা সাধারণ ফাঁদ আছে: লোকে Redis বসিয়ে ধরে নেয় system এখন দ্রুত হয়ে গেছে। কিন্তু cache কতটা লাভ দিচ্ছে সেটা **না মাপলে** আপনি জানোই না আপনার TTL ঠিক আছে কিনা, key design কাজ করছে কিনা, এমনকি cache আদৌ hit হচ্ছে কিনা। আজকের exercise এ তাই একটা bench script ও আছে।
 
-আর lesson এর শেষে আমরা একটা কাজ করব যেটা অনেকে কখনো করে দেখে না — **Redis টা মেরে ফেলব**, আর দেখব TaskFlow এর কী হয়। উত্তরটা তোমাকে চমকে দেবে।
+আর lesson এর শেষে আমরা একটা কাজ করব যেটা অনেকে কখনো করে দেখে না — **Redis টা মেরে ফেলব**, আর দেখব TaskFlow এর কী হয়। উত্তরটা আপনাকে চমকে দেবে।
 
 ---
 
@@ -40,9 +40,9 @@
 
 ### ১.১ Cache এ রাখা data ও runtime input
 
-Lesson 2.5 এ আমরা একটা নিয়ম শিখেছিলাম — **runtime input কখনো type assertion দিয়ে বিশ্বাস করবে না**। তখন সেটা ছিল `req.body`। আজকে সেই একই নিয়ম আরেক জায়গায় খাটে, যেটা অনেকে খেয়াল করে না: **Redis থেকে ফেরত আসা data ও runtime input**।
+Lesson 2.5 এ আমরা একটা নিয়ম শিখেছিলাম — **runtime input কখনো type assertion দিয়ে বিশ্বাস করবেন না**। তখন সেটা ছিল `req.body`। আজকে সেই একই নিয়ম আরেক জায়গায় খাটে, যেটা অনেকে খেয়াল করে না: **Redis থেকে ফেরত আসা data ও runtime input**।
 
-কেন? Redis এ যা আছে তা তোমার পুরনো code এর লেখা হতে পারে, deploy এর সময় shape বদলে যেতে পারে, বা অন্য কোনো service সেখানে লিখে থাকতে পারে। `JSON.parse()` এর ফল হলো `unknown` — আর সেটাকে `as TaskDTO[]` বলে চালিয়ে দেওয়া মানে মিথ্যা বলা।
+কেন? Redis এ যা আছে তা আপনার পুরনো code এর লেখা হতে পারে, deploy এর সময় shape বদলে যেতে পারে, বা অন্য কোনো service সেখানে লিখে থাকতে পারে। `JSON.parse()` এর ফল হলো `unknown` — আর সেটাকে `as TaskDTO[]` বলে চালিয়ে দেওয়া মানে মিথ্যা বলা।
 
 Lesson 4.2 এ আমি ইচ্ছা করে একটা `as` রেখে comment এ লিখেছিলাম "4.4 এ এটা Zod দিয়ে সরাব"। আজকে সেই কথা রাখছি:
 
@@ -57,28 +57,28 @@ export const taskListSchema = z.array(taskSchema);
 export type TaskDTO = z.infer<typeof taskSchema>;
 ```
 
-লক্ষ্য করো — type টা আলাদা করে লেখা হয়নি, `z.infer` দিয়ে schema থেকেই বের করা হয়েছে। মানে schema আর type কখনো আলাদা হয়ে যাবে না।
+লক্ষ্য করুন — type টা আলাদা করে লেখা হয়নি, `z.infer` দিয়ে schema থেকেই বের করা হয়েছে। মানে schema আর type কখনো আলাদা হয়ে যাবে না।
 
 ### ১.২ Cache miss আর cache error — এক জিনিস না
 
 বেশিরভাগ tutorial এ cache lookup এর ফল দুই রকম: পেলাম, বা পেলাম না। কিন্তু বাস্তবে **তিন** রকম:
 
 ```
-hit    →  cache এ আছে, এই নাও
-miss   →  cache এ নেই, DB তে যাও
+hit    →  cache এ আছে, এই নিন
+miss   →  cache এ নেই, DB তে যান
 error  →  Redis উত্তরই দিচ্ছে না (down, timeout, network)
 ```
 
-শেষ দুটোতে তোমার code একই কাজ করবে (DB তে যাবে), তাই এগুলো গুলিয়ে ফেলার প্রলোভন আছে। কিন্তু **আলাদা রাখলে তুমি মাপতে পারো** — cache hit ratio কম কেন, সেটা কি TTL এর জন্য, নাকি Redis আসলে ধুঁকছে? এই দুটোর চিকিৎসা সম্পূর্ণ আলাদা।
+শেষ দুটোতে আপনার code একই কাজ করবে (DB তে যাবে), তাই এগুলো গুলিয়ে ফেলার প্রলোভন আছে। কিন্তু **আলাদা রাখলে আপনি মাপতে পারেন** — cache hit ratio কম কেন, সেটা কি TTL এর জন্য, নাকি Redis আসলে ধুঁকছে? এই দুটোর চিকিৎসা সম্পূর্ণ আলাদা।
 
-এই course এর code এর একটা নিয়ম আছে — _"Discriminated union দিয়ে state model করবে, optional field এর জঙ্গল বানাবে না।"_ ঠিক এই জায়গার জন্যই:
+এই course এর code এর একটা নিয়ম আছে — _"Discriminated union দিয়ে state model করবেন, optional field এর জঙ্গল বানাবেন না।"_ ঠিক এই জায়গার জন্যই:
 
 ```typescript
 export type CacheLookup<T> =
 	{ status: 'hit'; value: T } | { status: 'miss' } | { status: 'error'; reason: string };
 ```
 
-`value` field টা শুধু `hit` এ আছে। মানে TypeScript তোমাকে `status` check না করে `value` পড়তেই দেবে না — bug টা compile time এই ধরা পড়বে।
+`value` field টা শুধু `hit` এ আছে। মানে TypeScript আপনাকে `status` check না করে `value` পড়তেই দেবে না — bug টা compile time এই ধরা পড়বে।
 
 ### ১.৩ Cache এর ব্যর্থতা কখনো request ব্যর্থ করবে না
 
@@ -96,7 +96,7 @@ export async function writeList(key: string, value: TaskDTO[], ttlSeconds: numbe
 }
 ```
 
-খেয়াল করো `catch (error: any)` নেই — খালি `catch`, কারণ error টা আমরা ব্যবহারই করছি না। আর যেখানে ব্যবহার করছি, সেখানে `catch (error: unknown)` ধরে narrow করা হয়েছে।
+খেয়াল করুন `catch (error: any)` নেই — খালি `catch`, কারণ error টা আমরা ব্যবহারই করছি না। আর যেখানে ব্যবহার করছি, সেখানে `catch (error: unknown)` ধরে narrow করা হয়েছে।
 
 ### ১.৪ Sequelize model টাইপ করা
 
@@ -117,25 +117,25 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 
 ## ২. Interview Angle
 
-এই lesson টা hands-on, কিন্তু এখান থেকেই interview এর সবচেয়ে ধারালো প্রশ্নটা আসে: **"তোমার cache মরে গেলে কী হয়?"**
+এই lesson টা hands-on, কিন্তু এখান থেকেই interview এর সবচেয়ে ধারালো প্রশ্নটা আসে: **"আপনার cache মরে গেলে কী হয়?"**
 
-বেশিরভাগ candidate বলে _"কিছু হবে না, request গুলো DB তে চলে যাবে"_ — আর এটাই সেই উত্তর যেটা তোমাকে আটকে দেবে, কারণ এটা অর্ধসত্য। আজকের exercise এ তুমি নিজের চোখে দেখবে যে correctness ঠিক থাকে, কিন্তু **latency ১২ ms থেকে লাফিয়ে কয়েক সেকেন্ডে যায়, আর প্রতিটা request এ বাড়তেই থাকে** — DB load বাড়ার কারণে না, বরং client library টা প্রতিটা command কে একটা queue তে রেখে Redis ফিরে আসার অপেক্ষা করে, তারপর হাল ছাড়ে।
+বেশিরভাগ candidate বলে _"কিছু হবে না, request গুলো DB তে চলে যাবে"_ — আর এটাই সেই উত্তর যেটা আপনাকে আটকে দেবে, কারণ এটা অর্ধসত্য। আজকের exercise এ আপনি নিজের চোখে দেখবেন যে correctness ঠিক থাকে, কিন্তু **latency ১২ ms থেকে লাফিয়ে কয়েক সেকেন্ডে যায়, আর প্রতিটা request এ বাড়তেই থাকে** — DB load বাড়ার কারণে না, বরং client library টা প্রতিটা command কে একটা queue তে রেখে Redis ফিরে আসার অপেক্ষা করে, তারপর হাল ছাড়ে।
 
-মানে **তোমার cache client এর setting (offline queue, command timeout) ই ঠিক করে দেয় cache down হওয়াটা "একটু ধীর" হবে নাকি "পুরো outage" হবে।** আর মজার ব্যাপার — যে setting টা দেখে সবাই প্রথমে সন্দেহ করে (`connectTimeout`), সেটা এখানে কোনো কাজেই আসে না। এই কথাটা বলতে পারলে তুমি এমন একজন হিসেবে দেখাবে যে সত্যিই একটা cache production এ চালিয়েছে।
+মানে **আপনার cache client এর setting (offline queue, command timeout) ই ঠিক করে দেয় cache down হওয়াটা "একটু ধীর" হবে নাকি "পুরো outage" হবে।** আর মজার ব্যাপার — যে setting টা দেখে সবাই প্রথমে সন্দেহ করে (`connectTimeout`), সেটা এখানে কোনো কাজেই আসে না। এই কথাটা বলতে পারলে আপনি এমন একজন হিসেবে দেখাবেন যে সত্যিই একটা cache production এ চালিয়েছে।
 
-দ্বিতীয় common প্রশ্ন: **"Cache hit ratio কত হলে ভালো?"** — সঠিক উত্তর হলো "নির্ভর করে"। ৯৫% hit ratio দারুণ শোনায়, কিন্তু যদি miss গুলোই সবচেয়ে দামি query হয় তাহলে লাভ কম। আর ৬০% hit ratio ও যথেষ্ট হতে পারে যদি সেই ৬০% ই তোমার সবচেয়ে ভারী endpoint হয়। **মাপো, তারপর বলো** — এটাই মূল কথা।
+দ্বিতীয় common প্রশ্ন: **"Cache hit ratio কত হলে ভালো?"** — সঠিক উত্তর হলো "নির্ভর করে"। ৯৫% hit ratio দারুণ শোনায়, কিন্তু যদি miss গুলোই সবচেয়ে দামি query হয় তাহলে লাভ কম। আর ৬০% hit ratio ও যথেষ্ট হতে পারে যদি সেই ৬০% ই আপনার সবচেয়ে ভারী endpoint হয়। **মাপুন, তারপর বলুন** — এটাই মূল কথা।
 
 ---
 
 ## ৩. Key Takeaway
 
-- Cache থেকে আসা data ও **runtime input** — Zod দিয়ে parse করো, `as` দিয়ে বিশ্বাস কোরো না
-- Cache lookup এর ফল **তিন রকম** (hit/miss/error), দুই রকম না — discriminated union দিয়ে model করো
+- Cache থেকে আসা data ও **runtime input** — Zod দিয়ে parse করুন, `as` দিয়ে বিশ্বাস করবেন না
+- Cache lookup এর ফল **তিন রকম** (hit/miss/error), দুই রকম না — discriminated union দিয়ে model করুন
 - Cache এর কোনো ব্যর্থতা যেন কখনো request ব্যর্থ না করে — প্রতিটা cache call fail-safe
-- ক্রম মনে রেখো: **আগে DB, পরে cache invalidate** (Lesson 4.3)
+- ক্রম মনে রাখবেন: **আগে DB, পরে cache invalidate** (Lesson 4.3)
 - একটা write এ **derived view ও** মুছতে হয় — `tasks:user:7` এর সাথে `tasks:user:7:completed`
 - Sequelize এ `InferAttributes`/`InferCreationAttributes`, untyped model না
-- Cache এর লাভ **দাবি কোরো না, মাপো** — `X-Cache` header আর একটা bench script ই যথেষ্ট
+- Cache এর লাভ **দাবি করবেন না, মাপুন** — `X-Cache` header আর একটা bench script ই যথেষ্ট
 - **Cache down মানে শুধু "একটু ধীর" না** — client এর offline queue বন্ধ বা command timeout ছোট না থাকলে এটা পুরো outage হয়ে যেতে পারে
 
 ---
@@ -154,7 +154,7 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 
 ## ৫. Reflection Questions
 
-আগে নিজে ভেবে উত্তর দাও, তারপর Answer Key খুলো।
+আগে নিজে ভেবে উত্তর দিন, তারপর Answer Key খুলুন।
 
 1. Exercise এ `GET /api/tasks` তে cache miss হলে তিনটা কাজ হয়: Redis এ খোঁজা, DB তে query, Redis এ লেখা। কিন্তু শেষ ধাপটার (`writeList`) ফলাফলের জন্য আমরা `await` করছি — client কে response দেওয়ার **আগেই**। এটা কি ঠিক? না করলে কী লাভ, আর কী ঝুঁকি?
 
@@ -169,7 +169,7 @@ export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<T
 
 কিন্তু ঝুঁকি দুটো: (ক) Node এ floating promise — যদি সেটা reject করে আর কেউ catch না করে, তাহলে unhandled rejection; (খ) test এ nondeterminism — response আসার পরও cache এ লেখা শেষ হয়নি এমন অবস্থা।
 
-Exercise এ `await` রাখা হয়েছে সরলতার জন্য (আর `writeList` নিজে কখনো throw করে না, তাই ঝুঁকি (ক) নেই)। Production এ এটা সাধারণত fire-and-forget করা হয়, কিন্তু rejection handler সহ। **শেখার বিষয়:** miss path এ প্রতিটা অতিরিক্ত hop গোনার মতো — কারণ miss ই তোমার সবচেয়ে ধীর path।
+Exercise এ `await` রাখা হয়েছে সরলতার জন্য (আর `writeList` নিজে কখনো throw করে না, তাই ঝুঁকি (ক) নেই)। Production এ এটা সাধারণত fire-and-forget করা হয়, কিন্তু rejection handler সহ। **শেখার বিষয়:** miss path এ প্রতিটা অতিরিক্ত hop গোনার মতো — কারণ miss ই আপনার সবচেয়ে ধীর path।
 
 **প্রশ্ন ২:** কারণ **১২ ms বা ৩.৭ ms এর বেশিরভাগটাই আসলে memory বা disk read না**। দুটো path ই এখানে একই কাজ করছে: ৫০০০টা task কে JSON এ পরিণত করা আর network দিয়ে পাঠানো। সেই খরচটা দুই path এ একই, তাই সেটা অনুপাতটাকে চেপে দেয়।
 
@@ -177,15 +177,15 @@ Exercise এ `await` রাখা হয়েছে সরলতার জন�
 
 এটা একটা গুরুত্বপূর্ণ বাস্তবতা — **Lesson 1.3 এর latency number গুলো উপাদান, পুরো recipe না।** একটা real endpoint এ serialization, network, framework overhead সবই যোগ হয়। তাই "Redis ১০০০ গুণ দ্রুত" বলে ১০০০ গুণ improvement আশা করাটা ভুল। আসল লাভ বরং অন্য জায়গায় বেশি: **DB এর উপর থেকে load সরে যাওয়া**, যাতে DB টা write আর জটিল query এর জন্য শ্বাস নিতে পারে।
 
-(চাইলে নিজে দেখো: `TASK_COUNT` ৫০০০ থেকে ৫০ করে দিয়ে bench চালাও — payload ছোট হলে অনুপাতটা বদলে যায়।)
+(চাইলে নিজে দেখুন: `TASK_COUNT` ৫০০০ থেকে ৫০ করে দিয়ে bench চালান — payload ছোট হলে অনুপাতটা বদলে যায়।)
 
-**প্রশ্ন ৩:** কারণ তুমি cache এর **অনুপস্থিতি** মাপছ না, মাপছ **cache এর জন্য অপেক্ষা**।
+**প্রশ্ন ৩:** কারণ আপনি cache এর **অনুপস্থিতি** মাপছেন না, মাপছেন **cache এর জন্য অপেক্ষা**।
 
 Redis বন্ধ থাকলে ioredis সাথে সাথে "নেই" বলে না। সে command টা ফেলে না দিয়ে একটা **offline queue** তে রেখে দেয় (`enableOfflineQueue`, default `true`) — Redis ফিরে এলে পাঠাবে বলে। তারপর reconnect এর চেষ্টা করে, আর প্রতিটা ব্যর্থ চেষ্টার পর পরের চেষ্টা আরও পিছিয়ে দেয় (default retry strategy: `min(times × 50, 2000)` ms)। Queue তে বসে থাকা command টা error হয়ে ফেরে শুধু তখন, যখন `maxRetriesPerRequest` এর সীমা পার হয়। ফলে যত সময় যায়, প্রতিটা request তত বেশি অপেক্ষা করে।
 
 **`connectTimeout` এখানে কেন কাজে আসে না?** কারণ Redis এর container বন্ধ থাকলে connect এর চেষ্টা সাথে সাথেই refuse হয়ে যায় — timeout পর্যন্ত অপেক্ষাই করতে হয় না। আমি মেপে দেখেছি: `connectTimeout` ১০০০ থেকে ১০০ করলে কোনো উন্নতি হয় না (১৭৬৩ → ৫৪৯৬ ms, আগের মতোই বাড়ছে)।
 
-**এটাই এই exercise এর সবচেয়ে বড় শিক্ষা।** "Cache optional" কথাটা correctness এর দিক থেকে সত্যি, কিন্তু **latency এর দিক থেকে সম্পূর্ণ মিথ্যা হতে পারে** — যদি তোমার cache client command আটকে রেখে অপেক্ষা করে। ৪ সেকেন্ডের response মানে বাস্তবে user এর কাছে outage, আর upstream এ load balancer timeout শুরু করে দেবে।
+**এটাই এই exercise এর সবচেয়ে বড় শিক্ষা।** "Cache optional" কথাটা correctness এর দিক থেকে সত্যি, কিন্তু **latency এর দিক থেকে সম্পূর্ণ মিথ্যা হতে পারে** — যদি আপনার cache client command আটকে রেখে অপেক্ষা করে। ৪ সেকেন্ডের response মানে বাস্তবে user এর কাছে outage, আর upstream এ load balancer timeout শুরু করে দেবে।
 
 সমাধান — একই মেশিনে মাপা:
 
@@ -196,7 +196,7 @@ commandTimeout: 100               : ~২১০ ms প্রতিবার, স�
 enableOfflineQueue: false         : ~১২ ms প্রতিবার — Redis না থাকলে সাথে সাথে error, সরাসরি DB
 ```
 
-মানে cache client এ **offline queue বন্ধ** রাখো (cache এর জন্য queue করে অপেক্ষা করার কোনো মানে নেই), অথবা অন্তত একটা **ছোট command timeout** দাও, আর আদর্শভাবে একটা **circuit breaker** — টানা কয়েকবার fail করলে কিছুক্ষণের জন্য Redis এ যাওয়াই বন্ধ করে দাও, সরাসরি DB তে যাও। Circuit breaker নিয়ে বিস্তারিত Lesson 9.4 এ।
+মানে cache client এ **offline queue বন্ধ** রাখুন (cache এর জন্য queue করে অপেক্ষা করার কোনো মানে নেই), অথবা অন্তত একটা **ছোট command timeout** দিন, আর আদর্শভাবে একটা **circuit breaker** — টানা কয়েকবার fail করলে কিছুক্ষণের জন্য Redis এ যাওয়াই বন্ধ করে দিন, সরাসরি DB তে যান। Circuit breaker নিয়ে বিস্তারিত Lesson 9.4 এ।
 
 </details>
 
@@ -210,11 +210,11 @@ enableOfflineQueue: false         : ~১২ ms প্রতিবার — Redi
 
 এই exercise এ Module 4 এর সব সিদ্ধান্ত একসাথে বসানো — Cache-Aside read, invalidate-on-write (derived view সহ), TTL ৬০s, `allkeys-lru`, আর fail-safe cache layer।
 
-**সেটআপ যাচাই হলে, এই চারটা করো:**
+**সেটআপ যাচাই হলে, এই চারটা করুন:**
 
-1. `npm run bench` চালাও। তোমার মেশিনে MISS আর HIT এর median কত? অনুপাতটা আমার পাওয়া ~৩.৩x এর কাছাকাছি, নাকি আলাদা? আলাদা হলে কেন বলে মনে হয়?
+1. `npm run bench` চালান। আপনার মেশিনে MISS আর HIT এর median কত? অনুপাতটা আমার পাওয়া ~৩.৩x এর কাছাকাছি, নাকি আলাদা? আলাদা হলে কেন বলে মনে হয়?
 
-2. `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে **২** করে দাও, rebuild করো। প্রথমে `npm run bench` চালাও — দেখবে hit ratio **এখনো ২০/২০**! কেন? (ইঙ্গিত: bench এর ২০টা HIT request মোট কত সময় নেয়?) এবার হাতে পরীক্ষা করো: একটা request পাঠাও, **৩ সেকেন্ড অপেক্ষা করো**, আবার পাঠাও — `X-Cache` header কী বলে?
+2. `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে **২** করে দিন, rebuild করুন। প্রথমে `npm run bench` চালান — দেখবেন hit ratio **এখনো ২০/২০**! কেন? (ইঙ্গিত: bench এর ২০টা HIT request মোট কত সময় নেয়?) এবার হাতে পরীক্ষা করুন: একটা request পাঠান, **৩ সেকেন্ড অপেক্ষা করুন**, আবার পাঠান — `X-Cache` header কী বলে?
 
    ```bash
    curl -s -D - -o /dev/null "http://localhost:3000/api/tasks?userId=7" | grep X-Cache
@@ -222,17 +222,17 @@ enableOfflineQueue: false         : ~১২ ms প্রতিবার — Redi
    curl -s -D - -o /dev/null "http://localhost:3000/api/tasks?userId=7" | grep X-Cache
    ```
 
-   দুটো ফল মিলিয়ে বলো — hit ratio আসলে কীসের উপর নির্ভর করে: TTL এর উপর একা, নাকি **TTL আর একই key তে request আসার হারের** সম্পর্কের উপর? Lesson 4.3 এর প্রশ্ন ২ এর যুক্তির সাথে মেলাও। (আর এখান থেকে একটা বাড়তি শিক্ষা: একটা benchmark যে pattern এ request পাঠায়, সেটা বাস্তব traffic এর মতো না হলে সংখ্যাটা ভুল গল্প বলে।)
+   দুটো ফল মিলিয়ে বলুন — hit ratio আসলে কীসের উপর নির্ভর করে: TTL এর উপর একা, নাকি **TTL আর একই key তে request আসার হারের** সম্পর্কের উপর? Lesson 4.3 এর প্রশ্ন ২ এর যুক্তির সাথে মেলান। (আর এখান থেকে একটা বাড়তি শিক্ষা: একটা benchmark যে pattern এ request পাঠায়, সেটা বাস্তব traffic এর মতো না হলে সংখ্যাটা ভুল গল্প বলে।)
 
-3. `PATCH` handler এ `affected` array থেকে `keys.completedByUser(...)` লাইনটা বাদ দাও। এবার: completed list টা cache করো → একটা task এর `completed` বদলাও → আবার completed list পড়ো। **কী ভুল দেখছ?** কতক্ষণ পর নিজে থেকে ঠিক হয়ে যায়, আর কেন?
+3. `PATCH` handler এ `affected` array থেকে `keys.completedByUser(...)` লাইনটা বাদ দিন। এবার: completed list টা cache করুন → একটা task এর `completed` বদলান → আবার completed list পড়ুন। **কী ভুল দেখছেন?** কতক্ষণ পর নিজে থেকে ঠিক হয়ে যায়, আর কেন?
 
-4. **সবচেয়ে গুরুত্বপূর্ণটা:** `docker compose stop redis` করে পরপর ৫টা request পাঠাও, প্রতিটার `tookMs` লিখে রাখো। তারপর `src/cache.ts` এ Redis client এর option বদলে তিনবার একই পরীক্ষা করো (প্রতিবার rebuild, আর পরীক্ষার আগে `docker compose start redis` করে server চালু করে তারপর আবার stop):
+4. **সবচেয়ে গুরুত্বপূর্ণটা:** `docker compose stop redis` করে পরপর ৫টা request পাঠান, প্রতিটার `tookMs` লিখে রাখুন। তারপর `src/cache.ts` এ Redis client এর option বদলে তিনবার একই পরীক্ষা করুন (প্রতিবার rebuild, আর পরীক্ষার আগে `docker compose start redis` করে server চালু করে তারপর আবার stop):
 
    - (ক) `connectTimeout` ১০০০ থেকে **১০০**
    - (খ) `connectTimeout` আগের মতো, সাথে `commandTimeout: 100` যোগ
    - (গ) `commandTimeout` বাদ, সাথে `enableOfflineQueue: false` যোগ
 
-   চার সেটের সংখ্যা পাশাপাশি রাখো। কোনটায় কোনো উন্নতিই হলো না, আর কেন? এক অনুচ্ছেদে লেখো — **একটা client setting কীভাবে "cache down" কে "site down" এ পরিণত করতে পারে, আর যে setting টা সবাই প্রথমে সন্দেহ করে সেটা কেন ভুল জায়গা।**
+   চার সেটের সংখ্যা পাশাপাশি রাখুন। কোনটায় কোনো উন্নতিই হলো না, আর কেন? এক অনুচ্ছেদে লিখুন — **একটা client setting কীভাবে "cache down" কে "site down" এ পরিণত করতে পারে, আর যে setting টা সবাই প্রথমে সন্দেহ করে সেটা কেন ভুল জায়গা।**
 
 ---
 
@@ -251,7 +251,7 @@ Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start, TTL, Staleness Window, Cache Invalidation,
 Eviction Policy, LRU, LFU, Cache Pollution, Cache Hit Ratio,
 Discriminated Union, Fail-safe, Offline Queue
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 4.5 — CDN কীভাবে কাজ করে
 =======================
 ```
@@ -260,6 +260,6 @@ Next: 4.5 — CDN কীভাবে কাজ করে
 
 ## ৮. পরের Lesson
 
-Exercise এর চার নম্বরটা অবশ্যই করো — ওটা না করলে এই lesson এর আসল শিক্ষাটাই হাতছাড়া হবে। সংখ্যাগুলো পাঠিয়ো।
+Exercise এর চার নম্বরটা অবশ্যই করুন — ওটা না করলে এই lesson এর আসল শিক্ষাটাই হাতছাড়া হবে। সংখ্যাগুলো পাঠাবেন।
 
-রেডি হলে `next` লিখো — Lesson 4.5 এ যাব CDN এ। 4.1 এ hierarchy তে CDN কে এক নজরে দেখেছিলাম; এবার ভেতরে ঢুকব — edge server আসলে কীভাবে সিদ্ধান্ত নেয়, cache key কী দিয়ে তৈরি হয়, `Cache-Control` এর নির্দেশগুলো কী বোঝায়, আর purge করলে ৩০০+ PoP এর সবগুলোতে খবরটা কীভাবে পৌঁছায়।
+রেডি হলে `next` লিখুন — Lesson 4.5 এ যাব CDN এ। 4.1 এ hierarchy তে CDN কে এক নজরে দেখেছিলাম; এবার ভেতরে ঢুকব — edge server আসলে কীভাবে সিদ্ধান্ত নেয়, cache key কী দিয়ে তৈরি হয়, `Cache-Control` এর নির্দেশগুলো কী বোঝায়, আর purge করলে ৩০০+ PoP এর সবগুলোতে খবরটা কীভাবে পৌঁছায়।

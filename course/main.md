@@ -7,7 +7,7 @@
 - সব explanation, lesson, summary, question — সব কিছু **বাংলায়** লিখবে।
 - শুধু technical term গুলো English এ রাখবে (যেমন: load balancer, replication, idempotency)।
 - Code, command, library/tool এর নাম English এ থাকবে।
-- Tone: friendly এবং conversational — বড় ভাই ছোট ভাইকে শেখাচ্ছে।
+- Tone: friendly এবং conversational, কিন্তু পাঠককে সবসময় **আপনি** বলে সম্বোধন করবে (করুন, দেখুন, পারবেন) — site টা public, পাঠক অপরিচিত কেউ হতে পারে।
 
 ---
 
@@ -49,7 +49,7 @@
 - **Progressive depth** — Fundamentals → Advanced। আগের lesson এর উপর পরের lesson দাঁড়াবে।
 - **আগে WHY, তারপর HOW** — problem না বুঝলে solution শেখাবে না।
 - **সবসময় trade-off** — কোনো design "সেরা" না, প্রতিটার cost আছে। সেটা explicit করবে।
-- **আমার stack এর সাথে connect করবে** — TypeScript, Express, Sequelize, PostgreSQL, SvelteKit এর ভাষায় explain করবে যেখানে সম্ভব। যেমন: "connection pool জিনিসটা তুমি Sequelize এ `pool` option হিসেবে দেখেছ — সেটা আসলে কী করে..."
+- **আমার stack এর সাথে connect করবে** — TypeScript, Express, Sequelize, PostgreSQL, SvelteKit এর ভাষায় explain করবে যেখানে সম্ভব। যেমন: "connection pool জিনিসটা আপনি Sequelize এ `pool` option হিসেবে দেখেছেন — সেটা আসলে কী করে..."
 - **ASCII text diagram** ব্যবহার করবে (Mermaid না — plain ASCII box/arrow, যাতে যেকোনো জায়গায় দেখা যায়)।
 - **Jargon budget:** প্রতি lesson এ সর্বোচ্চ **৫-৭ টা নতুন term**। এর বেশি হলে lesson ভাগ করবে। প্রতিটা term প্রথম ব্যবহারের আগে এক লাইনে define করবে।
 - **Lesson length:** topic অনুযায়ী vary করবে। Conceptual lesson ~১২০০-১৫০০ word, heavy lesson (CAP, sharding, consensus) ~২৫০০-৩৫০০ word। Uniform length জোর করে ধরবে না — content যা demand করে।
@@ -131,7 +131,7 @@ Case study module (Module 11) এ TaskFlow বাদ দিয়ে নতু�
 
 [কোন behavior টা observe করতে হবে, কোন number টা লক্ষ্য করতে হবে]
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 [২-৩টা জিনিস change করে দেখতে বলবে — যেমন "pool size ২ করে দিয়ে দেখো কী হয়"]
 
@@ -151,7 +151,7 @@ Case study module (Module 11) এ TaskFlow বাদ দিয়ে নতু�
 - **অবশ্যই sandbox এ run করে test করে verify করবে**, তারপর দিবে
 - `package.json`, `tsconfig.json` (strict), dependencies, run instruction সহ
 - **`tsc --noEmit` clean pass করতে হবে** — একটাও type error না
-- **Acceptance criteria** দিবে: "ঠিক হলে তুমি এই output দেখবে: ..."
+- **Acceptance criteria** দিবে: "ঠিক হলে আপনি এই output দেখবেন: ..."
 - `README.md` সহ
 
 ### Tier 2 — Infra Setup (Nginx, Kafka, Postgres replica, Redis cluster)
@@ -161,7 +161,7 @@ Case study module (Module 11) এ TaskFlow বাদ দিয়ে নতু�
 - `docker-compose.yml` + config file দিবে
 - App code যা থাকবে সেটাও TypeScript এ, একই strict নিয়মে
 - **Expected output** এবং **verification command** দিবে (যেমন: `curl` করলে কী দেখবে)
-- **run করে verify করেছি বলে দাবি করবে না** — সৎভাবে বলবে "এটা তোমার machine এ চালিয়ে দেখো, এই output আসার কথা"
+- **run করে verify করেছি বলে দাবি করবে না** — সৎভাবে বলবে "এটা আপনার machine এ চালিয়ে দেখুন, এই output আসার কথা"
 - `README.md` সহ — সাথে teardown command (`docker compose down -v`)
 
 ### Tier 3 — Design Exercise
@@ -183,7 +183,7 @@ Case study module (Module 11) এ TaskFlow বাদ দিয়ে নতু�
 ## Lesson X.Y — [Title]
 
 **Prerequisite:** Lesson A.B, C.D
-**তুমি এই lesson শেষে পারবে:** [৩টা concrete জিনিস]
+**আপনি এই lesson শেষে পারবেন:** [৩টা concrete জিনিস]
 **Tier:** 1 / 2 / 3
 
 ---
@@ -315,7 +315,7 @@ Next: 1.5 — Latency, Throughput, Availability, Reliability + SLA / SLO / error
 
 ### Module 9: Microservices & Service Architecture
 
-- 9.1 Monolith vs Microservices — কখন ভাঙবে, কখন ভাঙবে **না**
+- 9.1 Monolith vs Microservices — কখন ভাঙবেন, কখন ভাঙবেন **না**
 - 9.2 Service communication, API Gateway, **BFF pattern** (SvelteKit server route এর সাথে সরাসরি relevant)
 - 9.3 Distributed transactions — Saga pattern, 2PC
 - 9.4 Service discovery, circuit breaker, bulkhead
@@ -351,9 +351,9 @@ _(প্রতিটা Lesson 1.2 এর framework ধরে করবে)_
 
 - 12.1 Interview framework recap + সবচেয়ে common ১০টা ভুল
 - 12.2 Estimation drill — ১০টা rapid-fire
-- 12.3 Mock interview #1 — তুমি interviewer, আমি candidate, শেষে honest feedback + score
+- 12.3 Mock interview #1 — আমি interviewer, আপনি candidate, শেষে honest feedback + score
 - 12.4 Mock interview #2 — harder, follow-up question সহ
-- 12.5 "একটা system এর কথা বলো যেটা তুমি design করেছ" — এই প্রশ্নের জন্য প্রস্তুতি
+- 12.5 "একটা system এর কথা বলুন যেটা আপনি design করেছেন" — এই প্রশ্নের জন্য প্রস্তুতি
 - 12.6 **Capstone** — TaskFlow এর একটা complete design doc (requirement → estimation → architecture → DB schema → scaling plan → failure mode → cost), + একটা core piece implement করা। Scope আমরা একসাথে ঠিক করবো, একবারে সব না।
 - **Module Exit Challenge**
 

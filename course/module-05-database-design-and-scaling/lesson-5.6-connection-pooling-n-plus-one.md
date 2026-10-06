@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.4 (Keep-alive), Lesson 1.6 (Horizontal scaling), Lesson 5.4 (EXPLAIN), Lesson 5.5 (Transaction)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Connection pool কেন লাগে আর Sequelize এর `pool` option গুলো আসলে কী করে — বলতে পারবে, আর মেপে দেখবে কেন **বড় pool মানেই দ্রুত না**
-2. কয়েকটা app instance মিলে database এর connection limit ছাড়িয়ে যাওয়ার হিসাব করতে পারবে, আর সেটা এড়ানোর উপায় জানবে
-3. Sequelize code এ N+1 query চিনবে আর ঠিক করবে (`include`, batching, `separate`), আর `raw`/`attributes` দিয়ে বাড়তি খরচ কমাবে
+1. Connection pool কেন লাগে আর Sequelize এর `pool` option গুলো আসলে কী করে — বলতে পারবেন, আর মেপে দেখবেন কেন **বড় pool মানেই দ্রুত না**
+2. কয়েকটা app instance মিলে database এর connection limit ছাড়িয়ে যাওয়ার হিসাব করতে পারবেন, আর সেটা এড়ানোর উপায় জানবেন
+3. Sequelize code এ N+1 query চিনবেন আর ঠিক করবেন (`include`, batching, `separate`), আর `raw`/`attributes` দিয়ে বাড়তি খরচ কমাবেন
 
 **Tier:** 1 — Runnable Code
 
@@ -61,7 +61,7 @@ from the pool                  0.13 ms / query   (~44x faster)
 
 আর এটা **একই মেশিনে**, TLS ছাড়া। App আর database আলাদা machine এ থাকলে প্রতিটা নতুন connection এ network round trip আর TLS handshake যোগ হয়।
 
-Lesson 1.4 এর keep-alive মনে আছে? একই যুক্তি: একটা দামি জিনিস (connection) একবার বানাও, বারবার ব্যবহার করো।
+Lesson 1.4 এর keep-alive মনে আছে? একই যুক্তি: একটা দামি জিনিস (connection) একবার বানান, বারবার ব্যবহার করুন।
 
 ### ১.২ Connection Pool — Sequelize এর `pool` option আসলে কী
 
@@ -79,7 +79,7 @@ req 25 ─┘                     └─ conn 10
           └── সব connection ব্যস্ত হলে এখানে লাইন (acquire এর অপেক্ষা)
 ```
 
-তুমি Sequelize এ এই option গুলো লেখো, এখন প্রতিটার মানে:
+আপনি Sequelize এ এই option গুলো লিখুন, এখন প্রতিটার মানে:
 
 | Option    | মানে                                                                                    | Sequelize default |
 | --------- | --------------------------------------------------------------------------------------- | ----------------- |
@@ -88,9 +88,9 @@ req 25 ─┘                     └─ conn 10
 | `idle`    | একটা connection কতক্ষণ অব্যবহৃত থাকলে বন্ধ করা হবে (ms)                                 | 10000             |
 | `acquire` | Pool এর সব connection ব্যস্ত হলে একটা query কতক্ষণ লাইনে অপেক্ষা করবে, তারপর error (ms) | 60000             |
 
-(Default গুলো Sequelize v6 এর — version বদলালে একবার documentation মিলিয়ে নিও।)
+(Default গুলো Sequelize v6 এর — version বদলালে একবার documentation মিলিয়ে নেবেন।)
 
-একটা গুরুত্বপূর্ণ জিনিস লক্ষ করো: **pool এ লাইনে দাঁড়ানোর সময়টা query এর সময়ের অংশ হিসেবে দেখায়।** Database এ query টা হয়তো ২ ms নিয়েছে, কিন্তু user দেখছে ৩০০ ms — কারণ ২৯৮ ms সে pool এর লাইনে ছিল। `EXPLAIN ANALYZE` (Lesson 5.4) এটা কখনো দেখাবে না।
+একটা গুরুত্বপূর্ণ জিনিস লক্ষ করুন: **pool এ লাইনে দাঁড়ানোর সময়টা query এর সময়ের অংশ হিসেবে দেখায়।** Database এ query টা হয়তো ২ ms নিয়েছে, কিন্তু user দেখছে ৩০০ ms — কারণ ২৯৮ ms সে pool এর লাইনে ছিল। `EXPLAIN ANALYZE` (Lesson 5.4) এটা কখনো দেখাবে না।
 
 ### ১.৩ Pool Size — বড় মানেই দ্রুত না
 
@@ -114,7 +114,7 @@ pool max │   CPU query: q/s    p50 ms    p99 ms │  WAIT query: q/s    p50 ms
 
 **WAIT কলাম** — উল্টো ছবি। Query গুলো CPU ব্যবহার করে না, শুধু অপেক্ষা করে — তাই যত বেশি connection, তত বেশি অপেক্ষা একসাথে, আর throughput প্রায় সমানুপাতে বাড়ে।
 
-তাহলে সঠিক pool size কত? উত্তর: **connection গুলো কী করছে তার উপর নির্ভর করে।** বাস্তব TaskFlow এর query দুটোর মিশ্রণ — কিছু CPU (aggregate, sort), কিছু অপেক্ষা (disk থেকে page পড়া, lock)। একটা পরিচিত সূচনা-বিন্দু (HikariCP নামের Java pool এর documentation থেকে জনপ্রিয় হওয়া): `connections ≈ (database এর core × 2) + disk এর সংখ্যা`। এটা একটা **শুরু করার অনুমান**, আইন না — তারপর নিজের workload এ মাপো।
+তাহলে সঠিক pool size কত? উত্তর: **connection গুলো কী করছে তার উপর নির্ভর করে।** বাস্তব TaskFlow এর query দুটোর মিশ্রণ — কিছু CPU (aggregate, sort), কিছু অপেক্ষা (disk থেকে page পড়া, lock)। একটা পরিচিত সূচনা-বিন্দু (HikariCP নামের Java pool এর documentation থেকে জনপ্রিয় হওয়া): `connections ≈ (database এর core × 2) + disk এর সংখ্যা`। এটা একটা **শুরু করার অনুমান**, আইন না — তারপর নিজের workload এ মাপুন।
 
 আর একটা হিসাব কাজে লাগে — **Little's Law**: কোনো system এ গড়ে একসাথে কতগুলো কাজ চলছে = প্রতি সেকেন্ডে কতগুলো কাজ আসে × প্রতিটা কাজ কত সময় থাকে। TaskFlow এর উদাহরণ:
 
@@ -135,7 +135,7 @@ TaskFlow সকালে:   ৪ × ১০ = ৪০    ✓
 campaign এর পরে:  ৮ × ২০ = ১৬০   ✗  ১০০ এর বেশি
 ```
 
-Lesson 1.6 এ শিখেছিলে horizontal scaling এর জন্য app কে stateless রাখতে হয় — কিন্তু প্রতিটা instance এর **নিজের pool** আছে। Instance দ্বিগুণ করলে database এর দিকে connection ও দ্বিগুণ, আর database এর সংখ্যা সীমিত। Autoscaling থাকলে আরও বিপজ্জনক — load বাড়লে instance বাড়ে, আর ঠিক সবচেয়ে খারাপ মুহূর্তে connection limit ভাঙে।
+Lesson 1.6 এ শিখেছিলেন horizontal scaling এর জন্য app কে stateless রাখতে হয় — কিন্তু প্রতিটা instance এর **নিজের pool** আছে। Instance দ্বিগুণ করলে database এর দিকে connection ও দ্বিগুণ, আর database এর সংখ্যা সীমিত। Autoscaling থাকলে আরও বিপজ্জনক — load বাড়লে instance বাড়ে, আর ঠিক সবচেয়ে খারাপ মুহূর্তে connection limit ভাঙে।
 
 Exercise এর ধাপ ৩: ৫টা instance × pool max ২৫ = ১২৫টা connection চাওয়া:
 
@@ -152,14 +152,14 @@ failed: 50 → "sorry, too many clients already"
 succeeded: 4, ConnectionAcquireTimeoutError: 6
 ```
 
-Pool exhaustion এর সবচেয়ে সাধারণ কারণ ধীর query না — **লম্বা transaction**। Lesson 5.5 এ বলেছিলাম transaction এর ভেতরে network call কোরো না। কারণ: transaction যতক্ষণ খোলা, ততক্ষণ একটা connection আটকে থাকে। একটা transaction এর ভেতরে ২ সেকেন্ডের payment API call মানে ওই ২ সেকেন্ড একটা connection কেউ ব্যবহার করতে পারবে না। এমন ১০টা একসাথে হলে ১০ connection এর pool শেষ।
+Pool exhaustion এর সবচেয়ে সাধারণ কারণ ধীর query না — **লম্বা transaction**। Lesson 5.5 এ বলেছিলাম transaction এর ভেতরে network call করবেন না। কারণ: transaction যতক্ষণ খোলা, ততক্ষণ একটা connection আটকে থাকে। একটা transaction এর ভেতরে ২ সেকেন্ডের payment API call মানে ওই ২ সেকেন্ড একটা connection কেউ ব্যবহার করতে পারবে না। এমন ১০টা একসাথে হলে ১০ connection এর pool শেষ।
 
 **সমাধানগুলো:**
 
-1. **হিসাব করে pool size ঠিক করো** — `instances × max` যেন limit এর নিচে থাকে, autoscaling এর সর্বোচ্চ সংখ্যা ধরে। প্রায়ই সমাধান pool **ছোট** করা।
-2. **Connection proxy** — app আর database এর মাঝখানে একটা আলাদা pooler, যেমন **PgBouncer**। **Connection proxy** — অনেকগুলো app connection গ্রহণ করে অল্প কয়েকটা আসল database connection এ ভাগ করে দেয়। হাজারটা app connection → ৫০টা database connection। দাম: "transaction pooling" mode এ (সবচেয়ে কার্যকর mode) একটা app connection প্রতিটা transaction এ ভিন্ন database connection পেতে পারে, তাই session-এর উপর নির্ভরশীল জিনিস (`SET` দিয়ে session setting, session-level advisory lock, `LISTEN`) ঠিকমতো কাজ নাও করতে পারে। আর prepared statement এর সমর্থন PgBouncer এর version এর উপর নির্ভর করে — ব্যবহারের আগে নিজের version এর documentation দেখো।
+1. **হিসাব করে pool size ঠিক করুন** — `instances × max` যেন limit এর নিচে থাকে, autoscaling এর সর্বোচ্চ সংখ্যা ধরে। প্রায়ই সমাধান pool **ছোট** করা।
+2. **Connection proxy** — app আর database এর মাঝখানে একটা আলাদা pooler, যেমন **PgBouncer**। **Connection proxy** — অনেকগুলো app connection গ্রহণ করে অল্প কয়েকটা আসল database connection এ ভাগ করে দেয়। হাজারটা app connection → ৫০টা database connection। দাম: "transaction pooling" mode এ (সবচেয়ে কার্যকর mode) একটা app connection প্রতিটা transaction এ ভিন্ন database connection পেতে পারে, তাই session-এর উপর নির্ভরশীল জিনিস (`SET` দিয়ে session setting, session-level advisory lock, `LISTEN`) ঠিকমতো কাজ নাও করতে পারে। আর prepared statement এর সমর্থন PgBouncer এর version এর উপর নির্ভর করে — ব্যবহারের আগে নিজের version এর documentation দেখুন।
 3. **`max_connections` বাড়ানো** — সম্ভব, কিন্তু প্রতিটা connection একটা process আর memory; আর ১.৩ এর মতো, বেশি একসাথে চলা query CPU তে ভিড় বাড়ায়। সাধারণত শেষ উপায়।
-4. **Fail fast** — `acquire` এর সীমা কম রাখো (যেমন কয়েক সেকেন্ড)। ৬০ সেকেন্ড (default) অপেক্ষা করা request user এর কাছে ঝুলে থাকা page; তার চেয়ে দ্রুত একটা পরিষ্কার error (আর retry বা "একটু পরে চেষ্টা করো") ভালো। Lesson 10.3 এ এটা graceful degradation এর অংশ হিসেবে ফিরে আসবে।
+4. **Fail fast** — `acquire` এর সীমা কম রাখুন (যেমন কয়েক সেকেন্ড)। ৬০ সেকেন্ড (default) অপেক্ষা করা request user এর কাছে ঝুলে থাকা page; তার চেয়ে দ্রুত একটা পরিষ্কার error (আর retry বা "একটু পরে চেষ্টা করুন") ভালো। Lesson 10.3 এ এটা graceful degradation এর অংশ হিসেবে ফিরে আসবে।
 
 ### ১.৫ N+1 Problem
 
@@ -180,7 +180,7 @@ async function nPlusOne(): Promise<Row[]> {
 }
 ```
 
-**N+1 query** — একটা query দিয়ে N টা জিনিস আনা, তারপর প্রতিটার জন্য আলাদা করে আরেকটা query চালানো — মোট N+1 টা (বা এখানে যেমন, এক স্তর আরও গভীরে গেলে তার চেয়েও বেশি)। Code এ প্রতিটা লাইন নির্দোষ; সমস্যাটা শুধু দেখা যায় যখন গুনে দেখো কতবার database এ যাওয়া হচ্ছে।
+**N+1 query** — একটা query দিয়ে N টা জিনিস আনা, তারপর প্রতিটার জন্য আলাদা করে আরেকটা query চালানো — মোট N+1 টা (বা এখানে যেমন, এক স্তর আরও গভীরে গেলে তার চেয়েও বেশি)। Code এ প্রতিটা লাইন নির্দোষ; সমস্যাটা শুধু দেখা যায় যখন গুনে দেখেন কতবার database এ যাওয়া হচ্ছে।
 
 Exercise এর `npm run nplusone` একই dashboard (৫০টা project, ১০০০টা task, প্রতিটার assignee) তিনভাবে আনে, আর প্রতিটা SQL গোনে:
 
@@ -218,7 +218,7 @@ async function eager(): Promise<Row[]> {
 
 ১০৫১টা query থেকে ১টা।
 
-**সমাধান ২ — Batching।** প্রতিটা স্তরে একটা query, `WHERE id IN (...)` দিয়ে: প্রথমে project গুলো, তারপর তাদের সব task একবারে, তারপর সেই task গুলোর সব assignee একবারে — মোট ৩টা query, আর JS এ `Map` দিয়ে জোড়া লাগানো। এটাই GraphQL এর জগতে **DataLoader** এর ধারণা (Lesson 2.3 এ GraphQL এর N+1 সমস্যার কথা মনে করো)। এখানে এটা include এর চেয়েও একটু দ্রুত — কারণ JOIN এ প্রতিটা task row এর সাথে project এর data বারবার আসে, batching এ প্রতিটা জিনিস একবার।
+**সমাধান ২ — Batching।** প্রতিটা স্তরে একটা query, `WHERE id IN (...)` দিয়ে: প্রথমে project গুলো, তারপর তাদের সব task একবারে, তারপর সেই task গুলোর সব assignee একবারে — মোট ৩টা query, আর JS এ `Map` দিয়ে জোড়া লাগানো। এটাই GraphQL এর জগতে **DataLoader** এর ধারণা (Lesson 2.3 এ GraphQL এর N+1 সমস্যার কথা মনে করুন)। এখানে এটা include এর চেয়েও একটু দ্রুত — কারণ JOIN এ প্রতিটা task row এর সাথে project এর data বারবার আসে, batching এ প্রতিটা জিনিস একবার।
 
 **কোনটা কখন?** সাধারণ ক্ষেত্রে `include` সবচেয়ে সহজ। কিন্তু একটা ব্যতিক্রম আছে, আর সেটা বাস্তবে খুব সাধারণ।
 
@@ -248,7 +248,7 @@ async function twoHasManySeparate(): Promise<number> {
 
 ১০,০০০ row থেকে ১,৫৫০, আর ৩ গুণ দ্রুত। শিক্ষাটা: **"সবসময় একটা query" নিজেই লক্ষ্য না** — লক্ষ্য হলো কম round trip **আর** কম অপ্রয়োজনীয় data।
 
-**N+1 কীভাবে খুঁজে পাবে?** Code দেখে প্রায়ই না — একটা `for` loop এর ভেতরে `await Model.findX(...)`, বা একটা `.map` এর ভেতরে `instance.getTasks()` — review এ চোখ এড়িয়ে যায়। নির্ভরযোগ্য উপায় হলো **প্রতি request এ query গোনা**: development এ Sequelize এর `logging` দিয়ে (exercise এ ঠিক এভাবে গোনা হয়েছে), আর production এ tracing tool দিয়ে (Lesson 10.4) — যেটা প্রতিটা request এর নিচে কতগুলো database call হলো সেটা দেখায়।
+**N+1 কীভাবে খুঁজে পাবেন?** Code দেখে প্রায়ই না — একটা `for` loop এর ভেতরে `await Model.findX(...)`, বা একটা `.map` এর ভেতরে `instance.getTasks()` — review এ চোখ এড়িয়ে যায়। নির্ভরযোগ্য উপায় হলো **প্রতি request এ query গোনা**: development এ Sequelize এর `logging` দিয়ে (exercise এ ঠিক এভাবে গোনা হয়েছে), আর production এ tracing tool দিয়ে (Lesson 10.4) — যেটা প্রতিটা request এর নিচে কতগুলো database call হলো সেটা দেখায়।
 
 ### ১.৬ Query Optimization — Database এর বাইরের খরচ
 
@@ -285,11 +285,11 @@ raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 
 **তিনটা খুব সাধারণ প্রশ্ন:**
 
-1. **"আমরা app server ৩ থেকে ১০টা করলাম, তারপর database connection error আসছে। কেন?"** — প্রতিটা instance এর নিজের pool; `instances × pool max` এখন `max_connections` ছাড়িয়েছে। সমাধান: pool ছোট করো, PgBouncer এর মতো connection proxy দাও, autoscaling এর সর্বোচ্চ সংখ্যা ধরে হিসাব করো। বোনাস: "pool বড় করা সাধারণত সমাধান না — database এর core সংখ্যার অনেক বেশি একসাথে চলা query throughput কমায়" (এর পেছনে মাপা সংখ্যা বলতে পারলে আরও ভালো)।
+1. **"আমরা app server ৩ থেকে ১০টা করলাম, তারপর database connection error আসছে। কেন?"** — প্রতিটা instance এর নিজের pool; `instances × pool max` এখন `max_connections` ছাড়িয়েছে। সমাধান: pool ছোট করুন, PgBouncer এর মতো connection proxy দিন, autoscaling এর সর্বোচ্চ সংখ্যা ধরে হিসাব করুন। বোনাস: "pool বড় করা সাধারণত সমাধান না — database এর core সংখ্যার অনেক বেশি একসাথে চলা query throughput কমায়" (এর পেছনে মাপা সংখ্যা বলতে পারলে আরও ভালো)।
 
-2. **"একটা page ধীর, database এর প্রতিটা query দ্রুত। কী হতে পারে?"** — প্রতি request এ query সংখ্যা দেখো — N+1। অথবা pool এ অপেক্ষা (query নিজে দ্রুত, কিন্তু connection পেতে দেরি)। অথবা অনেক row এর hydration। "প্রতিটা query দ্রুত" মানেই "request দ্রুত" না।
+2. **"একটা page ধীর, database এর প্রতিটা query দ্রুত। কী হতে পারে?"** — প্রতি request এ query সংখ্যা দেখুন — N+1। অথবা pool এ অপেক্ষা (query নিজে দ্রুত, কিন্তু connection পেতে দেরি)। অথবা অনেক row এর hydration। "প্রতিটা query দ্রুত" মানেই "request দ্রুত" না।
 
-3. **"Pool size কত রাখবে?"** — একটা সংখ্যা না, একটা যুক্তি: database এর core সংখ্যা থেকে শুরু (core × 2 + disk একটা পরিচিত সূচনা), Little's Law দিয়ে প্রয়োজন হিসাব (query/s × গড় সময়), `instances × max` এর সীমা, তারপর load test এ মাপা।
+3. **"Pool size কত রাখবেন?"** — একটা সংখ্যা না, একটা যুক্তি: database এর core সংখ্যা থেকে শুরু (core × 2 + disk একটা পরিচিত সূচনা), Little's Law দিয়ে প্রয়োজন হিসাব (query/s × গড় সময়), `instances × max` এর সীমা, তারপর load test এ মাপা।
 
 **Production এ বাস্তবে:** Serverless (যেমন AWS Lambda) এ এই সমস্যা আরও তীব্র — প্রতিটা function instance নিজের connection খোলে, আর হঠাৎ হাজারটা instance চালু হতে পারে। এই কারণেই serverless এর সাথে প্রায় সবসময় একটা connection proxy (PgBouncer, বা cloud provider এর নিজের proxy) ব্যবহার করা হয়।
 
@@ -299,7 +299,7 @@ raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 
 - নতুন connection দামি — TCP, auth, আর Postgres এ প্রতিটার জন্য একটা আলাদা OS process; exercise এ pool ~৪৪ গুণ দ্রুত
 - Pool এ লাইনে দাঁড়ানোর সময় user এর চোখে query এর সময় — `EXPLAIN` সেটা দেখায় না
-- **বড় pool ≠ দ্রুত** — CPU এর কাজে throughput এর চূড়া database এর core সংখ্যায়, তার বেশিতে কমে আর p99 বাড়ে; অপেক্ষার কাজে বাড়ে। Little's Law দিয়ে হিসাব করো, তারপর মাপো
+- **বড় pool ≠ দ্রুত** — CPU এর কাজে throughput এর চূড়া database এর core সংখ্যায়, তার বেশিতে কমে আর p99 বাড়ে; অপেক্ষার কাজে বাড়ে। Little's Law দিয়ে হিসাব করুন, তারপর মাপুন
 - `instances × pool max ≤ max_connections` — horizontal scaling আর autoscaling এই সংখ্যা গুণ করে; সমাধান ছোট pool আর connection proxy (PgBouncer, তার সীমাবদ্ধতা জেনে)
 - Pool exhaustion এর সবচেয়ে বড় কারণ লম্বা transaction; `acquire` এর সীমা কম রেখে fail fast
 - **N+1** local এ লুকিয়ে থাকে, production এ round trip গুণ হয়; `include`, batching, আর প্রতি request এ query গোনা
@@ -323,20 +323,20 @@ raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর database এ ৮টা core আর `max_connections = 100`। ৪টা Express instance, peak এ ১২টা পর্যন্ত autoscale হয়। একটা background worker process ও আছে যেটা নিজের pool চালায়। প্রতি instance এর pool max কত রাখবে, আর কেন? হিসাবটা দেখাও।
-2. একটা endpoint এর p99 latency হঠাৎ ৮ সেকেন্ড, অথচ database এর slow query log এ কিছু নেই, আর database এর CPU ৩০%। কী হতে পারে? কোথায় খুঁজবে?
-3. একজন developer N+1 ঠিক করতে একটা বিশাল `include` লিখল — project এর সাথে tasks, members, comments, attachments, activity log — সব একটা query তে। Page আগের চেয়েও ধীর হয়ে গেল। কেন? তুমি কীভাবে সাজাতে?
+1. TaskFlow এর database এ ৮টা core আর `max_connections = 100`। ৪টা Express instance, peak এ ১২টা পর্যন্ত autoscale হয়। একটা background worker process ও আছে যেটা নিজের pool চালায়। প্রতি instance এর pool max কত রাখবেন, আর কেন? হিসাবটা দেখান।
+2. একটা endpoint এর p99 latency হঠাৎ ৮ সেকেন্ড, অথচ database এর slow query log এ কিছু নেই, আর database এর CPU ৩০%। কী হতে পারে? কোথায় খুঁজবেন?
+3. একজন developer N+1 ঠিক করতে একটা বিশাল `include` লিখল — project এর সাথে tasks, members, comments, attachments, activity log — সব একটা query তে। Page আগের চেয়েও ধীর হয়ে গেল। কেন? আপনি কীভাবে সাজাতে?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
-**প্রশ্ন ১:** আগে বাজেট: ১০০ থেকে কিছু রাখো admin, migration, monitoring, আর জরুরি অবস্থায় `psql` এর জন্য — ধরো ১০টা। বাকি ৯০। Background worker কে ধরো ১০টা দিলাম। থাকে ৮০টা, ১২টা instance এর মধ্যে ভাগ → প্রতি instance এ সর্বোচ্চ **৬**। এটা কি যথেষ্ট? ১.৩ এর যুক্তিতে: ৮ core এর database এ একসাথে সত্যিকারের কাজের জন্য কয়েক ডজন connection এর বেশি লাভজনক না (core × 2 + disk ≈ ২০-এর ঘরে); ১২ × ৬ = ৭২টা একসাথে চলা query ইতিমধ্যে তার অনেক বেশি। তাই ৬ যথেষ্ট, আর সম্ভবত কম হলেও চলত। যদি Little's Law দিয়ে দেখা যায় বেশি লাগছে (যেমন query গুলো ধীর), তাহলে আসল সমাধান query বা transaction দ্রুত করা, অথবা PgBouncer — `max_connections` বাড়ানো না। মূল শিক্ষা: হিসাবটা **সর্বোচ্চ** instance সংখ্যা দিয়ে, গড় দিয়ে না।
+**প্রশ্ন ১:** আগে বাজেট: ১০০ থেকে কিছু রাখুন admin, migration, monitoring, আর জরুরি অবস্থায় `psql` এর জন্য — ধরুন ১০টা। বাকি ৯০। Background worker কে ধরুন ১০টা দিলাম। থাকে ৮০টা, ১২টা instance এর মধ্যে ভাগ → প্রতি instance এ সর্বোচ্চ **৬**। এটা কি যথেষ্ট? ১.৩ এর যুক্তিতে: ৮ core এর database এ একসাথে সত্যিকারের কাজের জন্য কয়েক ডজন connection এর বেশি লাভজনক না (core × 2 + disk ≈ ২০-এর ঘরে); ১২ × ৬ = ৭২টা একসাথে চলা query ইতিমধ্যে তার অনেক বেশি। তাই ৬ যথেষ্ট, আর সম্ভবত কম হলেও চলত। যদি Little's Law দিয়ে দেখা যায় বেশি লাগছে (যেমন query গুলো ধীর), তাহলে আসল সমাধান query বা transaction দ্রুত করা, অথবা PgBouncer — `max_connections` বাড়ানো না। মূল শিক্ষা: হিসাবটা **সর্বোচ্চ** instance সংখ্যা দিয়ে, গড় দিয়ে না।
 
-**প্রশ্ন ২:** Database এ query দ্রুত, CPU ফাঁকা — তাহলে সময়টা database এর **বাইরে** যাচ্ছে। সবচেয়ে সম্ভাব্য: **pool exhaustion** — request গুলো connection পেতে লাইনে দাঁড়িয়ে (৮ সেকেন্ড এর p99 মানে কেউ কেউ অনেকক্ষণ অপেক্ষা করছে)। কেন? কোনো endpoint লম্বা transaction খোলা রেখে ভেতরে ধীর external API call করছে, অথবা একটা N+1 এক request এ শত শত বার connection ধার নিচ্ছে। খুঁজবে: pool এর metric (কতগুলো connection ব্যস্ত, কতজন লাইনে — Sequelize এর pool বা tracing থেকে), প্রতি request এ query সংখ্যা, আর database এ `pg_stat_activity` — সেখানে `idle in transaction` অবস্থায় অনেক connection থাকলে বুঝবে transaction খোলা রেখে app অন্য কাজ করছে।
+**প্রশ্ন ২:** Database এ query দ্রুত, CPU ফাঁকা — তাহলে সময়টা database এর **বাইরে** যাচ্ছে। সবচেয়ে সম্ভাব্য: **pool exhaustion** — request গুলো connection পেতে লাইনে দাঁড়িয়ে (৮ সেকেন্ড এর p99 মানে কেউ কেউ অনেকক্ষণ অপেক্ষা করছে)। কেন? কোনো endpoint লম্বা transaction খোলা রেখে ভেতরে ধীর external API call করছে, অথবা একটা N+1 এক request এ শত শত বার connection ধার নিচ্ছে। খুঁজবেন: pool এর metric (কতগুলো connection ব্যস্ত, কতজন লাইনে — Sequelize এর pool বা tracing থেকে), প্রতি request এ query সংখ্যা, আর database এ `pg_stat_activity` — সেখানে `idle in transaction` অবস্থায় অনেক connection থাকলে বুঝবেন transaction খোলা রেখে app অন্য কাজ করছে।
 
-**প্রশ্ন ৩:** পাঁচটা hasMany একসাথে একটা JOIN এ — **cartesian explosion** এর চরম রূপ। প্রতিটা project এর জন্য tasks × members × comments × attachments × activity সংখ্যক row — ধরো ৫০ × ১০ × ২০০ × ৩০ × ৫০০ — কোটির ঘরে। Database আর network সেই বিশাল row সেট তৈরি আর পাঠাতে ব্যস্ত, আর Sequelize কে সেগুলো আবার ভেঙে সাজাতে হয়। সমাধান: belongsTo (যেমন project এর owner) JOIN এ রাখো, কিন্তু প্রতিটা hasMany তে `separate: true` — প্রতিটার জন্য একটা `IN` query, মোট ৬টা query, row সংখ্যা আসল data এর সমান। আর প্রশ্ন করো — একটা page এ কি সত্যিই সব comment আর পুরো activity log লাগে? সম্ভবত সর্বশেষ কয়েকটা, pagination সহ, আলাদা request এ।
+**প্রশ্ন ৩:** পাঁচটা hasMany একসাথে একটা JOIN এ — **cartesian explosion** এর চরম রূপ। প্রতিটা project এর জন্য tasks × members × comments × attachments × activity সংখ্যক row — ধরুন ৫০ × ১০ × ২০০ × ৩০ × ৫০০ — কোটির ঘরে। Database আর network সেই বিশাল row সেট তৈরি আর পাঠাতে ব্যস্ত, আর Sequelize কে সেগুলো আবার ভেঙে সাজাতে হয়। সমাধান: belongsTo (যেমন project এর owner) JOIN এ রাখুন, কিন্তু প্রতিটা hasMany তে `separate: true` — প্রতিটার জন্য একটা `IN` query, মোট ৬টা query, row সংখ্যা আসল data এর সমান। আর প্রশ্ন করুন — একটা page এ কি সত্যিই সব comment আর পুরো activity log লাগে? সম্ভবত সর্বশেষ কয়েকটা, pagination সহ, আলাদা request এ।
 
 </details>
 
@@ -350,17 +350,17 @@ raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
 
 তিনটা script: connection এর দাম আর pool size (database container ২টা core এ সীমিত, যাতে যেকোনো মেশিনে একই রকম ফল), N+1 আর cartesian explosion (প্রতিটা SQL গুনে), আর hydration। Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean, pool এর ধাপ ২ দুবার প্রায় হুবহু, `nplusone` এর query আর row সংখ্যা হুবহু এক, তিনটা পদ্ধতির data এক।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. তিনটা script চালাও। Pool এর CPU কলামে তোমার মেশিনে চূড়া কোথায়? README এর সাথে মেলে?
+1. তিনটা script চালান। Pool এর CPU কলামে আপনার মেশিনে চূড়া কোথায়? README এর সাথে মেলে?
 
-2. **Core বাড়াও** (README experiment ১): `cpus: '4'` করে `npm run pool -- 2`। চূড়া কোথায় সরল? ফলাফল দিয়ে pool size এর নিয়মটা এক অনুচ্ছেদে নিজের ভাষায় লেখো।
+2. **Core বাড়ান** (README experiment ১): `cpus: '4'` করে `npm run pool -- 2`। চূড়া কোথায় সরল? ফলাফল দিয়ে pool size এর নিয়মটা এক অনুচ্ছেদে নিজের ভাষায় লিখুন।
 
-3. **Fail fast বনাম অপেক্ষা** (experiment ২): `acquire` ১ সেকেন্ড থেকে ৬০ সেকেন্ড করো। কতগুলো সফল হলো, আর শেষটা কতক্ষণ অপেক্ষা করল? একটা API এর জন্য কোনটা তুমি বাছবে, কেন?
+3. **Fail fast বনাম অপেক্ষা** (experiment ২): `acquire` ১ সেকেন্ড থেকে ৬০ সেকেন্ড করুন। কতগুলো সফল হলো, আর শেষটা কতক্ষণ অপেক্ষা করল? একটা API এর জন্য কোনটা আপনি বাছবেন, কেন?
 
-4. **N+1 লুকাও** (experiment ৪): `eager()` এর ভেতরে assignee এর include সরিয়ে loop এ `findByPk` দাও। Query সংখ্যা কত হলো? তারপর ভাবো — TaskFlow এর code review এ এটা কীভাবে আটকানো যায়? (ইঙ্গিত: test এ প্রতি request এর query সংখ্যার একটা সীমা।)
+4. **N+1 লুকান** (experiment ৪): `eager()` এর ভেতরে assignee এর include সরিয়ে loop এ `findByPk` দিন। Query সংখ্যা কত হলো? তারপর ভাবুন — TaskFlow এর code review এ এটা কীভাবে আটকানো যায়? (ইঙ্গিত: test এ প্রতি request এর query সংখ্যার একটা সীমা।)
 
-5. **Design অংশ:** TaskFlow এ এখন ৪টা Express instance (peak এ ১০), একটা BullMQ worker (Module 7 এ আসবে, নিজের pool), database এ ৮ core আর `max_connections = 100`। একটা **pool পরিকল্পনা** লেখো: প্রতিটা process এর pool max, `acquire` সীমা, আর কোন অবস্থায় (কোন সংখ্যা দেখলে) তুমি PgBouncer যোগ করবে। হিসাব দেখাও।
+5. **Design অংশ:** TaskFlow এ এখন ৪টা Express instance (peak এ ১০), একটা BullMQ worker (Module 7 এ আসবে, নিজের pool), database এ ৮ core আর `max_connections = 100`। একটা **pool পরিকল্পনা** লিখুন: প্রতিটা process এর pool max, `acquire` সীমা, আর কোন অবস্থায় (কোন সংখ্যা দেখলে) আপনি PgBouncer যোগ করবেন। হিসাব দেখান।
 
 ---
 
@@ -383,7 +383,7 @@ Partial Index, Expression Index, Covering Index, ACID, Isolation Level,
 MVCC, Lost Update, Write Skew, Pessimistic Locking, Optimistic Locking,
 Connection Pool, Pool Exhaustion, Little's Law, Connection Proxy,
 N+1 Query, Eager Loading, Cartesian Explosion
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 5.7 — Replication (Master-Slave, Master-Master, Read Scaling)
 =======================
 ```
@@ -392,4 +392,4 @@ Next: 5.7 — Replication (Master-Slave, Master-Master, Read Scaling)
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরে core বাড়ানোর পর চূড়া কোথায় গেল, আর ৫ নম্বরের pool পরিকল্পনা। রেডি হলে `next` লিখো — Lesson 5.7 এ যাব: **Replication** — একটা database এ আর read ধরছে না, তখন কী? Primary থেকে replica তে data কীভাবে যায় (Lesson 5.3 এর WAL মনে আছে?), read replica দিয়ে read scale করা, replication lag আর তার অদ্ভুত bug ("এইমাত্র save করলাম, কিন্তু দেখাচ্ছে না!"), আর failover — hands-on, Docker এ আসল Postgres primary + replica দিয়ে।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরে core বাড়ানোর পর চূড়া কোথায় গেল, আর ৫ নম্বরের pool পরিকল্পনা। রেডি হলে `next` লিখুন — Lesson 5.7 এ যাব: **Replication** — একটা database এ আর read ধরছে না, তখন কী? Primary থেকে replica তে data কীভাবে যায় (Lesson 5.3 এর WAL মনে আছে?), read replica দিয়ে read scale করা, replication lag আর তার অদ্ভুত bug ("এইমাত্র save করলাম, কিন্তু দেখাচ্ছে না!"), আর failover — hands-on, Docker এ আসল Postgres primary + replica দিয়ে।

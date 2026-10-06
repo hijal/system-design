@@ -12,42 +12,42 @@ Module 1 এর ৬টা lesson শেষ। এতদিন আমরা ট�
 >
 > "আমরা একটা নতুন feature চাই: **'Daily Digest'** — প্রতিদিন সকাল ৮টায়, প্রতিটা ইউজারকে একটা ইমেইল পাঠানো হবে, যেখানে গতকালের সব task activity (কী কী task তৈরি হলো, কোনগুলো complete হলো, কোনগুলোতে তাকে assign করা হলো) এর সারাংশ থাকবে।"
 >
-> ধরে নাও, TaskFlow এখন ৫০,০০০ registered user (Lesson 1.6 এর মতোই ধরে নিতে পারো, চাও তো নিজের মতো নতুন সংখ্যাও ধরতে পারো, শুধু বলে দিও)।
+> ধরে নিন, TaskFlow এখন ৫০,০০০ registered user (Lesson 1.6 এর মতোই ধরে নিতে পারেন, চান তো নিজের মতো নতুন সংখ্যাও ধরতে পারেন, শুধু বলে দেবেন)।
 
-তোমার কাজ — সম্পূর্ণ **৫-ধাপ Framework** (Lesson 1.2) ব্যবহার করে এই feature টা design করো। প্রতিটা ধাপে যা যা এখন পর্যন্ত শিখেছ তা প্রয়োগ করার চেষ্টা করো:
+আপনার কাজ — সম্পূর্ণ **৫-ধাপ Framework** (Lesson 1.2) ব্যবহার করে এই feature টা design করুন। প্রতিটা ধাপে যা যা এখন পর্যন্ত শিখেছেন তা প্রয়োগ করার চেষ্টা করুন:
 
 **Step 1 — Requirements + Scope**
 
-- Functional আর Non-functional requirement আলাদা করো (Lesson 1.1) — মনে রেখো, "কীভাবে পাঠাব" (email service, queue) সেটা Solution, Requirement না
-- কী আজকের scope এর বাইরে রাখবে বলে দাও
+- Functional আর Non-functional requirement আলাদা করুন (Lesson 1.1) — মনে রাখবেন, "কীভাবে পাঠাব" (email service, queue) সেটা Solution, Requirement না
+- কী আজকের scope এর বাইরে রাখবেন বলে দিন
 
 **Step 2 — Estimation**
 
-- DAU ধরে নাও (assumption বলে দিয়ে — Lesson 1.3)
+- DAU ধরে নিন (assumption বলে দিয়ে — Lesson 1.3)
 - মোট কতগুলো email পাঠাতে হবে প্রতিদিন?
-- এখানে একটা বিশেষ challenge আছে যা আগে আসেনি — এই কাজটা সারাদিন সমানভাবে ছড়ানো request না, বরং **সকাল ৮টায় একসাথে সব ইউজারকে পাঠাতে হয়**। এই ধরনের ট্রাফিক প্যাটার্নকে কী বলা যেতে পারে বলে তোমার মনে হয়, আর এটা কেন normal API traffic থেকে আলাদাভাবে চিন্তা করা দরকার — এক লাইনে বলো (এটা এখনো আমরা lesson এ formally covers করিনি — নিজের logic দিয়ে অনুমান করে দেখো, ভুল হলে সমস্যা নেই)
+- এখানে একটা বিশেষ challenge আছে যা আগে আসেনি — এই কাজটা সারাদিন সমানভাবে ছড়ানো request না, বরং **সকাল ৮টায় একসাথে সব ইউজারকে পাঠাতে হয়**। এই ধরনের ট্রাফিক প্যাটার্নকে কী বলা যেতে পারে বলে আপনার মনে হয়, আর এটা কেন normal API traffic থেকে আলাদাভাবে চিন্তা করা দরকার — এক লাইনে বলুন (এটা এখনো আমরা lesson এ formally covers করিনি — নিজের logic দিয়ে অনুমান করে দেখুন, ভুল হলে সমস্যা নেই)
 
 **Step 3 — High-Level Design**
 
-- একটা simple ASCII diagram আঁকো (Client/Server/DB এর বাইরে এখানে email পাঠানোর জন্য নতুন কী component লাগতে পারে বলে মনে হয়, সেটা একটা "black box" হিসেবে দেখাও, বিস্তারিত না গিয়ে)
+- একটা simple ASCII diagram আঁকুন (Client/Server/DB এর বাইরে এখানে email পাঠানোর জন্য নতুন কী component লাগতে পারে বলে মনে হয়, সেটা একটা "black box" হিসেবে দেখান, বিস্তারিত না গিয়ে)
 
 **Step 4 — Deep Dive**
 
-- এই feature এর মধ্যে কোন অংশটা তোমার মনে হয় সবচেয়ে বেশি deep dive করার যোগ্য (সবচেয়ে বেশি challenge/trade-off আছে), আর কেন — Lesson 1.2 এর "কোন অংশ বেছে নেব" criteria ব্যবহার করে বিচার করো
+- এই feature এর মধ্যে কোন অংশটা আপনার মনে হয় সবচেয়ে বেশি deep dive করার যোগ্য (সবচেয়ে বেশি challenge/trade-off আছে), আর কেন — Lesson 1.2 এর "কোন অংশ বেছে নেব" criteria ব্যবহার করে বিচার করুন
 
 **Step 5 — Trade-off**
 
-- Login বা Task Creation এর তুলনায় এই "Daily Digest" feature এর জন্য কী availability/latency target হওয়া উচিত বলে তোমার মনে হয়, আর কেন (Lesson 1.5 এর reasoning প্রয়োগ করো — এটা কি সব ইউজারকে ব্লক করে? সময়ের ব্যাপারে কতটা strict হতে হবে?)
+- Login বা Task Creation এর তুলনায় এই "Daily Digest" feature এর জন্য কী availability/latency target হওয়া উচিত বলে আপনার মনে হয়, আর কেন (Lesson 1.5 এর reasoning প্রয়োগ করুন — এটা কি সব ইউজারকে ব্লক করে? সময়ের ব্যাপারে কতটা strict হতে হবে?)
 
-**একটা নির্দেশনা:** আগের exercise গুলোর trend দেখে বলছি — প্রতিটা ধাপ শেষ করার পর, একবার নিজের উত্তরটা আবার পড়ে দেখো প্রশ্ন যা চেয়েছে ঠিক তাই দিয়েছ কিনা, আর কোনো ধাপ বা sub-part বাদ পড়েনি তো। এটা একটা habit যেটা গত কয়েকটা lesson জুড়ে তোমার মূল improvement area ছিল।
+**একটা নির্দেশনা:** আগের exercise গুলোর trend দেখে বলছি — প্রতিটা ধাপ শেষ করার পর, একবার নিজের উত্তরটা আবার পড়ে দেখুন প্রশ্ন যা চেয়েছে ঠিক তাই দিয়েছেন কিনা, আর কোনো ধাপ বা sub-part বাদ পড়েনি তো। এটা একটা habit যেটা গত কয়েকটা lesson জুড়ে আপনার মূল improvement area ছিল।
 
 আমি এটা critique করব ঠিক আগের মতোই — ধাপে ধাপে।
 
 ---
 
-## ২. Self-Check — এই Module শেষে তুমি এগুলো পারার কথা
+## ২. Self-Check — এই Module শেষে আপনি এগুলো পারার কথা
 
-নিজেকে সৎভাবে যাচাই করো:
+নিজেকে সৎভাবে যাচাই করুন:
 
 - [ ] System Design প্রশ্নের উত্তর কেন "সঠিক" না বরং "trade-off-based" — এটা অন্য কাউকে বুঝিয়ে বলতে পারি
 - [ ] Functional আর Non-functional Requirement এর মধ্যে পার্থক্য করতে পারি, এবং "Solution" কে এই দুটোর কোনোটার সাথে গুলিয়ে ফেলি না
@@ -59,7 +59,7 @@ Module 1 এর ৬টা lesson শেষ। এতদিন আমরা ট�
 - [ ] Vertical vs Horizontal scaling, এবং কেন Stateless architecture horizontal scaling এর পূর্বশর্ত — ব্যাখ্যা করতে পারি
 - [ ] একটা architecture দেখে বলতে পারি সেটা stateful না stateless, আর কেন
 
-যদি কোনো বক্সে সন্দেহ থাকে, চিন্তা নেই — এগুলো Module 2-3 তেও বারবার প্রয়োগ হবে, তখন আবার শক্ত হওয়ার সুযোগ পাবে। কিন্তু যদি ৩টার বেশি বক্সে সত্যিই আটকে থাকো মনে হয়, বলো — আমরা `recap` করে নিতে পারি নতুন module শুরুর আগে।
+যদি কোনো বক্সে সন্দেহ থাকে, চিন্তা নেই — এগুলো Module 2-3 তেও বারবার প্রয়োগ হবে, তখন আবার শক্ত হওয়ার সুযোগ পাবেন। কিন্তু যদি ৩টার বেশি বক্সে সত্যিই আটকে থাকেন মনে হয়, বলুন — আমরা `recap` করে নিতে পারি নতুন module শুরুর আগে।
 
 ---
 
@@ -71,12 +71,12 @@ Module 1 এর ৬টা lesson শেষ। এতদিন আমরা ট�
 
 **দেখার জন্য:**
 
-- Google-এর SRE (Site Reliability Engineering) বই এর ফ্রি অনলাইন version এর SLO/Error Budget সংক্রান্ত chapter — আজকের 1.5 lesson এর concept গুলো একদম industry-standard ভাষায় দেখতে পাবে (sre.google/sre-book এ ফ্রি পাওয়া যায়)
+- Google-এর SRE (Site Reliability Engineering) বই এর ফ্রি অনলাইন version এর SLO/Error Budget সংক্রান্ত chapter — আজকের 1.5 lesson এর concept গুলো একদম industry-standard ভাষায় দেখতে পাবেন (sre.google/sre-book এ ফ্রি পাওয়া যায়)
 
 **Project এর জন্য:**
 
-- নিজের সময়ে (course এর বাইরে) — তুমি আগে deploy করেছ এমন যেকোনো Node.js app নিয়ে একবার ভেবে দেখো: সেটা stateful নাকি stateless? PM2 cluster mode এ একাধিক instance চালালে session বা in-progress data কোথায় থাকত — process এর memory তে, নাকি বাইরে? এই audit টা করে দেখা একটা ভালো practical exercise, যদিও এটা course এর official exercise না।
+- নিজের সময়ে (course এর বাইরে) — আপনি আগে deploy করেছেন এমন যেকোনো Node.js app নিয়ে একবার ভেবে দেখুন: সেটা stateful নাকি stateless? PM2 cluster mode এ একাধিক instance চালালে session বা in-progress data কোথায় থাকত — process এর memory তে, নাকি বাইরে? এই audit টা করে দেখা একটা ভালো practical exercise, যদিও এটা course এর official exercise না।
 
 ---
 
-Exit challenge টা করে পাঠাও — critique করব। এরপর `next` লিখলে আমরা **Module 2: Networking & Communication** এ যাব, শুরু হবে Lesson 2.1 — DNS কীভাবে কাজ করে, URL লেখা থেকে response আসা পর্যন্ত পুরো journey (যেটা আজকে 1.4 তে আমরা "DNS Lookup" বলে একটা ধাপ mention করেছিলাম মাত্র, না খুলেই — এবার সেটা পুরোপুরি খুলব)।
+Exit challenge টা করে পাঠান — critique করব। এরপর `next` লিখলে আমরা **Module 2: Networking & Communication** এ যাব, শুরু হবে Lesson 2.1 — DNS কীভাবে কাজ করে, URL লেখা থেকে response আসা পর্যন্ত পুরো journey (যেটা আজকে 1.4 তে আমরা "DNS Lookup" বলে একটা ধাপ mention করেছিলাম মাত্র, না খুলেই — এবার সেটা পুরোপুরি খুলব)।

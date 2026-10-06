@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.3 (Estimation), Lesson 1.5 (Latency budget), Lesson 5.5 (Lost update), Lesson 6.1 (Timeout, partial failure), Lesson 9.2 (API gateway), Lesson 9.4 (Circuit breaker), Lesson 9.5 (Rate limiting algorithms), Lesson 10.1 (Hash slot), Lesson 10.3 (Hard/soft dependency, static stability), Lesson 10.7 (Cross-AZ cost), Lesson 11.1 (Case study এর কাঠামো)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা rate limiter কে library বা middleware হিসেবে না, একটা **service** হিসেবে নকশা করতে পারবে: requirement এ rate limit আর quota আলাদা করা, estimation থেকে Redis এর shard, network আর cross-AZ খরচ বের করা, আর limiter কোথায় বসবে (library, sidecar, আলাদা service) তার trade-off বলা
-2. কেন্দ্রে গোনার চারটা পথ (প্রতি request এ atomic, সীমা ভাগ করা, token lease, async sync) সংখ্যা দিয়ে তুলনা করতে পারবে: কতটা ঠিক, কত দ্রুত, কেন্দ্রে কত চাপ, আর **কোন অবস্থায় কোনটা ভাঙে** (atomic না হলে race, skewed traffic, আক্রমণ, lease এর আটকে থাকা token)। Hot tenant কে কীভাবে সামলাবে সেটাও
-3. Limiter ধীর বা মরলে API কে বাঁচাতে পারবে: timeout এর বাজেট, breaker, নিয়ম ধরে fail mode, আর local fallback এর উদারতার দাম (বৈধ user আটকানো বনাম abuser এর বাড়তি)
+1. একটা rate limiter কে library বা middleware হিসেবে না, একটা **service** হিসেবে নকশা করতে পারবেন: requirement এ rate limit আর quota আলাদা করা, estimation থেকে Redis এর shard, network আর cross-AZ খরচ বের করা, আর limiter কোথায় বসবে (library, sidecar, আলাদা service) তার trade-off বলা
+2. কেন্দ্রে গোনার চারটা পথ (প্রতি request এ atomic, সীমা ভাগ করা, token lease, async sync) সংখ্যা দিয়ে তুলনা করতে পারবেন: কতটা ঠিক, কত দ্রুত, কেন্দ্রে কত চাপ, আর **কোন অবস্থায় কোনটা ভাঙে** (atomic না হলে race, skewed traffic, আক্রমণ, lease এর আটকে থাকা token)। Hot tenant কে কীভাবে সামলাবেন সেটাও
+3. Limiter ধীর বা মরলে API কে বাঁচাতে পারবেন: timeout এর বাজেট, breaker, নিয়ম ধরে fail mode, আর local fallback এর উদারতার দাম (বৈধ user আটকানো বনাম abuser এর বাড়তি)
 
 **Tier:** 1 — Runnable Code (চারটা deterministic model আর একটা আসল limiter service + client library + API server; Docker বা Redis লাগে না)
 
@@ -20,12 +20,12 @@
 
 Interview এর ঘর, দ্বিতীয় round। Interviewer:
 
-> "আমরা একটা public API platform চালাই। Peak এ সেকেন্ডে ৫ লাখ request, ৪০০টা API server, কয়েক লাখ customer, প্রতিটার plan এ আলাদা সীমা। একটা rate limiter **service** design করো।"
+> "আমরা একটা public API platform চালাই। Peak এ সেকেন্ডে ৫ লাখ request, ৪০০টা API server, কয়েক লাখ customer, প্রতিটার plan এ আলাদা সীমা। একটা rate limiter **service** design করুন।"
 
 9.5 পড়া থাকলে প্রথম উত্তর তৈরি: "Token bucket, Redis এ, একটা Lua script এ atomic, Redis মরলে fail open। শেষ।" ঠিক উত্তর, একটা process এর জন্য। কিন্তু interviewer এর follow-up গুলো এবার আকারের:
 
-- "প্রতি request এ Redis এ যাবে? ৫ লাখ op/s, একটা Redis এ ধরে? কতগুলো shard? মাসে কত খরচ?"
-- "Limiter API এর প্রতিটা request এর latency তে যোগ হয়। তোমার বাজেট কত, আর Redis ধীর হলে কী?"
+- "প্রতি request এ Redis এ যাবেন? ৫ লাখ op/s, একটা Redis এ ধরে? কতগুলো shard? মাসে কত খরচ?"
+- "Limiter API এর প্রতিটা request এর latency তে যোগ হয়। আপনার বাজেট কত, আর Redis ধীর হলে কী?"
 - "একজন customer একাই সব traffic এর ৮%। তার key কোন shard এ, আর সেই shard এর কী হবে?"
 - "প্রতিটা server কে সীমার একটা ভাগ দিয়ে দিলে কেন্দ্রেই যেতে হয় না। সমস্যা কী?"
 - "Customer এর মাসিক quota (মাসে ১ কোটি call, তার বেশি হলে বিল) — এটাও একই Redis এ?"
@@ -53,7 +53,7 @@ Limiter মরলে?                               API চলবে; কোন 
 
 আর একটা প্রশ্ন যা candidate রা প্রায়ই করে না: **সীমাটা কিসের জন্য?** দুটো খুব আলাদা জিনিস একই নামে আসে।
 
-**Quota (বনাম Rate Limit)** — Rate limit একটা **সুরক্ষা**: "সেকেন্ডে ১,০০০ এর বেশি না", যাতে একজনের চাপ অন্যদের ক্ষতি না করে। একটু বেশি বা কম হলে কেউ টের পায় না, আর অবস্থা হারালে (Redis restart) ক্ষতি কয়েক সেকেন্ডের। Quota একটা **চুক্তি**: "মাসে ১ কোটি call, তার পরে প্রতি হাজারে এত টাকা"। এখানে প্রতিটা গোনা টাকা, তাই হারানো চলবে না, আন্দাজ চলবে না, আর একটা বিতর্কে তোমাকে প্রমাণ দেখাতে হবে।
+**Quota (বনাম Rate Limit)** — Rate limit একটা **সুরক্ষা**: "সেকেন্ডে ১,০০০ এর বেশি না", যাতে একজনের চাপ অন্যদের ক্ষতি না করে। একটু বেশি বা কম হলে কেউ টের পায় না, আর অবস্থা হারালে (Redis restart) ক্ষতি কয়েক সেকেন্ডের। Quota একটা **চুক্তি**: "মাসে ১ কোটি call, তার পরে প্রতি হাজারে এত টাকা"। এখানে প্রতিটা গোনা টাকা, তাই হারানো চলবে না, আন্দাজ চলবে না, আর একটা বিতর্কে আপনাকে প্রমাণ দেখাতে হবে।
 
 তাই নকশায় দুটো আলাদা পথ। Rate limit এর অবস্থা দ্রুত, memory তে, হারালে ক্ষতি নেই (Redis, persistence ছাড়াই চলে)। Quota গোনা হয় **usage event** থেকে, 11.1 এর click এর মতো: প্রতিটা request এর পরে একটা event log এ, একটা job গোনে, টেকসই database এ জমা রাখে, আর মিনিটে একবার "এই customer এর quota শেষ" এর একটা flag rate limiter এর নিয়মে পাঠায়। Quota শেষ হওয়ার পরে কয়েক সেকেন্ডের বাড়তি request গ্রহণ হবে, আর সেটা চুক্তিতে লেখা থাকে ("quota এর হিসাব কয়েক মিনিট দেরিতে")। উল্টো ভুলটা, quota কে rate limiter এর Redis এ রাখা, মানে Redis এর একটা failover এ customer এর মাসের হিসাব শূন্য। 9.5 এর eviction এর সমস্যা এখানে টাকার সমস্যা।
 
@@ -101,7 +101,7 @@ POST /v1/lease   { key, want }            → { granted, retryAfterMs, ttlMs }  
 { prefix: "search:", rate: 50/s,   burst: 50,  failMode: "open"   }
 ```
 
-নিয়মগুলো একটা ছোট config service এ, version সহ, আর প্রতিটা API server এ cache করা, কয়েক সেকেন্ডে push বা poll করে। নিয়মের service মরলে server গুলো শেষ জানা নিয়ম দিয়ে চলে (10.3 এর static stability)। একটা incident এ "এই customer কে এখনই ১০/s এ নামাও" এর পথ এটাই, তাই এর deploy এর দরকার নেই।
+নিয়মগুলো একটা ছোট config service এ, version সহ, আর প্রতিটা API server এ cache করা, কয়েক সেকেন্ডে push বা poll করে। নিয়মের service মরলে server গুলো শেষ জানা নিয়ম দিয়ে চলে (10.3 এর static stability)। একটা incident এ "এই customer কে এখনই ১০/s এ নামান" এর পথ এটাই, তাই এর deploy এর দরকার নেই।
 
 **Redis এর key:** `rl:{acme}:api` আর `rl:{acme}:search`। বাঁকা বন্ধনীর ভেতরের অংশটাই আসল কৌশল। **Hash Tag** — Redis Cluster এ key এর যে অংশ `{` আর `}` এর ভেতরে, শুধু সেটা দিয়ে hash slot (10.1) হিসাব হয়। তাই একই customer এর সব নিয়মের key একই slot এ, একই shard এ, আর একটা Lua script সবগুলো একসাথে পড়তে আর লিখতে পারে। দাম: একজন customer এর সব চাপ একটা shard এ (১.৬)। প্রতিটা key একটা ছোট hash (`tokens`, `ts`) আর TTL = খালি bucket পূর্ণ হতে যত সময়: যে key কিছুক্ষণ ব্যবহার হয়নি সেটা নিজেই মুছে যায়, কারণ পূর্ণ bucket আর না থাকা key একই অর্থ।
 
@@ -144,7 +144,7 @@ local + sync every 100 ms (async)                        998     1.00x          
 
 প্রথম সারি 9.5 এর পুরনো ভুল (সীমা × server, এখানে চাহিদা যতটা ততটাই)। বাকিগুলো সবাই ~১.০x। এই অবস্থায় সবাই ভালো দেখায়, তাই এখানে থেমে গেলে ভুল সিদ্ধান্ত হবে।
 
-**Spaced repetition এর উত্তর, আর চতুর্থ সারি:** lost update মানে দুজন একই পুরনো মান পড়ে, দুজনেই নিজের হিসাব লেখে, আর একজনের কাজ হারায়। উপায় দুটো ছিল: পড়া আর লেখা একটা atomic ধাপে (`UPDATE ... SET x = x - 1`), বা lock/version দিয়ে। Rate limiter এ "GET করে token দেখো, তারপর SET করে একটা কমাও" ঠিক সেই ভুল: দুটো server এর GET এর মাঝে অন্যটার SET পৌঁছায় না, দুজনেই একই token খরচ করে। ২ গুণ চাহিদায় ১.৩৫x, আর ২০ গুণ চাহিদায় (নিচে) **৫.৮x**: concurrent request যত বেশি, race এর জানালায় তত বেশি জন। মানে সীমা সবচেয়ে বেশি ফাঁস হয় **ঠিক আক্রমণের সময়।** তাই Redis এ পুরো সিদ্ধান্ত (refill, তুলনা, কমানো) একটা Lua script এ, যা Redis একবারে চালায়, মাঝে অন্য কোনো command ঢোকে না।
+**Spaced repetition এর উত্তর, আর চতুর্থ সারি:** lost update মানে দুজন একই পুরনো মান পড়ে, দুজনেই নিজের হিসাব লেখে, আর একজনের কাজ হারায়। উপায় দুটো ছিল: পড়া আর লেখা একটা atomic ধাপে (`UPDATE ... SET x = x - 1`), বা lock/version দিয়ে। Rate limiter এ "GET করে token দেখুন, তারপর SET করে একটা কমান" ঠিক সেই ভুল: দুটো server এর GET এর মাঝে অন্যটার SET পৌঁছায় না, দুজনেই একই token খরচ করে। ২ গুণ চাহিদায় ১.৩৫x, আর ২০ গুণ চাহিদায় (নিচে) **৫.৮x**: concurrent request যত বেশি, race এর জানালায় তত বেশি জন। মানে সীমা সবচেয়ে বেশি ফাঁস হয় **ঠিক আক্রমণের সময়।** তাই Redis এ পুরো সিদ্ধান্ত (refill, তুলনা, কমানো) একটা Lua script এ, যা Redis একবারে চালায়, মাঝে অন্য কোনো command ঢোকে না।
 
 **অবস্থা ২ — একই চাহিদা, কিন্তু ৯০% traffic ৫টা server এ** (বাস্তবে সাধারণ: একজন customer এর connection pool কয়েকটা keep-alive connection এ কয়েকটা server এ আটকে থাকে, 3.2):
 
@@ -178,7 +178,7 @@ local + sync every 100 ms (async)                        813     0.81x          
 
 সীমার নিচের একজন customer এর **৭৮%** request আটকানো, শুধু কারণ তার traffic সমান ভাবে ছড়ায়নি। এটা সবচেয়ে খারাপ ধরনের ভুল: customer support এ এসে বলে "আমার সীমা ১,০০০, আমি ৮০০ পাঠাচ্ছি, ৪২৯ পাচ্ছি", আর dashboard এ তার মোট হার সীমার নিচে দেখায়। Experiment ২: ২০০টা server এ সে পায় সীমার ১০%। Server বাড়ানো (autoscale) customer এর সীমা কমায়।
 
-**Token Lease** — প্রতিটা server কেন্দ্র থেকে একবারে কয়েকটা token "ধার" নেয় (ধরো ৪টা, একটা মেয়াদ সহ), তারপর সেগুলো নিজের memory থেকে খরচ করে, শেষ হলে আবার। কেন্দ্র তখনও একমাত্র সত্য (token এর হিসাব সেখানে), তাই সীমা ফাঁস হয় না। কিন্তু প্রতি request এ না, প্রতি কয়েকটা request এ একবার যেতে হয়। 11.1 এর range allocation এর ধারণা, token এর জন্য। Lease পুরো না পেলে (কেন্দ্রে কম token) server কিছুই নেয় না আর token জমার সময়টুকু নিজেই "না" বলে, যাতে প্রতিটা আটকানো request কেন্দ্রে না যায়।
+**Token Lease** — প্রতিটা server কেন্দ্র থেকে একবারে কয়েকটা token "ধার" নেয় (ধরুন ৪টা, একটা মেয়াদ সহ), তারপর সেগুলো নিজের memory থেকে খরচ করে, শেষ হলে আবার। কেন্দ্র তখনও একমাত্র সত্য (token এর হিসাব সেখানে), তাই সীমা ফাঁস হয় না। কিন্তু প্রতি request এ না, প্রতি কয়েকটা request এ একবার যেতে হয়। 11.1 এর range allocation এর ধারণা, token এর জন্য। Lease পুরো না পেলে (কেন্দ্রে কম token) server কিছুই নেয় না আর token জমার সময়টুকু নিজেই "না" বলে, যাতে প্রতিটা আটকানো request কেন্দ্রে না যায়।
 
 ফল: অবস্থা ৪ এ কেন্দ্রের চাপ ৮১৩ থেকে **২১৫ op/s**, কোনো ভুল আটকানো ছাড়া, সীমা ঠিক। কিন্তু lease এর আকার একটা ফাঁদ:
 
@@ -252,7 +252,7 @@ timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms  
 - **Timeout এর পরে কী?** Fail open (abuser পুরো ১০ গুণ পায়), fail closed (সবাই আটকায়, ১০০%)। মাঝের পথ: **local bucket (সীমা / N)**, প্রতিটা server নিজে আন্দাজে গোনে। Abuser কে সীমায় রাখে (১.০x), কিন্তু সাধারণ user দের **১৬%** আটকায়, ১.৫ এর অবস্থা ৪ এর কারণেই: সীমা / N ছোট আর traffic এলোমেলো।
 - **Breaker + উদার fallback।** Breaker (9.4) কয়েকটা ব্যর্থতার পরে কিছুক্ষণ limiter কে জিজ্ঞেসই করে না, তাই প্রতিটা request এ ৫ ms এর timeout ও আর দিতে হয় না (বাড়তি latency শূন্য)। আর fallback এর সীমা উদার, ৩ × সীমা / N: সাধারণ user দের ০% আটকায়, আর abuser পায় সীমার ৩.১ গুণ। Experiment ৩: timeout ৫০ ms হলে ধীর অবস্থায় প্রতিটা request এ ৪০-৫০ ms, আর ৪৮টা request ঝুলে থাকে।
 
-**Degraded Mode (local fallback limit)** — কেন্দ্র না পেলে প্রতিটা server নিজের memory তে একটা আন্দাজের সীমা চালায়; সীমার একটা ভাগ, উদারতার একটা গুণক সহ। গুণকটা একটা সচেতন সিদ্ধান্ত: কম হলে limiter এর বিভ্রাটে বৈধ customer আটকায় (তোমার outage তাদের outage হয়), বেশি হলে abuser কিছুক্ষণ বেশি পায়। বেশিরভাগ API এর জন্য সঠিক দিক উদার, কারণ abuser এর ৩ গুণ কয়েক মিনিটের জন্য downstream এর bulkhead আর breaker (9.4) সামলায়, কিন্তু সব customer এর ১৬% ব্যর্থতা সরাসরি SLO ভাঙে।
+**Degraded Mode (local fallback limit)** — কেন্দ্র না পেলে প্রতিটা server নিজের memory তে একটা আন্দাজের সীমা চালায়; সীমার একটা ভাগ, উদারতার একটা গুণক সহ। গুণকটা একটা সচেতন সিদ্ধান্ত: কম হলে limiter এর বিভ্রাটে বৈধ customer আটকায় (আপনার outage তাদের outage হয়), বেশি হলে abuser কিছুক্ষণ বেশি পায়। বেশিরভাগ API এর জন্য সঠিক দিক উদার, কারণ abuser এর ৩ গুণ কয়েক মিনিটের জন্য downstream এর bulkhead আর breaker (9.4) সামলায়, কিন্তু সব customer এর ১৬% ব্যর্থতা সরাসরি SLO ভাঙে।
 
 আর তাই নিয়মের `failMode` আছে। Login: `closed` (সীমা ছাড়া brute force চলবে না, ৫০৩ আর `Retry-After`); সাধারণ API: `local` উদার; একটা সস্তা, শুধু পড়ার endpoint: `open`।
 
@@ -295,7 +295,7 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 - **Quota:** rate limiter এ না। Usage event → log → গোনা → টেকসই database; শেষ হলে flag নিয়মে।
 - **যা ইচ্ছা করে নেই:** GET + SET (race), সীমা / N কে মূল কৌশল হিসেবে (skewed traffic এ ৭৮% ভুল), async sync মূল সুরক্ষায় (আক্রমণে ২-৭x), sliding log সাধারণ নিয়মে (৪.৮ GB)।
 
-**কী আগে ভাঙবে:** hot tenant (Zipf আরও তীক্ষ্ণ হলে একটা shard এর ১০০% ছাড়ায়, তাই lease আর splitting প্রথম দিন থেকে বড় key এর জন্য তৈরি রাখা); limiter এর নিজের metric না থাকা (৪২৯ এর হার, fallback এ চলা request এর হার, breaker খোলার ঘটনা), কারণ fallback এ চলা limiter বাইরে থেকে সুস্থ দেখায়; আর নিয়মের ভুল বদল (একটা শূন্য বেশি বা কম), যা deploy ছাড়াই সব customer কে আটকাতে পারে। তাই নিয়মের বদলও 10.6 এর মতো ধাপে ধাপে, আগে "শুধু গুনো, আটকিও না" (shadow mode) এ।
+**কী আগে ভাঙবে:** hot tenant (Zipf আরও তীক্ষ্ণ হলে একটা shard এর ১০০% ছাড়ায়, তাই lease আর splitting প্রথম দিন থেকে বড় key এর জন্য তৈরি রাখা); limiter এর নিজের metric না থাকা (৪২৯ এর হার, fallback এ চলা request এর হার, breaker খোলার ঘটনা), কারণ fallback এ চলা limiter বাইরে থেকে সুস্থ দেখায়; আর নিয়মের ভুল বদল (একটা শূন্য বেশি বা কম), যা deploy ছাড়াই সব customer কে আটকাতে পারে। তাই নিয়মের বদলও 10.6 এর মতো ধাপে ধাপে, আগে "শুধু গুনুন, আটকাবেন না" (shadow mode) এ।
 
 ---
 
@@ -313,7 +313,7 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 - _"Redis কেন? প্রতিটা server নিজে গুনলেই তো দ্রুত।"_ — নিজে গুনলে সীমা × server (9.5)। সীমা / N দিলে সমান traffic এ ঠিক, কিন্তু traffic কয়েকটা server এ জমলে সীমার নিচের customer এর ৭৮% আটকায়, আর autoscale এ সীমা কমে।
 - _"প্রতি request এ Redis এ যাওয়া কি latency এ খুব দামি না?"_ — Same-AZ এ p99 ~১ ms, বাজেটের ভেতরে। বড় key এ lease (৪ গুণ কম call)। আর কখনো retry না, timeout বাজেটের কাছে।
 - _"Hot customer?"_ — Hash tag এ তার সব key এক shard এ। Shard বাড়ানো কাজ করে না। Lease বা key splitting (এলোমেলো ভাগ, সমান traffic)।
-- _"Redis মরলে?"_ — "Fail open" বললে থেমো না। ধীর হওয়া মরার চেয়ে খারাপ (timeout না থাকলে প্রতিটা server এ হাজার হাজার request ঝুলে)। নিয়ম ধরে আচরণ, আর local fallback এর উদারতার দাম সংখ্যায়।
+- _"Redis মরলে?"_ — "Fail open" বললে থামবেন না। ধীর হওয়া মরার চেয়ে খারাপ (timeout না থাকলে প্রতিটা server এ হাজার হাজার request ঝুলে)। নিয়ম ধরে আচরণ, আর local fallback এর উদারতার দাম সংখ্যায়।
 - _"দুটো region এ একটা global সীমা?"_ — প্রতি request এ region পার হওয়া চলবে না। Region প্রতি বাজেট আর কয়েক সেকেন্ড পরপর ভাগ বদলানো, sync এর জানালার ভুল মেনে।
 - _"Customer এর মাসিক quota এই একই system এ?"_ — না: quota টাকা, তাই টেকসই আর নির্ভুল, usage event থেকে গোনা। Rate limiter শুধু একটা "শেষ" flag পায়।
 
@@ -348,13 +348,13 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. একজন enterprise customer support ticket খুলল: "আমাদের plan এ ১,০০০/s, আমাদের dashboard বলছে আমরা ৬০০/s পাঠাচ্ছি, অথচ ৪২৯ পাচ্ছি, বিশেষ করে সকালে।" এই lesson এর কোন কোন কারণে এটা হতে পারে (অন্তত চারটা)? প্রতিটার জন্য কোন metric বা log দেখে নিশ্চিত হবে? আর কোনটা customer এর দোষ, কোনটা তোমার?
+1. একজন enterprise customer support ticket খুলল: "আমাদের plan এ ১,০০০/s, আমাদের dashboard বলছে আমরা ৬০০/s পাঠাচ্ছি, অথচ ৪২৯ পাচ্ছি, বিশেষ করে সকালে।" এই lesson এর কোন কোন কারণে এটা হতে পারে (অন্তত চারটা)? প্রতিটার জন্য কোন metric বা log দেখে নিশ্চিত হবে? আর কোনটা customer এর দোষ, কোনটা আপনার?
 
 2. API এ একটা নতুন endpoint: `POST /exports`, যা একটা বড় report বানায়, ৫ থেকে ৬০ সেকেন্ড লাগে, আর database এ ভারী query চালায়। সাধারণ request এর সীমা (১,০০০/s) এখানে কেন অর্থহীন? (ক) "প্রতি সেকেন্ডে কতগুলো" এর বদলে কী সীমা দরকার, আর Little's law এর সাথে এর সম্পর্ক কী? (খ) একটা request কে কম বা বেশি "দামি" ধরা (cost) এর নকশা কেমন হবে? (গ) এই সীমা মরলে fail mode কী?
 
-3. TaskFlow এর মতো একটা SaaS এর নিজের service গুলোর মধ্যেও (9.x) সীমা চায়: billing service সেকেন্ডে ২,০০০ এর বেশি call নিতে পারে না, আর তাকে ডাকে ছয়টা আলাদা service। একজন বলল "billing এর সামনে একই rate limiter বসাই।" (ক) বাইরের customer এর সীমা আর ভেতরের service এর সুরক্ষার মধ্যে মূল পার্থক্য কী? (খ) কেন এখানে ৪২৯ ফেরত দেওয়ার চেয়ে অন্য কিছু ভালো হতে পারে (9.4, 7.4)? (গ) ছয়টা caller এর মধ্যে ২,০০০ কে কীভাবে ভাগ করবে, আর একটা caller চুপ থাকলে তার ভাগ কী হবে?
+3. TaskFlow এর মতো একটা SaaS এর নিজের service গুলোর মধ্যেও (9.x) সীমা চায়: billing service সেকেন্ডে ২,০০০ এর বেশি call নিতে পারে না, আর তাকে ডাকে ছয়টা আলাদা service। একজন বলল "billing এর সামনে একই rate limiter বসাই।" (ক) বাইরের customer এর সীমা আর ভেতরের service এর সুরক্ষার মধ্যে মূল পার্থক্য কী? (খ) কেন এখানে ৪২৯ ফেরত দেওয়ার চেয়ে অন্য কিছু ভালো হতে পারে (9.4, 7.4)? (গ) ছয়টা caller এর মধ্যে ২,০০০ কে কীভাবে ভাগ করবেন, আর একটা caller চুপ থাকলে তার ভাগ কী হবে?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -363,9 +363,9 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 
 সম্ভাব্য কারণ, প্রতিটার প্রমাণ সহ:
 
-1. **Degraded mode.** Limiter এর একটা shard সকালে ধীর (সকালের peak), breaker খোলে, আর server গুলো local fallback এ চলে। Fallback কৃপণ হলে (সীমা / N), traffic এর ছড়ানো ঠিক না থাকলে সীমার নিচেই আটকায় (১.৭ এর ১৬%)। প্রমাণ: ৪২৯ এর response এ উৎসের header (`X-RateLimit-Source: fallback`, exercise এর মতো), আর limiter এর metric এ fallback এ চলা request এর হার, shard ধরে। **তোমার দোষ।**
-2. **Lease এর আটকে থাকা token.** Customer এর traffic কয়েকটা server এ জমে আছে, আর lease এর আকার স্থির আর বড়: বাকি server গুলোর হাতে token আটকে (১.৫ এর ১১.৬%)। প্রমাণ: server ধরে এই key এর lease আর ব্যবহারের অনুপাত, মেয়াদ শেষে না খরচ হওয়া token এর metric। **তোমার দোষ।**
-3. **Burst, গড় না.** Dashboard এ ৬০০/s মানে মিনিটের গড়। Customer এর job হয়তো প্রতি মিনিটের শুরুতে ২ সেকেন্ডে ১৮,০০০ পাঠায় (সকালে cron)। Burst ২০০ হলে সেই মুহূর্তে সত্যিই সীমার উপরে। প্রমাণ: সেকেন্ড ধরে (বা ১০০ ms ধরে) histogram, গড় না (10.4)। **Customer এর আচরণ**, তবে তোমার dashboard তাকে ভুল ছবি দেখাচ্ছে, সেটা তোমার।
+1. **Degraded mode.** Limiter এর একটা shard সকালে ধীর (সকালের peak), breaker খোলে, আর server গুলো local fallback এ চলে। Fallback কৃপণ হলে (সীমা / N), traffic এর ছড়ানো ঠিক না থাকলে সীমার নিচেই আটকায় (১.৭ এর ১৬%)। প্রমাণ: ৪২৯ এর response এ উৎসের header (`X-RateLimit-Source: fallback`, exercise এর মতো), আর limiter এর metric এ fallback এ চলা request এর হার, shard ধরে। **আপনার দোষ।**
+2. **Lease এর আটকে থাকা token.** Customer এর traffic কয়েকটা server এ জমে আছে, আর lease এর আকার স্থির আর বড়: বাকি server গুলোর হাতে token আটকে (১.৫ এর ১১.৬%)। প্রমাণ: server ধরে এই key এর lease আর ব্যবহারের অনুপাত, মেয়াদ শেষে না খরচ হওয়া token এর metric। **আপনার দোষ।**
+3. **Burst, গড় না.** Dashboard এ ৬০০/s মানে মিনিটের গড়। Customer এর job হয়তো প্রতি মিনিটের শুরুতে ২ সেকেন্ডে ১৮,০০০ পাঠায় (সকালে cron)। Burst ২০০ হলে সেই মুহূর্তে সত্যিই সীমার উপরে। প্রমাণ: সেকেন্ড ধরে (বা ১০০ ms ধরে) histogram, গড় না (10.4)। **Customer এর আচরণ**, তবে আপনার dashboard তাকে ভুল ছবি দেখাচ্ছে, সেটা আপনার।
 4. **একাধিক নিয়ম.** Key এর সীমা ১,০০০ কিন্তু একটা endpoint এর নিজের সীমা (search ৫০/s), আর সকালে customer search বেশি করে। প্রমাণ: ৪২৯ এর response এ কোন নিয়মে আটকাল (নিয়মের নাম header এ বা log এ)। **কারো দোষ না, contract অস্পষ্ট**: সব নিয়ম customer এর documentation এ।
 5. **Retry গোনা.** Customer এর client ৪২৯ পেয়ে সাথে সাথে retry করে, `Retry-After` না মেনে; প্রতিটা retry ও গোনা হয়, তাই আসল চাহিদার চেয়ে বেশি দেখায়। প্রমাণ: একই request id বা একই payload এর পুনরাবৃত্তি। **Customer এর**, কিন্তু তাকে দেখানো উচিত।
 
@@ -375,7 +375,7 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 
 (ক) Export এর ক্ষতি আসে **একসাথে কতগুলো চলছে** তা থেকে, সেকেন্ডে কতগুলো শুরু হলো তা থেকে না। সেকেন্ডে ১টা export, প্রতিটা ৬০ সেকেন্ড, মানে একসাথে ৬০টা ভারী query (Little's law: একসাথে = হার × সময়)। তাই **concurrency limit**: প্রতি customer এ একসাথে সর্বোচ্চ ২টা export, আর পুরো system এ ২০টা। নকশা: শুরুতে Redis এ একটা counter বাড়ানো (`INCR`, সীমা পার হলে কমিয়ে ৪২৯), শেষে কমানো। আর যেহেতু server মরে গেলে "শেষ" ডাকা হয় না, প্রতিটা slot একটা lease (মেয়াদ সহ, কাজ চলাকালীন নবায়ন), নইলে মরা server এর slot চিরকাল আটকে থাকে। (Stripe এর প্রকাশিত লেখায় "concurrent requests limiter" ঠিক এই কাজের জন্য আলাদা করে বলা আছে।) আরও ভালো: export কে sync request না রেখে job বানানো (7.3): `POST /exports` → 202 আর একটা job id, আর worker এর সংখ্যাই concurrency এর সীমা।
 
-(খ) **Cost:** check এ `cost` (exercise এর API তে আছে) — সাধারণ request ১ token, search ৫, export ১০০। একই bucket, কিন্তু দামি কাজ বেশি খরচ করে। Cost আগে থেকে জানা না থাকলে (export এর আকার), একটা আনুমানিক cost আগে কাটো, শেষে আসল দাম মিলিয়ে বাড়তি বা ফেরত (credit), কিন্তু শুধু হিসাবে, request কে আটকে না।
+(খ) **Cost:** check এ `cost` (exercise এর API তে আছে) — সাধারণ request ১ token, search ৫, export ১০০। একই bucket, কিন্তু দামি কাজ বেশি খরচ করে। Cost আগে থেকে জানা না থাকলে (export এর আকার), একটা আনুমানিক cost আগে কাটুন, শেষে আসল দাম মিলিয়ে বাড়তি বা ফেরত (credit), কিন্তু শুধু হিসাবে, request কে আটকে না।
 
 (গ) Export দামি আর ভারী: limiter না পেলে **fail closed** (৫০৩ আর `Retry-After`), বা একটা খুব কৃপণ local fallback (প্রতি server এ ১টা)। কারণ export এর জন্য অপেক্ষা করা চলে, কিন্তু সীমা ছাড়া export database কে ফেলে দিতে পারে, যা সব customer এর ক্ষতি।
 
@@ -385,7 +385,7 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 
 (খ) ৪২৯ পেয়ে caller কী করবে? Retry (7.4) — আর যদি backoff আর jitter ঠিক না থাকে, retry storm। ভালো পথ: (১) caller এর দিকে **leaky bucket / client-side throttle** (9.5 এর TaskFlow এর migration script এর শিক্ষা): caller নিজেই সমান গতিতে পাঠায়, আর অতিরিক্ত কাজ queue তে অপেক্ষা করে। (২) Billing এর সামনে একটা queue (7.2): ঢেউ শোষণ করে, billing নিজের গতিতে নেয়। (৩) Billing নিজে **load shedding**: নিজের ক্ষমতা মেপে (latency বা concurrency), অগ্রাধিকার কম এমন call আগে ফেলে দেয় (10.3 এর brownout)। ভেতরে "প্রত্যাখ্যান" এর চেয়ে "অপেক্ষা করানো" প্রায়ই ভালো, কারণ কাজটা হারানো চলবে না।
 
-(গ) ভাগ: প্রতিটা caller এর একটা নিশ্চিত ভাগ (ধরো অগ্রাধিকার অনুযায়ী: checkout ৮০০, invoice ৪০০, বাকি চারটা ১০০ করে = ১,৬০০) আর বাকি ৪০০ একটা ভাগ করা pool, যে আগে আসে। আর চুপ থাকা caller এর নিশ্চিত ভাগ অন্যরা **ধার** নিতে পারে (work-conserving), কিন্তু সে ফিরলে তার ভাগ তাকে ফেরত দিতে হয়। এটা ঠিক token lease আর async sync এর চিন্তা: কয়েক সেকেন্ড পরপর আসল ব্যবহার দেখে ভাগ বদলানো। আর সবচেয়ে জরুরি: checkout এর ভাগ কখনো ধার দেওয়া যাবে না এমন একটা নিচের সীমা, কারণ সেটা টাকা।
+(গ) ভাগ: প্রতিটা caller এর একটা নিশ্চিত ভাগ (ধরুন অগ্রাধিকার অনুযায়ী: checkout ৮০০, invoice ৪০০, বাকি চারটা ১০০ করে = ১,৬০০) আর বাকি ৪০০ একটা ভাগ করা pool, যে আগে আসে। আর চুপ থাকা caller এর নিশ্চিত ভাগ অন্যরা **ধার** নিতে পারে (work-conserving), কিন্তু সে ফিরলে তার ভাগ তাকে ফেরত দিতে হয়। এটা ঠিক token lease আর async sync এর চিন্তা: কয়েক সেকেন্ড পরপর আসল ব্যবহার দেখে ভাগ বদলানো। আর সবচেয়ে জরুরি: checkout এর ভাগ কখনো ধার দেওয়া যাবে না এমন একটা নিচের সীমা, কারণ সেটা টাকা।
 
 </details>
 
@@ -399,19 +399,19 @@ Customer এর সীমা যদি "সারা পৃথিবী মি�
 
 `estimate` op/s, shard, network, cross-AZ খরচ, memory আর latency এর বাজেট হিসাব করে। `accuracy` virtual time এ ছয়টা কৌশল (নিজের bucket, সীমা / N, atomic, GET + SET, token lease, async sync) চারটা অবস্থায় চালায়, আর lease এর আকারের sweep। `hotkey` Zipf tenant কে hash slot ধরে shard এ বসিয়ে ব্যস্ততম shard মাপে। `failure` store এর সুস্থ, ধীর আর blackhole অবস্থায় পাঁচটা নীতি তুলনা করে। `smoke` একটা আসল Express limiter, client library আর API server চালিয়ে ১১টা ধাপ যাচাই করে।
 
-**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; পাঁচটা script দুবার করে (smoke তিনবার), output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, তোমার। **Estimation এর input ধরে নেওয়া** (৫ লাখ request/s, ৪০০ server, ২টা নিয়ম), আর Redis shard প্রতি "~১ লাখ op/s Lua সহ" একটা মোটামুটি আন্দাজ, মাপা না; cross-AZ এর দাম 10.7 এর মতো আনুমানিক। `accuracy`, `hotkey`, `failure` virtual time এর model: store এর RTT lognormal (median ০.৫ ms), GET + SET এর race model এ, আসল Redis এ না; async sync সরল (সব server একসাথে sync); breaker সরল। `smoke` আসল HTTP চালায় কিন্তু limiter এর store in-memory, Redis না, আর limiter এর ঘড়ি নকল। Envoy এর global rate limit service আর Stripe এর concurrent request limiter এর কথা প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। **যা মাপা হয়নি:** আসল Redis Cluster এর throughput আর latency, Lua script এর খরচ, hash tag এর আচরণ, একাধিক region।
+**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; পাঁচটা script দুবার করে (smoke তিনবার), output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, আপনার। **Estimation এর input ধরে নেওয়া** (৫ লাখ request/s, ৪০০ server, ২টা নিয়ম), আর Redis shard প্রতি "~১ লাখ op/s Lua সহ" একটা মোটামুটি আন্দাজ, মাপা না; cross-AZ এর দাম 10.7 এর মতো আনুমানিক। `accuracy`, `hotkey`, `failure` virtual time এর model: store এর RTT lognormal (median ০.৫ ms), GET + SET এর race model এ, আসল Redis এ না; async sync সরল (সব server একসাথে sync); breaker সরল। `smoke` আসল HTTP চালায় কিন্তু limiter এর store in-memory, Redis না, আর limiter এর ঘড়ি নকল। Envoy এর global rate limit service আর Stripe এর concurrent request limiter এর কথা প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। **যা মাপা হয়নি:** আসল Redis Cluster এর throughput আর latency, Lua script এর খরচ, hash tag এর আচরণ, একাধিক region।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `accuracy` চালানোর **আগে** লিখে ফেলো: GET + SET এর race ২০ গুণ চাহিদায় সীমার কত গুণ ঢুকতে দেবে? ১.১x? ২x? ১০x? তারপর চালিয়ে মেলাও, আর `RTT_MS=2` দিয়ে আবার: RTT বাড়লে race কেন বাড়ে?
+1. **আগে অনুমান:** `accuracy` চালানোর **আগে** লিখে ফেলুন: GET + SET এর race ২০ গুণ চাহিদায় সীমার কত গুণ ঢুকতে দেবে? ১.১x? ২x? ১০x? তারপর চালিয়ে মেলান, আর `RTT_MS=2` দিয়ে আবার: RTT বাড়লে race কেন বাড়ে?
 
-2. **নিজের fallback:** `SLACK=1.5 npm run failure` আর `SLACK=5 npm run failure`। সাধারণ user এর আটকানো আর abuser এর পাওয়া কীভাবে বদলায়? তোমার API এর SLO ৯৯.৯% হলে, কোন গুণকে একটা ঘণ্টার limiter বিভ্রাট SLO ভাঙে না?
+2. **নিজের fallback:** `SLACK=1.5 npm run failure` আর `SLACK=5 npm run failure`। সাধারণ user এর আটকানো আর abuser এর পাওয়া কীভাবে বদলায়? আপনার API এর SLO ৯৯.৯% হলে, কোন গুণকে একটা ঘণ্টার limiter বিভ্রাট SLO ভাঙে না?
 
-3. **Sync বনাম lease:** `SERVERS=200` দিয়ে `accuracy` চালাও। Async sync এর কেন্দ্রের চাপ কেন request এর চেয়েও বেশি হয়ে গেল, আর lease এর কী হলো? কোন অবস্থায় async sync সত্যিই সস্তা?
+3. **Sync বনাম lease:** `SERVERS=200` দিয়ে `accuracy` চালান। Async sync এর কেন্দ্রের চাপ কেন request এর চেয়েও বেশি হয়ে গেল, আর lease এর কী হলো? কোন অবস্থায় async sync সত্যিই সস্তা?
 
-4. **Code বদলানো:** README এর experiment ৫ (হার থেকে lease এর আকার)। তারপর `src/client.ts` এ "এই key আগামী `retryAfterMs` পর্যন্ত আটকানো" এর একটা local cache যোগ করো, শুধু কেন্দ্রের `deny` এর জন্য। আক্রমণের মতো একটা ধাপ `smoke` এ যোগ করে দেখাও কেন্দ্রের call কতটা কমে।
+4. **Code বদলানো:** README এর experiment ৫ (হার থেকে lease এর আকার)। তারপর `src/client.ts` এ "এই key আগামী `retryAfterMs` পর্যন্ত আটকানো" এর একটা local cache যোগ করুন, শুধু কেন্দ্রের `deny` এর জন্য। আক্রমণের মতো একটা ধাপ `smoke` এ যোগ করে দেখান কেন্দ্রের call কতটা কমে।
 
-5. **Design অংশ:** এই limiter এর একটা "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) rate limit আর quota এর আলাদা requirement, (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত, (গ) limiter কোথায় বসে আর কেন, (ঘ) গোনার কৌশল, চারটা অবস্থার সংখ্যা সহ, (ঙ) ব্যর্থতার runbook: কোন নিয়মের কোন fail mode, fallback এর গুণক, আর কোন তিনটা metric দেখে জানবে limiter fallback এ চলছে।
+5. **Design অংশ:** এই limiter এর একটা "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) rate limit আর quota এর আলাদা requirement, (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত, (গ) limiter কোথায় বসে আর কেন, (ঘ) গোনার কৌশল, চারটা অবস্থার সংখ্যা সহ, (ঙ) ব্যর্থতার runbook: কোন নিয়মের কোন fail mode, fallback এর গুণক, আর কোন তিনটা metric দেখে জানবেন limiter fallback এ চলছে।
 
 ---
 
@@ -433,7 +433,7 @@ Redis) আর quota (চুক্তি, usage event → টেকসই গো�
 Terms learned (Module 11): Base62 Encoding, Keyspace, Birthday Bound, Range Allocation (Ticket Server),
 Format-Preserving Permutation, 301 / 302 Redirect, Link Enumeration, Quota (বনাম Rate Limit), Hash Tag,
 Approximate Sync, Token Lease, Key Splitting, Degraded Mode (Local Fallback Limit)
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 11.3 — Case Study: Design a Chat System (WhatsApp-style)
 =======================
 ```
@@ -442,6 +442,6 @@ Next: 11.3 — Case Study: Design a Chat System (WhatsApp-style)
 
 ## ৮. পরের Lesson
 
-আজকের সুতোটা: **এই মাপে প্রশ্নটা algorithm না, "কোথায় আর কতবার গুনব"।** প্রতিটা কৌশল একটা অবস্থায় নিখুঁত দেখায়, আর অন্য একটা অবস্থায় ভাঙে: GET + SET আক্রমণে, সীমা / N skewed traffic এ, async sync burst এ, lease বড় হলে। তাই চারটা অবস্থাতেই মাপো, শুধু সুন্দর অবস্থায় না। আর একটা সুরক্ষা যা প্রতিটা request এর পথে বসে, তার নিজের ব্যর্থতাই সবচেয়ে বড় ঝুঁকি: timeout, breaker, আর আগে থেকে ঠিক করা fail mode ছাড়া সেটা তোমার outage এর কারণ হয়।
+আজকের সুতোটা: **এই মাপে প্রশ্নটা algorithm না, "কোথায় আর কতবার গুনব"।** প্রতিটা কৌশল একটা অবস্থায় নিখুঁত দেখায়, আর অন্য একটা অবস্থায় ভাঙে: GET + SET আক্রমণে, সীমা / N skewed traffic এ, async sync burst এ, lease বড় হলে। তাই চারটা অবস্থাতেই মাপুন, শুধু সুন্দর অবস্থায় না। আর একটা সুরক্ষা যা প্রতিটা request এর পথে বসে, তার নিজের ব্যর্থতাই সবচেয়ে বড় ঝুঁকি: timeout, breaker, আর আগে থেকে ঠিক করা fail mode ছাড়া সেটা আপনার outage এর কারণ হয়।
 
-রেডি হলে `next` লিখো — **Lesson 11.3: Design a Chat System (WhatsApp-style)** এ যাব। প্রথমবার এমন একটা system যেখানে server কে নিজে থেকে client এর কাছে কথা পৌঁছাতে হয়, লাখ লাখ খোলা connection এর উপর দিয়ে (2.4 এর WebSocket, এবার মাপে)। প্রশ্নগুলো নতুন: একটা message কোন server এ পৌঁছাবে যখন প্রাপক অন্য server এ connected? Offline user এর message কোথায় অপেক্ষা করে? দুটো message এর ক্রম কে ঠিক করে (6.4 এর ঘড়ি ফিরে আসবে)? আর "delivered" আর "read" এর দুটো টিক আসলে কতগুলো লেখা?
+রেডি হলে `next` লিখুন — **Lesson 11.3: Design a Chat System (WhatsApp-style)** এ যাব। প্রথমবার এমন একটা system যেখানে server কে নিজে থেকে client এর কাছে কথা পৌঁছাতে হয়, লাখ লাখ খোলা connection এর উপর দিয়ে (2.4 এর WebSocket, এবার মাপে)। প্রশ্নগুলো নতুন: একটা message কোন server এ পৌঁছাবে যখন প্রাপক অন্য server এ connected? Offline user এর message কোথায় অপেক্ষা করে? দুটো message এর ক্রম কে ঠিক করে (6.4 এর ঘড়ি ফিরে আসবে)? আর "delivered" আর "read" এর দুটো টিক আসলে কতগুলো লেখা?

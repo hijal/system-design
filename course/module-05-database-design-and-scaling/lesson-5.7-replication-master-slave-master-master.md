@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.6 (SPOF), Lesson 5.3 (WAL), Lesson 5.5 (Transaction), Lesson 5.6 (Pool)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Postgres এর primary থেকে replica তে data কীভাবে যায় (WAL streaming) বলতে পারবে, আর Sequelize এ read replica দিয়ে read scale করতে পারবে
-2. Replication lag থেকে জন্মানো "read-your-writes" bug চিনবে, আর তিনটা সমাধানের কোনটার দাম কোথায় পড়ে — মেপে জানবে
-3. Async আর sync replication এর trade-off, failover এর ধাপ, আর failover এ কোন data হারাতে পারে (RPO) — ব্যাখ্যা করতে পারবে; multi-leader কেন আর কখন, সেটাও
+1. Postgres এর primary থেকে replica তে data কীভাবে যায় (WAL streaming) বলতে পারবেন, আর Sequelize এ read replica দিয়ে read scale করতে পারবেন
+2. Replication lag থেকে জন্মানো "read-your-writes" bug চিনবেন, আর তিনটা সমাধানের কোনটার দাম কোথায় পড়ে — মেপে জানবেন
+3. Async আর sync replication এর trade-off, failover এর ধাপ, আর failover এ কোন data হারাতে পারে (RPO) — ব্যাখ্যা করতে পারবেন; multi-leader কেন আর কখন, সেটাও
 
 **Tier:** 2 — Infra Setup (Docker এ primary + replica, সাথে TypeScript script)
 
@@ -23,7 +23,7 @@ Module 5 এ TaskFlow এর database কে আমরা অনেক ভাল
 1. **Read এর চাপ।** Metric বলছে TaskFlow এর database query এর প্রায় ৯০% হলো read — dashboard, task list, search। Primary এর CPU peak এ ৮০%। Cache (Module 4) সাহায্য করেছে, কিন্তু সব read cache করা যায় না।
 2. **Lesson 1.6 এর SPOF।** App server ৮টা, load balancer আছে — কিন্তু database একটা। গত মাসে সেই server এর disk নষ্ট হয়েছিল। Backup থেকে restore করতে ৪০ মিনিট লেগেছিল, আর শেষ backup এর পরের ৬ ঘণ্টার data হারিয়ে গিয়েছিল।
 
-সমাধান মনে হয় সরল: database এর একটা **কপি** রাখো। Read গুলো কপি থেকে পড়ো, আর মূলটা মরলে কপিটাকে মূল বানিয়ে দাও।
+সমাধান মনে হয় সরল: database এর একটা **কপি** রাখুন। Read গুলো কপি থেকে পড়ুন, আর মূলটা মরলে কপিটাকে মূল বানিয়ে দিন।
 
 Team সেটা করল — একটা read replica যোগ হলো, আর Sequelize কে বলা হলো read গুলো সেখানে পাঠাতে। Primary এর CPU নেমে গেল। সবাই খুশি। তারপর প্রথম support ticket:
 
@@ -51,7 +51,7 @@ Team সেটা করল — একটা read replica যোগ হলো, �
 
 **Leader-follower replication** — একটা server (leader, বা primary) সব write নেয়; বাকিরা (follower, বা replica) শুধু leader এর পরিবর্তন কপি করে, আর শুধু read নেয়। (পুরনো বই আর curriculum এ এর নাম "master-slave"; এখন সাধারণত primary-replica বা leader-follower বলা হয়।)
 
-Postgres এটা কীভাবে করে? Lesson 5.3 এর **WAL** মনে করো — প্রতিটা পরিবর্তন data file এ যাওয়ার আগে WAL এ লেখা হয়। Replica ঠিক সেই WAL এর stream টা নেয়, আর নিজের কাছে replay করে — যেমন crash এর পরে primary নিজে করে:
+Postgres এটা কীভাবে করে? Lesson 5.3 এর **WAL** মনে করুন — প্রতিটা পরিবর্তন data file এ যাওয়ার আগে WAL এ লেখা হয়। Replica ঠিক সেই WAL এর stream টা নেয়, আর নিজের কাছে replay করে — যেমন crash এর পরে primary নিজে করে:
 
 ```
               write (INSERT/UPDATE)                    read (SELECT)
@@ -111,7 +111,7 @@ replica 200 ms behind (simulated lag)    50/50   p50  200.1 ms   p99  200.9 ms
 
 **Read-your-writes consistency** — একজন user নিজে যা লিখেছে, পরের পড়ায় সেটা সে অবশ্যই দেখবে (অন্যদের লেখা একটু দেরিতে দেখলে চলে)। TaskFlow এর bug ঠিক এটাই ভেঙেছে।
 
-Exercise এর `npm run ryw` — replica ২০০ ms পিছিয়ে, প্রতিটা কৌশলে ৩০ বার "লেখো → সাথে সাথে পড়ো":
+Exercise এর `npm run ryw` — replica ২০০ ms পিছিয়ে, প্রতিটা কৌশলে ৩০ বার "লিখুন → সাথে সাথে পড়ুন":
 
 ```
 strategy                                      found  write median   read median
@@ -121,11 +121,11 @@ c. LSN token — wait for the replica          30/30        1.8 ms      200.7 ms
 d. synchronous_commit = remote_apply         30/30      202.2 ms        0.7 ms
 ```
 
-তিনটা সমাধানই সঠিক (৩০/৩০)। কিন্তু সংখ্যাগুলো দেখো — প্রতিটা **দামটা ভিন্ন জায়গায় সরায়**:
+তিনটা সমাধানই সঠিক (৩০/৩০)। কিন্তু সংখ্যাগুলো দেখুন — প্রতিটা **দামটা ভিন্ন জায়গায় সরায়**:
 
 **খ. নিজের লেখার পরের পড়া primary থেকে।** Sequelize এ `Task.findByPk(id, { useMaster: true })`। সবচেয়ে সরল, কোনো অপেক্ষা নেই। দাম: ওই read গুলো আবার primary এর উপর — যে চাপ কমাতেই replica আনা হয়েছিল। বাস্তবে এর একটা পরিশীলিত রূপ: "যে user গত ১০ সেকেন্ডে কিছু লিখেছে, তার সব read primary থেকে" (session এ শেষ লেখার সময় রেখে)। বেশিরভাগ user বেশিরভাগ সময় শুধু পড়ে, তাই primary তে বাড়তি চাপ সামান্য।
 
-**গ. LSN token।** Lesson 5.3 এ দেখেছিলে WAL এর প্রতিটা অবস্থানের একটা ঠিকানা আছে — LSN। লেখার পর primary এর বর্তমান LSN মনে রাখো; পড়ার আগে replica ততদূর পৌঁছেছে কিনা দেখো (`pg_last_wal_replay_lsn()`), না পৌঁছালে অপেক্ষা করো। Read replica তেই থাকে, আর সঠিক। দাম: **পড়া** ধীর — replica যতটা পিছিয়ে, ততটা অপেক্ষা (এখানে ~২০০ ms)। Production এ এই LSN টা client কে একটা token হিসেবে দেওয়া যায় (cookie বা header), যাতে তার পরের request ও এটা মানে — অন্য app instance এ গেলেও।
+**গ. LSN token।** Lesson 5.3 এ দেখেছিলেন WAL এর প্রতিটা অবস্থানের একটা ঠিকানা আছে — LSN। লেখার পর primary এর বর্তমান LSN মনে রাখুন; পড়ার আগে replica ততদূর পৌঁছেছে কিনা দেখুন (`pg_last_wal_replay_lsn()`), না পৌঁছালে অপেক্ষা করুন। Read replica তেই থাকে, আর সঠিক। দাম: **পড়া** ধীর — replica যতটা পিছিয়ে, ততটা অপেক্ষা (এখানে ~২০০ ms)। Production এ এই LSN টা client কে একটা token হিসেবে দেওয়া যায় (cookie বা header), যাতে তার পরের request ও এটা মানে — অন্য app instance এ গেলেও।
 
 **ঘ. Synchronous replication।** Commit নিজেই অপেক্ষা করে যতক্ষণ না replica পরিবর্তনটা প্রয়োগ করে। তখন commit শেষ মানে replica তেও আছে। Exercise এর code:
 
@@ -148,7 +148,7 @@ app.transaction(async (transaction) => {
 
 শুনে মনে হয় সব সমস্যার সমাধান — প্রতিটা commit দুই জায়গায়, lag এর bug নেই, failover এ কিছু হারায় না। কিন্তু দুটো দাম আছে, আর দ্বিতীয়টা অনেকেই জানে না।
 
-**দাম ১ — প্রতিটা write সবচেয়ে ধীর sync replica এর সমান ধীর।** ১.৪ এর (ঘ) তে দেখেছ: ২ ms → ২০২ ms। Replica অন্য data center এ হলে প্রতিটা write এ network round trip যোগ হয়।
+**দাম ১ — প্রতিটা write সবচেয়ে ধীর sync replica এর সমান ধীর।** ১.৪ এর (ঘ) তে দেখেছেন: ২ ms → ২০২ ms। Replica অন্য data center এ হলে প্রতিটা write এ network round trip যোগ হয়।
 
 **দাম ২ — replica না থাকলে write থেমে যায়।** Exercise এর `npm run failover` এর ধাপ ৪: replica কে network থেকে বিচ্ছিন্ন করে একটা sync write:
 
@@ -160,7 +160,7 @@ COMMIT came back after 3.0s, with a warning from Postgres:
   has already committed locally, but might not have been replicated to the standby.
 ```
 
-দুটো জিনিস লক্ষ করো। প্রথমত, commit **চিরকাল** অপেক্ষা করত — একটা replica নেই মানে কোনো sync write নেই। Availability এর দাম। দ্বিতীয়ত — আর এটা সূক্ষ্ম — app cancel করার পরেও transaction টা **primary তে commit হয়ে গেছে**। "Timeout = rollback" না। App ভাবছে লেখা ব্যর্থ, অথচ data primary তে আছে। (৫.৫ এর retry এর সাথে মেলাও: app যদি এখন retry করে, একই task দুবার তৈরি হতে পারে — যদি না write টা idempotent হয়, Lesson 2.5।)
+দুটো জিনিস লক্ষ করুন। প্রথমত, commit **চিরকাল** অপেক্ষা করত — একটা replica নেই মানে কোনো sync write নেই। Availability এর দাম। দ্বিতীয়ত — আর এটা সূক্ষ্ম — app cancel করার পরেও transaction টা **primary তে commit হয়ে গেছে**। "Timeout = rollback" না। App ভাবছে লেখা ব্যর্থ, অথচ data primary তে আছে। (৫.৫ এর retry এর সাথে মেলান: app যদি এখন retry করে, একই task দুবার তৈরি হতে পারে — যদি না write টা idempotent হয়, Lesson 2.5।)
 
 এই কারণে বাস্তবে সাধারণত দুটো মাঝামাঝি পথ নেওয়া হয়:
 
@@ -172,9 +172,9 @@ COMMIT came back after 3.0s, with a warning from Postgres:
 Primary মরে গেলে একটা replica কে নতুন primary বানানো — **failover**। ধাপগুলো:
 
 ```
-১. সনাক্ত করা      — primary সত্যিই মৃত? নাকি শুধু network ধীর? (ভুল হলে বিপদ, নিচে দেখো)
+১. সনাক্ত করা      — primary সত্যিই মৃত? নাকি শুধু network ধীর? (ভুল হলে বিপদ, নিচে দেখুন)
 ২. replica বাছা     — কয়েকটা থাকলে, যেটা সবচেয়ে বেশি এগিয়ে (সবচেয়ে কম data হারাবে)
-৩. promote করা     — replica কে বলা "তুমি এখন primary, write নাও" (Postgres এ pg_promote())
+৩. promote করা     — replica কে বলা "আপনি এখন primary, write নিন" (Postgres এ pg_promote())
 ৪. app কে সরানো    — connection এর ঠিকানা বদলানো (DNS, proxy, বা config)
 ৫. পুরনোটাকে থামানো — পুরনো primary ফিরে এলে সে যেন আর নিজেকে primary না ভাবে
 ```
@@ -195,9 +195,9 @@ after-failover     1/1  ✓
 - **RPO (Recovery Point Objective)** — দুর্ঘটনায় সর্বোচ্চ **কতটা সময়ের data** হারানো গ্রহণযোগ্য। Async replication এ RPO ≈ replication lag; sync এ ≈ শূন্য। TaskFlow এর আগের backup-only অবস্থায় RPO ছিল ৬ ঘণ্টা।
 - **RTO (Recovery Time Objective)** — দুর্ঘটনার পর **কতক্ষণের মধ্যে** আবার চালু হতে হবে। Backup থেকে restore এ TaskFlow এর লেগেছিল ৪০ মিনিট; replica promote এ সেকেন্ড থেকে কয়েক মিনিট (সনাক্ত করতে কত সময় লাগে তার উপর নির্ভর করে)।
 
-(Lesson 1.5 এর SLA/SLO এর সাথে মেলাও — RPO আর RTO হলো data আর downtime নিয়ে ঠিক সেই ধরনের প্রতিশ্রুতি।)
+(Lesson 1.5 এর SLA/SLO এর সাথে মেলান — RPO আর RTO হলো data আর downtime নিয়ে ঠিক সেই ধরনের প্রতিশ্রুতি।)
 
-**Failover হাতে করো নাকি স্বয়ংক্রিয়?** রাত ৩টায় কেউ হাতে `pg_promote()` চালানোর জন্য জেগে থাকবে — এটা বাস্তবসম্মত না। Postgres এর জন্য Patroni এর মতো tool, অথবা cloud এর managed database (যেমন AWS RDS এর Multi-AZ) এই পুরো প্রক্রিয়া স্বয়ংক্রিয় করে। কিন্তু স্বয়ংক্রিয় failover এর নিজের বিপদ আছে — ধাপ ১ এর প্রশ্নটা। Primary আসলে জীবিত, শুধু network এর সমস্যায় বিচ্ছিন্ন — আর system একটা replica কে promote করে ফেলল। এখন **দুটো** primary, দুটোই write নিচ্ছে, data দুই দিকে ভাগ হয়ে যাচ্ছে। এর নাম **split brain** (exercise এর experiment ৪ এ এর বীজ নিজে দেখবে), আর এটা Lesson 6.1 এর মূল বিষয় — কেন distributed system এ "অন্যজন মৃত কিনা" জানা এত কঠিন।
+**Failover হাতে করুন নাকি স্বয়ংক্রিয়?** রাত ৩টায় কেউ হাতে `pg_promote()` চালানোর জন্য জেগে থাকবে — এটা বাস্তবসম্মত না। Postgres এর জন্য Patroni এর মতো tool, অথবা cloud এর managed database (যেমন AWS RDS এর Multi-AZ) এই পুরো প্রক্রিয়া স্বয়ংক্রিয় করে। কিন্তু স্বয়ংক্রিয় failover এর নিজের বিপদ আছে — ধাপ ১ এর প্রশ্নটা। Primary আসলে জীবিত, শুধু network এর সমস্যায় বিচ্ছিন্ন — আর system একটা replica কে promote করে ফেলল। এখন **দুটো** primary, দুটোই write নিচ্ছে, data দুই দিকে ভাগ হয়ে যাচ্ছে। এর নাম **split brain** (exercise এর experiment ৪ এ এর বীজ নিজে দেখবেন), আর এটা Lesson 6.1 এর মূল বিষয় — কেন distributed system এ "অন্যজন মৃত কিনা" জানা এত কঠিন।
 
 ### ১.৭ Multi-Leader — যখন একাধিক জায়গায় Write দরকার
 
@@ -213,11 +213,11 @@ after-failover     1/1  ✓
 
 সমাধানের সাধারণ উপায়:
 
-- **Last write wins (LWW)** — সময় দেখে পরেরটা রাখো, আগেরটা ফেলে দাও। সরল — কিন্তু একজনের লেখা নীরবে হারায় (Lesson 5.5 এর lost update, এবার দুই মহাদেশ জুড়ে)। আর "পরে" ঠিক করতে দুই server এর ঘড়ি মেলাতে হয় — যেটা মেলে না (Lesson 6.4)।
+- **Last write wins (LWW)** — সময় দেখে পরেরটা রাখুন, আগেরটা ফেলে দিন। সরল — কিন্তু একজনের লেখা নীরবে হারায় (Lesson 5.5 এর lost update, এবার দুই মহাদেশ জুড়ে)। আর "পরে" ঠিক করতে দুই server এর ঘড়ি মেলাতে হয় — যেটা মেলে না (Lesson 6.4)।
 - **মিলিয়ে ফেলা (merge)** — দুটো মান রেখে user কে বেছে নিতে বলা, অথবা এমন data type যেটা নিজে থেকেই মিলে যায় (CRDT — যেমন একটা counter যেটা দুই দিকের বৃদ্ধি যোগ করে)।
 - **Conflict এড়ানো** — একটা নির্দিষ্ট data সবসময় একই leader এ লেখা (যেমন একটা workspace এর সব write তার "home region" এ)। বাস্তবে সবচেয়ে প্রচলিত।
 
-তাই সাধারণ নিয়ম: **multi-leader এড়াও, যতক্ষণ না সত্যিই দরকার।** TaskFlow এর মতো একটা app এর জন্য single-leader + read replica (দরকারে অন্য region এ read replica) প্রায় সবসময় যথেষ্ট।
+তাই সাধারণ নিয়ম: **multi-leader এড়ান, যতক্ষণ না সত্যিই দরকার।** TaskFlow এর মতো একটা app এর জন্য single-leader + read replica (দরকারে অন্য region এ read replica) প্রায় সবসময় যথেষ্ট।
 
 আর একটা তৃতীয় ধরনও আছে — **leaderless**, যেখানে কোনো leader নেই, client নিজেই কয়েকটা node এ একসাথে লেখে আর কয়েকটা থেকে পড়ে (Cassandra, DynamoDB এর ধারণা)। এটা কীভাবে সামঞ্জস্য রাখে — quorum, `R + W > N` — সেটা Lesson 5.9 এর বিষয়।
 
@@ -234,13 +234,13 @@ after-failover     1/1  ✓
 
 ## ২. Interview Angle
 
-**"Database এ read এর চাপ বেশি — কীভাবে scale করবে?"** — ভালো উত্তরের ক্রম: আগে cache (Module 4), তারপর read replica। কিন্তু replica বলার সাথে সাথেই নিজে থেকে বলো: "replication async, তাই lag থাকবে — user নিজের লেখা না দেখার সমস্যা হবে, সেজন্য সদ্য লিখেছে এমন user এর read primary তে পাঠাব।" Interviewer ঠিক এই follow-up টাই জিজ্ঞেস করতে চাইছিল — তুমি আগেই বলে দিলে।
+**"Database এ read এর চাপ বেশি — কীভাবে scale করবেন?"** — ভালো উত্তরের ক্রম: আগে cache (Module 4), তারপর read replica। কিন্তু replica বলার সাথে সাথেই নিজে থেকে বলুন: "replication async, তাই lag থাকবে — user নিজের লেখা না দেখার সমস্যা হবে, সেজন্য সদ্য লিখেছে এমন user এর read primary তে পাঠাব।" Interviewer ঠিক এই follow-up টাই জিজ্ঞেস করতে চাইছিল — আপনি আগেই বলে দিলেন।
 
 **"Primary database মরে গেলে কী হবে?"** — failover এর ধাপ, RPO আর RTO এর সংখ্যা দিয়ে। "Async replication এ শেষ কয়েক সেকেন্ডের write হারাতে পারে; এটা যদি গ্রহণযোগ্য না হয় (payment), সেই write গুলোর জন্য sync replication, `ANY 1` দিয়ে যাতে একটা replica মরলেও write চলে।" বোনাস: split brain এর ঝুঁকি উল্লেখ করা।
 
-**"Master-master দিলে তো দুই জায়গাতেই write, ভালো না?"** — conflict এর উদাহরণ দাও (দুজন একই task একই মুহূর্তে দুই region এ), LWW এর দাম (নীরবে হারানো লেখা), আর বলো কখন আসলেই দরকার (multi-region write latency, offline)।
+**"Master-master দিলে তো দুই জায়গাতেই write, ভালো না?"** — conflict এর উদাহরণ দিন (দুজন একই task একই মুহূর্তে দুই region এ), LWW এর দাম (নীরবে হারানো লেখা), আর বলুন কখন আসলেই দরকার (multi-region write latency, offline)।
 
-**Production এ বাস্তবে:** বেশিরভাগ team নিজে replication চালায় না — managed database (RDS, Cloud SQL, ইত্যাদি) replica আর failover দেয়। কিন্তু lag এর bug, failover এর data loss, আর connection এর ঠিকানা বদলানো — এগুলো app এর দায়িত্বই থেকে যায়, কোনো managed service এগুলো তোমার হয়ে সমাধান করে না।
+**Production এ বাস্তবে:** বেশিরভাগ team নিজে replication চালায় না — managed database (RDS, Cloud SQL, ইত্যাদি) replica আর failover দেয়। কিন্তু lag এর bug, failover এর data loss, আর connection এর ঠিকানা বদলানো — এগুলো app এর দায়িত্বই থেকে যায়, কোনো managed service এগুলো আপনার হয়ে সমাধান করে না।
 
 ---
 
@@ -272,16 +272,16 @@ after-failover     1/1  ✓
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এ একজন user নিজের নাম বদলাল, আর সাথে সাথে তাকে profile page এ redirect করা হলো — সেখানে পুরনো নাম দেখাচ্ছে। একজন developer বলল, "সহজ — সব read primary থেকে করি।" এই সমাধানের সমস্যা কী? তুমি কীভাবে এমনভাবে ঠিক করবে যাতে replica রাখার লাভটা বেশিরভাগ হারাতে না হয়?
-2. TaskFlow এর payment টিম বলছে, "subscription payment এর একটা record ও হারানো চলবে না।" বাকি team বলছে, "সব write sync করলে পুরো app ধীর হয়ে যাবে, আর replica মরলে কেউ task তৈরি করতে পারবে না।" দুই পক্ষকেই খুশি রাখার একটা পরিকল্পনা লেখো।
+1. TaskFlow এ একজন user নিজের নাম বদলাল, আর সাথে সাথে তাকে profile page এ redirect করা হলো — সেখানে পুরনো নাম দেখাচ্ছে। একজন developer বলল, "সহজ — সব read primary থেকে করি।" এই সমাধানের সমস্যা কী? আপনি কীভাবে এমনভাবে ঠিক করবেন যাতে replica রাখার লাভটা বেশিরভাগ হারাতে না হয়?
+2. TaskFlow এর payment টিম বলছে, "subscription payment এর একটা record ও হারানো চলবে না।" বাকি team বলছে, "সব write sync করলে পুরো app ধীর হয়ে যাবে, আর replica মরলে কেউ task তৈরি করতে পারবে না।" দুই পক্ষকেই খুশি রাখার একটা পরিকল্পনা লিখুন।
 3. রাত ২টায় monitoring দেখাল primary database ৩০ সেকেন্ড ধরে সাড়া দিচ্ছে না। Automated failover একটা replica কে promote করল। ৪৫ সেকেন্ড পরে দেখা গেল — primary আসলে জীবিত ছিল, একটা network switch এর সমস্যা ছিল, আর এখন সে আবার সাড়া দিচ্ছে। কী কী বিপদ ঘটতে পারে? কী থাকলে এটা এড়ানো যেত?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
-**প্রশ্ন ১:** সব read primary তে পাঠালে replica রাখার পুরো লাভটা হারায় — primary এর CPU আবার ৮০%, আর replica শুধু বসে থাকে। ভালো সমাধান হলো সমস্যাটাকে সরু করা: সমস্যা শুধু **নিজের সদ্য লেখা** পড়ায়, বাকি সব read এ কয়েক ms বা সেকেন্ড পুরনো data চলে। তাই: যে user লিখল, তার session এ `lastWriteAt` রাখো; পরের কয়েক সেকেন্ড (বাস্তব lag এর চেয়ে বেশি, ধরো ১০ সেকেন্ড) তার read গুলো `useMaster: true` দিয়ে primary তে পাঠাও, বাকি সবার read replica তে। বেশিরভাগ user বেশিরভাগ সময় শুধু পড়ে, তাই primary এর উপর বাড়তি চাপ সামান্য। বাড়তি নির্ভুলতা চাইলে সময়ের বদলে LSN token (১.৪ এর গ) — "replica এই LSN পর্যন্ত পৌঁছালেই replica থেকে পড়ো।" আর এই নির্দিষ্ট ক্ষেত্রে আরও সহজ একটা উপায়: update এর response এ নতুন নামটাই ফেরত দাও, frontend সেটা দেখাক — database থেকে আবার পড়ারই দরকার নেই।
+**প্রশ্ন ১:** সব read primary তে পাঠালে replica রাখার পুরো লাভটা হারায় — primary এর CPU আবার ৮০%, আর replica শুধু বসে থাকে। ভালো সমাধান হলো সমস্যাটাকে সরু করা: সমস্যা শুধু **নিজের সদ্য লেখা** পড়ায়, বাকি সব read এ কয়েক ms বা সেকেন্ড পুরনো data চলে। তাই: যে user লিখল, তার session এ `lastWriteAt` রাখুন; পরের কয়েক সেকেন্ড (বাস্তব lag এর চেয়ে বেশি, ধরুন ১০ সেকেন্ড) তার read গুলো `useMaster: true` দিয়ে primary তে পাঠান, বাকি সবার read replica তে। বেশিরভাগ user বেশিরভাগ সময় শুধু পড়ে, তাই primary এর উপর বাড়তি চাপ সামান্য। বাড়তি নির্ভুলতা চাইলে সময়ের বদলে LSN token (১.৪ এর গ) — "replica এই LSN পর্যন্ত পৌঁছালেই replica থেকে পড়ুন।" আর এই নির্দিষ্ট ক্ষেত্রে আরও সহজ একটা উপায়: update এর response এ নতুন নামটাই ফেরত দিন, frontend সেটা দেখাক — database থেকে আবার পড়ারই দরকার নেই।
 
 **প্রশ্ন ২:** সব write sync করার দরকার নেই — sync শুধু যেখানে RPO = শূন্য জরুরি:
 
@@ -304,19 +304,19 @@ after-failover     1/1  ✓
 
 Docker এ একটা আসল Postgres streaming replication cluster — primary আর replica (`pg_basebackup -R` দিয়ে তৈরি)। App connection Sequelize এর built-in `replication` config দিয়ে, তাই bug টা TaskFlow এর আসল code এর মতোই জন্মায়। `failover` script নিজে Docker দিয়ে replica বিচ্ছিন্ন করে, primary মারে, replica promote করে।
 
-**সৎ নোট:** `main.md` অনুযায়ী Tier 2 exercise চালিয়ে যাচাই করেছি বলে দাবি করার কথা না, কারণ সাধারণত sandbox এ Docker থাকে না। এই মেশিনে Docker ছিল, তাই চালিয়ে দেখা হয়েছে: `tsc --noEmit` clean; নতুন cluster থেকে তিনটা script ক্রমানুসারে; `lag` আর `ryw` দুবার করে; `failover` দুবার (প্রতিবার reset এর পরে) — একই ফল। তবু তোমার মেশিনে চালিয়ে README এর output এর সাথে মিলিয়ে দেখো।
+**সৎ নোট:** `main.md` অনুযায়ী Tier 2 exercise চালিয়ে যাচাই করেছি বলে দাবি করার কথা না, কারণ সাধারণত sandbox এ Docker থাকে না। এই মেশিনে Docker ছিল, তাই চালিয়ে দেখা হয়েছে: `tsc --noEmit` clean; নতুন cluster থেকে তিনটা script ক্রমানুসারে; `lag` আর `ryw` দুবার করে; `failover` দুবার (প্রতিবার reset এর পরে) — একই ফল। তবু আপনার মেশিনে চালিয়ে README এর output এর সাথে মিলিয়ে দেখুন।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. তিনটা script চালাও। `lag` এর প্রথম লাইনে তোমার মেশিনে "খুঁজে পায়নি" কতবার? কেন এত ছোট lag এও bug টা প্রায় প্রতিবার ঘটে — এক লাইনে লেখো।
+1. তিনটা script চালান। `lag` এর প্রথম লাইনে আপনার মেশিনে "খুঁজে পায়নি" কতবার? কেন এত ছোট lag এও bug টা প্রায় প্রতিবার ঘটে — এক লাইনে লিখুন।
 
-2. **Lag database থেকে পড়ো** (README experiment ৩): `npm run ryw` চলার সময় `pg_stat_replication` এর `write_lag`, `flush_lag`, `replay_lag` দেখো। তিনটা আলাদা কেন, আর কোনটা ২০০ ms এর কাছে?
+2. **Lag database থেকে পড়ুন** (README experiment ৩): `npm run ryw` চলার সময় `pg_stat_replication` এর `write_lag`, `flush_lag`, `replay_lag` দেখুন। তিনটা আলাদা কেন, আর কোনটা ২০০ ms এর কাছে?
 
-3. **Sync replication এর availability এর দাম** (experiment ১): replica থামিয়ে একটা `remote_apply` write চালাও। কী হয়? তারপর ভাবো — TaskFlow এ সব write sync হলে, একটা replica এর disk ভরে গেলে পুরো app এর কী অবস্থা হতো?
+3. **Sync replication এর availability এর দাম** (experiment ১): replica থামিয়ে একটা `remote_apply` write চালান। কী হয়? তারপর ভাবুন — TaskFlow এ সব write sync হলে, একটা replica এর disk ভরে গেলে পুরো app এর কী অবস্থা হতো?
 
-4. **Split brain এর বীজ** (experiment ৪): `failover` এর পরে পুরনো primary আবার চালু করে দুটো database এর `events` তুলনা করো। কোন event কোথায় আছে? App এর অর্ধেক instance যদি পুরনোটায় লিখতে থাকে, এক ঘণ্টা পরে কী অবস্থা হবে?
+4. **Split brain এর বীজ** (experiment ৪): `failover` এর পরে পুরনো primary আবার চালু করে দুটো database এর `events` তুলনা করুন। কোন event কোথায় আছে? App এর অর্ধেক instance যদি পুরনোটায় লিখতে থাকে, এক ঘণ্টা পরে কী অবস্থা হবে?
 
-5. **Design অংশ:** TaskFlow এর জন্য একটা replication পরিকল্পনা লেখো: কয়টা replica, sync নাকি async (কোন write এর জন্য কোনটা), read-your-writes কীভাবে সামলাবে, RPO আর RTO এর লক্ষ্য কত (সংখ্যা সহ), failover হাতে নাকি স্বয়ংক্রিয়, আর split brain কীভাবে এড়াবে। Lesson 5.6 এর pool হিসাবও মাথায় রাখো — replica যোগ হলে connection এর হিসাব কীভাবে বদলায়?
+5. **Design অংশ:** TaskFlow এর জন্য একটা replication পরিকল্পনা লিখুন: কয়টা replica, sync নাকি async (কোন write এর জন্য কোনটা), read-your-writes কীভাবে সামলাবেন, RPO আর RTO এর লক্ষ্য কত (সংখ্যা সহ), failover হাতে নাকি স্বয়ংক্রিয়, আর split brain কীভাবে এড়াবেন। Lesson 5.6 এর pool হিসাবও মাথায় রাখুন — replica যোগ হলে connection এর হিসাব কীভাবে বদলায়?
 
 ---
 
@@ -341,7 +341,7 @@ Connection Pool, Pool Exhaustion, Little's Law, Connection Proxy,
 N+1 Query, Eager Loading, Cartesian Explosion, Leader-Follower Replication,
 Replication Lag, Read-Your-Writes Consistency, Synchronous Replication,
 Failover, RPO/RTO, Multi-Leader Replication
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 5.8 — Sharding & Partitioning
 =======================
 ```
@@ -350,4 +350,4 @@ Next: 5.8 — Sharding & Partitioning
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের তিনটা lag এর ব্যাখ্যা আর ৫ নম্বরের replication পরিকল্পনা। রেডি হলে `next` লিখো — Lesson 5.8 এ যাব: **Sharding & Partitioning** — replica read scale করে, কিন্তু সব write এখনো একটা primary তে। যখন write আর একটা machine এ ধরে না, বা data একটা disk এ আর আঁটে না, তখন data কে ভাগ করতে হয়। কীভাবে ভাগ করবে (range, hash), কোন key দিয়ে, hot partition কেন হয়, আর ভাগ করার পর JOIN আর transaction এর কী হয় — Postgres এর partitioning দিয়ে hands-on।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের তিনটা lag এর ব্যাখ্যা আর ৫ নম্বরের replication পরিকল্পনা। রেডি হলে `next` লিখুন — Lesson 5.8 এ যাব: **Sharding & Partitioning** — replica read scale করে, কিন্তু সব write এখনো একটা primary তে। যখন write আর একটা machine এ ধরে না, বা data একটা disk এ আর আঁটে না, তখন data কে ভাগ করতে হয়। কীভাবে ভাগ করবেন (range, hash), কোন key দিয়ে, hot partition কেন হয়, আর ভাগ করার পর JOIN আর transaction এর কী হয় — Postgres এর partitioning দিয়ে hands-on।

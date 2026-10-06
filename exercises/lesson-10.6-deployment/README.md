@@ -24,7 +24,7 @@ app কে আটকায়, কোনটা আটকায় না।
 - **`drain` আসল HTTP**, localhost এ — একটা ছোট round-robin LB (নিজের হাতে লেখা, health check আর ঐচ্ছিক retry সহ) আর
   চারটা instance, একই process এ। Request এর কাজ `setTimeout` দিয়ে নকল (~৪০ ms, warm-up এর সময় +৪০০ ms)। সংখ্যা run ভেদে
   কয়েক শতাংশ বদলায়, কিন্তু ক্রম বদলায় না।
-- **`locks` আর `rename` আসল PostgreSQL 17** (Docker)। Lock, rewrite, error message — সব Postgres এর নিজের। সময় তোমার
+- **`locks` আর `rename` আসল PostgreSQL 17** (Docker)। Lock, rewrite, error message — সব Postgres এর নিজের। সময় আপনার
   machine এর উপর নির্ভর করে; ১০ লাখ row এ যা ৭০০ ms, ১০ কোটিতে তা মিনিট।
 - **ধরে নেওয়া সংখ্যা** (model এর input, মাপা না): alert বাজার পরে মানুষের সিদ্ধান্তে ১০ মিনিট; big-bang এর rollback deploy ৫
   মিনিট; rolling এ প্রতি ২ মিনিটে একটা instance; canary এর ধাপ ১০ মিনিট; segment = traffic এর ১%; baseline error ০.১%।
@@ -143,7 +143,7 @@ no dual-write: expand + backfill → v2              v1 → v2   9,942       0  
 - **Expand/contract এর প্রতিটা ধাপ পুরনো আর নতুন দুটো code এর সাথে চলে**, আর rollback এর পথ খোলা রাখে। আর backfill এর
   শর্ত `IS NULL` হলে কিছু row নীরবে ভুল থাকে — কোনো error ছাড়া।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **ছোট ধাপ:** `STEP_MINUTES=3 npm run rollout`। Segment এর bug এ শুধু-error gate এর sticky canary কী করল (মাপা: ধরেনি,
    ৩,৮৫৭টা খারাপ request, ৫৮২ জন)? Segment-aware gate কখন ধরল (মাপা: ৪ মিনিট, ৫% এ)? কেন?
@@ -154,7 +154,7 @@ no dual-write: expand + backfill → v2              v1 → v2   9,942       0  
    এর সারিতে কতবার চেষ্টা?
 5. **Health check ধীর:** `CHECK_MS=2000 npm run drain`। কোন সারি সবচেয়ে বেশি খারাপ হলো? Graceful এর `DRAIN_MS` কেন
    health check এর সাথে বাঁধা?
-6. **Rollback এর শেষ বিন্দু:** `src/rename.ts` এর অংশ খ এ ধাপ ৫ (`v2r → v2`) এর পরে একটা `v2 → v1.5` rollback ধাপ যোগ করো।
+6. **Rollback এর শেষ বিন্দু:** `src/rename.ts` এর অংশ খ এ ধাপ ৫ (`v2r → v2`) এর পরে একটা `v2 → v1.5` rollback ধাপ যোগ করুন।
    কী ভাঙল — error, নাকি ভুল পড়া? কেন ধাপ ৫ এর আগে rollback নিরাপদ ছিল, পরে না?
 
 ## Project Structure

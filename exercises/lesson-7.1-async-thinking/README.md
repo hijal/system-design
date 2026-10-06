@@ -85,26 +85,26 @@ npm run scenario -- sync-in-tx      # just one mode
 - **`queue` এর `email বাকি` আর `email p99`:** ক্ষতিটা হারিয়ে যায়নি — user এর latency থেকে সরে
   **backlog** আর **দেরি** তে গেছে। এটা ইচ্ছাকৃত বিনিময়।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Worker সংখ্যা আর Little's Law:** `WORKERS=2 npm run scenario -- queue`। Backlog কত হলো, email p99
    কত? (এই মেশিনে: বাকি ২৬৫, p99 ~২০ সেকেন্ড।) ধীর phase এ ২টা worker প্রতি সেকেন্ডে কয়টা email
-   পাঠাতে পারে, আর আসছে কয়টা — হাতে হিসাব করে মেলাও।
+   পাঠাতে পারে, আর আসছে কয়টা — হাতে হিসাব করে মেলান।
 2. **In-memory queue এর দুর্বলতা:** `CRASH_AT_MS=14000 npm run scenario -- queue`। ধীর phase এর
    মাঝখানে API process `SIGKILL` হয় আর নতুন করে চালু হয় (deploy এর মতো)। `সফল-কিন্তু-email-নেই`
    কত? (এই মেশিনে: ~১০৩।) User রা সবাই "সফল" দেখেছিল। এই সমস্যা Lesson 7.3 এর BullMQ (Redis এ রাখা
-   queue) সমাধান করে। একই জিনিস `fire-and-forget` এ চালাও (এই মেশিনে: ~৫৯ — crash ছাড়ার সমানই) — কেন
+   queue) সমাধান করে। একই জিনিস `fire-and-forget` এ চালান (এই মেশিনে: ~৫৯ — crash ছাড়ার সমানই) — কেন
    crash এখানে প্রায় কিছু যোগ করল না?
 3. **Timeout এর সীমা:** `SLOW_LATENCY_MS=6000 npm run scenario -- sync-after-commit`। Provider এর
    latency এবার client timeout (৫ s) এর বেশি। ধীর phase এ assign কতটা ব্যর্থ, আর `"ব্যর্থ" বলা হলো,
 অথচ email গেছে` কত? (এই মেশিনে: ১০০% ব্যর্থ, আর ১৫৯ জনের email গেছে।)
-4. **"Pool বড় করে দাও":** `POOL_MAX=100 npm run scenario -- sync-in-tx`। List বাঁচল? (বাঁচে।) এবার
-   Lesson 5.6 মনে করো: TaskFlow এর ৬টা instance × ১০০ = কত connection, আর Postgres এর `max_connections`
+4. **"Pool বড় করে দিন":** `POOL_MAX=100 npm run scenario -- sync-in-tx`। List বাঁচল? (বাঁচে।) এবার
+   Lesson 5.6 মনে করুন: TaskFlow এর ৬টা instance × ১০০ = কত connection, আর Postgres এর `max_connections`
    কত? আর প্রতিটা connection ৪ সেকেন্ড ধরে একটা খোলা transaction — row lock সহ।
-5. **Code এ হাত দাও:** `api.ts` এর `sendEmail` এ `signal: AbortSignal.timeout(1000)` যোগ করো, তারপর
+5. **Code এ হাত দিন:** `api.ts` এর `sendEmail` এ `signal: AbortSignal.timeout(1000)` যোগ করুন, তারপর
    `npm run scenario -- sync-in-tx`। List বাঁচল? Assign এর কী হলো? Timeout কি সমাধান, নাকি ক্ষতি ছোট
    করা? (এই মেশিনে: list ব্যর্থ ২০৭ থেকে ৭৩; আর `"ব্যর্থ" বলা হলো, অথচ email গেছে` ১০ থেকে ৮০ — কেন
-   বাড়ল?) শেষে code আগের মতো করে দিও।
+   বাড়ল?) শেষে code আগের মতো করে দেবেন।
 
 ## Project Structure
 

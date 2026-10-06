@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.3 (Estimation), Lesson 4.5 (CDN, Cache-Control), Lesson 7.3 (Background job), Lesson 7.4 (Retry, idempotency), Lesson 8.1 (Object storage), Lesson 8.2 (Presigned, multipart upload), Lesson 10.7 (Cost, spot, storage tier), Lesson 11.1 (Zipf, cache), Lesson 11.4 (Power law)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা video platform এর খরচের আকৃতি সংখ্যা দিয়ে বলতে পারবে: egress বিলের প্রায় সবটা, transcoding প্রায় কিছুই না, আর তাই কেন প্রতিটা bit বাঁচানো (codec, bitrate ladder, ABR) সরাসরি টাকা
-2. একটা transcoding pipeline নকশা করতে পারবে: video কে টুকরো করে parallel এ, spot worker এর বাধা সহ্য করে, আগে কম quality তে "দেখা যায়" করে, idempotent কাজ দিয়ে; আর HLS/DASH এর manifest কী, আর কোন অংশ কতক্ষণ cache হয়
-3. Player এর দিকের adaptive bitrate এর trade-off (rebuffer বনাম quality বনাম বারবার বদল) মাপতে পারবে, আর জনপ্রিয়তার তীক্ষ্ণ বণ্টন থেকে সিদ্ধান্ত নিতে পারবে: কোন video edge এ, কোনটা দামি codec এ, আর লম্বা লেজের জন্য কোন সস্তা পথ
+1. একটা video platform এর খরচের আকৃতি সংখ্যা দিয়ে বলতে পারবেন: egress বিলের প্রায় সবটা, transcoding প্রায় কিছুই না, আর তাই কেন প্রতিটা bit বাঁচানো (codec, bitrate ladder, ABR) সরাসরি টাকা
+2. একটা transcoding pipeline নকশা করতে পারবেন: video কে টুকরো করে parallel এ, spot worker এর বাধা সহ্য করে, আগে কম quality তে "দেখা যায়" করে, idempotent কাজ দিয়ে; আর HLS/DASH এর manifest কী, আর কোন অংশ কতক্ষণ cache হয়
+3. Player এর দিকের adaptive bitrate এর trade-off (rebuffer বনাম quality বনাম বারবার বদল) মাপতে পারবেন, আর জনপ্রিয়তার তীক্ষ্ণ বণ্টন থেকে সিদ্ধান্ত নিতে পারবেন: কোন video edge এ, কোনটা দামি codec এ, আর লম্বা লেজের জন্য কোন সস্তা পথ
 
 **Tier:** 1 — Runnable Code (চারটা deterministic model আর একটা আসল Express + Zod VOD service, HLS এর playlist সহ; Docker বা ffmpeg লাগে না)
 
@@ -20,14 +20,14 @@
 
 Interviewer:
 
-> "YouTube এর মতো একটা video platform design করো। Creator upload করে, দর্শক দেখে। ফোনে, TV তে, খারাপ network এ।"
+> "YouTube এর মতো একটা video platform design করুন। Creator upload করে, দর্শক দেখে। ফোনে, TV তে, খারাপ network এ।"
 
-এর আগের case study গুলোতে data ছোট ছিল: একটা URL, একটা message, একটা post এর id। এবার একটা জিনিস কয়েক GB, আর একই জিনিস লাখ মানুষ দেখে। 8.1 এর object storage, 8.2 এর upload, 4.5 এর CDN, আর 10.7 এর data transfer এর খরচ এক জায়গায় আসে। প্রথম চাল প্রায়ই: "Upload S3 তে, CDN দিয়ে file টা serve করো।" এখান থেকে প্রশ্ন:
+এর আগের case study গুলোতে data ছোট ছিল: একটা URL, একটা message, একটা post এর id। এবার একটা জিনিস কয়েক GB, আর একই জিনিস লাখ মানুষ দেখে। 8.1 এর object storage, 8.2 এর upload, 4.5 এর CDN, আর 10.7 এর data transfer এর খরচ এক জায়গায় আসে। প্রথম চাল প্রায়ই: "Upload S3 তে, CDN দিয়ে file টা serve করুন।" এখান থেকে প্রশ্ন:
 
 - "একটা 4K এর ১ ঘণ্টার file ১৫ GB। ফোনের 3G তে দর্শক কী দেখবে?"
 - "Upload এর পরে video কখন দেখা যাবে? এক ঘণ্টা?"
 - "মাসের বিলে সবচেয়ে বড় লাইন কোনটা হবে?"
-- "দশ কোটি video এর মধ্যে কোনগুলো CDN এ রাখবে?"
+- "দশ কোটি video এর মধ্যে কোনগুলো CDN এ রাখবেন?"
 - "Live streaming?" (আজ না, শেষে এক লাইন)
 
 ---
@@ -46,7 +46,7 @@ Video শুরু হতে কতক্ষণ?                        ~১-২
 বাদ দিলাম                                   live streaming, recommendation, comment, monetization, copyright এর scan
 ```
 
-**Non-functional:** দেখার অভিজ্ঞতা প্রথম (শুরুর দেরি আর rebuffer দর্শক হারানোর সবচেয়ে বড় কারণ), upload কখনো হারাবে না (creator এর কাজ), আর খরচ — কারণ এই system এ খরচ সবচেয়ে বড় constraint, পরের অংশ দেখো।
+**Non-functional:** দেখার অভিজ্ঞতা প্রথম (শুরুর দেরি আর rebuffer দর্শক হারানোর সবচেয়ে বড় কারণ), upload কখনো হারাবে না (creator এর কাজ), আর খরচ — কারণ এই system এ খরচ সবচেয়ে বড় constraint, পরের অংশ দেখুন।
 
 ### ১.২ Step 2 — Estimation: বিলটা কার
 
@@ -139,7 +139,7 @@ mixed: throughput, drop when the buffer is low, climb step by step             0
 - **সবসময় সর্বনিম্ন:** কখনো থামে না, কিন্তু 240p তে সবাই।
 - **Throughput ভিত্তিক:** শেষ কয়েকটা টুকরোর গতি মেপে তার ৮০% এর নিচে সবচেয়ে ভালোটা। ০.২২% আটকে, গড় ২.৩৫ Mbps। ২০% এর ফাঁক কেন: experiment ৩ এ ১০০% নিলে rebuffer তিন গুণ (০.৬০%), কারণ মাপা গতি সবসময় একটু পুরনো আর network ঠিক তখনই খারাপ হতে পারে।
 - **Buffer ভিত্তিক:** গতি না মেপে buffer দেখে: buffer কম তো কম quality, বেশি তো বেশি। গড় bitrate সবচেয়ে বেশি (৩.০৬), কিন্তু বেশি বদল (৪৭ বার), আর বারবার quality লাফানো চোখে পড়ে।
-- **মিশ্র:** throughput এর হিসাব, কিন্তু buffer খুব কম হলে সাথে সাথে নামো, আর ওঠো এক ধাপ করে। Rebuffer **০.০৮%**, সবচেয়ে কম। প্রকাশিত player গুলোর algorithm এর আকৃতি এরকম মিশ্রণই।
+- **মিশ্র:** throughput এর হিসাব, কিন্তু buffer খুব কম হলে সাথে সাথে নামুন, আর উঠুন এক ধাপ করে। Rebuffer **০.০৮%**, সবচেয়ে কম। প্রকাশিত player গুলোর algorithm এর আকৃতি এরকম মিশ্রণই।
 
 আর একটা নকশাগত দিক: টুকরোর দৈর্ঘ্য। ছোট টুকরো (২ s) মানে quality দ্রুত বদলানো আর দ্রুত শুরু, কিন্তু বেশি request আর encode এর দক্ষতা কম (প্রতিটা টুকরো একটা keyframe দিয়ে শুরু, keyframe দামি)। বড় টুকরো (১০ s) উল্টো। ২-৬ s সাধারণ।
 
@@ -200,7 +200,7 @@ over 296 hours a month                   333,367             $40,004         $22
 12  the queue handed out the same job again (at-least-once)  75 new writes in total, 1 skipped
 ```
 
-**Spaced repetition এর উত্তর:** নাম না বদলে content বদলালে CDN এর edge গুলো পুরনোটা দিতে থাকে TTL শেষ না হওয়া পর্যন্ত, আর purge (4.5) ধীর আর অনিশ্চিত। সমাধান: content বদলালে নামও বদলাও (version বা hash), আর সেই নামের জিনিস `immutable`, চিরকাল cache। এখানে প্রতিটা টুকরো তৈরির পরে কখনো বদলায় না, তাই এক বছর আর `immutable` (ধাপ ১১)। কিন্তু master playlist processing এর সময় বদলায় (প্রথমে দুটো quality, পরে পাঁচটা), তাই তখন `max-age=2` (ধাপ ৪), আর `ready` হলে এক দিন (ধাপ ৬)। ভুলটা হতো processing এর সময়ের master কে এক দিন cache করা: দর্শকেরা এক দিন 360p এর বেশি পেত না।
+**Spaced repetition এর উত্তর:** নাম না বদলে content বদলালে CDN এর edge গুলো পুরনোটা দিতে থাকে TTL শেষ না হওয়া পর্যন্ত, আর purge (4.5) ধীর আর অনিশ্চিত। সমাধান: content বদলালে নামও বদলান (version বা hash), আর সেই নামের জিনিস `immutable`, চিরকাল cache। এখানে প্রতিটা টুকরো তৈরির পরে কখনো বদলায় না, তাই এক বছর আর `immutable` (ধাপ ১১)। কিন্তু master playlist processing এর সময় বদলায় (প্রথমে দুটো quality, পরে পাঁচটা), তাই তখন `max-age=2` (ধাপ ৪), আর `ready` হলে এক দিন (ধাপ ৬)। ভুলটা হতো processing এর সময়ের master কে এক দিন cache করা: দর্শকেরা এক দিন 360p এর বেশি পেত না।
 
 ধাপ ৫: একটা worker মরল, শুধু সেই একটা টুকরো আবার (৭৬টা কাজ, ৭৫টা দরকারি)। ধাপ ৮-১০: একই master থেকে তিনটা network এ তিনটা quality, ১.৫ এর ৮০% নিয়মে।
 
@@ -227,7 +227,7 @@ over 296 hours a month                   333,367             $40,004         $22
 
 **Live streaming এক লাইনে:** একই কাঠামো (টুকরো, playlist, ABR), কিন্তু playlist প্রতি কয়েক সেকেন্ডে বদলায়, transcoding real-time এ (টুকরো আসার সাথে সাথে), আর দেরি (glass-to-glass latency) নতুন constraint, তাই ছোট টুকরো বা low-latency এর বিশেষ রূপ।
 
-**কী আগে ভাঙবে:** একটা হঠাৎ viral video (প্রথম কয়েক মিনিট সব edge এ miss, origin এর উপর ঢেউ — 4.5 এর origin shield আর request coalescing); transcoding এর queue তে একটা বড় creator এর একসাথে হাজার video (11.4 এর মতো, queue ভাগ করো); আর egress এর বিল, যা প্রতিটা নতুন feature (autoplay, preview) নীরবে বাড়ায়।
+**কী আগে ভাঙবে:** একটা হঠাৎ viral video (প্রথম কয়েক মিনিট সব edge এ miss, origin এর উপর ঢেউ — 4.5 এর origin shield আর request coalescing); transcoding এর queue তে একটা বড় creator এর একসাথে হাজার video (11.4 এর মতো, queue ভাগ করুন); আর egress এর বিল, যা প্রতিটা নতুন feature (autoplay, preview) নীরবে বাড়ায়।
 
 ---
 
@@ -235,18 +235,18 @@ over 296 hours a month                   333,367             $40,004         $22
 
 "Design YouTube/Netflix" এর মূল জায়গা প্রায় সবসময় তিনটা: upload আর transcoding, delivery আর CDN, আর player এর adaptive bitrate। ভালো উত্তরের আকৃতি:
 
-1. **সংখ্যা আর খরচ আগে।** Egress এর PB আর Tbps, আর বিলের ৭৮%। এটা বললে interviewer জানে তুমি বোঝো কেন বাকি সিদ্ধান্ত গুলো এমন।
+1. **সংখ্যা আর খরচ আগে।** Egress এর PB আর Tbps, আর বিলের ৭৮%। এটা বললে interviewer জানে আপনি বোঝেন কেন বাকি সিদ্ধান্ত গুলো এমন।
 2. **Ladder আর manifest।** কেন একটা file না, কয়েকটা quality আর ছোট টুকরো, আর player কীভাবে বাছে।
 3. **Pipeline।** টুকরো করে parallel, idempotent, spot, কম quality আগে।
 4. **জনপ্রিয়তা।** CDN এর hit rate কেন উঁচু, লম্বা লেজের জন্য সস্তা পথ, আর জনপ্রিয়দের জন্য দামি codec।
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Video শুরু হতে দেরি কমাবে কীভাবে?"_ — প্রথম টুকরো কম quality তে (দ্রুত আসে), ছোট টুকরো, CDN এ cache, আর playlist এর সাথে প্রথম টুকরো আগে থেকে আনা (prefetch)।
-- _"Transcoding দ্রুত করবে কীভাবে?"_ — টুকরো করে parallel; ৪ ঘণ্টা থেকে ৩ মিনিট। আর কম quality আগে।
+- _"Video শুরু হতে দেরি কমাবেন কীভাবে?"_ — প্রথম টুকরো কম quality তে (দ্রুত আসে), ছোট টুকরো, CDN এ cache, আর playlist এর সাথে প্রথম টুকরো আগে থেকে আনা (prefetch)।
+- _"Transcoding দ্রুত করবেন কীভাবে?"_ — টুকরো করে parallel; ৪ ঘণ্টা থেকে ৩ মিনিট। আর কম quality আগে।
 - _"Network খারাপ হলে?"_ — ABR; সংখ্যা: সবসময় সর্বোচ্চ এ ৩৩% সময় থেমে থাকে, মিশ্র নীতিতে ০.০৮%।
-- _"খরচ কমাবে কীভাবে?"_ — Egress এ: ভালো codec জনপ্রিয়দের জন্য, per-title ladder, ISP এর ভেতরে cache। Storage এ: অজনপ্রিয়দের কম ধাপ আর সস্তা tier।
-- _"CDN এ সব video রাখবে?"_ — না; ০.১% এ ৯২% দেখা, ৮১ TB। লেজ origin থেকে, shield এর মধ্য দিয়ে।
+- _"খরচ কমাবেন কীভাবে?"_ — Egress এ: ভালো codec জনপ্রিয়দের জন্য, per-title ladder, ISP এর ভেতরে cache। Storage এ: অজনপ্রিয়দের কম ধাপ আর সস্তা tier।
+- _"CDN এ সব video রাখবেন?"_ — না; ০.১% এ ৯২% দেখা, ৮১ TB। লেজ origin থেকে, shield এর মধ্য দিয়ে।
 - _"View count?"_ — 11.1 এর click এর মতো: event এ, আলাদা pipeline এ, পড়ার পথে লেখা না।
 
 **Production এ বাস্তবে:** সবচেয়ে প্রচলিত সমস্যা: একটা বড় খেলা বা premiere এ একসাথে লাখ মানুষ একই মুহূর্তে শুরু করে (origin এর ঢেউ আর CDN এর ক্ষমতা); একটা encoder এর bug যা কিছু টুকরোয় ঝাঁকুনি বা শব্দের অমিল আনে, আর হাজার video তে আবার encode এর দরকার; player এর ABR এর ভুল সেটিং যা বিশেষ network এ (একটা দেশে, একটা carrier এ) rebuffer লাফিয়ে তোলে, আর সেটা শুধু দেশ ধরে metric দেখলে ধরা পড়ে; আর egress এর বিলে হঠাৎ লাফ, কারণ কোনো একটা app এর version ভুল quality default করেছে।
@@ -258,7 +258,7 @@ over 296 hours a month                   333,367             $40,004         $22
 - **Video এর বিল egress এর:** দিনে ২৭০ PB, বিলের ৭৮%; transcoding ১%। Encode একবার, egress প্রতিবার — তাই bit বাঁচানো সরাসরি টাকা, আর encode এ বেশি খরচ প্রায়ই লাভ
 - **একটা file না, একটা ladder আর ছোট টুকরো:** player প্রতিটা টুকরোয় quality বাছে; manifest বলে কী কোথায়; প্রতিটা টুকরো একটা static file, যেকোনো CDN serve করে
 - **Pipeline টুকরো করে parallel:** এক ঘণ্টার video ৪ ঘণ্টা থেকে ৩ মিনিট, আর spot এর বাধায় নষ্ট ১৪% থেকে ০.০২%। কম quality আগে, idempotent output
-- **ABR এর কাজ rebuffer আর quality এর মাঝে:** সবসময় সর্বোচ্চ এ ৩৩% সময় থেমে; মিশ্র নীতিতে (throughput + buffer এর নিরাপত্তা + ধাপে ওঠা) ০.০৮%; মাপা গতির ২০% ফাঁক রাখো
+- **ABR এর কাজ rebuffer আর quality এর মাঝে:** সবসময় সর্বোচ্চ এ ৩৩% সময় থেমে; মিশ্র নীতিতে (throughput + buffer এর নিরাপত্তা + ধাপে ওঠা) ০.০৮%; মাপা গতির ২০% ফাঁক রাখুন
 - **জনপ্রিয়তা তীক্ষ্ণ:** ০.১% video তে ৯২% দেখা (৮১ TB, edge এ ধরে); ৬২% video এর মাসের egress তাদের transcode এর চেয়ে কম
 - **জনপ্রিয়তা অনুযায়ী encode:** AV1 শুধু জনপ্রিয় ২% এ সব video তে দেওয়ার প্রায় দ্বিগুণ নিট লাভ; encode আরও দামি হলে সবার জন্য ক্ষতি
 - **টুকরো immutable, playlist ছোট TTL যতক্ষণ বদলায়** — 4.5 এর নিয়ম, এবার দুই ধরনের জিনিসে আলাদা
@@ -281,13 +281,13 @@ over 296 hours a month                   333,367             $40,004         $22
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
 1. একটা দেশের একটা mobile carrier এ এক সপ্তাহ ধরে rebuffer ০.১% থেকে ২%, বাকি সব জায়গায় স্বাভাবিক। (ক) কোন কোন কারণ হতে পারে (অন্তত তিনটা, এই lesson থেকে)? (খ) কোন metric গুলো দেশ আর carrier ধরে ভাগ না করা থাকলে এটা কখনো ধরা পড়ত না? (গ) Player এর দিক থেকে আর CDN এর দিক থেকে একটা করে সমাধান।
 
-2. একটা নতুন feature: home page এ প্রতিটা video এর thumbnail এর উপর mouse রাখলে (বা ফোনে scroll করার সময়) ৫ সেকেন্ডের preview চলে। Product বলছে "ছোট জিনিস"। (ক) ১.২ এর সংখ্যা দিয়ে, এটা egress এ কী করতে পারে? (খ) Preview এর জন্য কোন নকশা (ladder, কোথায় cache, কখন চালু) খরচ সীমায় রাখে? (গ) এই feature এর launch এর আগে কোন একটা metric তুমি বাধ্যতামূলক বলবে?
+2. একটা নতুন feature: home page এ প্রতিটা video এর thumbnail এর উপর mouse রাখলে (বা ফোনে scroll করার সময়) ৫ সেকেন্ডের preview চলে। Product বলছে "ছোট জিনিস"। (ক) ১.২ এর সংখ্যা দিয়ে, এটা egress এ কী করতে পারে? (খ) Preview এর জন্য কোন নকশা (ladder, কোথায় cache, কখন চালু) খরচ সীমায় রাখে? (গ) এই feature এর launch এর আগে কোন একটা metric আপনি বাধ্যতামূলক বলবেন?
 
-3. একজন বড় creator এর channel এ ১০ বছরের ২০,০০০ পুরনো video, আর সে আজ সব একসাথে re-upload করছে (ভালো quality র মূল file)। (ক) ১.৪ এর pipeline এ কী হবে, আর বাকি সব creator এর upload এর কী হবে? (খ) কোন নকশা এটাকে বাকিদের থেকে আলাদা রাখে (11.4 আর 11.5 এর মতো)? (গ) এই ২০,০০০ video এর কোনগুলো কে পুরো ladder আর AV1 দেবে, আর কীভাবে ঠিক করবে?
+3. একজন বড় creator এর channel এ ১০ বছরের ২০,০০০ পুরনো video, আর সে আজ সব একসাথে re-upload করছে (ভালো quality র মূল file)। (ক) ১.৪ এর pipeline এ কী হবে, আর বাকি সব creator এর upload এর কী হবে? (খ) কোন নকশা এটাকে বাকিদের থেকে আলাদা রাখে (11.4 আর 11.5 এর মতো)? (গ) এই ২০,০০০ video এর কোনগুলো কে পুরো ladder আর AV1 দেবেন, আর কীভাবে ঠিক করবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -302,7 +302,7 @@ over 296 hours a month                   333,367             $40,004         $22
 
 **প্রশ্ন ২:**
 
-(ক) Home page এ একজন দর্শক মিনিটে হয়তো ১০-২০টা thumbnail এর উপর দিয়ে যায়। প্রতিটা preview ৫ s × ধরো ১.৫ Mbps ≈ ১ MB। ২০ কোটি DAU × দিনে ধরো ৫০টা preview = দিনে ১,০০০ কোটি MB ≈ ১০ PB, ১.২ এর ২৭০ PB এর প্রায় ৪%, মাসে ~$৩০ লাখ, শুধু এই "ছোট জিনিস" এ। আর যদি autoplay (scroll করলেই চলে) হয়, সংখ্যা কয়েক গুণ।
+(ক) Home page এ একজন দর্শক মিনিটে হয়তো ১০-২০টা thumbnail এর উপর দিয়ে যায়। প্রতিটা preview ৫ s × ধরুন ১.৫ Mbps ≈ ১ MB। ২০ কোটি DAU × দিনে ধরুন ৫০টা preview = দিনে ১,০০০ কোটি MB ≈ ১০ PB, ১.২ এর ২৭০ PB এর প্রায় ৪%, মাসে ~$৩০ লাখ, শুধু এই "ছোট জিনিস" এ। আর যদি autoplay (scroll করলেই চলে) হয়, সংখ্যা কয়েক গুণ।
 
 (খ) Preview এর জন্য: (১) **আলাদা, খুব ছোট ladder** — 240p বা 360p, কম bitrate, শব্দ ছাড়া, ৫ s এর একটা টুকরো, আর video তৈরির সময় একবারই বানানো; (২) শুধু **জনপ্রিয় video** গুলোর জন্য (১.৬: সেগুলো edge এ এমনিতেই গরম), বাকিদের জন্য শুধু ছবি; (৩) চালু হয় একটা দেরির পরে (৫০০ ms mouse এর উপর থাকলে), scroll এর মাঝে না; (৪) cellular network এ বন্ধ বা user এর setting এ।
 
@@ -328,19 +328,19 @@ over 296 hours a month                   333,367             $40,004         $22
 
 `estimate` egress, bandwidth, upload, storage, transcoding আর মাসিক খরচ হিসাব করে। `transcode` চারটা pipeline এর নকশা spot worker এর বাধা সহ চালায়। `abr` ওঠানামা করা network এ পাঁচটা bitrate নীতি মাপে। `cdn` জনপ্রিয়তার বণ্টন থেকে edge এর জায়গা, লম্বা লেজ আর AV1 এর অর্থনীতি হিসাব করে। `smoke` একটা আসল VOD service চালিয়ে upload থেকে player পর্যন্ত ১২টা ধাপ দেখায়।
 
-**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; পাঁচটা script দুবার করে, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, তোমার। **Estimation আর দামের input ধরে নেওয়া** (দিনে ১ ঘণ্টা, ৩ Mbps, প্রতি মিনিটে ৩০০ ঘণ্টা upload, CDN $০.০১/GB, ঘণ্টায় ৪ CPU-ঘণ্টা), মাপা না। `transcode` এ আসল encoding নেই, spot এর বাধা Poisson। `abr` এর network synthetic আর নীতিগুলো আসল player এর সরল রূপ। `cdn` এর জনপ্রিয়তা Zipf (s = ১.২) এর model, edge এর হিসাব আদর্শ; AV1 এর সংখ্যা প্রকাশিত তুলনার মোটামুটি আন্দাজ। `smoke` এর টুকরো নকল byte, store in-memory। Netflix এর Open Connect আর encoding এর pipeline এর কথা তাদের প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। **যা মাপা হয়নি:** আসল encoding এর সময় আর quality, আসল player, আসল CDN এর hit rate, DRM, live।
+**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; পাঁচটা script দুবার করে, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, আপনার। **Estimation আর দামের input ধরে নেওয়া** (দিনে ১ ঘণ্টা, ৩ Mbps, প্রতি মিনিটে ৩০০ ঘণ্টা upload, CDN $০.০১/GB, ঘণ্টায় ৪ CPU-ঘণ্টা), মাপা না। `transcode` এ আসল encoding নেই, spot এর বাধা Poisson। `abr` এর network synthetic আর নীতিগুলো আসল player এর সরল রূপ। `cdn` এর জনপ্রিয়তা Zipf (s = ১.২) এর model, edge এর হিসাব আদর্শ; AV1 এর সংখ্যা প্রকাশিত তুলনার মোটামুটি আন্দাজ। `smoke` এর টুকরো নকল byte, store in-memory। Netflix এর Open Connect আর encoding এর pipeline এর কথা তাদের প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। **যা মাপা হয়নি:** আসল encoding এর সময় আর quality, আসল player, আসল CDN এর hit rate, DRM, live।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `estimate` চালানোর **আগে** লিখে ফেলো: egress, storage আর transcoding এর মধ্যে বিলের কত ভাগ কার? তারপর চালিয়ে মেলাও। তারপর `AVG_MBPS=2` (ভালো codec বা ABR) দিয়ে মাসে কত বাঁচে।
+1. **আগে অনুমান:** `estimate` চালানোর **আগে** লিখে ফেলুন: egress, storage আর transcoding এর মধ্যে বিলের কত ভাগ কার? তারপর চালিয়ে মেলান। তারপর `AVG_MBPS=2` (ভালো codec বা ABR) দিয়ে মাসে কত বাঁচে।
 
 2. **টুকরোর দৈর্ঘ্য:** `transcode` এ `SEGMENT_S=2` আর `SEGMENT_S=10`, আর `abr` এ একই। Publish, নষ্ট CPU, rebuffer আর quality বদল কীভাবে নড়ে? Encode এর দক্ষতার দিকটা (keyframe) model এ নেই — সেটা কোন দিকে টানত?
 
 3. **Network আরও অস্থির:** `STATE_S=2 npm run abr`। কোন নীতির rebuffer সবচেয়ে বাড়ল, আর কেন buffer ভিত্তিক নীতি এখানে তুলনায় ভালো থাকে?
 
-4. **Code বদলানো:** README এর experiment ৫ (জনপ্রিয়তা অনুযায়ী ladder)। তারপর `src/vod.ts` এ view count যোগ করো যা প্রতিটা প্রথম টুকরো (`0.ts`) এর request এ বাড়ে — কিন্তু CDN এর পেছনে থাকলে origin এ প্রায় কোনো request আসবে না। তাহলে view গুনবে কোথায়?
+4. **Code বদলানো:** README এর experiment ৫ (জনপ্রিয়তা অনুযায়ী ladder)। তারপর `src/vod.ts` এ view count যোগ করুন যা প্রতিটা প্রথম টুকরো (`0.ts`) এর request এ বাড়ে — কিন্তু CDN এর পেছনে থাকলে origin এ প্রায় কোনো request আসবে না। তাহলে view গুনবেন কোথায়?
 
-5. **Design অংশ:** এই platform এর "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) requirement আর বাদ দেওয়া; (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত (খরচ সহ); (গ) upload থেকে দর্শক পর্যন্ত ছবি; (ঘ) pipeline আর ABR এর নীতি, সংখ্যা সহ; (ঙ) একটা খরচের পরিকল্পনা: কোন তিনটা সিদ্ধান্ত egress কমায়, আর কোন metric দিয়ে প্রতিটা মাপবে।
+5. **Design অংশ:** এই platform এর "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) requirement আর বাদ দেওয়া; (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত (খরচ সহ); (গ) upload থেকে দর্শক পর্যন্ত ছবি; (ঘ) pipeline আর ABR এর নীতি, সংখ্যা সহ; (ঙ) একটা খরচের পরিকল্পনা: কোন তিনটা সিদ্ধান্ত egress কমায়, আর কোন metric দিয়ে প্রতিটা মাপবেন।
 
 ---
 
@@ -367,7 +367,7 @@ Hybrid Fan-out, Timeline Cache, Tail Amplification, Hedged Request, Candidate Ge
 Provider Throughput Limit, Pacing, Provider Failover, Aggregation Window (Collapse Key), Quiet Hours,
 Device Token Lifecycle, Egress, Bitrate Ladder, Manifest (HLS / DASH), Segment-Parallel Transcoding,
 Adaptive Bitrate (ABR), Rebuffer Ratio, Popularity-Tiered Encoding
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 11.7 — Case Study: Design a Payment System
 =======================
 ```
@@ -376,6 +376,6 @@ Next: 11.7 — Case Study: Design a Payment System
 
 ## ৮. পরের Lesson
 
-আজকের সুতোটা: **যখন একটা জিনিস প্রতিবার দেখায় দাম দেয় আর একবার বানাতে, তখন বানানোয় বেশি খরচ করে দেখার খরচ কমাও — কিন্তু শুধু যেখানে দেখা সত্যিই হয়।** Ladder আর টুকরো দর্শককে খারাপ network এ বাঁচায়, টুকরো করে parallel pipeline কে দ্রুত আর spot কে নিরাপদ করে, আর জনপ্রিয়তার তীক্ষ্ণ বণ্টন বলে দামি encode আর edge এর জায়গা কাকে দেবে।
+আজকের সুতোটা: **যখন একটা জিনিস প্রতিবার দেখায় দাম দেয় আর একবার বানাতে, তখন বানানোয় বেশি খরচ করে দেখার খরচ কমান — কিন্তু শুধু যেখানে দেখা সত্যিই হয়।** Ladder আর টুকরো দর্শককে খারাপ network এ বাঁচায়, টুকরো করে parallel pipeline কে দ্রুত আর spot কে নিরাপদ করে, আর জনপ্রিয়তার তীক্ষ্ণ বণ্টন বলে দামি encode আর edge এর জায়গা কাকে দেবেন।
 
-রেডি হলে `next` লিখো — **Lesson 11.7: Design a Payment System** এ যাব, Module 11 এর শেষ case study। এখানে সব নিয়ম উল্টে যায়: আন্দাজ চলে না, eventual consistency টাকায় বিপজ্জনক, আর "দুবার" মানে কারো টাকা দুবার কাটা। 2.5 এর idempotency key, 5.5 এর transaction, 7.5 এর outbox, 9.3 এর saga, আর 11.5 এর "timeout মানে জানি না" — সব এক জায়গায়, সর্বোচ্চ চাপে। প্রশ্নগুলো: বাইরের payment provider timeout দিলে টাকা কাটা হয়েছে কিনা কীভাবে জানবে, double-entry ledger কেন, আর দিন শেষে নিজের হিসাব আর bank এর হিসাব মেলানো (reconciliation) কেন সবচেয়ে গুরুত্বপূর্ণ কাজ।
+রেডি হলে `next` লিখুন — **Lesson 11.7: Design a Payment System** এ যাব, Module 11 এর শেষ case study। এখানে সব নিয়ম উল্টে যায়: আন্দাজ চলে না, eventual consistency টাকায় বিপজ্জনক, আর "দুবার" মানে কারো টাকা দুবার কাটা। 2.5 এর idempotency key, 5.5 এর transaction, 7.5 এর outbox, 9.3 এর saga, আর 11.5 এর "timeout মানে জানি না" — সব এক জায়গায়, সর্বোচ্চ চাপে। প্রশ্নগুলো: বাইরের payment provider timeout দিলে টাকা কাটা হয়েছে কিনা কীভাবে জানবেন, double-entry ledger কেন, আর দিন শেষে নিজের হিসাব আর bank এর হিসাব মেলানো (reconciliation) কেন সবচেয়ে গুরুত্বপূর্ণ কাজ।

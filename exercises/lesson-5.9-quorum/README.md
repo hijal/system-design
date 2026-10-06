@@ -37,7 +37,7 @@ npm run partition
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-দুটোই deterministic — তোমার মেশিনেও **হুবহু** এই সংখ্যা আসবে।
+দুটোই deterministic — আপনার মেশিনেও **হুবহু** এই সংখ্যা আসবে।
 
 **১. `npm run quorum`**
 
@@ -96,16 +96,16 @@ B. AP — any node takes writes (W=1, R=1), last-write-wins afterwards; n4's clo
 4. **Partition এ বাছাই অনিবার্য।** CP তে সিঙ্গাপুরের user কাজ করতে পারেনি; AP তে পেরেছে — কিন্তু করিমের লেখা
    নীরবে হারাল, কারণ LWW এর "পরে" ঠিক হয়েছে একটা ভুল ঘড়ি দিয়ে (Lesson 6.4 এর preview)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Stall বন্ধ করো।** `src/quorum.ts` এ `STALL_PROBABILITY` কে `0` করো। `(1, 2)` আর `(2, 1)` এর stale read
+1. **Stall বন্ধ করুন।** `src/quorum.ts` এ `STALL_PROBABILITY` কে `0` করুন। `(1, 2)` আর `(2, 1)` এর stale read
    কী হয়? এটা কি প্রমাণ করে যে `R + W ≤ N` ও নিরাপদ? (ইঙ্গিত: এই exercise বানানোর সময় প্রথমে stall ছাড়াই
    চালিয়েছিলাম — ঠিক এই ফাঁদে পড়তে যাচ্ছিলাম।)
 
-2. **N বাড়াও।** `LINKS` এ আরও দুটো replica যোগ করে N = ৫ করো (`N` constant ও বদলাও), আর combo এ `(3, 3)`,
-   `(2, 3)`, `(3, 2)` যোগ করো। `R + W > N` নিয়মটা এখনো খাটে? কোনটা সবচেয়ে কম latency তে নিরাপদ?
+2. **N বাড়ান।** `LINKS` এ আরও দুটো replica যোগ করে N = ৫ করুন (`N` constant ও বদলান), আর combo এ `(3, 3)`,
+   `(2, 3)`, `(3, 2)` যোগ করুন। `R + W > N` নিয়মটা এখনো খাটে? কোনটা সবচেয়ে কম latency তে নিরাপদ?
 
-3. **ঘড়ি ঠিক করো।** `src/partition.ts` এ `CLOCK_SKEW_MS.n4` কে `0` করো। এখন LWW কাকে জেতায়? তাহলে কি LWW
+3. **ঘড়ি ঠিক করুন।** `src/partition.ts` এ `CLOCK_SKEW_MS.n4` কে `0` করুন। এখন LWW কাকে জেতায়? তাহলে কি LWW
    নিরাপদ? (দুজন যদি ঠিক একই millisecond এ লেখে? আর রহিমের লেখা যদি করিমের লেখার **উপর ভিত্তি করে** না হয়,
    দুটো স্বাধীন বদল হয় — তাহলে "পরেরটা জিতুক" কি আদৌ সঠিক নিয়ম?)
 
@@ -131,5 +131,5 @@ lesson-5.9-quorum/
 
 - `tsc --noEmit` — clean pass, কোনো type error নেই, কোথাও `any` নেই
 - দুটো script কয়েকবার চালানো — প্রতিবার হুবহু একই output (seed দেওয়া)
-- এটা একটা **simulation** — আসল database এর সব আচরণ এতে নেই (উপরে "কেন simulation" দেখো)
+- এটা একটা **simulation** — আসল database এর সব আচরণ এতে নেই (উপরে "কেন simulation" দেখুন)
 - Experiment ১–৩ চালিয়ে দেখা **হয়নি** (১ নম্বরের stall ছাড়া আচরণ বানানোর সময় দেখা গিয়েছিল: `(1,2)` আর `(2,1)` এ ০টা stale)

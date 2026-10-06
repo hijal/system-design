@@ -121,7 +121,7 @@ docker compose down -v
   গিয়েছিল — সেই user রা error দেখেছে, মিথ্যা "সফল" না।
 - **`CRASH=worker-kill` এর "দুবার পৌঁছেছে: 8" আর দেরি ~১৯ সেকেন্ড:** মরার মুহূর্তে ৮টা job active ছিল,
   তাদের request provider এ পৌঁছে গিয়েছিল। Worker "শেষ" লেখার আগেই মরল; lock এর মেয়াদ (10 s) শেষ হলে
-  stalled checker তাদের waiting এ ফেরাল, নতুন worker আবার পাঠাল। লক্ষ করো: "চেষ্টা লেগেছে" তবু সবার
+  stalled checker তাদের waiting এ ফেরাল, নতুন worker আবার পাঠাল। লক্ষ করুন: "চেষ্টা লেগেছে" তবু সবার
   **১ বার** — stalled হয়ে ফেরা BullMQ এর হিসাবে "চেষ্টা" না।
 - **`CRASH=worker-term`:** একই মুহূর্তে SIGTERM দিলে `worker.close()` চলমান ৮টা শেষ করে তারপর বন্ধ হয় —
   duplicate ০। Deploy সবসময় এভাবে হওয়া উচিত।
@@ -129,26 +129,26 @@ docker compose down -v
   0.3⁵ ≈ 0.24% — ৪৭৮ এর মধ্যে ~১টা, আর ঠিক ১টা `failed` এ। সেটা হারায়নি, **দৃশ্যমান** আছে।
 - **`DOUBLE_SUBMIT=1`:** একই job ID এর দ্বিতীয় `queue.add` BullMQ নীরবে বাদ দেয়।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Redis নিজে মরলে:** একটা terminal এ `npm run scenario`, আর ~১২ সেকেন্ডে আরেকটায়
    `docker compose restart redis`। তারপর আবার, এবার `docker compose kill redis && sleep 2 && docker compose start redis`
    (SIGKILL — Redis শেষ মুহূর্তে কিছু save করার সুযোগ পায় না)। কিছু হারাল? API এর p99 কত হলো, কেন?
    (এই মেশিনে: দুবারই কিছু হারায়নি; API p99 restart এ ~১ s, kill এ ~৩ s — ioredis Redis ফেরা পর্যন্ত
    command গুলো ধরে রাখে।) এবার `docker-compose.yml` থেকে `--appendonly yes --appendfsync everysec` বাদ
-   দিয়ে (`docker compose up -d --wait` আবার) kill এর পরীক্ষা করো।
+   দিয়ে (`docker compose up -d --wait` আবার) kill এর পরীক্ষা করুন।
 2. **Worker scale:** `WORKER_PROCS=2 npm run scenario`। Waiting এর সর্বোচ্চ কত? (এই মেশিনে ৯৫।) হাতে
-   হিসাব করো — ধীর phase এ কয়টা email/s বের হয়, কয়টা আসে।
+   হিসাব করুন — ধীর phase এ কয়টা email/s বের হয়, কয়টা আসে।
 3. **Retry বন্ধ:** `FAIL_RATE=0.3 ATTEMPTS=1 npm run scenario`। Failed কত? (এই মেশিনে দুবার চালিয়ে ১৪২ করে —
-   ৪৭৮ এর ~৩০%।) Failed job গুলোর কী হবে — কে দেখবে, কীভাবে আবার চালাবে?
+   ৪৭৮ এর ~৩০%।) Failed job গুলোর কী হবে — কে দেখবে, কীভাবে আবার চালাবেন?
 4. **Lock এর মেয়াদ:** `CRASH=worker-kill LOCK_MS=30000 STALLED_MS=30000 npm run scenario` (production
    default)। Email দেরি max কত হলো? (এই মেশিনে ~৯৪ সেকেন্ড, duplicate তবু ৮।) Lock ছোট রাখলে এই দেরি কমে
    — তাহলে ছোট রাখছি না কেন? (ইঙ্গিত: একটা job যদি `LOCK_MS` এর চেয়ে বেশি সময় event loop আটকে রাখে?)
-5. **Code এ হাত দাও:** `worker.ts` এর processor এ, `fetch` এর আগে একটা synchronous busy loop বসাও যেটা
+5. **Code এ হাত দিন:** `worker.ts` এর processor এ, `fetch` এর আগে একটা synchronous busy loop বসান যেটা
    ১২ সেকেন্ড event loop আটকায় (শুধু একটা নির্দিষ্ট job এর জন্য, যেমন `job.id === 'assign-100-1'`)।
-   তারপর `npm run scenario` (lock 10 s)। Worker এর log এ `could not renew lock` দেখবে। Duplicate কত, failed
+   তারপর `npm run scenario` (lock 10 s)। Worker এর log এ `could not renew lock` দেখবেন। Duplicate কত, failed
    কত, আর failed এর কারণ কী? (এই মেশিনে: duplicate ৯, failed ২ — `job stalled more than allowable limit`।)
-   শুধু একটা job থামালে **আটটা** job এর lock কেন গেল? এটা Lesson 6.1 এর কোন ঘটনা? শেষে code আগের মতো করো।
+   শুধু একটা job থামালে **আটটা** job এর lock কেন গেল? এটা Lesson 6.1 এর কোন ঘটনা? শেষে code আগের মতো করুন।
 
 ## Project Structure
 

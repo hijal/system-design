@@ -51,7 +51,7 @@ npm run all
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-Deterministic — তোমার মেশিনেও হুবহু এই সংখ্যা আসবে (`SEED=7`, default)।
+Deterministic — আপনার মেশিনেও হুবহু এই সংখ্যা আসবে (`SEED=7`, default)।
 
 **১. `npm run fanout`**
 
@@ -125,20 +125,20 @@ Deterministic — তোমার মেশিনেও হুবহু এই �
 আর log এ email এর p99 সামান্য বেশি (২৭১ ms) কারণ ২টা consumer এর প্রতিজন নিজের ২টা partition এ বাঁধা —
 একজন ব্যস্ত থাকলে অন্যজন তার partition এর কাজ নিতে পারে না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Commit এর ব্যবধান:** `COMMIT_MS=1000 npm run crash`। দুবার প্রক্রিয়া কত হলো? (১৮।) Commit ঘনঘন
    করলে duplicate কমে — কিন্তু শূন্য হয় না, আর প্রতিটা commit broker এ একটা লেখা। Duplicate কে
    নিরাপদ বানানোর আসল উপায় Lesson 7.4 এ।
-2. **Pub/Sub এর buffer অসীম করো:** `BUFFER_LIMIT=100000 npm run slow`। Pub/sub এর হারানো শূন্য হলো,
+2. **Pub/Sub এর buffer অসীম করুন:** `BUFFER_LIMIT=100000 npm run slow`। Pub/sub এর হারানো শূন্য হলো,
    জমা ৩৩৩। তাহলে কি pub/sub এখন queue এর মতো? কোথায় জমা হচ্ছে, আর Redis restart হলে বা analytics এর
    connection ছিঁড়ে গেলে সেগুলোর কী হবে?
-3. **Partition বাড়াও:** `PARTITIONS=8 npm run ordering`। ৮ consumer এর সারিতে এবার ৮ জনই কাজ পায় — দেরি
+3. **Partition বাড়ান:** `PARTITIONS=8 npm run ordering`। ৮ consumer এর সারিতে এবার ৮ জনই কাজ পায় — দেরি
    p99 ৪.৮ থেকে ৩.০ সেকেন্ডে নামে, ক্রম ভাঙা তবু ০। কেন?
 4. **সব কিছুর একটাই ক্রম চাইলে:** `PARTITIONS=1 npm run ordering`। ক্রম ভাঙা ০ — আর দেরি p99 ~৫২
    সেকেন্ড। একটা partition মানে একজন consumer; তার গতি আসার গতির চেয়ে কম হলে কী হয়, সেটা Lesson 7.1
    এর backlog।
-5. **অন্য seed:** `SEED=11 npm run all`। সংখ্যা বদলায়, আকৃতি একই থাকার কথা — মিলিয়ে দেখো।
+5. **অন্য seed:** `SEED=11 npm run all`। সংখ্যা বদলায়, আকৃতি একই থাকার কথা — মিলিয়ে দেখুন।
 
 ## Project Structure
 

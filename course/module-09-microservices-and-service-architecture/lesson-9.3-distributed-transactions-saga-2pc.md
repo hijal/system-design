@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 2.5 (Idempotency key), Lesson 5.5 (Transaction, lock, isolation), Lesson 6.1 (Partial failure, timeout এর অনিশ্চয়তা), Lesson 6.2 (Raft, majority), Lesson 7.4 (Idempotent consumer, retry, DLQ), Lesson 7.5 (Outbox), Lesson 9.1 (Database per service, ৮৩টা অমিল), Lesson 9.2 (Synchronous বনাম event)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. **Two-phase commit** কীভাবে কাজ করে আর কোথায় ভাঙে বলতে পারবে — coordinator মরলে **in-doubt** transaction আর তার lock কীভাবে বাকি সবাইকে থামায়, মাপা সংখ্যা দিয়ে; আর কেন service গুলোর মাঝে প্রায় কেউ 2PC ব্যবহার করে না, অথচ Spanner এর মতো database এর ভেতরে করে
-2. একটা **saga** design করতে পারবে — ধাপের ক্রম, প্রতিটা ধাপের উল্টো কাজ, pivot, saga এর log আর recovery, idempotent ধাপ — আর orchestration বনাম choreography বাছতে পারবে
-3. Saga এ isolation না থাকার দাম (অন্যরা মাঝপথ দেখে) চিনতে পারবে, আর **semantic lock** এর মতো উপায় দিয়ে ঠিক করতে পারবে কোন ভুলটা সহ্য করবে
+1. **Two-phase commit** কীভাবে কাজ করে আর কোথায় ভাঙে বলতে পারবেন — coordinator মরলে **in-doubt** transaction আর তার lock কীভাবে বাকি সবাইকে থামায়, মাপা সংখ্যা দিয়ে; আর কেন service গুলোর মাঝে প্রায় কেউ 2PC ব্যবহার করে না, অথচ Spanner এর মতো database এর ভেতরে করে
+2. একটা **saga** design করতে পারবেন — ধাপের ক্রম, প্রতিটা ধাপের উল্টো কাজ, pivot, saga এর log আর recovery, idempotent ধাপ — আর orchestration বনাম choreography বাছতে পারবেন
+3. Saga এ isolation না থাকার দাম (অন্যরা মাঝপথ দেখে) চিনতে পারবেন, আর **semantic lock** এর মতো উপায় দিয়ে ঠিক করতে পারবেন কোন ভুলটা সহ্য করবেন
 
 **Tier:** 1 — Runnable Code (Docker এ Postgres — দুটো আলাদা database দুটো "service"; Postgres এর আসল `PREPARE TRANSACTION` দিয়ে 2PC, আর একটা saga এর orchestrator তার log আর recovery সহ)
 
@@ -24,7 +24,7 @@ Lesson 9.1 এ সিদ্ধান্ত ছিল: billing এখন বে�
 2. **Staging এর এক সপ্তাহ।** Billing আলাদা database এ, 9.1 এর মতো দুটো আলাদা লেখা দিয়ে। Finance এর report: free plan এর সীমা ১০০ task, অথচ কয়েকটা workspace এ ১০৩টা; আর কয়েকটায় বিলে task এর সংখ্যা আসল task এর চেয়ে বেশি। কারণ দুটো: deploy এর সময় মাঝপথে মরা request, আর "project archived" এ ব্যর্থ হওয়া task — যাদের usage আগেই বেড়ে গিয়েছিল।
 3. **Plan upgrade।** একজন customer এর card থেকে টাকা কাটা হলো, কিন্তু workspace pro তে উঠল না — charge এর ঠিক পরে billing service restart হয়েছিল। Support ticket: "টাকা নিলেন, কিছুই পেলাম না।" একজন engineer হাতে refund করল।
 
-Team এ দুটো প্রস্তাব। একজন, যার DBA এর অভিজ্ঞতা আছে: "Postgres এ two-phase commit আছে — `PREPARE TRANSACTION`। দুটো database কে এক transaction এ বাঁধি, সমস্যা শেষ।" আরেকজন: "Microservices এ এর উত্তর saga — প্রতিটা ধাপ আলাদা commit, ব্যর্থ হলে উল্টো কাজ।" CTO: "দুটোই মাপো — 9.1 এর সেই একই ৩০০০টা operation, সেই একই ৮৩টা crash দিয়ে।"
+Team এ দুটো প্রস্তাব। একজন, যার DBA এর অভিজ্ঞতা আছে: "Postgres এ two-phase commit আছে — `PREPARE TRANSACTION`। দুটো database কে এক transaction এ বাঁধি, সমস্যা শেষ।" আরেকজন: "Microservices এ এর উত্তর saga — প্রতিটা ধাপ আলাদা commit, ব্যর্থ হলে উল্টো কাজ।" CTO: "দুটোই মাপুন — 9.1 এর সেই একই ৩০০০টা operation, সেই একই ৮৩টা crash দিয়ে।"
 
 ---
 
@@ -32,7 +32,7 @@ Team এ দুটো প্রস্তাব। একজন, যার DBA �
 
 ### ১.১ কী চাই, আর কেন সেটা সহজ না
 
-Lesson 9.1 এর ফল মনে করো: ৩০০০টা "task তৈরি", ৮৩টায় প্রথম লেখার পরে crash। এক database এ একটা transaction — অমিল ০। দুটো database এ দুটো লেখা — ৮৩টা অমিল, আর কোন দিকে সেটা লেখার ক্রম ঠিক করে।
+Lesson 9.1 এর ফল মনে করুন: ৩০০০টা "task তৈরি", ৮৩টায় প্রথম লেখার পরে crash। এক database এ একটা transaction — অমিল ০। দুটো database এ দুটো লেখা — ৮৩টা অমিল, আর কোন দিকে সেটা লেখার ক্রম ঠিক করে।
 
 আমরা চাই Lesson 5.5 এর **atomicity** — দুটো লেখা হয় দুটোই হবে, নয়তো কোনোটাই না — কিন্তু এমন দুটো database এ, যাদের প্রতিটা শুধু **নিজের** অংশ commit করতে পারে। কঠিন কেন? Lesson 6.1 এর দুটো সত্য: যে কেউ যেকোনো মুহূর্তে মরতে পারে, আর network এর ওপারে কী ঘটল সেটা নিশ্চিত জানার উপায় নেই (timeout মানে "জানি না", "হয়নি" না)।
 
@@ -94,7 +94,7 @@ Exercise এর `npm run twopc`, অংশ ক — 9.1 এর একই ৩০�
 ```
 
 - **2PC এ অমিল ০।** Coordinator PREPARE এর আগে মরলে তার connection কেটে যায়, আর দুটো database নিজে থেকেই তাদের অর্ধেক কাজ rollback করে — monolith এর মতোই। DBA ঠিক বলেছিল: 2PC সত্যিই atomic।
-- **দাম:** monolith এর ২৭৭৫ এর জায়গায় ১০২৭ ops/s, p50 ২.৩ থেকে ৭.১ ms — দুটো আলাদা লেখার চেয়েও ধীর। কারণ গুনে দেখো: coordinator এর দিক থেকে ৬–৭টা ধারাবাহিক round trip, আর **পাঁচটা** লেখা যেগুলো disk এ পাকা হওয়ার অপেক্ষা করে (দুটো PREPARE, log, দুটো COMMIT PREPARED) — monolith এ একটা। আর পুরো সময়টা দুটো database এর row এর lock ধরা থাকে — সবচেয়ে ধীর participant এর গতিতে। (সময়ের সংখ্যা run ভেদে ওঠানামা করে — monolith কয়েক run এ ১৯৭৩–৩৬৬৬ ops/s; 2PC সবসময় সবার নিচে।)
+- **দাম:** monolith এর ২৭৭৫ এর জায়গায় ১০২৭ ops/s, p50 ২.৩ থেকে ৭.১ ms — দুটো আলাদা লেখার চেয়েও ধীর। কারণ গুনে দেখুন: coordinator এর দিক থেকে ৬–৭টা ধারাবাহিক round trip, আর **পাঁচটা** লেখা যেগুলো disk এ পাকা হওয়ার অপেক্ষা করে (দুটো PREPARE, log, দুটো COMMIT PREPARED) — monolith এ একটা। আর পুরো সময়টা দুটো database এর row এর lock ধরা থাকে — সবচেয়ে ধীর participant এর গতিতে। (সময়ের সংখ্যা run ভেদে ওঠানামা করে — monolith কয়েক run এ ১৯৭৩–৩৬৬৬ ops/s; 2PC সবসময় সবার নিচে।)
 
 দাম দেওয়া যেত। আসল সমস্যা অন্য জায়গায়।
 
@@ -140,10 +140,10 @@ Coordinator যদি মরে **PREPARE এর পরে, COMMIT এর আগ
 
 - **Blocking** — এইমাত্র দেখলে। আর Postgres এর documentation এর সতর্কবাণী: prepared transaction দীর্ঘ সময় পড়ে থাকলে VACUUM পুরনো row পরিষ্কার করতে পারে না, আর চরম ক্ষেত্রে database নিজেকে বন্ধ করে দেয় (transaction ID wraparound থেকে বাঁচতে)।
 - **সবাইকে একসাথে জীবিত থাকতে হয়** — Lesson 9.1 এর availability এর গুণ, এবার প্রতিটা লেখায়।
-- **বাইরের system গুলো PREPARE বোঝে না।** ঘটনা ৩ এর Stripe এর charge, একটা email, অন্য কোম্পানির API — কোনোটাকে "প্রস্তুত হও, পরে বলব" বলা যায় না। Redis, বেশিরভাগ message broker, অনেক managed database এও XA নেই।
+- **বাইরের system গুলো PREPARE বোঝে না।** ঘটনা ৩ এর Stripe এর charge, একটা email, অন্য কোম্পানির API — কোনোটাকে "প্রস্তুত হোন, পরে বলব" বলা যায় না। Redis, বেশিরভাগ message broker, অনেক managed database এও XA নেই।
 - **Lock সীমানা পার হয়।** Work service এর coordinator billing এর row এর lock ধরে রাখে — 9.1 এ ঠিক যে জড়ানো থেকে বাঁচতে service আলাদা করা হচ্ছিল।
 
-নিয়ম: 2PC যদি একটা database এর **ভেতরে** পাও (নিজের replicated coordinator সহ) — ব্যবহার করো, তুমি টেরও পাবে না। নিজের service গুলোর মাঝে নিজে বানিয়ো না।
+নিয়ম: 2PC যদি একটা database এর **ভেতরে** পান (নিজের replicated coordinator সহ) — ব্যবহার করুন, আপনি টেরও পাবেন না। নিজের service গুলোর মাঝে নিজে বানাবেন না।
 
 ### ১.৪ Saga — ছোট ছোট commit, আর উল্টো কাজ
 
@@ -184,7 +184,7 @@ Compensation এর তিনটা সূক্ষ্মতা:
 
 - **উল্টো কাজ ≠ undo।** Refund এ card এর fee ফেরত আসে না; পাঠানো email ফেরানো যায় না — তাই email সবসময় শেষে (pivot এর পরে)।
 - **Compensation নিজেও ব্যর্থ হতে পারে** — billing তখন বন্ধ। তাই retry, idempotent, আর বারবার ব্যর্থ হলে শেষে মানুষের হাতে (Lesson 7.4 এর DLQ)।
-- **Compensation ব্যবসার কারণে "না" বলতে পারবে না** — এমনভাবে design করো। "Release" কখনো "না" বলে না; "refund" এর ও বলা উচিত না।
+- **Compensation ব্যবসার কারণে "না" বলতে পারবে না** — এমনভাবে design করুন। "Release" কখনো "না" বলে না; "refund" এর ও বলা উচিত না।
 
 ### ১.৫ Saga কে crash থেকে বাঁচানো — log, recovery, idempotency
 
@@ -239,8 +239,8 @@ await c.query('INSERT INTO reservations (saga_id, workspace_id, status) VALUES (
 
 - **আগে log, তারপর কাজ।** Saga শুরুর আগে `started`; উল্টো কাজের আগে `compensating`। তাহলে যেকোনো মুহূর্তে মরলেও recovery জানে কোথা থেকে ধরতে হবে।
 - **নিজের ধাপ আর log একই local transaction এ।** Work এর ধাপ (task তৈরি) আর `state = 'done'` এক transaction এ — কারণ দুটোই work এর database এ। অন্য service এর ধাপ আর নিজের log এক transaction এ হতে পারে না — সেজন্যই idempotency আর recovery।
-- **Recovery = pivot এর আগে হলে এগোও বা ফেরাও, পরে হলে শুধু এগোও।** Exercise এর `recover()` প্রতিটা অসমাপ্ত saga কে একই `advance()` দিয়ে চালায় — নতুন saga আর recovery একই code।
-- **অন্য service কে বার্তা:** এখানে সরাসরি call। Event দিয়ে করলে Lesson 7.5 এর outbox — "billing কে সংরক্ষণ করতে বলো" এর বার্তাটা saga এর log এর সাথে একই transaction এ, relay পরে পাঠায়, at-least-once — তাই গ্রাহকের দিকে আবার idempotency।
+- **Recovery = pivot এর আগে হলে এগোন বা ফেরান, পরে হলে শুধু এগোন।** Exercise এর `recover()` প্রতিটা অসমাপ্ত saga কে একই `advance()` দিয়ে চালায় — নতুন saga আর recovery একই code।
+- **অন্য service কে বার্তা:** এখানে সরাসরি call। Event দিয়ে করলে Lesson 7.5 এর outbox — "billing কে সংরক্ষণ করতে বলুন" এর বার্তাটা saga এর log এর সাথে একই transaction এ, relay পরে পাঠায়, at-least-once — তাই গ্রাহকের দিকে আবার idempotency।
 
 **দাম:** saga এর ops/s ৯৬৬, দুটো আলাদা লেখার ১৯৭৯ এর অর্ধেক — log এর লেখা, খাতার লেখা, আরও round trip। Idempotency ও বিনামূল্যে না: idempotent না রূপটা (৯৯২) সামান্য দ্রুত। আর `twopc` এর 2PC (১০২৭) এর চেয়েও দ্রুত না — যদিও দুটো আলাদা script, আলাদা কাজ (saga তে সীমা দেখা আর archived দেখা আছে), তাই সরাসরি তুলনা করা যায় না। Saga এর লাভ **গতি না**। লাভ হলো: কেউ কারো lock ধরে অপেক্ষা করে না। Billing এক ঘণ্টা বন্ধ থাকলে work এর কোনো row আটকে থাকে না — saga গুলো তাদের log এ জমে থাকে, billing ফিরলে এগোয়।
 
@@ -257,7 +257,7 @@ await c.query('INSERT INTO reservations (saga_id, workspace_id, status) VALUES (
    "reserve" │      │ "release"                    │                         │
           ▼         ▼                              └─────────────────────────┘
        billing    work (নিজের ধাপ)               work ──task.failed──► billing (release)
-   saga কোথায়? — একটা table এ দেখো               saga কোথায়? — সব service এর log জোড়া দিয়ে বোঝো
+   saga কোথায়? — একটা table এ দেখুন               saga কোথায়? — সব service এর log জোড়া দিয়ে বুঝুন
 ```
 
 |                | Orchestration                                          | Choreography                                                           |
@@ -269,7 +269,7 @@ await c.query('INSERT INTO reservations (saga_id, workspace_id, status) VALUES (
 | ঝুঁকি          | Orchestrator এ ব্যবসার নিয়ম জমা ("smart pipe", 9.2)   | নতুন ধাপ যোগ করলে কেউ ভুলে যায় কোন event এ compensation লাগবে         |
 | কখন            | ৩+ ধাপ, compensation, timeout, "কোথায় আটকে" এর প্রশ্ন | ২–৩ ধাপ, একমুখী, compensation প্রায় নেই                               |
 
-বাস্তবে বড় orchestration এর জন্য তৈরি tool আছে — **durable workflow engine** (Temporal, AWS Step Functions, Camunda): তুমি saga টা সাধারণ code এর মতো লেখো, আর engine প্রতিটা ধাপের log রাখে, crash এর পরে ঠিক সেখান থেকে চালায়, retry আর timeout সামলায়। Exercise এর `sagas` table আর `recover()` তার খুব ছোট একটা রূপ।
+বাস্তবে বড় orchestration এর জন্য তৈরি tool আছে — **durable workflow engine** (Temporal, AWS Step Functions, Camunda): আপনি saga টা সাধারণ code এর মতো লিখুন, আর engine প্রতিটা ধাপের log রাখে, crash এর পরে ঠিক সেখান থেকে চালায়, retry আর timeout সামলায়। Exercise এর `sagas` table আর `recover()` তার খুব ছোট একটা রূপ।
 
 ### ১.৭ Saga এর ফাঁক — isolation নেই
 
@@ -287,18 +287,18 @@ Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এ�
 
 **Semantic Lock** — saga এর মাঝপথের অবস্থাটা data তে একটা স্পষ্ট চিহ্ন হিসেবে রাখা (`pending`, `reserved`), যাতে অন্য transaction জানে এটা এখনো পাকা না আর সেই অনুযায়ী আচরণ করে — অপেক্ষা করে, "একটু পরে" বলে, বা হিসাবে ধরে। Database এর lock না — ব্যবসার নিয়মের lock।
 
-আমাদের `reservations` খাতা ঠিক এটাই। আরও ভালো রূপ (README এর experiment ৫): খাতায় `reserved` (pending) আর `confirmed` আলাদা — সীমা ভরা কিন্তু কোনোটা pending থাকলে "সীমা শেষ" না বলে "একটু পরে আবার চেষ্টা করো"। Chris Richardson এর "Microservices Patterns" বইয়ে (1998 এর Lars Frank আর Torben Zahle এর একটা paper থেকে) আরও কয়েকটা উপায়ের তালিকা আছে — যেমন **commutative update** (+১ আর −১ যেকোনো ক্রমে একই ফল, তাই ক্রম নিয়ে চিন্তা নেই), আর **reread value** (শেষ ধাপের আগে আবার পড়ে দেখা কিছু বদলেছে কিনা — Lesson 5.5 এর optimistic lock)।
+আমাদের `reservations` খাতা ঠিক এটাই। আরও ভালো রূপ (README এর experiment ৫): খাতায় `reserved` (pending) আর `confirmed` আলাদা — সীমা ভরা কিন্তু কোনোটা pending থাকলে "সীমা শেষ" না বলে "একটু পরে আবার চেষ্টা করুন"। Chris Richardson এর "Microservices Patterns" বইয়ে (1998 এর Lars Frank আর Torben Zahle এর একটা paper থেকে) আরও কয়েকটা উপায়ের তালিকা আছে — যেমন **commutative update** (+১ আর −১ যেকোনো ক্রমে একই ফল, তাই ক্রম নিয়ে চিন্তা নেই), আর **reread value** (শেষ ধাপের আগে আবার পড়ে দেখা কিছু বদলেছে কিনা — Lesson 5.5 এর optimistic lock)।
 
-বাস্তবের সবচেয়ে পরিচিত semantic lock: **card এর authorization hold**। Hotel check-in এর সময় তোমার card এ টাকা "ধরে রাখে" (authorize) — কাটে না; check-out এ আসল অঙ্কটা কাটে (capture), বাকিটা ছেড়ে দেয় (void)। মাঝের সময়টা তোমার ব্যাংকের কাছে "pending" — আর সেটা অন্য খরচের সীমা কমিয়ে দেয়, ঠিক আমাদের সংরক্ষণের মতো। আর hold এর একটা মেয়াদ আছে — ধরে রাখা জিনিস চিরকাল ধরে রাখা যায় না।
+বাস্তবের সবচেয়ে পরিচিত semantic lock: **card এর authorization hold**। Hotel check-in এর সময় আপনার card এ টাকা "ধরে রাখে" (authorize) — কাটে না; check-out এ আসল অঙ্কটা কাটে (capture), বাকিটা ছেড়ে দেয় (void)। মাঝের সময়টা আপনার ব্যাংকের কাছে "pending" — আর সেটা অন্য খরচের সীমা কমিয়ে দেয়, ঠিক আমাদের সংরক্ষণের মতো। আর hold এর একটা মেয়াদ আছে — ধরে রাখা জিনিস চিরকাল ধরে রাখা যায় না।
 
-কোন ভুলটা সহ্য করবে — সেটা engineering এর না, **ব্যবসার** সিদ্ধান্ত। TaskFlow এর free plan এ সীমা ২টা পেরোনো হয়তো কেউ খেয়ালও করবে না (অনেক SaaS এর সীমা ইচ্ছা করেই "নরম"); ব্যাংকের account এ overdraft কখনো চলবে না।
+কোন ভুলটা সহ্য করবেন — সেটা engineering এর না, **ব্যবসার** সিদ্ধান্ত। TaskFlow এর free plan এ সীমা ২টা পেরোনো হয়তো কেউ খেয়ালও করবে না (অনেক SaaS এর সীমা ইচ্ছা করেই "নরম"); ব্যাংকের account এ overdraft কখনো চলবে না।
 
 ### ১.৮ TaskFlow এর সিদ্ধান্ত
 
 - **2PC না।** Service গুলোর মাঝে blocking, Stripe ঢোকানো যায় না, আর billing এর lock work এর হাতে। (TaskFlow কখনো distributed database এ গেলে, তার ভেতরের 2PC আমাদের চোখের আড়ালে কাজ করবে — সেটা আলাদা কথা।)
 - **Billing বের হবে** — নিজের database, নিজের deploy (audit এর শর্ত)।
 - **"Task তৈরি" = orchestrated saga**, orchestrator work service এ: billing এ সংরক্ষণ (saga id ধরে idempotent) → task তৈরি (সাথে `done`, একই transaction এ) → archived হলে release। `sagas` table work এর database এ; একটা recovery job প্রতি কয়েক সেকেন্ডে ৩০ s এর বেশি পুরনো অসমাপ্ত saga গুলো এগোয়; compensation বারবার ব্যর্থ হলে alert আর মানুষের queue। Billing এর call synchronous (user অপেক্ষা করছে — 9.2 এর নিয়ম), timeout সহ; timeout এ user কে error — আর user এর request এর Idempotency-Key ই saga এর id, তাই "আবার চেষ্টা" নতুন saga বানায় না, পুরনোটার ফল দেখায় (9.1 এর duplicate এর সমাধান)।
-- **সীমা:** আগে সংরক্ষণ (semantic lock) — কখনো পেরোবে না; pending থাকলে "একটু পরে আবার চেষ্টা করো", পুরো ভরা হলে "সীমা শেষ"।
+- **সীমা:** আগে সংরক্ষণ (semantic lock) — কখনো পেরোবে না; pending থাকলে "একটু পরে আবার চেষ্টা করুন", পুরো ভরা হলে "সীমা শেষ"।
 - **Plan upgrade = saga with pivot:** pending subscription → Stripe charge (Idempotency-Key = saga id, তাই retry তে দুবার কাটে না) → active → plan বাড়ানো → রসিদ। Pivot এর পরের ধাপ গুলো শুধু retry। ঘটনা ৩ আর হবে না — recovery নিজেই শেষ করবে। ধাপ বাড়লে একটা durable workflow engine (যেমন Temporal) বিবেচনা।
 - **মাসের বিলের জন্য usage গোনা** (কত task, কত storage) — saga লাগে না: এখানে কেউ "না" বলে না, তাই outbox → event (Lesson 7.5) যথেষ্ট, eventual।
 - **রাতে একটা reconcile job** (9.1 এর experiment ৫): work এর task গোনা বনাম billing এর counter — অমিল হলে alert। কারণ saga ঠিক থাকলেও code এ bug থাকবে।
@@ -317,9 +317,9 @@ Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এ�
 
 ## ২. Interview Angle
 
-**যেকোনো "টাকা আর জিনিস" এর design প্রশ্নে** (e-commerce checkout, hotel বা flight booking, Uber এর ride, payment system — Lesson 11.7) একটা মুহূর্ত আসে: order, inventory, payment আলাদা service — "কীভাবে নিশ্চিত করবে সব একসাথে হয়?" দুর্বল উত্তর: "distributed transaction দিয়ে" বা "2PC"। ভালো উত্তর: একটা saga — ধাপ গুলোর ক্রম, প্রতিটার compensation, কোনটা pivot (প্রায় সবসময় payment), প্রতিটা ধাপ idempotency key সহ (Stripe এর মতো API এর নিজের idempotency key ও), orchestration কেন, আর isolation এর সমস্যা — শেষ জিনিসটা দুজন একসাথে কিনলে কী হয় (inventory reservation = semantic lock, মেয়াদ সহ)।
+**যেকোনো "টাকা আর জিনিস" এর design প্রশ্নে** (e-commerce checkout, hotel বা flight booking, Uber এর ride, payment system — Lesson 11.7) একটা মুহূর্ত আসে: order, inventory, payment আলাদা service — "কীভাবে নিশ্চিত করবেন সব একসাথে হয়?" দুর্বল উত্তর: "distributed transaction দিয়ে" বা "2PC"। ভালো উত্তর: একটা saga — ধাপ গুলোর ক্রম, প্রতিটার compensation, কোনটা pivot (প্রায় সবসময় payment), প্রতিটা ধাপ idempotency key সহ (Stripe এর মতো API এর নিজের idempotency key ও), orchestration কেন, আর isolation এর সমস্যা — শেষ জিনিসটা দুজন একসাথে কিনলে কী হয় (inventory reservation = semantic lock, মেয়াদ সহ)।
 
-**"2PC কেন ব্যবহার করবে না?"** — Blocking (coordinator PREPARE এর পরে মরলে participant lock ধরে অপেক্ষা করে — নিজে সিদ্ধান্ত নিলে অমিল), coordinator একা (Raft এর মতো majority না), সবাইকে একসাথে জীবিত থাকতে হয় (availability এর গুণ), আর বাইরের API গুলো এতে ঢোকে না। বোনাস: Spanner/CockroachDB 2PC ব্যবহার করে — কারণ তাদের coordinator নিজেই consensus দিয়ে replicated।
+**"2PC কেন ব্যবহার করবেন না?"** — Blocking (coordinator PREPARE এর পরে মরলে participant lock ধরে অপেক্ষা করে — নিজে সিদ্ধান্ত নিলে অমিল), coordinator একা (Raft এর মতো majority না), সবাইকে একসাথে জীবিত থাকতে হয় (availability এর গুণ), আর বাইরের API গুলো এতে ঢোকে না। বোনাস: Spanner/CockroachDB 2PC ব্যবহার করে — কারণ তাদের coordinator নিজেই consensus দিয়ে replicated।
 
 **"Compensation ব্যর্থ হলে?"** — Retry (idempotent বলে নিরাপদ), backoff, বারবার ব্যর্থ হলে DLQ আর মানুষ (7.4); আর আগে থেকেই compensation এমনভাবে design করা যাতে ব্যবসার কারণে "না" বলতে না পারে।
 
@@ -335,7 +335,7 @@ Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এ�
 - **Saga**: ধাপের ক্রম — "না" বলতে পারা আর সস্তায় ফেরানো যায় এমন ধাপ আগে, **pivot** এর পরে শুধু retry করা যায় এমন ধাপ; **compensation** নতুন একটা লেখা, undo না — আর নিজেও retry আর idempotency চায়
 - Saga নিজে crash থেকে বাঁচায় না — **log** (আগে log, তারপর কাজ) আর **recovery** বাঁচায়: crash এর পরে ৮৩টা অমিল, recovery এর পরে ০। ধাপ **idempotent** না হলে recovery নিজেই ৮৩টা বাড়তি বিল বানায়
 - **Orchestration** (flow এক জায়গায়, saga কোথায় একটা query) বনাম **choreography** (কেন্দ্র নেই, ছোট একমুখী flow এ চলে); বড় হলে durable workflow engine (Temporal, Step Functions)
-- Saga এ **isolation নেই** — সীমার কাছে "আগে দেখা" তে ৪২টা workspace সীমা পেরোয়; **semantic lock** (আগে সংরক্ষণ) এ কখনো পেরোয় না কিন্তু ২৫টা ভুল "না"। কোন ভুল সহ্য করবে — ব্যবসার সিদ্ধান্ত
+- Saga এ **isolation নেই** — সীমার কাছে "আগে দেখা" তে ৪২টা workspace সীমা পেরোয়; **semantic lock** (আগে সংরক্ষণ) এ কখনো পেরোয় না কিন্তু ২৫টা ভুল "না"। কোন ভুল সহ্য করবেন — ব্যবসার সিদ্ধান্ত
 
 ---
 
@@ -355,11 +355,11 @@ Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এ�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. একটা online দোকানের checkout: order service (order তৈরি), inventory service (জিনিস সংরক্ষণ), payment (Stripe এ charge), shipping service (courier এর label বানানো — বাইরের API), আর notification (confirmation email)। (ক) Saga এর ধাপ গুলো কোন ক্রমে সাজাবে, আর কেন? কোনটা pivot? (খ) প্রতিটা ধাপের compensation কী — কোনগুলোর নেই, আর কেন তাতে সমস্যা নেই? (গ) দোকানে একটা জিনিসের শেষ পিসটা — দুজন একসাথে checkout করছে। কী ঘটে, আর inventory এর সংরক্ষণ কীভাবে design করবে যাতে একটা ব্যর্থ checkout জিনিসটা চিরকাল আটকে না রাখে?
-2. DBA এর নতুন প্রস্তাব: "2PC ই রাখি — `lock_timeout` 200 ms দিলে তো আর কেউ আটকায় না, exercise এই দেখিয়েছে।" Exercise এর সংখ্যা দিয়ে বলো: `lock_timeout` কোন সমস্যাটা সারায় আর কোনটা সারায় না? In-doubt transaction গুলো নিজেরা কতক্ষণ পড়ে থাকে, আর সেই সময় Postgres এর ভেতরে আর কী ক্ষতি হয়? Coordinator এর process টা এমন একটা machine এ চলছিল যেটা আর কখনো ফিরবে না — তখন কী করবে?
-3. আরেকটা team "task তৈরি" এর saga টা choreography দিয়ে বানাল: work ছাড়ে `task.requested` → billing সংরক্ষণ করে `quota.reserved` বা `quota.rejected` ছাড়ে → work task বানিয়ে `task.created` ছাড়ে, বা archived হলে `task.failed` → billing `task.failed` শুনে release করে। (ক) Saga এর অবস্থা এখন কোথায় থাকে? একজন user জিজ্ঞেস করল "আমার task কেন দেখাচ্ছে না?" — উত্তর খুঁজতে কী কী দেখতে হবে? (খ) Billing এক ঘণ্টা বন্ধ — কী হয়, আর user কী দেখে? (গ) পরের মাসে একটা তৃতীয় ধাপ যোগ হলো: "search index এ task যোগ করো" (search service, `task.created` শুনে)। এটা কি saga এর অংশ? এর compensation লাগবে কি? Orchestration এর সাথে তুলনা করো।
+1. একটা online দোকানের checkout: order service (order তৈরি), inventory service (জিনিস সংরক্ষণ), payment (Stripe এ charge), shipping service (courier এর label বানানো — বাইরের API), আর notification (confirmation email)। (ক) Saga এর ধাপ গুলো কোন ক্রমে সাজাবেন, আর কেন? কোনটা pivot? (খ) প্রতিটা ধাপের compensation কী — কোনগুলোর নেই, আর কেন তাতে সমস্যা নেই? (গ) দোকানে একটা জিনিসের শেষ পিসটা — দুজন একসাথে checkout করছে। কী ঘটে, আর inventory এর সংরক্ষণ কীভাবে design করবেন যাতে একটা ব্যর্থ checkout জিনিসটা চিরকাল আটকে না রাখে?
+2. DBA এর নতুন প্রস্তাব: "2PC ই রাখি — `lock_timeout` 200 ms দিলে তো আর কেউ আটকায় না, exercise এই দেখিয়েছে।" Exercise এর সংখ্যা দিয়ে বলুন: `lock_timeout` কোন সমস্যাটা সারায় আর কোনটা সারায় না? In-doubt transaction গুলো নিজেরা কতক্ষণ পড়ে থাকে, আর সেই সময় Postgres এর ভেতরে আর কী ক্ষতি হয়? Coordinator এর process টা এমন একটা machine এ চলছিল যেটা আর কখনো ফিরবে না — তখন কী করবেন?
+3. আরেকটা team "task তৈরি" এর saga টা choreography দিয়ে বানাল: work ছাড়ে `task.requested` → billing সংরক্ষণ করে `quota.reserved` বা `quota.rejected` ছাড়ে → work task বানিয়ে `task.created` ছাড়ে, বা archived হলে `task.failed` → billing `task.failed` শুনে release করে। (ক) Saga এর অবস্থা এখন কোথায় থাকে? একজন user জিজ্ঞেস করল "আমার task কেন দেখাচ্ছে না?" — উত্তর খুঁজতে কী কী দেখতে হবে? (খ) Billing এক ঘণ্টা বন্ধ — কী হয়, আর user কী দেখে? (গ) পরের মাসে একটা তৃতীয় ধাপ যোগ হলো: "search index এ task যোগ করুন" (search service, `task.created` শুনে)। এটা কি saga এর অংশ? এর compensation লাগবে কি? Orchestration এর সাথে তুলনা করুন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -373,7 +373,7 @@ Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এ�
 3. **Payment (Stripe charge)** — **pivot**: টাকা কাটা হলে ফেরানো মানে refund — দামি (fee), customer এর চোখে খারাপ, আর কয়েক দিন লাগে। Idempotency-Key = saga/order id, যাতে retry তে দুবার না কাটে। (অনেক দোকান এখানে authorize করে, আর ship হলে capture — pivot কে আরও পিছিয়ে দেওয়া।)
 4. **Order `confirmed`**, 5. **Shipping label**, 6. **Email** — সব pivot এর পরে, শুধু retry।
 
-(খ) Compensation: order → cancelled; inventory → release; payment → refund (শুধু যদি pivot এর পরে কিছু একদম অসম্ভব হয়ে যায় — যেমন জিনিসটা গুদামে ভাঙা পাওয়া গেল; তখন এটা আর saga এর স্বাভাবিক পথ না, একটা আলাদা ব্যবসার প্রক্রিয়া)। Shipping label আর email এর compensation নেই — এবং লাগে না, কারণ এরা pivot এর পরে: এরা কখনো "ফেরাও" এর অবস্থায় পড়ে না, শুধু "শেষ করো"। Label এর API ব্যর্থ হলে retry; এক দিন ধরে ব্যর্থ হলে মানুষ। এটাই ক্রম সাজানোর মূল যুক্তি — যেগুলো ফেরানো যায় না সেগুলো pivot এর পরে রাখো, যাতে ফেরানোর প্রশ্নই না ওঠে।
+(খ) Compensation: order → cancelled; inventory → release; payment → refund (শুধু যদি pivot এর পরে কিছু একদম অসম্ভব হয়ে যায় — যেমন জিনিসটা গুদামে ভাঙা পাওয়া গেল; তখন এটা আর saga এর স্বাভাবিক পথ না, একটা আলাদা ব্যবসার প্রক্রিয়া)। Shipping label আর email এর compensation নেই — এবং লাগে না, কারণ এরা pivot এর পরে: এরা কখনো "ফেরান" এর অবস্থায় পড়ে না, শুধু "শেষ করুন"। Label এর API ব্যর্থ হলে retry; এক দিন ধরে ব্যর্থ হলে মানুষ। এটাই ক্রম সাজানোর মূল যুক্তি — যেগুলো ফেরানো যায় না সেগুলো pivot এর পরে রাখুন, যাতে ফেরানোর প্রশ্নই না ওঠে।
 
 (গ) দুজন একসাথে: দুজনের saga ই ধাপ ২ এ পৌঁছায়। Inventory এর সংরক্ষণ যদি atomic শর্তে হয় (`UPDATE stock SET reserved = reserved + 1 WHERE available - reserved >= 1` — exercise এর `task_count < task_limit` এর মতো), একজন পায়, আরেকজন "stock নেই" — payment এর আগেই। দ্বিতীয়জনের card ছোঁয়া হয়নি। কিন্তু প্রথমজনের card declined হলে? সংরক্ষণ ফেরত যায় — আর দ্বিতীয়জন ততক্ষণে চলে গেছে (exercise এর "ভুল সীমা শেষ")। সেটা সহ্য করা যায়; উল্টোটা (দুজনের টাকা কাটা, এক পিস জিনিস) করা যায় না।
 
@@ -408,19 +408,19 @@ Lesson 5.5 এর ACID এর **I** — isolation: একটা transaction এ�
 
 `twopc` Postgres এর আসল `PREPARE TRANSACTION` দিয়ে দুটো database জুড়ে 2PC চালায় — 9.1 এর একই ৩০০০টা operation আর ৮৩টা crash — তারপর coordinator কে PREPARE এর পরে মেরে in-doubt transaction বানায়, তাদের lock এর উপর ৮ জন client চালায় (`lock_timeout` সহ ও ছাড়া), আর দেখায় coordinator এর log থেকে recovery বনাম একটা participant এর নিজে সিদ্ধান্ত। `saga` একটা orchestrated saga চালায় — billing এ সংরক্ষণ, task তৈরি, archived project এ compensation — crash, log থেকে recovery, idempotent আর idempotent না ধাপ সহ; আর সীমার কাছে একসাথে অনেক saga চালিয়ে "আগে সংরক্ষণ" বনাম "আগে দেখা" এর ভুল গোনে।
 
-**সৎ নোট:** Sandbox এ Node 26 আর Docker এর Postgres 17 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` আর ESLint clean; `twopc` আর `saga` পাঁচবার করে — গোনার কলাম (সফল, অমিল, অসমাপ্ত, আটকে থাকা client, সীমা পেরোনো) হুবহু একই; সময় অনেক ওঠানামা করে (monolith ১৯৭৩–৩৬৬৬ ops/s, 2PC ১০২৭–১১৬৫, "সবাই আটকে গেল" ১৪৭–১৬১ ms); `saga` এর অংশ খ এর saga এর সারিতে "তৈরি" ৭৪–৭৮, "ফেরানো" আর ভুল "সীমা শেষ" ২২–২৬ (কোন দুটো চেষ্টা আগে সংরক্ষণ পায়, সেটা timing)। README এর experiment ১–৩ চালানো হয়েছে, সংখ্যা README তে; ৪ আর ৫ code বদলানোর কাজ — তোমার। দুটো "service" একই Postgres container এর দুটো database — আলাদা machine না, একই disk, network এর দেরি নেই; service এর code একই Node process এ function, network call (9.1, 9.2) এখানে মাপা হয়নি। `twopc` আর `saga` এর ops/s সরাসরি তুলনীয় না — কাজ আলাদা। "Crash" একটা ভান — 2PC তে connection কেটে দেওয়া (Postgres তখন আসল crash এর মতোই rollback করে), saga তে operation থেমে যাওয়া; কিন্তু prepared transaction আর তাদের lock আসল। ১.২ এর coordinator আর ১.৫ এর billing এর code exercise থেকে সংক্ষেপ; ১.৪ এর plan upgrade এর saga আর ১.৮ এর সিদ্ধান্ত একটা নকশা, চালানো না। Spanner, CockroachDB, Paxos Commit আর Richardson এর বইয়ের কথা তাদের প্রকাশিত লেখা থেকে — সংক্ষেপ।
+**সৎ নোট:** Sandbox এ Node 26 আর Docker এর Postgres 17 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` আর ESLint clean; `twopc` আর `saga` পাঁচবার করে — গোনার কলাম (সফল, অমিল, অসমাপ্ত, আটকে থাকা client, সীমা পেরোনো) হুবহু একই; সময় অনেক ওঠানামা করে (monolith ১৯৭৩–৩৬৬৬ ops/s, 2PC ১০২৭–১১৬৫, "সবাই আটকে গেল" ১৪৭–১৬১ ms); `saga` এর অংশ খ এর saga এর সারিতে "তৈরি" ৭৪–৭৮, "ফেরানো" আর ভুল "সীমা শেষ" ২২–২৬ (কোন দুটো চেষ্টা আগে সংরক্ষণ পায়, সেটা timing)। README এর experiment ১–৩ চালানো হয়েছে, সংখ্যা README তে; ৪ আর ৫ code বদলানোর কাজ — আপনার। দুটো "service" একই Postgres container এর দুটো database — আলাদা machine না, একই disk, network এর দেরি নেই; service এর code একই Node process এ function, network call (9.1, 9.2) এখানে মাপা হয়নি। `twopc` আর `saga` এর ops/s সরাসরি তুলনীয় না — কাজ আলাদা। "Crash" একটা ভান — 2PC তে connection কেটে দেওয়া (Postgres তখন আসল crash এর মতোই rollback করে), saga তে operation থেমে যাওয়া; কিন্তু prepared transaction আর তাদের lock আসল। ১.২ এর coordinator আর ১.৫ এর billing এর code exercise থেকে সংক্ষেপ; ১.৪ এর plan upgrade এর saga আর ১.৮ এর সিদ্ধান্ত একটা নকশা, চালানো না। Spanner, CockroachDB, Paxos Commit আর Richardson এর বইয়ের কথা তাদের প্রকাশিত লেখা থেকে — সংক্ষেপ।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `twopc` চালানোর **আগে** লিখে ফেলো — ১০০টা workspace এর ৫টা in doubt, ৮ জন client random workspace এ কাজ করছে, `lock_timeout` নেই। কতক্ষণে সবাই আটকাবে — এক সেকেন্ড? এক মিনিট? কখনো না? (ইঙ্গিত: একটা operation ~৫ ms, আর প্রতিটায় ৫% সম্ভাবনা।) তারপর মেলাও, আর experiment ১ (একটা মাত্র in doubt) এর জন্য আবার অনুমান করো।
+1. **আগে অনুমান:** `twopc` চালানোর **আগে** লিখে ফেলুন — ১০০টা workspace এর ৫টা in doubt, ৮ জন client random workspace এ কাজ করছে, `lock_timeout` নেই। কতক্ষণে সবাই আটকাবে — এক সেকেন্ড? এক মিনিট? কখনো না? (ইঙ্গিত: একটা operation ~৫ ms, আর প্রতিটায় ৫% সম্ভাবনা।) তারপর মেলান, আর experiment ১ (একটা মাত্র in doubt) এর জন্য আবার অনুমান করুন।
 
-2. **ধাপ গোনা:** `twopc.ts` এর `twoPhase()` পড়ে গুনে ফেলো — coordinator এর দিক থেকে কয়টা ধারাবাহিক round trip, আর কয়টা লেখা disk এ পাকা হওয়ার অপেক্ষা করে। Monolith এর সাথে তুলনা করো। তারপর experiment ২ (`CRASH_RATE=0`) চালিয়ে দেখো তোমার গোনা ops/s এর অনুপাতের সাথে কতটা মেলে — কোথায় মেলে না, কেন?
+2. **ধাপ গোনা:** `twopc.ts` এর `twoPhase()` পড়ে গুনে ফেলুন — coordinator এর দিক থেকে কয়টা ধারাবাহিক round trip, আর কয়টা লেখা disk এ পাকা হওয়ার অপেক্ষা করে। Monolith এর সাথে তুলনা করুন। তারপর experiment ২ (`CRASH_RATE=0`) চালিয়ে দেখুন আপনার গোনা ops/s এর অনুপাতের সাথে কতটা মেলে — কোথায় মেলে না, কেন?
 
-3. **Compensation এর মাঝে crash:** experiment ৪ — `advance()` এ `compensating` log এর পরে আর `release()` এর আগে crash যোগ করো। Recovery কী করে? তারপর `release()` কে idempotent না করে (শুধু `task_count - 1`) recovery দুবার চালাও (যেমন দুটো recovery process একসাথে — বাস্তবে এটা ঘটে)। কী ভাঙে, আর exercise এর idempotent রূপটা কীভাবে এটা আটকায়?
+3. **Compensation এর মাঝে crash:** experiment ৪ — `advance()` এ `compensating` log এর পরে আর `release()` এর আগে crash যোগ করুন। Recovery কী করে? তারপর `release()` কে idempotent না করে (শুধু `task_count - 1`) recovery দুবার চালান (যেমন দুটো recovery process একসাথে — বাস্তবে এটা ঘটে)। কী ভাঙে, আর exercise এর idempotent রূপটা কীভাবে এটা আটকায়?
 
-4. **ভুল "না" কমানো:** experiment ৫ — `reserved` আর `confirmed` আলাদা করো, pending থাকলে "একটু পরে", orchestrator ২০ ms পরে একবার আবার চেষ্টা করুক। ভুল "সীমা শেষ" কত হলো? p50 বা ops/s এ দাম কত? User এর চোখে "সীমা শেষ" আর "একটু পরে আবার চেষ্টা করো" এর পার্থক্য কী — কোনটা support ticket বানায়?
+4. **ভুল "না" কমানো:** experiment ৫ — `reserved` আর `confirmed` আলাদা করুন, pending থাকলে "একটু পরে", orchestrator ২০ ms পরে একবার আবার চেষ্টা করুক। ভুল "সীমা শেষ" কত হলো? p50 বা ops/s এ দাম কত? User এর চোখে "সীমা শেষ" আর "একটু পরে আবার চেষ্টা করুন" এর পার্থক্য কী — কোনটা support ticket বানায়?
 
-5. **Design অংশ:** TaskFlow এর plan upgrade এর saga এর এক পাতার design: (ক) ধাপ গুলো, প্রতিটার service, local transaction, আর compensation (বা "শুধু retry"); pivot চিহ্নিত করো; (খ) saga এর state machine (অবস্থা আর তীর), আর orchestrator এর `sagas` table এর column; (গ) প্রতিটা ধাপের idempotency key কী, আর Stripe এর call এ কোনটা; (ঘ) কোন অবস্থায় কত সময় আটকে থাকলে recovery কী করবে, আর কখন মানুষকে ডাকবে; (ঙ) দুজন admin একই workspace একসাথে upgrade করলে কী হয় — কোন semantic lock লাগবে।
+5. **Design অংশ:** TaskFlow এর plan upgrade এর saga এর এক পাতার design: (ক) ধাপ গুলো, প্রতিটার service, local transaction, আর compensation (বা "শুধু retry"); pivot চিহ্নিত করুন; (খ) saga এর state machine (অবস্থা আর তীর), আর orchestrator এর `sagas` table এর column; (গ) প্রতিটা ধাপের idempotency key কী, আর Stripe এর call এ কোনটা; (ঘ) কোন অবস্থায় কত সময় আটকে থাকলে recovery কী করবে, আর কখন মানুষকে ডাকবে; (ঙ) দুজন admin একই workspace একসাথে upgrade করলে কী হয় — কোন semantic lock লাগবে।
 
 ---
 
@@ -442,7 +442,7 @@ Modular Monolith, Bounded Context, Distributed Monolith, Strangler Fig, Request 
 Over-fetching, Backend for Frontend (BFF), API Gateway, Canary Routing, Edge Authentication,
 Service Mesh (mTLS), Two-Phase Commit (2PC), In-doubt Transaction, Saga, Compensating Transaction,
 Pivot Transaction, Orchestration / Choreography, Semantic Lock
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 9.4 — Service discovery, circuit breaker, bulkhead
 =======================
 ```
@@ -451,4 +451,4 @@ Next: 9.4 — Service discovery, circuit breaker, bulkhead
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ১ নম্বরের অনুমান আর ৫ নম্বরের design। রেডি হলে `next` লিখো — Lesson 9.4 এ যাব: **Service discovery, circuit breaker, আর bulkhead।** আজকের saga তে work service billing কে synchronous ডাকে, timeout সহ। কিন্তু billing এর তিনটা instance — work জানবে কীভাবে কোনটা কোথায়, আর কোনটা জীবিত (service discovery)? Billing ধীর হলে প্রতিটা "task তৈরি" timeout পর্যন্ত অপেক্ষা করে — হাজার request, হাজার অপেক্ষা; মরতে থাকা একটা service কে বারবার ডাকা বন্ধ করবে কীভাবে (circuit breaker)? আর billing এর ধীরতা যেন work এর সব connection আর সব worker খেয়ে না ফেলে — board খোলা যেন চলতে থাকে (bulkhead)? Lesson 9.1 এর "timeout + fallback" এর পরের ধাপ — মেপে।
+Exercise চালিয়ে পাঠান — বিশেষ করে ১ নম্বরের অনুমান আর ৫ নম্বরের design। রেডি হলে `next` লিখুন — Lesson 9.4 এ যাব: **Service discovery, circuit breaker, আর bulkhead।** আজকের saga তে work service billing কে synchronous ডাকে, timeout সহ। কিন্তু billing এর তিনটা instance — work জানবে কীভাবে কোনটা কোথায়, আর কোনটা জীবিত (service discovery)? Billing ধীর হলে প্রতিটা "task তৈরি" timeout পর্যন্ত অপেক্ষা করে — হাজার request, হাজার অপেক্ষা; মরতে থাকা একটা service কে বারবার ডাকা বন্ধ করবেন কীভাবে (circuit breaker)? আর billing এর ধীরতা যেন work এর সব connection আর সব worker খেয়ে না ফেলে — board খোলা যেন চলতে থাকে (bulkhead)? Lesson 9.1 এর "timeout + fallback" এর পরের ধাপ — মেপে।

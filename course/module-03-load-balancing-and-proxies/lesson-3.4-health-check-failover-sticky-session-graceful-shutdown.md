@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 3.1–3.3
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Passive vs Active health check এর পার্থক্য বুঝবে, এবং Nginx open-source এ কোনটা default এ পাওয়া যায় জানবে
-2. Failover কীভাবে কাজ করে (একটা backend fail করলে request কীভাবে অন্য backend এ যায়) — ব্যাখ্যা করতে পারবে
-3. Sticky Session এর বাস্তব সমস্যা (IP-based এর সীমাবদ্ধতা) এবং Graceful Shutdown কেন deployment এ গুরুত্বপূর্ণ — বুঝবে
+1. Passive vs Active health check এর পার্থক্য বুঝবেন, এবং Nginx open-source এ কোনটা default এ পাওয়া যায় জানবেন
+2. Failover কীভাবে কাজ করে (একটা backend fail করলে request কীভাবে অন্য backend এ যায়) — ব্যাখ্যা করতে পারবেন
+3. Sticky Session এর বাস্তব সমস্যা (IP-based এর সীমাবদ্ধতা) এবং Graceful Shutdown কেন deployment এ গুরুত্বপূর্ণ — বুঝবেন
 
 **Tier:** 3 — Design Exercise (Lesson 3.3 এর Docker setup extend করার একটা optional hands-on suggestion সহ)
 
@@ -18,7 +18,7 @@
 
 ## ০. TaskFlow এখন কোথায়
 
-Lesson 3.3 এর Experiment #৩ তে আমি তোমাকে বলেছিলাম — একটা backend container বন্ধ করে দেখো কী হয়। তুমি হয়তো লক্ষ্য করেছ (বা করবে) — Nginx **সম্পূর্ণ ignore করে না** ব্যাপারটা, কিন্তু প্রথম কিছু request fail ও হতে পারে। আজকের lesson ঠিক এই আচরণের ভেতরের mechanism ব্যাখ্যা করবে, এবং একটা honesty-check ও করব — Lesson 3.3 এর README এ আমি যা লিখেছিলাম, সেটা এখন আরেকটু precise করা দরকার।
+Lesson 3.3 এর Experiment #৩ তে আমি আপনাকে বলেছিলাম — একটা backend container বন্ধ করে দেখুন কী হয়। আপনি হয়তো লক্ষ্য করেছেন (বা করবেন) — Nginx **সম্পূর্ণ ignore করে না** ব্যাপারটা, কিন্তু প্রথম কিছু request fail ও হতে পারে। আজকের lesson ঠিক এই আচরণের ভেতরের mechanism ব্যাখ্যা করবে, এবং একটা honesty-check ও করব — Lesson 3.3 এর README এ আমি যা লিখেছিলাম, সেটা এখন আরেকটু precise করা দরকার।
 
 ---
 
@@ -52,7 +52,7 @@ Passive check এ সমস্যা হলো — সেই ব্যর্থ�
 
 ### ১.২ Failover — ব্যর্থ Request কে অন্য Server এ পাঠানো
 
-শুধু "server কে unavailable মার্ক করা" যথেষ্ট না — যে request টা fail হয়েছিল, সেটার কী হবে? এখানে আসে **Failover** — Nginx কে বলা যায় (`proxy_next_upstream` directive দিয়ে) যে, যদি একটা backend থেকে error আসে, সেই একই request টা **স্বয়ংক্রিয়ভাবে আরেকটা backend এ retry করো**, client কে error দেখানোর আগে:
+শুধু "server কে unavailable মার্ক করা" যথেষ্ট না — যে request টা fail হয়েছিল, সেটার কী হবে? এখানে আসে **Failover** — Nginx কে বলা যায় (`proxy_next_upstream` directive দিয়ে) যে, যদি একটা backend থেকে error আসে, সেই একই request টা **স্বয়ংক্রিয়ভাবে আরেকটা backend এ retry করুন**, client কে error দেখানোর আগে:
 
 ```
 Client request ──> Nginx ──> Backend 2 (down) ──> ERROR
@@ -66,18 +66,18 @@ Client শুধু SUCCESS response ই দেখে, কোনো error টে
 
 ### ১.৩ Sticky Session — IP Hash এর বাস্তব সমস্যা
 
-Lesson 3.2 তে আমরা IP Hash সম্পর্কে শিখেছিলাম, কিন্তু একটা বাস্তব সমস্যা তখন উল্লেখ করা হয়নি — **একই IP থেকে অনেক ভিন্ন ভিন্ন user আসতে পারে**। ভাবো — একটা office, বা একটা university campus, বা একটা mobile network (carrier-grade NAT) — এখানে শত শত ভিন্ন user একই public IP address শেয়ার করে! IP Hash ব্যবহার করলে, তাদের **সবাইকে একই backend server এ পাঠানো হবে**, যেটা:
+Lesson 3.2 তে আমরা IP Hash সম্পর্কে শিখেছিলাম, কিন্তু একটা বাস্তব সমস্যা তখন উল্লেখ করা হয়নি — **একই IP থেকে অনেক ভিন্ন ভিন্ন user আসতে পারে**। ভাবুন — একটা office, বা একটা university campus, বা একটা mobile network (carrier-grade NAT) — এখানে শত শত ভিন্ন user একই public IP address শেয়ার করে! IP Hash ব্যবহার করলে, তাদের **সবাইকে একই backend server এ পাঠানো হবে**, যেটা:
 
 1. Load distribution কে অন্যায্য করে তোলে (একটা server এ অস্বাভাবিক বেশি চাপ)
 2. যদি সেই একটা server down হয়, সেই পুরো office/campus এর সব user একসাথে প্রভাবিত হয়
 
 **একটা বেশি নির্ভরযোগ্য বিকল্প — Cookie-based Sticky Session।** এখানে LB প্রথমবার request handle করার পর, response এ একটা cookie সেট করে দেয় (যেমন, `X-Backend-Server: backend-2`)। পরের request এ client সেই cookie ফেরত পাঠায়, আর LB সেটা দেখে সরাসরি সেই backend এ পাঠায় — IP নির্বিশেষে, প্রতিটা individual browser/user স্বাধীনভাবে ট্র্যাক হয়।
 
-**কিন্তু মূল প্রশ্নটা থেকেই যায় — Lesson 1.6 এর পাঠ:** Sticky session (IP-based হোক বা cookie-based) — দুটোই আসলে **stateful architecture এর জন্য একটা workaround**, ideal সমাধান না। যদি TaskFlow এর server গুলো সত্যিকারের stateless হয় (session data Redis এ, file S3 এ), sticky session এর **কোনো প্রয়োজনই নেই** — এটা তোমার নিজের answer এ (Lesson 3.2 exercise) সঠিকভাবে বলেছিলে।
+**কিন্তু মূল প্রশ্নটা থেকেই যায় — Lesson 1.6 এর পাঠ:** Sticky session (IP-based হোক বা cookie-based) — দুটোই আসলে **stateful architecture এর জন্য একটা workaround**, ideal সমাধান না। যদি TaskFlow এর server গুলো সত্যিকারের stateless হয় (session data Redis এ, file S3 এ), sticky session এর **কোনো প্রয়োজনই নেই** — এটা আপনার নিজের answer এ (Lesson 3.2 exercise) সঠিকভাবে বলেছিলেন।
 
 ### ১.৪ Graceful Shutdown — একটা Server কে "নরমভাবে" বিদায় জানানো
 
-এখন একটা নতুন সমস্যা — ধরো, তুমি TaskFlow এর একটা backend এ নতুন code deploy করতে চাও। সহজ উপায় হলো সেই server টা বন্ধ করে দেওয়া, নতুন code দিয়ে আবার চালু করা। কিন্তু যদি সেই মুহূর্তে সেই server **কিছু request process করছিল** (মাঝপথে), তাহলে হঠাৎ বন্ধ করলে সেই request গুলো **অসম্পূর্ণ অবস্থায় ব্যর্থ হয়ে যাবে** — user রা error পাবে।
+এখন একটা নতুন সমস্যা — ধরুন, আপনি TaskFlow এর একটা backend এ নতুন code deploy করতে চান। সহজ উপায় হলো সেই server টা বন্ধ করে দেওয়া, নতুন code দিয়ে আবার চালু করা। কিন্তু যদি সেই মুহূর্তে সেই server **কিছু request process করছিল** (মাঝপথে), তাহলে হঠাৎ বন্ধ করলে সেই request গুলো **অসম্পূর্ণ অবস্থায় ব্যর্থ হয়ে যাবে** — user রা error পাবে।
 
 **Graceful Shutdown** এই সমস্যার সমাধান — এটা একটা তিন-ধাপের প্রক্রিয়া:
 
@@ -111,7 +111,7 @@ Node.js/Express এ practically এটা implement হয় SIGTERM signal han
 
 একটা common (Kubernetes-প্রভাবিত, কিন্তু general concept হিসেবেও গুরুত্বপূর্ণ) terminology distinction — **Liveness vs Readiness**। "Liveness check" জিজ্ঞেস করে "server টা কি বেঁচে আছে (crash করেনি)?", আর "Readiness check" জিজ্ঞেস করে "server টা কি **এই মুহূর্তে** নতুন traffic নেওয়ার জন্য প্রস্তুত?" (হয়তো এটা বেঁচে আছে, কিন্তু startup এ এখনও database connection সম্পূর্ণ হয়নি, বা graceful shutdown চলছে)। একটা ভালো `/health` endpoint এই দুটো প্রশ্নের আলাদা উত্তর দিতে পারা উচিত — শুধু "OK" বলে দেওয়া যথেষ্ট গভীর না production system এ।
 
-আরেকটা প্রশ্ন যেটা প্রায়ই আসে — "Zero-downtime deployment কীভাবে করবে?" এখানে Graceful Shutdown + Load Balancer এর draining ক্ষমতা একসাথে mention করা উচিত — নতুন version এর server চালু করা, LB কে ধীরে ধীরে নতুন version এ traffic পাঠাতে বলা, পুরনো version কে drain করে তারপর বন্ধ করা — এই পুরো pattern টাকে বলে **Rolling Deployment** (Module 10.6 এ বিস্তারিত)।
+আরেকটা প্রশ্ন যেটা প্রায়ই আসে — "Zero-downtime deployment কীভাবে করবেন?" এখানে Graceful Shutdown + Load Balancer এর draining ক্ষমতা একসাথে mention করা উচিত — নতুন version এর server চালু করা, LB কে ধীরে ধীরে নতুন version এ traffic পাঠাতে বলা, পুরনো version কে drain করে তারপর বন্ধ করা — এই পুরো pattern টাকে বলে **Rolling Deployment** (Module 10.6 এ বিস্তারিত)।
 
 ---
 
@@ -140,8 +140,8 @@ Node.js/Express এ practically এটা implement হয় SIGTERM signal han
 
 ## ৫. Reflection Questions
 
-1. তুমি যদি TaskFlow এ শুধু default (`max_fails=1`, `fail_timeout=10s`) passive health check রাখো, একটা backend crash করলে ঠিক কতজন user (roughly) সরাসরি error দেখতে পারে, এই default value গুলো অনুযায়ী?
-2. Graceful Shutdown ছাড়া (সরাসরি `docker stop` করলে) একটা backend এ চলমান একটা "Create Task" request এর কী হতে পারে? (Lesson 2.5 এর Idempotency Key এর সাথে এটা কীভাবে সম্পর্কিত ভাবো)
+1. আপনি যদি TaskFlow এ শুধু default (`max_fails=1`, `fail_timeout=10s`) passive health check রাখুন, একটা backend crash করলে ঠিক কতজন user (roughly) সরাসরি error দেখতে পারে, এই default value গুলো অনুযায়ী?
+2. Graceful Shutdown ছাড়া (সরাসরি `docker stop` করলে) একটা backend এ চলমান একটা "Create Task" request এর কী হতে পারে? (Lesson 2.5 এর Idempotency Key এর সাথে এটা কীভাবে সম্পর্কিত ভাবুন)
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -156,13 +156,13 @@ Node.js/Express এ practically এটা implement হয় SIGTERM signal han
 
 ## ৬. Practical Exercise
 
-**Tier 3 — Design Exercise** (Lesson 3.3 এর Docker setup থাকলে, নিচের অংশ হাতেকলমে extend করেও দেখতে পারো, কিন্তু বাধ্যতামূলক না)
+**Tier 3 — Design Exercise** (Lesson 3.3 এর Docker setup থাকলে, নিচের অংশ হাতেকলমে extend করেও দেখতে পারেন, কিন্তু বাধ্যতামূলক না)
 
-> নিচের প্রশ্নগুলোর উত্তর দাও:
+> নিচের প্রশ্নগুলোর উত্তর দিন:
 >
 > 1. Lesson 3.3 এর `nginx.conf` এ `max_fails=2` এবং `fail_timeout=5s` যোগ করলে (each `server` line এ) — এই পরিবর্তন backend crash হলে user experience কীভাবে বদলাবে, আগের default এর (`max_fails=1`, `fail_timeout=10s`) তুলনায়?
-> 2. TaskFlow এর "Create Task" এবং "Get Task List" — এই দুটো endpoint এর মধ্যে কোনটাতে `proxy_next_upstream` (failover) ব্যবহার করা তুলনামূলক বেশি নিরাপদ, আর কোনটাতে সাবধান হওয়া উচিত? (ইঙ্গিত: idempotency এবং GET vs POST এর পার্থক্য নিয়ে চিন্তা করো)
-> 3. একটা "planned maintenance" (তুমি জেনেশুনে একটা backend বন্ধ করবে, deploy করার জন্য) বনাম একটা "unexpected crash" — এই দুই ক্ষেত্রে graceful shutdown এর ভূমিকা কি একই, নাকি ভিন্ন? ব্যাখ্যা করো।
+> 2. TaskFlow এর "Create Task" এবং "Get Task List" — এই দুটো endpoint এর মধ্যে কোনটাতে `proxy_next_upstream` (failover) ব্যবহার করা তুলনামূলক বেশি নিরাপদ, আর কোনটাতে সাবধান হওয়া উচিত? (ইঙ্গিত: idempotency এবং GET vs POST এর পার্থক্য নিয়ে চিন্তা করুন)
+> 3. একটা "planned maintenance" (আপনি জেনেশুনে একটা backend বন্ধ করবেন, deploy করার জন্য) বনাম একটা "unexpected crash" — এই দুই ক্ষেত্রে graceful shutdown এর ভূমিকা কি একই, নাকি ভিন্ন? ব্যাখ্যা করুন।
 
 ---
 
@@ -189,4 +189,4 @@ Next: Module 3 Exit Challenge, তারপর Module 4 — Caching
 
 ## ৮. পরের ধাপ
 
-Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — **Module 3 Exit Challenge** এ যাব, যেখানে Load Balancer, L4/L7, algorithm, proxy, health check — এই পুরো module এর concept একসাথে একটা integrative challenge এ প্রয়োগ করব।
+Exercise টা করে পাঠান। রেডি হলে `next` লিখুন — **Module 3 Exit Challenge** এ যাব, যেখানে Load Balancer, L4/L7, algorithm, proxy, health check — এই পুরো module এর concept একসাথে একটা integrative challenge এ প্রয়োগ করব।

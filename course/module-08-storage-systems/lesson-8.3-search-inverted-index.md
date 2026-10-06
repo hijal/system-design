@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.3 (LSM-tree), Lesson 5.4 (B-tree, composite index), Lesson 5.8 (Sharding, scatter-gather), Lesson 6.3 (Read-your-writes), Lesson 7.4 (Idempotent consumer), Lesson 7.5 (Outbox, CDC), Lesson 8.2 (`attachment.uploaded` event)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. কেন `LIKE '%x%'` বড় table এ ধীর — আর কখন সেটা লুকিয়ে থাকে (`LIMIT` এর ফাঁদ) — মাপা সংখ্যা দিয়ে বলতে পারবে; trigram index কী সারায় আর কী সারায় না, বলতে পারবে
-2. একটা inverted index কীভাবে বানানো হয় (analyzer, posting list) আর খোঁজা হয় (posting list মেলানো, BM25 দিয়ে সাজানো) — whiteboard এ আঁকতে পারবে
-3. TaskFlow এর search এর জন্য Postgres এর full-text search আর একটা আলাদা search engine (Elasticsearch/OpenSearch) এর মধ্যে বাছতে পারবে — আর আলাদা engine হলে তাকে database এর সাথে sync রাখা, permission, আর "লিখলাম কিন্তু খুঁজে পাচ্ছি না" সামলানোর design করতে পারবে
+1. কেন `LIKE '%x%'` বড় table এ ধীর — আর কখন সেটা লুকিয়ে থাকে (`LIMIT` এর ফাঁদ) — মাপা সংখ্যা দিয়ে বলতে পারবেন; trigram index কী সারায় আর কী সারায় না, বলতে পারবেন
+2. একটা inverted index কীভাবে বানানো হয় (analyzer, posting list) আর খোঁজা হয় (posting list মেলানো, BM25 দিয়ে সাজানো) — whiteboard এ আঁকতে পারবেন
+3. TaskFlow এর search এর জন্য Postgres এর full-text search আর একটা আলাদা search engine (Elasticsearch/OpenSearch) এর মধ্যে বাছতে পারবেন — আর আলাদা engine হলে তাকে database এর সাথে sync রাখা, permission, আর "লিখলাম কিন্তু খুঁজে পাচ্ছি না" সামলানোর design করতে পারবেন
 
 **Tier:** 1 — Runnable Code (Docker এ Postgres, ১০ লাখ comment; আর memory তে একটা নিজের হাতে বানানো inverted index)
 
@@ -54,7 +54,7 @@ Exercise এর `npm run like`, ১০ লাখ comment, index ছাড়া:
    plan, all "deploy" (in 28% of rows): Aggregate ← Gather · 15,584 pages
 ```
 
-"গোনা" পুরো table পড়ে — ১৫,৫৮৪টা page, প্রতিটা row এর text এ অক্ষর ধরে খোঁজা। কিন্তু দেখো মাঝের সারি দুটো: "প্রথম ২০টা deploy" **০.৫ ms**। কারণ Postgres সামনে থেকে পড়া শুরু করে, আর "deploy" এত সাধারণ যে প্রথম কয়েকশো row এর মধ্যেই ২০টা পেয়ে থামে।
+"গোনা" পুরো table পড়ে — ১৫,৫৮৪টা page, প্রতিটা row এর text এ অক্ষর ধরে খোঁজা। কিন্তু দেখুন মাঝের সারি দুটো: "প্রথম ২০টা deploy" **০.৫ ms**। কারণ Postgres সামনে থেকে পড়া শুরু করে, আর "deploy" এত সাধারণ যে প্রথম কয়েকশো row এর মধ্যেই ২০টা পেয়ে থামে।
 
 এটাই ঘটনা ১ এর ফাঁদ। Engineer এর test এ সাধারণ শব্দ — দ্রুত। User এর আসল search এর বড় অংশ বিরল শব্দ, বা এমন কিছু যা নেই — ভুল বানান, মুছে ফেলা জিনিস। "কিছুই নেই" মানে ২০টা কখনো পাওয়া যায় না, তাই শেষ row পর্যন্ত — **৩৯৮ ms**, প্রতিবার। আর search-as-you-type এ "r", "re", "rec", "reci" … — প্রতিটা অক্ষর একটা পুরো table scan। আর Lesson 1.3 এর হিসাব: table দশ গুণ বাড়লে, এই সময়ও দশ গুণ।
 
@@ -86,9 +86,9 @@ Postgres এ এটা `pg_trgm` extension, একটা GIN index:
 
 - **বিরল শব্দ:** ৪০৯ ms থেকে ১৪ ms — index বলে দেয় কোন row গুলো দেখতে হবে, বাকি গুলো ছোঁয়াই হয় না।
 - **কিছুই নেই:** ৩৯৮ ms থেকে ০.৫ ms — "rec", "eci", "cie", "iev" একসাথে কোথাও নেই, index থেকেই জানা যায়। ঘটনা ১ এর সবচেয়ে বড় অংশ সারল।
-- **সাধারণ শব্দ গোনা:** planner তবু পুরো table পড়ে (`Gather`) — "deploy" ২৮% row এ, index থেকে ২ লাখ ৮০ হাজার row আলাদা আলাদা আনার চেয়ে সোজা পড়া সস্তা। (দুই section এর ৩৯০ বনাম ১৭৫ ms এর পার্থক্য index এর না — plan একই, পার্থক্য cache এর।) কোনো index "অর্ধেক table ফেরত দাও" কে দ্রুত করে না।
+- **সাধারণ শব্দ গোনা:** planner তবু পুরো table পড়ে (`Gather`) — "deploy" ২৮% row এ, index থেকে ২ লাখ ৮০ হাজার row আলাদা আলাদা আনার চেয়ে সোজা পড়া সস্তা। (দুই section এর ৩৯০ বনাম ১৭৫ ms এর পার্থক্য index এর না — plan একই, পার্থক্য cache এর।) কোনো index "অর্ধেক table ফেরত দিন" কে দ্রুত করে না।
 
-আর দাম — যেকোনো index এর মতোই (Lesson 5.4), আর এখানে বেশ ভারী: index ৮১ MB, table এর দুই-তৃতীয়াংশ; বানাতে ১২ সেকেন্ড; আর নিচে দেখবে, প্রতিটা নতুন comment লেখা ৪.৭ গুণ ধীর।
+আর দাম — যেকোনো index এর মতোই (Lesson 5.4), আর এখানে বেশ ভারী: index ৮১ MB, table এর দুই-তৃতীয়াংশ; বানাতে ১২ সেকেন্ড; আর নিচে দেখবেন, প্রতিটা নতুন comment লেখা ৪.৭ গুণ ধীর।
 
 Trigram এর আরেকটা শক্তি ঘটনা ৩ এর: ভুল বানান। দুটো শব্দের trigram কতটা মেলে, সেটা দিয়ে "কাছাকাছি" শব্দ খোঁজা যায়:
 
@@ -137,7 +137,7 @@ User যখন "art" লেখে, সে একটা **শব্দ** খু�
 
 ### ১.৪ Inverted Index — শব্দ থেকে document
 
-Analyzer এর পরে প্রতিটা document একটা term এর তালিকা। এবার সেটা উল্টে রাখো:
+Analyzer এর পরে প্রতিটা document একটা term এর তালিকা। এবার সেটা উল্টে রাখুন:
 
 **Inverted index** — প্রতিটা term থেকে সেই term যে যে document এ আছে তার তালিকায় যাওয়ার একটা map — বইয়ের পেছনের সূচির মতো ("deploy — পাতা ১২, ৪৭, ৯০"); "document এ কী কী শব্দ" এর উল্টো, তাই "inverted"।
 
@@ -194,7 +194,7 @@ Analyzer এর পরে প্রতিটা document একটা term এ�
    "recieve" (misspelled)                           0.4 ms          0
 ```
 
-`tsvector` হলো analyzer এর ফল (term গুলো, অবস্থান সহ), আর GIN তার inverted index। Index মাত্র ২৫ MB — trigram এর ৮১ MB এর তিন ভাগের এক ভাগ, কারণ term অনেক কম (৫ হাজার শব্দ বনাম অগণিত trigram)। কিন্তু দেখো table: ১২২ MB থেকে ২৬৪ MB — `tsvector` টা আলাদা column এ রাখা (stored)। Experiment ১: column ছাড়া একটা expression index (`gin (to_tsvector('english', body))`) — table ১২২ MB ই থাকে, query প্রায় একই সময়ে (~৪০–৫৫ ms); দাম: মেলা প্রতিটা row এ `to_tsvector` আবার গোনা, আর query তে হুবহু একই expression লিখতে হয়।
+`tsvector` হলো analyzer এর ফল (term গুলো, অবস্থান সহ), আর GIN তার inverted index। Index মাত্র ২৫ MB — trigram এর ৮১ MB এর তিন ভাগের এক ভাগ, কারণ term অনেক কম (৫ হাজার শব্দ বনাম অগণিত trigram)। কিন্তু দেখুন table: ১২২ MB থেকে ২৬৪ MB — `tsvector` টা আলাদা column এ রাখা (stored)। Experiment ১: column ছাড়া একটা expression index (`gin (to_tsvector('english', body))`) — table ১২২ MB ই থাকে, query প্রায় একই সময়ে (~৪০–৫৫ ms); দাম: মেলা প্রতিটা row এ `to_tsvector` আবার গোনা, আর query তে হুবহু একই expression লিখতে হয়।
 
 TaskFlow এর stack এ, Sequelize দিয়ে (উদাহরণ — exercise এর query গুলো raw SQL এ চালানো; এই Sequelize অংশটা চালানো হয়নি):
 
@@ -277,7 +277,7 @@ Postgres এর `ts_rank` একটু আলাদা: শব্দ কতব�
 
 কিন্তু আলাদা engine মানে **আরেকটা data store, যেটা database এর কপি** — আর Module 5–7 এর প্রতিটা প্রশ্ন ফিরে আসে:
 
-- **Sync।** Database এ comment লেখা হলো — search index কীভাবে জানবে? "লিখে তারপর Elasticsearch এ পাঠাও" হলো Lesson 7.5 এর dual write — crash এ index থেকে comment হারায়। উত্তরও 7.5 এর: outbox (বা CDC) → event → একটা search consumer। আর consumer idempotent (7.4) — সৌভাগ্যক্রমে এখানে এটা স্বাভাবিক: document id ধরে পুরো document "সেট" করা (upsert) দশবার হলেও একই ফল। শুধু একটা সূক্ষ্মতা: পুরনো event পরে এলে নতুনটাকে overwrite করতে পারে — তাই প্রতিটা document এ একটা version (database এর `updatedAt` বা একটা counter), আর engine কে বলা "শুধু বড় version হলে লেখো" (Elasticsearch এর external versioning — 6.3 এর version token এর ধারণা)।
+- **Sync।** Database এ comment লেখা হলো — search index কীভাবে জানবে? "লিখে তারপর Elasticsearch এ পাঠান" হলো Lesson 7.5 এর dual write — crash এ index থেকে comment হারায়। উত্তরও 7.5 এর: outbox (বা CDC) → event → একটা search consumer। আর consumer idempotent (7.4) — সৌভাগ্যক্রমে এখানে এটা স্বাভাবিক: document id ধরে পুরো document "সেট" করা (upsert) দশবার হলেও একই ফল। শুধু একটা সূক্ষ্মতা: পুরনো event পরে এলে নতুনটাকে overwrite করতে পারে — তাই প্রতিটা document এ একটা version (database এর `updatedAt` বা একটা counter), আর engine কে বলা "শুধু বড় version হলে লিখুন" (Elasticsearch এর external versioning — 6.3 এর version token এর ধারণা)।
 - **"লিখলাম কিন্তু খুঁজে পাচ্ছি না।"**
 
 **Near real-time search (refresh)** — নতুন document index এ লেখা হলেও সাথে সাথে খোঁজার ফলে আসে না; engine নির্দিষ্ট সময় পর পর (Elasticsearch এর default ১ সেকেন্ড) নতুন লেখা গুলোকে খোঁজার যোগ্য করে ("refresh")। তাই লেখা থেকে খুঁজে পাওয়া পর্যন্ত একটা ছোট জানালা।
@@ -312,7 +312,7 @@ TaskFlow এ ১০ লাখ comment, প্রতিদিন কয়েক 
 
 ## ২. Interview Angle
 
-**"Search feature design করো" (বা "design Twitter search", "design an e-commerce search")।** — ভালো উত্তরের ক্রম: কেন database এর `LIKE` না (পুরো scan, substring, ranking নেই — একটা সংখ্যা); inverted index কী (term → posting list, analyzer); ranking (BM25 + ব্যবসার সংকেত); আর তারপর আসল system design এর অংশ — **index কীভাবে sync থাকে** (outbox/CDC → consumer → upsert, eventual), **কীভাবে shard হয়** (document ধরে, scatter-gather), আর **permission**। বেশিরভাগ candidate inverted index বলে থামে; sync আর permission বলা মানুষটা production এ চালিয়েছে।
+**"Search feature design করুন" (বা "design Twitter search", "design an e-commerce search")।** — ভালো উত্তরের ক্রম: কেন database এর `LIKE` না (পুরো scan, substring, ranking নেই — একটা সংখ্যা); inverted index কী (term → posting list, analyzer); ranking (BM25 + ব্যবসার সংকেত); আর তারপর আসল system design এর অংশ — **index কীভাবে sync থাকে** (outbox/CDC → consumer → upsert, eventual), **কীভাবে shard হয়** (document ধরে, scatter-gather), আর **permission**। বেশিরভাগ candidate inverted index বলে থামে; sync আর permission বলা মানুষটা production এ চালিয়েছে।
 
 **"Inverted index কী?"** — এক বাক্যে সংজ্ঞা, তারপর ছবি (term → sorted doc id), তারপর AND query কীভাবে (posting list মেলানো, ছোটটা থেকে), তারপর কেন লেখা দামি (একটা document অনেক list এ)। বোনাস: Lucene এর segment আর LSM এর মিল।
 
@@ -349,11 +349,11 @@ TaskFlow এ ১০ লাখ comment, প্রতিদিন কয়েক 
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর task এর title এর autocomplete: user টাইপ করতে থাকলে প্রতিটা অক্ষরে সাজেশন। ৫০ হাজার active user, প্রত্যেকে দিনে গড়ে ২০ বার খোঁজে, প্রতিটায় গড়ে ৬ অক্ষর। (ক) প্রতিটা অক্ষরে একটা request গেলে সবচেয়ে ব্যস্ত ঘণ্টায় (দিনের ২০% search) প্রতি সেকেন্ডে কত query? (খ) কোন index — prefix এর B-tree, trigram, না full-text — আর কেন? (গ) Database এর চাপ কমাতে frontend আর API এ কী কী করবে?
-2. TaskFlow OpenSearch এ গেছে: একটা `comments` index এ সব workspace এর comment, আর প্রতিটা query তে `workspace_id` এর filter। (ক) কোন ধরনের bug এ একজন customer অন্য customer এর comment দেখবে — অন্তত দুটো পরিস্থিতি? (খ) একজন member workspace থেকে বাদ পড়ল — কতক্ষণ সে কী দেখতে পারে? (গ) "প্রতিটা workspace এর আলাদা index" এর সাথে তুলনা করো — কী সারায়, কী নতুন সমস্যা আনে (৫ হাজার workspace)?
-3. একজন user comment লিখল "Release 2.1 rollback plan", আর সাথে সাথে search এ "rollback" লিখল — পেল না। দুই সেকেন্ড পরে আবার — পেল। Outbox relay (7.5), search consumer, আর OpenSearch এর refresh ধরে এই দুই সেকেন্ডের হিসাব দাও। তিনটা সমাধান দাও, প্রতিটার দাম সহ। কোনটা বাছবে?
+1. TaskFlow এর task এর title এর autocomplete: user টাইপ করতে থাকলে প্রতিটা অক্ষরে সাজেশন। ৫০ হাজার active user, প্রত্যেকে দিনে গড়ে ২০ বার খোঁজে, প্রতিটায় গড়ে ৬ অক্ষর। (ক) প্রতিটা অক্ষরে একটা request গেলে সবচেয়ে ব্যস্ত ঘণ্টায় (দিনের ২০% search) প্রতি সেকেন্ডে কত query? (খ) কোন index — prefix এর B-tree, trigram, না full-text — আর কেন? (গ) Database এর চাপ কমাতে frontend আর API এ কী কী করবেন?
+2. TaskFlow OpenSearch এ গেছে: একটা `comments` index এ সব workspace এর comment, আর প্রতিটা query তে `workspace_id` এর filter। (ক) কোন ধরনের bug এ একজন customer অন্য customer এর comment দেখবে — অন্তত দুটো পরিস্থিতি? (খ) একজন member workspace থেকে বাদ পড়ল — কতক্ষণ সে কী দেখতে পারে? (গ) "প্রতিটা workspace এর আলাদা index" এর সাথে তুলনা করুন — কী সারায়, কী নতুন সমস্যা আনে (৫ হাজার workspace)?
+3. একজন user comment লিখল "Release 2.1 rollback plan", আর সাথে সাথে search এ "rollback" লিখল — পেল না। দুই সেকেন্ড পরে আবার — পেল। Outbox relay (7.5), search consumer, আর OpenSearch এর refresh ধরে এই দুই সেকেন্ডের হিসাব দিন। তিনটা সমাধান দিন, প্রতিটার দাম সহ। কোনটা বাছবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -370,7 +370,7 @@ TaskFlow এ ১০ লাখ comment, প্রতিদিন কয়েক 
 
 (ক) দুটো পরিস্থিতি:
 
-- **নতুন একটা query এর পথ** — ধরো "সব comment এ search" এর একটা admin feature, বা একটা নতুন "similar comments" API — যেখানে কেউ filter লিখতে ভুলে গেল। Database এ একই ভুল প্রায়ই অন্য কোথাও ধরা পড়ে (row level security, join); search এ index টাই সব workspace এর মিশ্রণ।
+- **নতুন একটা query এর পথ** — ধরুন "সব comment এ search" এর একটা admin feature, বা একটা নতুন "similar comments" API — যেখানে কেউ filter লিখতে ভুলে গেল। Database এ একই ভুল প্রায়ই অন্য কোথাও ধরা পড়ে (row level security, join); search এ index টাই সব workspace এর মিশ্রণ।
 - **Filter আছে, কিন্তু ভুল মান থেকে** — client এর পাঠানো `workspaceId` (URL বা body থেকে) সরাসরি filter এ বসানো, server এর session থেকে না। তাহলে যে কেউ অন্য id পাঠিয়ে অন্যের comment খোঁজে।
 - প্রতিরোধ: search এর একটাই function যেটা server এর session থেকে workspace নেয় আর filter নিজে বসায় (signature এ অন্য পথ নেই); code review এ direct OpenSearch client নিষেধ; আর একটা test যেটা দুটো workspace বানিয়ে একটার user দিয়ে অন্যটার শব্দ খোঁজে।
 
@@ -391,7 +391,7 @@ TaskFlow এ ১০ লাখ comment, প্রতিদিন কয়েক 
 
 - **নিজের লেখা UI তে সাথে সাথে** — search এর ফলাফলে user এর এই session এ লেখা সাম্প্রতিক comment গুলো frontend নিজে জুড়ে দেয় (optimistic), বা API "গত ১০ সেকেন্ডে এই user এর লেখা" database থেকে এনে জুড়ে দেয়। দাম: সামান্য জটিলতা; অন্যদের জন্য কিছু বদলায় না — তারা ১–২ সেকেন্ড পরে পায়, সেটা সাধারণত ঠিক আছে (Lesson 6.3 এর read-your-writes শুধু লেখকের জন্য দরকার)।
 - **Consumer এ `refresh=wait_for`** — OpenSearch এ লেখা ততক্ষণ ফেরে না যতক্ষণ refresh না হয়; relay আর consumer এর দেরি থেকেই যায়, আর বেশি লেখায় consumer ধীর হয়। দাম: throughput; আর প্রথম দুটো ধাপ বাকি।
-- **Refresh interval ছোট করা** (ধরো ২০০ ms) — দাম: অনেক ছোট segment, বেশি merge, লেখার খরচ বাড়ে (Lucene এর segment — LSM এর মতো); আর relay/consumer এর দেরি তবু থাকে।
+- **Refresh interval ছোট করা** (ধরুন ২০০ ms) — দাম: অনেক ছোট segment, বেশি merge, লেখার খরচ বাড়ে (Lucene এর segment — LSM এর মতো); আর relay/consumer এর দেরি তবু থাকে।
 
 বাছাই: প্রথমটা — সমস্যাটা আসলে শুধু লেখকের (read-your-writes), আর সেটা সবচেয়ে সস্তায় সারে লেখকের দিকেই; বাকি system এর eventual consistency রেখে দেওয়া যায়।
 
@@ -407,19 +407,19 @@ TaskFlow এ ১০ লাখ comment, প্রতিদিন কয়েক 
 
 `seed` ১০ লাখ comment বানায় একটা নির্দিষ্ট সূত্রে (comment নম্বর i এর text সবসময় একই)। `like` চারটা উপায়ে খোঁজে — index ছাড়া, B-tree, trigram, full-text — সাথে শব্দ বনাম substring, লেখার দাম, আর ভুল বানান। `inverted` একই comment এর উপর নিজের একটা inverted index বানায় — analyzer, posting list, intersection, BM25।
 
-**সৎ নোট:** Sandbox এ Postgres 17 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `like` কয়েকবার — প্রথম দিকের একটা run এ table আগের run এর মুছে ফেলা `tsv` column এর জায়গা নিয়ে ফোলা ছিল (২৬৪ MB), আর index ছাড়া অংশ দ্বিগুণ page পড়ছিল; তাই এখন script শুরুতে `VACUUM FULL` চালায়, আর তার পরের দুটো run এ সংখ্যা কাছাকাছি একই; `inverted` কয়েকবার, সময় ছাড়া হুবহু একই। README এর experiment ১ আর ৪ চালানো হয়েছে, সংখ্যা README তে; ২, ৩, ৫ code বা setting বদলানোর কাজ — তোমার। "সব deploy গোনা" তে index ছাড়া আর trigram section এর সময়ের পার্থক্য index এর না — plan একই, পার্থক্য cache এর। Comment গুলো বানানো text, আসলের চেয়ে নিয়মিত — আকৃতি আসল, অনুপাত না। `inverted` এর analyzer একটা খেলনা (Porter এর কয়েকটা নিয়মের নকল) — তবে এই data তে "deploy checklist" এর ফল (২০,২৯৩) Postgres এর `english` config এর সাথে হুবহু মিলেছে। Sequelize এর উদাহরণ (১.৪) চালানো হয়নি — exercise এর query গুলো raw SQL এ। Elasticsearch/OpenSearch এর কথা (refresh ১ s, `max_result_window` ১০,০০০, external versioning, `bengali` analyzer) documentation থেকে, এখানে চালানো না।
+**সৎ নোট:** Sandbox এ Postgres 17 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `like` কয়েকবার — প্রথম দিকের একটা run এ table আগের run এর মুছে ফেলা `tsv` column এর জায়গা নিয়ে ফোলা ছিল (২৬৪ MB), আর index ছাড়া অংশ দ্বিগুণ page পড়ছিল; তাই এখন script শুরুতে `VACUUM FULL` চালায়, আর তার পরের দুটো run এ সংখ্যা কাছাকাছি একই; `inverted` কয়েকবার, সময় ছাড়া হুবহু একই। README এর experiment ১ আর ৪ চালানো হয়েছে, সংখ্যা README তে; ২, ৩, ৫ code বা setting বদলানোর কাজ — আপনার। "সব deploy গোনা" তে index ছাড়া আর trigram section এর সময়ের পার্থক্য index এর না — plan একই, পার্থক্য cache এর। Comment গুলো বানানো text, আসলের চেয়ে নিয়মিত — আকৃতি আসল, অনুপাত না। `inverted` এর analyzer একটা খেলনা (Porter এর কয়েকটা নিয়মের নকল) — তবে এই data তে "deploy checklist" এর ফল (২০,২৯৩) Postgres এর `english` config এর সাথে হুবহু মিলেছে। Sequelize এর উদাহরণ (১.৪) চালানো হয়নি — exercise এর query গুলো raw SQL এ। Elasticsearch/OpenSearch এর কথা (refresh ১ s, `max_result_window` ১০,০০০, external versioning, `bengali` analyzer) documentation থেকে, এখানে চালানো না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **ফাঁদটা ধরো:** `like` চালানোর আগে অনুমান করো — index ছাড়া "প্রথম ২০টা deploy", "প্রথম ২০টা rollback", "প্রথম ২০টা recieve" — কোনটা দ্রুত, কোনটা ধীর, কেন। তারপর মেলাও। TaskFlow এর search এর p99 আসলে কোন ধরনের query ঠিক করে?
+1. **ফাঁদটা ধরুন:** `like` চালানোর আগে অনুমান করুন — index ছাড়া "প্রথম ২০টা deploy", "প্রথম ২০টা rollback", "প্রথম ২০টা recieve" — কোনটা দ্রুত, কোনটা ধীর, কেন। তারপর মেলান। TaskFlow এর search এর p99 আসলে কোন ধরনের query ঠিক করে?
 
-2. **Trigram এর সীমা:** trigram section এ "সব deploy গোনা" এর plan কেন `Gather` (পুরো table)? `EXPLAIN` দিয়ে `ILIKE '%deploy checklist%'` আর `ILIKE '%eploy%'` দেখো — index কোনটায় কাজে লাগে? তারপর experiment ৫ — ছোট শব্দে trigram কেন দুর্বল?
+2. **Trigram এর সীমা:** trigram section এ "সব deploy গোনা" এর plan কেন `Gather` (পুরো table)? `EXPLAIN` দিয়ে `ILIKE '%deploy checklist%'` আর `ILIKE '%eploy%'` দেখুন — index কোনটায় কাজে লাগে? তারপর experiment ৫ — ছোট শব্দে trigram কেন দুর্বল?
 
-3. **নিজের index এর ভেতরে:** `inverted.ts` এর ৩ নম্বরে তুলনার সংখ্যা হাতে মোটামুটি হিসাব করো (merge: দুটো list এর যোগফল; ছোট থেকে: ১,৭৮৫ × log₂(১,১২,২৪২))। তারপর experiment ৩ (stopword রাখো) — posting কত বাড়ল, আর "the deploy" এ কী হয়?
+3. **নিজের index এর ভেতরে:** `inverted.ts` এর ৩ নম্বরে তুলনার সংখ্যা হাতে মোটামুটি হিসাব করুন (merge: দুটো list এর যোগফল; ছোট থেকে: ১,৭৮৫ × log₂(১,১২,২৪২))। তারপর experiment ৩ (stopword রাখুন) — posting কত বাড়ল, আর "the deploy" এ কী হয়?
 
-4. **Ranking তুলনা** (experiment ২): "kax deploy" দিয়ে Postgres এর `ts_rank` আর তোমার BM25 এর সেরা ৫টা পাশাপাশি রাখো। কোথায় আলাদা, আর কেন (idf)? TaskFlow এর জন্য কোনটা ঠিক মনে হয়?
+4. **Ranking তুলনা** (experiment ২): "kax deploy" দিয়ে Postgres এর `ts_rank` আর আপনার BM25 এর সেরা ৫টা পাশাপাশি রাখুন। কোথায় আলাদা, আর কেন (idf)? TaskFlow এর জন্য কোনটা ঠিক মনে হয়?
 
-5. **Design অংশ:** TaskFlow এর search এর এক পাতার design: (ক) কী কী খোঁজা যায় (comment, task এর title, attachment এর নাম) আর প্রতিটার ওজন; (খ) প্রতিটা query এর permission এর নিয়ম — কোথা থেকে workspace আসে, কোথায় filter বসে; (গ) autocomplete আর "did you mean" এর পথ; (ঘ) কোন সংখ্যা দেখলে OpenSearch এ যাবে, আর গেলে sync এর পথ (কোন event, consumer, version) আর read-your-writes এর সমাধান; (ঙ) index আর database এর মধ্যে ফাঁক ধরার একটা নিয়মিত job।
+5. **Design অংশ:** TaskFlow এর search এর এক পাতার design: (ক) কী কী খোঁজা যায় (comment, task এর title, attachment এর নাম) আর প্রতিটার ওজন; (খ) প্রতিটা query এর permission এর নিয়ম — কোথা থেকে workspace আসে, কোথায় filter বসে; (গ) autocomplete আর "did you mean" এর পথ; (ঘ) কোন সংখ্যা দেখলে OpenSearch এ যাবেন, আর গেলে sync এর পথ (কোন event, consumer, version) আর read-your-writes এর সমাধান; (ঙ) index আর database এর মধ্যে ফাঁক ধরার একটা নিয়মিত job।
 
 ---
 
@@ -440,7 +440,7 @@ Terms learned (Module 8): Object Storage, Bucket / Key (Prefix), Object Metadata
 Erasure Coding, Failure Domain, Storage Class / Lifecycle, Presigned URL, CORS / Preflight,
 Multipart Upload, Resumable Upload, Cache Key, CDN Signed URL / Signed Cookie, Trigram, Analyzer,
 Inverted Index, Posting List, Relevance Scoring (TF-IDF / BM25), Near Real-Time Search (Refresh)
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: Module 8 Exit Challenge
 =======================
 ```
@@ -449,4 +449,4 @@ Next: Module 8 Exit Challenge
 
 ## ৮. পরের ধাপ
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ১ নম্বরের "p99 কে ঠিক করে" আর ৫ নম্বরের design। এটা Module 8 এর শেষ lesson। রেডি হলে `next` লিখো — **Module 8 Exit Challenge** এ যাব: একটা mini design challenge (Tier 3) যেখানে পুরো module একসাথে লাগবে — কোথায় bytes রাখবে, কীভাবে টিকে থাকবে, upload আর download এর পথ, CDN, আর search — একটা বাস্তব scenario তে; একটা "তুমি এগুলো পারার কথা" checklist; আর বই, ভিডিও, project এর recommendation। তারপর Module 9 — Microservices & Service Architecture: TaskFlow এখন একটা monolith যার ভেতরে queue, event, object storage, search সব আছে; কখন এটাকে আলাদা service এ ভাঙবে — আর কখন **ভাঙবে না**।
+Exercise চালিয়ে পাঠান — বিশেষ করে ১ নম্বরের "p99 কে ঠিক করে" আর ৫ নম্বরের design। এটা Module 8 এর শেষ lesson। রেডি হলে `next` লিখুন — **Module 8 Exit Challenge** এ যাব: একটা mini design challenge (Tier 3) যেখানে পুরো module একসাথে লাগবে — কোথায় bytes রাখবেন, কীভাবে টিকে থাকবে, upload আর download এর পথ, CDN, আর search — একটা বাস্তব scenario তে; একটা "আপনি এগুলো পারার কথা" checklist; আর বই, ভিডিও, project এর recommendation। তারপর Module 9 — Microservices & Service Architecture: TaskFlow এখন একটা monolith যার ভেতরে queue, event, object storage, search সব আছে; কখন এটাকে আলাদা service এ ভাঙবেন — আর কখন **ভাঙবেন না**।

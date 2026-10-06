@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.3 (WAL), Lesson 5.7 (Replication, failover), Lesson 5.9 (Quorum), Lesson 6.1 (Failure detector, split brain, fencing token)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Consensus কী, কোন কোন সমস্যা আসলে ছদ্মবেশী consensus (leader election, lock, unique নাম), আর কেন এটা "সবসময় উত্তর দেবে" এমন নিশ্চয়তা দিতে পারে না — সেটা ব্যাখ্যা করতে পারবে
-2. Raft কীভাবে leader বাছে (term, ভোট, random timeout) আর কীভাবে লেখা commit করে (log, majority) — ধাপে ধাপে, whiteboard এ আঁকতে পারবে
-3. একটা partition এ Raft কেন split brain এ পড়ে না, election restriction কী রক্ষা করে, আর consensus এর দাম (node সংখ্যা, latency) দিয়ে ঠিক করতে পারবে কোথায় এটা ব্যবহার করবে আর কোথায় না
+1. Consensus কী, কোন কোন সমস্যা আসলে ছদ্মবেশী consensus (leader election, lock, unique নাম), আর কেন এটা "সবসময় উত্তর দেবে" এমন নিশ্চয়তা দিতে পারে না — সেটা ব্যাখ্যা করতে পারবেন
+2. Raft কীভাবে leader বাছে (term, ভোট, random timeout) আর কীভাবে লেখা commit করে (log, majority) — ধাপে ধাপে, whiteboard এ আঁকতে পারবেন
+3. একটা partition এ Raft কেন split brain এ পড়ে না, election restriction কী রক্ষা করে, আর consensus এর দাম (node সংখ্যা, latency) দিয়ে ঠিক করতে পারবেন কোথায় এটা ব্যবহার করবেন আর কোথায় না
 
 **Tier:** 1 — Runnable Code (Raft এর মূল অংশের একটা ছোট implementation, seed দেওয়া network simulator এর উপর)
 
@@ -58,7 +58,7 @@ Design review তে CTO একটা প্রশ্ন করলেন, আর
 - **Safety কখনো ছাড় দেয় না** — কোনো timeout, কোনো ঘড়ি, কোনো pause এর দৈর্ঘ্যের উপর নির্ভর করে না।
 - **Liveness এর জন্য timeout ব্যবহার করে** — network মোটামুটি স্বাভাবিক থাকলে দ্রুত সিদ্ধান্ত; খুব খারাপ হলে হয়তো কিছুক্ষণ সিদ্ধান্তই হয় না (লেখা থেমে থাকে) — কিন্তু **ভুল** সিদ্ধান্ত কখনো হয় না।
 
-6.1 এর শিক্ষাটা মনে করো: "failure detector ভুল হবেই, তাই correctness কে তার উপর নির্ভর করতে দিও না।" Raft ঠিক এই নীতিতে বানানো।
+6.1 এর শিক্ষাটা মনে করুন: "failure detector ভুল হবেই, তাই correctness কে তার উপর নির্ভর করতে দেবেন না।" Raft ঠিক এই নীতিতে বানানো।
 
 ### ১.২ Replicated State Machine — একমত হওয়া একটা log এ
 
@@ -80,7 +80,7 @@ Design review তে CTO একটা প্রশ্ন করলেন, আর
    state machine:  x = 3         x = 3          x = 3
 ```
 
-Lesson 5.3 আর 5.7 এর সাথে মেলাও: Postgres এর WAL আর streaming replication ও একটা log এর কপি। পার্থক্যটা হলো — Postgres এ **কে primary**, সেই সিদ্ধান্ত log এর বাইরে (Patroni, মানুষ, বা script) নেওয়া হয়, আর সেখানেই 6.1 এর split brain ঢোকে। Raft এ leader বাছাই আর log replication একই algorithm এর অংশ, একই নিয়মে বাঁধা।
+Lesson 5.3 আর 5.7 এর সাথে মেলান: Postgres এর WAL আর streaming replication ও একটা log এর কপি। পার্থক্যটা হলো — Postgres এ **কে primary**, সেই সিদ্ধান্ত log এর বাইরে (Patroni, মানুষ, বা script) নেওয়া হয়, আর সেখানেই 6.1 এর split brain ঢোকে। Raft এ leader বাছাই আর log replication একই algorithm এর অংশ, একই নিয়মে বাঁধা।
 
 তাই consensus এর প্রশ্নটা হয়ে দাঁড়ায়: **log এর প্রতিটা স্থানে (index) কোন command থাকবে — সবাই একমত।**
 
@@ -141,7 +141,7 @@ Exercise এর `npm run election` — ৫টা node একসাথে চা�
 
 স্থির timeout এ গড়ে ৩০টা ব্যর্থ election, আর ১৬% ক্ষেত্রে ১০ সেকেন্ডেও কোনো leader নেই — মানে cluster পুরো সময় একটা লেখাও নিতে পারেনি। (যেটুকু জেতে, সেটা শুধু timer এর ±0.5 ms jitter আর network এর এলোমেলো দেরির ভাগ্যে।) মাত্র ২৫ ms এর randomness এই সমস্যা প্রায় মুছে দেয়; 150–300 এ ১০০০ বারের প্রতিবার প্রথম চেষ্টাতেই।
 
-লক্ষ করো আরেকটা জিনিস: 150–300 এর p50 (176 ms) 150–175 এর চেয়ে সামান্য **বেশি** — কারণ গড়ে প্রথম timeout দেরিতে আসে। কিন্তু p99 ভালো (252 বনাম 331 ms)। বড় range = কম split vote, একটু ধীর প্রথম চেষ্টা।
+লক্ষ করুন আরেকটা জিনিস: 150–300 এর p50 (176 ms) 150–175 এর চেয়ে সামান্য **বেশি** — কারণ গড়ে প্রথম timeout দেরিতে আসে। কিন্তু p99 ভালো (252 বনাম 331 ms)। বড় range = কম split vote, একটু ধীর প্রথম চেষ্টা।
 
 **সময়ের নিয়ম।** Raft paper এর একটা মাপকাঠি:
 
@@ -158,7 +158,7 @@ Leader client এর লেখা নিজের log এর শেষে যো
 
 **Committed entry** — যে log entry leader majority node এ পৌঁছে দিয়েছে; Raft নিশ্চয়তা দেয় এটা আর কখনো মুছবে না, আর একমাত্র তখনই client কে "সফল" বলা হয়।
 
-প্রতিটা `AppendEntries` এ leader তার ঠিক আগের entry এর index আর term ও পাঠায় — "তোমার log এ index ৫ এ term ৩ এর entry আছে তো?" Follower এর না মিললে প্রত্যাখ্যান করে, আর leader এক ধাপ পিছিয়ে আবার পাঠায় — মেলা পর্যন্ত। মেলার পরের সব অংশ follower মুছে leader এর টা বসায়। ফলাফল: **দুটো log এ কোনো index এ একই term এর entry থাকলে, সেই index পর্যন্ত পুরো log হুবহু এক।** Leader এর log ই সত্য; follower এর অমিল অংশ মুছে যায়।
+প্রতিটা `AppendEntries` এ leader তার ঠিক আগের entry এর index আর term ও পাঠায় — "আপনার log এ index ৫ এ term ৩ এর entry আছে তো?" Follower এর না মিললে প্রত্যাখ্যান করে, আর leader এক ধাপ পিছিয়ে আবার পাঠায় — মেলা পর্যন্ত। মেলার পরের সব অংশ follower মুছে leader এর টা বসায়। ফলাফল: **দুটো log এ কোনো index এ একই term এর entry থাকলে, সেই index পর্যন্ত পুরো log হুবহু এক।** Leader এর log ই সত্য; follower এর অমিল অংশ মুছে যায়।
 
 এখন exercise এর আসল পরীক্ষা। `npm run partition` — ৫টা node, n1 leader, `x=1` লেখা হয়ে গেছে। তারপর network তিন ভাগে কাটা: পুরনো leader n1 একা, n2 একা, বাকি তিনজন (n3 n4 n5) একসাথে:
 
@@ -180,14 +180,14 @@ Leader client এর লেখা নিজের log এর শেষে যো
    n5  follower  term  2   log: x=1(t1) x=3(t2)                commit 2   x = 3
 ```
 
-এই snapshot টা এই lesson এর কেন্দ্র। **দুটো node নিজেকে LEADER বলছে** — ঠিক 6.1 এর ভয়। কিন্তু তফাতটা দেখো:
+এই snapshot টা এই lesson এর কেন্দ্র। **দুটো node নিজেকে LEADER বলছে** — ঠিক 6.1 এর ভয়। কিন্তু তফাতটা দেখুন:
 
 - n1 (term 1) `x=2` নিয়েছে, কিন্তু commit করতে পারেনি — তার সাথে কেউ নেই, majority অসম্ভব। Client A কে কোনো "সফল" বলা হয়নি।
 - n3 (term 2) majority পেয়েছে, `x=3` commit করেছে ৮ ms এ।
 
 এটা 6.1 এর split brain না। দুজন নিজেকে leader **ভাবছে**, কিন্তু **কাজ** — লেখা commit করা — শুধু একজন করতে পারছে, কারণ commit এর জন্য majority লাগে, আর majority একটাই। পুরনো leader এর বিভ্রম ক্ষতিকর না, কারণ তার কোনো ক্ষমতা নেই।
 
-**কিন্তু একটা ফাঁদ বাকি:** snapshot এ n1 এর `x = 1`। কেউ যদি n1 থেকে **পড়ে** — "তুমি তো leader, তোমার কাছের মানটাই দাও" — সে পুরনো মান পাবে, যদিও x=3 অনেক আগেই commit হয়ে গেছে। Raft লেখাকে নিরাপদ রাখে; পড়াকে নিরাপদ রাখতে আলাদা ব্যবস্থা লাগে: leader উত্তর দেওয়ার আগে majority থেকে একটা heartbeat এর সাড়া নিশ্চিত করে ("আমি কি এখনো leader?") — Raft এর ভাষায় ReadIndex। etcd default এ ঠিক এটা করে (linearizable read); কম নিশ্চয়তার "serializable" read চাইলে local মান দেয়, দ্রুত কিন্তু পুরনো হতে পারে। (Exercise এর experiment ৩।)
+**কিন্তু একটা ফাঁদ বাকি:** snapshot এ n1 এর `x = 1`। কেউ যদি n1 থেকে **পড়ে** — "আপনি তো leader, আপনার কাছের মানটাই দিন" — সে পুরনো মান পাবে, যদিও x=3 অনেক আগেই commit হয়ে গেছে। Raft লেখাকে নিরাপদ রাখে; পড়াকে নিরাপদ রাখতে আলাদা ব্যবস্থা লাগে: leader উত্তর দেওয়ার আগে majority থেকে একটা heartbeat এর সাড়া নিশ্চিত করে ("আমি কি এখনো leader?") — Raft এর ভাষায় ReadIndex। etcd default এ ঠিক এটা করে (linearizable read); কম নিশ্চয়তার "serializable" read চাইলে local মান দেয়, দ্রুত কিন্তু পুরনো হতে পারে। (Exercise এর experiment ৩।)
 
 ### ১.৬ Partition জোড়া লাগলে
 
@@ -243,9 +243,9 @@ Restriction তুলে দিলে কী হয়? `npm run unsafe` — এ
 
 সবচেয়ে বড় term নিয়ে ফিরে আসা n2 জিতে গেল, আর তার পুরনো log কে "সত্য" ধরে বাকিদের `x=3` মুছে দিল — যে লেখা client B কে ৮ ms এ "নিশ্চিত" বলা হয়েছিল। আর তার চেয়েও খারাপ: n3, n4, n5 আগেই `x=3` প্রয়োগ করে ফেলেছিল, তাই তাদের state machine এ x = 3, বাকিদের x = 4 — **replica গুলো আর এক না।** একটা শর্ত সরানোয় পুরো algorithm এর দুটো মূল প্রতিশ্রুতিই ভাঙল।
 
-(একটা সূক্ষ্ম নিয়মও আছে, exercise এর `raft.ts` এ comment সহ: leader শুধু **নিজের term এর** entry কে majority গুনে commit করে; পুরনো term এর entry গুলো তার সাথে commit হয়। কেন — paper এর Figure 8 এ একটা চমৎকার উদাহরণ আছে। প্রথমবার পড়ার জন্য না, কিন্তু জেনে রাখো যে এমন সূক্ষ্মতা আছে — আর নিজে consensus লেখা কেন বিপজ্জনক, তার আরেকটা কারণ।)
+(একটা সূক্ষ্ম নিয়মও আছে, exercise এর `raft.ts` এ comment সহ: leader শুধু **নিজের term এর** entry কে majority গুনে commit করে; পুরনো term এর entry গুলো তার সাথে commit হয়। কেন — paper এর Figure 8 এ একটা চমৎকার উদাহরণ আছে। প্রথমবার পড়ার জন্য না, কিন্তু জেনে রাখুন যে এমন সূক্ষ্মতা আছে — আর নিজে consensus লেখা কেন বিপজ্জনক, তার আরেকটা কারণ।)
 
-### ১.৮ দাম — আর কোথায় ব্যবহার করবে
+### ১.৮ দাম — আর কোথায় ব্যবহার করবেন
 
 **Node সংখ্যা:**
 
@@ -259,7 +259,7 @@ Restriction তুলে দিলে কী হয়? `npm run unsafe` — এ
 
 জোড় সংখ্যা প্রায় কখনো লাভ দেয় না — ৪ node এ majority ৩, তাই ৩ এর মতোই একটা মরা সহ্য করে; আর ২|২ partition এ কোনো দিক majority পায় না।
 
-**কোথায় বসাবে:** TaskFlow এর দুটো AZ তে ৩টা node (২ + ১) বসালে, যে AZ তে ২টা, সেটা পুরো গেলে বাকি ১টা majority পায় না — পুরো cluster বন্ধ। তাই consensus cluster সাধারণত **তিনটা** AZ তে একটা করে। (দুটো AZ ই থাকলে তৃতীয় কোথাও একটা হালকা node — 6.1 এর "witness" এর ধারণা।)
+**কোথায় বসাবেন:** TaskFlow এর দুটো AZ তে ৩টা node (২ + ১) বসালে, যে AZ তে ২টা, সেটা পুরো গেলে বাকি ১টা majority পায় না — পুরো cluster বন্ধ। তাই consensus cluster সাধারণত **তিনটা** AZ তে একটা করে। (দুটো AZ ই থাকলে তৃতীয় কোথাও একটা হালকা node — 6.1 এর "witness" এর ধারণা।)
 
 **Latency:** প্রতিটা লেখা commit এর জন্য majority এর একটা round trip লাগে। একই data center এ সেটা ~1 ms — চমৎকার। কিন্তু node গুলো ঢাকা, সিঙ্গাপুর আর ইউরোপে হলে প্রতিটা লেখা ১০০+ ms, আর election timeout ও বাড়াতে হবে। Consensus এর দাম দূরত্বের সাথে সরাসরি বাড়ে।
 
@@ -269,7 +269,7 @@ Restriction তুলে দিলে কী হয়? `npm run unsafe` — এ
 
 ব্যতিক্রম: CockroachDB, TiKV, Google Spanner এর মতো database data কে হাজার হাজার ছোট ভাগে (range) ভাগ করে, আর **প্রতিটা ভাগের নিজের** Raft (বা Paxos) group চালায় — Lesson 5.8 এর sharding আর আজকের consensus এক সাথে। তাতে throughput এর সীমা একজন leader এ আটকে থাকে না।
 
-**কোথায় দেখবে:** Raft — etcd, Consul, CockroachDB, TiKV, Kafka এর KRaft (ZooKeeper এর বদলে), আর MongoDB এর replica set এর protocol Raft থেকে অনুপ্রাণিত। Paxos (Leslie Lamport) — Google এর Chubby আর Spanner। ZooKeeper চালায় তার নিজের ZAB। নাম আলাদা, মূল ধারণা একই: majority, একটা বাড়তে থাকা সংখ্যা (term/ballot/epoch), আর নিরাপত্তা কখনো timeout এর উপর নির্ভর না।
+**কোথায় দেখবেন:** Raft — etcd, Consul, CockroachDB, TiKV, Kafka এর KRaft (ZooKeeper এর বদলে), আর MongoDB এর replica set এর protocol Raft থেকে অনুপ্রাণিত। Paxos (Leslie Lamport) — Google এর Chubby আর Spanner। ZooKeeper চালায় তার নিজের ZAB। নাম আলাদা, মূল ধারণা একই: majority, একটা বাড়তে থাকা সংখ্যা (term/ballot/epoch), আর নিরাপত্তা কখনো timeout এর উপর নির্ভর না।
 
 > **Trade-off Table — Consensus কখন**
 
@@ -286,17 +286,17 @@ Restriction তুলে দিলে কী হয়? `npm run unsafe` — এ
 
 ## ২. Interview Angle
 
-**"Raft কীভাবে leader বাছে, ব্যাখ্যা করো।"** — ক্রম: তিনটা ভূমিকা → term (প্রতিটা message এ, বড় term দেখলে follower) → election timeout এ candidate, term++, নিজেকে ভোট, RequestVote → প্রতি term এ এক ভোট, majority এ leader → random timeout কেন (split vote)। তারপর নিজে থেকে বলো: "এক term এ দুজন leader অসম্ভব কারণ দুটো majority মেলে" — এটাই interviewer শুনতে চায়।
+**"Raft কীভাবে leader বাছে, ব্যাখ্যা করুন।"** — ক্রম: তিনটা ভূমিকা → term (প্রতিটা message এ, বড় term দেখলে follower) → election timeout এ candidate, term++, নিজেকে ভোট, RequestVote → প্রতি term এ এক ভোট, majority এ leader → random timeout কেন (split vote)। তারপর নিজে থেকে বলুন: "এক term এ দুজন leader অসম্ভব কারণ দুটো majority মেলে" — এটাই interviewer শুনতে চায়।
 
 **"Partition হলে Raft cluster এ কী হয়?"** — Majority দিক নতুন leader বাছে আর লিখতে থাকে; minority দিকের পুরনো leader নিজেকে leader ভাবলেও commit করতে পারে না; জোড়া লাগলে বড় term দেখে সরে যায়, তার uncommitted entry মুছে যায়। বোনাস: পুরনো leader থেকে local read stale হতে পারে — তাই ReadIndex বা lease-based read।
 
 **"৪টা node দিলে তো ৩ এর চেয়ে বেশি নিরাপদ, তাই না?"** — না: majority ৩, একটাই মরা সহ্য করে, আর ২|২ partition এ কেউ majority পায় না। ৩ বা ৫।
 
-**"আমাদের সব data কি Raft দিয়ে replicate করব?"** — দাম বলো: প্রতিটা লেখায় majority round trip, একজন leader এর throughput সীমা। Coordination data (leader, lock, config) এর জন্য হ্যাঁ; বিশাল data এর জন্য হয় সাধারণ replication, নয়তো sharded consensus (CockroachDB)।
+**"আমাদের সব data কি Raft দিয়ে replicate করব?"** — দাম বলুন: প্রতিটা লেখায় majority round trip, একজন leader এর throughput সীমা। Coordination data (leader, lock, config) এর জন্য হ্যাঁ; বিশাল data এর জন্য হয় সাধারণ replication, নয়তো sharded consensus (CockroachDB)।
 
 **"Paxos আর Raft এর পার্থক্য?"** — নিরাপত্তার মূল ধারণা একই (majority, বাড়তে থাকা সংখ্যা)। Raft বোঝার সুবিধার জন্য শক্ত leader আর পরিষ্কার ধাপে ভাগ করা; Paxos মূলত একটা মানের উপর একমত হওয়ার protocol, log এর জন্য Multi-Paxos, আর বাস্তব implementation এর অনেক খুঁটিনাটি paper এ নেই।
 
-**Production এ বাস্তবে:** কেউ নিজে Raft লেখে না — etcd, Consul, ZooKeeper, বা database এর নিজের। তোমার কাজ: node সংখ্যা আর বসানোর জায়গা (৩টা AZ), timeout (etcd এর `--heartbeat-interval`, `--election-timeout` — network এর round trip দেখে), disk (etcd প্রতিটা লেখা disk এ `fsync` করে — ধীর disk মানে ধীর cluster), আর monitoring (leader কতবার বদলাচ্ছে — ঘন ঘন বদল মানে timeout বা network এর সমস্যা)।
+**Production এ বাস্তবে:** কেউ নিজে Raft লেখে না — etcd, Consul, ZooKeeper, বা database এর নিজের। আপনার কাজ: node সংখ্যা আর বসানোর জায়গা (৩টা AZ), timeout (etcd এর `--heartbeat-interval`, `--election-timeout` — network এর round trip দেখে), disk (etcd প্রতিটা লেখা disk এ `fsync` করে — ধীর disk মানে ধীর cluster), আর monitoring (leader কতবার বদলাচ্ছে — ঘন ঘন বদল মানে timeout বা network এর সমস্যা)।
 
 ---
 
@@ -328,11 +328,11 @@ Restriction তুলে দিলে কী হয়? `npm run unsafe` — এ
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. CTO এর দ্বিতীয় প্রশ্ন: TaskFlow এর দুটো AZ আছে (AZ-a, AZ-b)। একজন engineer প্রস্তাব দিল: "etcd এর ৪টা node, প্রতি AZ এ ২টা — সমান ভাগ, আর ৩ এর চেয়ে বেশি নিরাপদ।" এই প্রস্তাবের সমস্যা কী? AZ-a পুরো গেলে কী হবে? তোমার প্রস্তাব কী?
+1. CTO এর দ্বিতীয় প্রশ্ন: TaskFlow এর দুটো AZ আছে (AZ-a, AZ-b)। একজন engineer প্রস্তাব দিল: "etcd এর ৪টা node, প্রতি AZ এ ২টা — সমান ভাগ, আর ৩ এর চেয়ে বেশি নিরাপদ।" এই প্রস্তাবের সমস্যা কী? AZ-a পুরো গেলে কী হবে? আপনার প্রস্তাব কী?
 2. TaskFlow এর reminder worker etcd তে একটা key লিখতে গিয়ে timeout পেল। কোন কোন অবস্থায় লেখাটা হয়ে গেছে, আর কোন অবস্থায় হয়নি? (১.৫–১.৬ এর ঘটনা দিয়ে অন্তত একটা করে উদাহরণ।) Worker এর এখন কী করা উচিত?
-3. একজন সহকর্মী বলল: "etcd থেকে পড়া ধীর লাগছে। Leader এর কাছে তো সবসময় সর্বশেষ data থাকে — তাহলে leader সরাসরি নিজের memory থেকে উত্তর দিলেই হয়, majority কে জিজ্ঞেস করার দরকার কী?" Exercise এর partition snapshot দিয়ে উত্তর দাও। কোন ক্ষেত্রে তার প্রস্তাবটা (serializable read) আসলে ঠিক আছে?
+3. একজন সহকর্মী বলল: "etcd থেকে পড়া ধীর লাগছে। Leader এর কাছে তো সবসময় সর্বশেষ data থাকে — তাহলে leader সরাসরি নিজের memory থেকে উত্তর দিলেই হয়, majority কে জিজ্ঞেস করার দরকার কী?" Exercise এর partition snapshot দিয়ে উত্তর দিন। কোন ক্ষেত্রে তার প্রস্তাবটা (serializable read) আসলে ঠিক আছে?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -345,7 +345,7 @@ Restriction তুলে দিলে কী হয়? `npm run unsafe` — এ
 - **হয়ে গেছে:** leader entry টা majority তে পৌঁছে দিয়েছে (committed), তারপর client কে জানানোর ঠিক আগে crash করেছে, বা উত্তর পথে হারিয়েছে। নতুন leader এর log এ entry আছে (election restriction নিশ্চিত করে), অথচ worker "সফল" শোনেনি।
 - **পরে হতে পারে:** entry majority তে পৌঁছেছে কিন্তু leader তখনো জানায়নি — নতুন leader তার term এর একটা entry এর সাথে এটাকেও commit করবে।
 
-Worker যা করবে: retry — কিন্তু এমনভাবে যে দুবার প্রয়োগে ক্ষতি নেই। etcd এ এর ভালো উপায় **শর্তসহ লেখা** (transaction/compare-and-swap): "key এর revision এখনো X হলে তবেই লেখো" — প্রথম চেষ্টা সফল হয়ে থাকলে দ্বিতীয়টা শর্তে আটকে যাবে, আর worker পড়ে দেখে নিতে পারবে। অথবা লেখার মান নিজেই idempotent (একই মান আবার লেখা নিরীহ)। আর পড়ে যাচাই করার সময় linearizable read (প্রশ্ন ৩)।
+Worker যা করবে: retry — কিন্তু এমনভাবে যে দুবার প্রয়োগে ক্ষতি নেই। etcd এ এর ভালো উপায় **শর্তসহ লেখা** (transaction/compare-and-swap): "key এর revision এখনো X হলে তবেই লিখুন" — প্রথম চেষ্টা সফল হয়ে থাকলে দ্বিতীয়টা শর্তে আটকে যাবে, আর worker পড়ে দেখে নিতে পারবে। অথবা লেখার মান নিজেই idempotent (একই মান আবার লেখা নিরীহ)। আর পড়ে যাচাই করার সময় linearizable read (প্রশ্ন ৩)।
 
 **প্রশ্ন ৩:** "Leader এর কাছে সবসময় সর্বশেষ data" — এই ধারণাটাই ভুল, কারণ একজন node **জানে না যে সে আর leader না।** Exercise এর snapshot এ n1 নিজেকে LEADER বলছে, কিন্তু তার `x = 1`, অথচ `x=3` অনেক আগে commit হয়ে গেছে। n1 নিজের memory থেকে উত্তর দিলে stale read — আর client যদি একটু আগে নিজেই n3 এ `x=3` লিখে থাকে, সে নিজের লেখা ও দেখবে না (5.7 এর read-your-writes, এবার consensus এর মধ্যে)। Majority কে জিজ্ঞেস করা (ReadIndex) মানে "আমি এখনো leader" নিশ্চিত করা — minority তে আটকা n1 সেটা পারবে না, তাই ভুল উত্তরের বদলে উত্তরই দেবে না। (আরেকটা পথ আছে — leader একটা lease ধরে রাখে, আর lease এর ভেতরে majority ছাড়াই উত্তর দেয় — কিন্তু সেটা 6.1 এর মতো ঘড়ি আর pause এর অনুমানের উপর নির্ভর করে।) **কখন serializable read ঠিক আছে:** যখন একটু পুরনো মান ক্ষতিকর না — dashboard এ config দেখানো, monitoring, বা এমন cache যেটা নিজেই পরে ঠিক হয়। কিন্তু lock/leader এর সিদ্ধান্ত নেওয়ার আগে ("lock কি এখনো আমার?") কখনো না।
 
@@ -361,19 +361,19 @@ Worker যা করবে: retry — কিন্তু এমনভাবে �
 
 `src/raft.ts` এ Raft এর মূল অংশ (~300 লাইন) — paper এর Figure 2 এর নিয়ম মেনে, প্রতিটা নিয়মের পাশে comment। `src/sim.ts` একটা discrete-event simulator: message এর দেরি seed দেওয়া random, আর যেকোনো link কাটা যায়। Membership change, snapshot, disk এ persist, PreVote বাদ — এটা পড়ার আর ভাঙার জন্য, production এর জন্য না।
 
-**সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; তিনটা script কয়েকবার চালিয়ে হুবহু একই output (checksum মিলিয়ে)। README এর experiment গুলো তোমার code বদলানোর কাজ — সেগুলো চালিয়ে দেখা হয়নি।
+**সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; তিনটা script কয়েকবার চালিয়ে হুবহু একই output (checksum মিলিয়ে)। README এর experiment গুলো আপনার code বদলানোর কাজ — সেগুলো চালিয়ে দেখা হয়নি।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **`raft.ts` পড়ো** — শুধু চারটা function: `startElection`, `onRequestVote`, `onAppendEntries`, `advanceCommit`। প্রতিটার জন্য এক লাইনে লেখো, এটা Raft এর কোন নিয়ম (১.৩–১.৭ এর কোনটা)।
+1. **`raft.ts` পড়ুন** — শুধু চারটা function: `startElection`, `onRequestVote`, `onAppendEntries`, `advanceCommit`। প্রতিটার জন্য এক লাইনে লিখুন, এটা Raft এর কোন নিয়ম (১.৩–১.৭ এর কোনটা)।
 
-2. তিনটা script চালাও। `partition` এর snapshot এ দুজন LEADER — এক লাইনে লেখো কেন এটা 6.1 এর split brain **না**। তারপর আরেক লাইনে: কোন একটা কাজ করলে এটা আসলেই ক্ষতিকর হতে পারত?
+2. তিনটা script চালান। `partition` এর snapshot এ দুজন LEADER — এক লাইনে লিখুন কেন এটা 6.1 এর split brain **না**। তারপর আরেক লাইনে: কোন একটা কাজ করলে এটা আসলেই ক্ষতিকর হতে পারত?
 
-3. **জোড় সংখ্যা** (experiment ২): ৬টা node, ৩|৩ partition। কোনো দিক leader পেল? কোনো লেখা commit হলো? প্রশ্ন ১ এর উত্তরের সাথে মেলাও।
+3. **জোড় সংখ্যা** (experiment ২): ৬টা node, ৩|৩ partition। কোনো দিক leader পেল? কোনো লেখা commit হলো? প্রশ্ন ১ এর উত্তরের সাথে মেলান।
 
-4. **Stale read ঠিক করো** (experiment ৩): majority এর সাড়া ছাড়া উত্তর না দেওয়া একটা `read()` লেখো। Partition এর সময় n1 আর n3 কে দিয়ে চালাও — কে উত্তর দেয়, কে দেয় না?
+4. **Stale read ঠিক করুন** (experiment ৩): majority এর সাড়া ছাড়া উত্তর না দেওয়া একটা `read()` লিখুন। Partition এর সময় n1 আর n3 কে দিয়ে চালান — কে উত্তর দেয়, কে দেয় না?
 
-5. **Design অংশ:** CTO কে এক পাতার একটা উত্তর লেখো: (ক) etcd এর নিজের split brain কেন হয় না — term, majority, election restriction দিয়ে, ৫–৬ লাইনে; (খ) node সংখ্যা আর কোথায় বসবে (TaskFlow এর দুটো AZ আছে — তৃতীয়টা কোথায়?); (গ) `--heartbeat-interval` আর `--election-timeout` কত — node গুলোর মধ্যে round trip দেখে যুক্তি সহ; (ঘ) reminder worker etcd থেকে lock এর অবস্থা পড়ার সময় কোন ধরনের read ব্যবহার করবে, আর কেন।
+5. **Design অংশ:** CTO কে এক পাতার একটা উত্তর লিখুন: (ক) etcd এর নিজের split brain কেন হয় না — term, majority, election restriction দিয়ে, ৫–৬ লাইনে; (খ) node সংখ্যা আর কোথায় বসবে (TaskFlow এর দুটো AZ আছে — তৃতীয়টা কোথায়?); (গ) `--heartbeat-interval` আর `--election-timeout` কত — node গুলোর মধ্যে round trip দেখে যুক্তি সহ; (ঘ) reminder worker etcd থেকে lock এর অবস্থা পড়ার সময় কোন ধরনের read ব্যবহার করবে, আর কেন।
 
 ---
 
@@ -390,7 +390,7 @@ Terms learned (Module 6 so far): Partial Failure, Failure Model, Failure Detecto
 Process Pause, Split Brain, Lease, Fencing Token, Consensus, FLP Impossibility,
 Replicated State Machine, Term, Randomized Election Timeout, Committed Entry,
 Election Restriction
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 6.3 — Quorum in practice: replication lag, read-your-writes, monotonic read
 =======================
 ```
@@ -399,4 +399,4 @@ Next: 6.3 — Quorum in practice: replication lag, read-your-writes, monotonic r
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের দুটো লাইন আর ৫ নম্বরের CTO কে উত্তর। রেডি হলে `next` লিখো — Lesson 6.3 এ যাব: **Quorum in practice — replication lag, read-your-writes, monotonic read।** আজ দেখলে, পুরনো leader থেকে পড়লে পুরনো মান আসে। Consensus সেটা এড়ায় — প্রতিটা read এর জন্য majority এর সাড়া নিয়ে, যেটা দামি। বেশিরভাগ system এই দাম সব read এ দেয় না; তারা replica থেকে পড়ে, আর এর বদলে কিছু **নির্দিষ্ট** নিশ্চয়তা দেয়: "নিজের লেখা দেখবে", "সময় পেছনে যাবে না"। 5.7 এ যে সমস্যার শুধু নাম নিয়ে রেখেছিলাম — refresh করলে task উধাও — সেটা সেখানে সমাধান হবে।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের দুটো লাইন আর ৫ নম্বরের CTO কে উত্তর। রেডি হলে `next` লিখুন — Lesson 6.3 এ যাব: **Quorum in practice — replication lag, read-your-writes, monotonic read।** আজ দেখলে, পুরনো leader থেকে পড়লে পুরনো মান আসে। Consensus সেটা এড়ায় — প্রতিটা read এর জন্য majority এর সাড়া নিয়ে, যেটা দামি। বেশিরভাগ system এই দাম সব read এ দেয় না; তারা replica থেকে পড়ে, আর এর বদলে কিছু **নির্দিষ্ট** নিশ্চয়তা দেয়: "নিজের লেখা দেখবে", "সময় পেছনে যাবে না"। 5.7 এ যে সমস্যার শুধু নাম নিয়ে রেখেছিলাম — refresh করলে task উধাও — সেটা সেখানে সমাধান হবে।

@@ -136,7 +136,7 @@ default                 1.07 MB              2                 0.74%            
 NONSCALING             292.6 KB              1                 1.00%            494,508
 ```
 
-প্রথম চারটা script এর সংখ্যা তোমার machine এও **হুবহু এক** হওয়ার কথা। `npm run redis` এর memory Redis এর
+প্রথম চারটা script এর সংখ্যা আপনার machine এও **হুবহু এক** হওয়ার কথা। `npm run redis` এর memory Redis এর
 version ভেদে সামান্য আলাদা হতে পারে।
 
 ## কী দেখার জন্য এটা বানানো
@@ -155,11 +155,11 @@ version ভেদে সামান্য আলাদা হতে পার�
 - **HyperLogLog এর ভুল union এর আকারের অনুপাতে, intersection এর না।** তাই দুটো বড় সেটের ছোট overlap বের
   করা যায় না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Negative cache এর TTL:** `NEGATIVE_TTL=5 npm run penetration`, তারপর `NEGATIVE_TTL=1`. DB query/s কি
-   কখনো "শুধু cache" এর চেয়ে **কম** হয়? কেন হতে পারে না? এবার ভাবো — কোন ধরনের traffic এ negative cache
-   সত্যিই কাজে লাগে (Lesson 4.6 এর উদাহরণটা মনে করো)?
+   কখনো "শুধু cache" এর চেয়ে **কম** হয়? কেন হতে পারে না? এবার ভাবুন — কোন ধরনের traffic এ negative cache
+   সত্যিই কাজে লাগে (Lesson 4.6 এর উদাহরণটা মনে করুন)?
 2. **Filter এর সঠিকতার দাম:** `RATE=0.001 npm run penetration`. Filter কত বড় হলো, আর DB query/s কত কমল? কোন
    মুহূর্তে আরও ছোট false positive আর লাভ দেয় না?
 3. **Rebuild এর ব্যবধান:** `REBUILD=10 npm run penetration`. ভুল 404 কত কমল? ১০ সেকেন্ডে পুরো DB থেকে filter

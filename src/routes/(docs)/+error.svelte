@@ -22,7 +22,7 @@
 		<h1>{heading}</h1>
 		<p>{page.error?.message}</p>
 		<a class="primary-button" href={localizedHref('/', locale)}
-			>{locale === 'bn' ? 'Curriculum-এ ফিরে যাও' : 'Back to curriculum'}<Icon
+			>{locale === 'bn' ? 'Curriculum-এ ফিরে যান' : 'Back to curriculum'}<Icon
 				name="arrow"
 				size={17}
 			/></a

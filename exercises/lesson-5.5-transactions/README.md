@@ -18,7 +18,7 @@
 
 Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য)।
 
-Port **5436** — তোমার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433–5435) সাথে সংঘাত এড়াতে।
+Port **5436** — আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433–5435) সাথে সংঘাত এড়াতে।
 
 ## Setup
 
@@ -38,7 +38,7 @@ npm run lostupdate
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-**১. `npm run anomalies`** — deterministic, তোমার মেশিনেও হুবহু এটাই আসবে:
+**১. `npm run anomalies`** — deterministic, আপনার মেশিনেও হুবহু এটাই আসবে:
 
 ```
 ━━ 1. Lost update — read-modify-write
@@ -105,8 +105,8 @@ npm run lostupdate
 
 1. **Transaction একা race আটকায় না।** কৌশল ২ তে সব কাজ transaction এর ভেতরে — তবু ১০০ এর মধ্যে
    ৯০টা হারায়। Postgres এর default (READ COMMITTED) এ দুটো transaction একই পুরনো মান পড়তে পারে।
-2. **একই সমস্যার তিন ধরনের সমাধান:** আগে lock নাও (৩), হিসাবটা database কে দাও (৪), অথবা
-   সংঘাত ঘটলে ধরা পড়ুক আর আবার চেষ্টা করো (৫, ৬, ৭)। শেষেরগুলোতে **retry বাধ্যতামূলক** —
+2. **একই সমস্যার তিন ধরনের সমাধান:** আগে lock নিন (৩), হিসাবটা database কে দিন (৪), অথবা
+   সংঘাত ঘটলে ধরা পড়ুক আর আবার চেষ্টা করুন (৫, ৬, ৭)। শেষেরগুলোতে **retry বাধ্যতামূলক** —
    retry ছাড়া এরা শুধু error ছুড়ত।
 3. **Optimistic locking তীব্র প্রতিযোগিতায় খারাপ।** ১০০ জন একই row এ — প্রতিটা সফল লেখার জন্য
    গড়ে ১২টা ব্যর্থ চেষ্টা। Optimistic এর জায়গা হলো যেখানে সংঘাত **কদাচিৎ** (দুজন একই task একই
@@ -115,25 +115,25 @@ npm run lostupdate
    বদলেছে — কোনো row এ সংঘাত নেই, তাই REPEATABLE READ কিছু ধরতে পারে না। শুধু SERIALIZABLE
    (অথবা হাতে lock) এটা আটকায়।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Retry তুলে দাও।** `src/lostupdate.ts` এ কৌশল ৭ থেকে `withRetry(...)` মোড়ক সরিয়ে শুধু
-   `sequelize.transaction(...)` রাখো। কী হয়? Error টা কোথায় উঠল, আর কতগুলো increment সফল হলো?
-   SERIALIZABLE ব্যবহার করলে retry কেন "optional" না — এক লাইনে লেখো।
+1. **Retry তুলে দিন।** `src/lostupdate.ts` এ কৌশল ৭ থেকে `withRetry(...)` মোড়ক সরিয়ে শুধু
+   `sequelize.transaction(...)` রাখুন। কী হয়? Error টা কোথায় উঠল, আর কতগুলো increment সফল হলো?
+   SERIALIZABLE ব্যবহার করলে retry কেন "optional" না — এক লাইনে লিখুন।
 
-2. **Write skew ঠিক করো, SERIALIZABLE ছাড়া।** `src/anomalies.ts` এর `writeSkew()` এ admin গোনার
-   query টা `SELECT ... FOR UPDATE` করে দাও (count এর সাথে FOR UPDATE চলে না — আগে admin row গুলো
-   `SELECT id FROM members WHERE ... AND role = 'admin' FOR UPDATE` দিয়ে lock করো, তারপর গোনো)।
-   REPEATABLE READ এ চালাও। এখন কী হয়? B কি অপেক্ষা করে, নাকি error পায়?
+2. **Write skew ঠিক করুন, SERIALIZABLE ছাড়া।** `src/anomalies.ts` এর `writeSkew()` এ admin গোনার
+   query টা `SELECT ... FOR UPDATE` করে দিন (count এর সাথে FOR UPDATE চলে না — আগে admin row গুলো
+   `SELECT id FROM members WHERE ... AND role = 'admin' FOR UPDATE` দিয়ে lock করুন, তারপর গুনুন)।
+   REPEATABLE READ এ চালান। এখন কী হয়? B কি অপেক্ষা করে, নাকি error পায়?
 
-3. **Contention কমাও।** `lostupdate.ts` এ `CONCURRENT` ১০০ রেখেই প্রতিটা increment কে ১০টা আলাদা
-   project এর মধ্যে ভাগ করে দাও (`project.id` এর বদলে ১০টা project এর একটা)। Optimistic (৬) এর
+3. **Contention কমান।** `lostupdate.ts` এ `CONCURRENT` ১০০ রেখেই প্রতিটা increment কে ১০টা আলাদা
+   project এর মধ্যে ভাগ করে দিন (`project.id` এর বদলে ১০টা project এর একটা)। Optimistic (৬) এর
    retry সংখ্যা কত কমে? কেন?
 
-4. **Transaction pass করতে ভুলে যাও।** কৌশল ৩ এ `Project.update(...)` এর option থেকে `transaction`
-   সরিয়ে দাও (lock নেওয়া `findByPk` এ রেখে)। চালাও — কী হয়? (ইঙ্গিত: update টা এখন অন্য একটা
+4. **Transaction pass করতে ভুলে যান।** কৌশল ৩ এ `Project.update(...)` এর option থেকে `transaction`
+   সরিয়ে দিন (lock নেওয়া `findByPk` এ রেখে)। চালান — কী হয়? (ইঙ্গিত: update টা এখন অন্য একটা
    connection এ, আর row টা lock করা আছে এই transaction এর হাতে। Pool এ মাত্র ১০টা connection।)
-   সাবধান: script আটকে যেতে পারে — `Ctrl+C` দিয়ে থামাও। এটা Sequelize এর সবচেয়ে সাধারণ
+   সাবধান: script আটকে যেতে পারে — `Ctrl+C` দিয়ে থামান। এটা Sequelize এর সবচেয়ে সাধারণ
    production bug গুলোর একটা।
 
 ## Teardown

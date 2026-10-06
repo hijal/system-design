@@ -95,7 +95,7 @@ Teardown: কিছু লাগে না — script শেষে সব proces
 
 ## কী দেখার জন্য এটা বানানো
 
-- **ধাপ গোনো, request না:** সরাসরি পথে ৪টা request কিন্তু ৩টা **ধাপ** — task না এলে assignee আর comment জানা যায় না, comment
+- **ধাপ গুনুন, request না:** সরাসরি পথে ৪টা request কিন্তু ৩টা **ধাপ** — task না এলে assignee আর comment জানা যায় না, comment
   না এলে author। প্রতিটা ধাপ একটা পুরো round trip। Mobile এ ৩ × ১০০ ms = ৩০০ ms শুধু অপেক্ষা; BFF এ সেই তিন ধাপ data center এর
   ভেতরে, ১ ms করে।
 - **Byte:** service গুলো পুরো object দেয় (settings, checklist, custom field) — page এর দরকার নেই। Browser এ ২৫ KB; web BFF
@@ -107,17 +107,17 @@ Teardown: কিছু লাগে না — script শেষে সব proces
   এর sign যাচাই করে — সরাসরি এলে 401, আর পুরনো sign (৭০ s) ও 401।
 - **Canary:** user id এর hash ধরে ভাগ — ১০% মানে ~১০% user, আর একজন user সবসময় একই দিকে (১০০%)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Data center এর ভেতর ধীর হলে:** `NET_MS=5 npm run bff`। BFF এর সুবিধা কি হারায়? কেন না? (এই machine এ: mobile এ সরাসরি
    ৩৬১ ms, web BFF ১৩৭ ms, mobile BFF ১২২ ms — ভেতরের ৩ ধাপ × ৫ ms বাইরের ৩ ধাপ × ১০০ ms এর চেয়ে অনেক সস্তা।)
-2. **Waterfall আরও লম্বা** (code বদলানো): `bff.ts` এর `directPage` এ ধাপ ২ এর `Promise.all` সরিয়ে একটা একটা করে `await` করো
-   (assignee, তারপর comment)। Mobile এ সময় কত হবে — আগে হিসাব করো, তারপর চালাও। BFF এর ভেতরে একই ভুল করলে কত ক্ষতি?
-3. **Sign এর দাম** (code বদলানো): `gateway.ts` এর `hopCost` এ দুটো process এর `AUTH_MODE` `'signed'` করো। Gateway এর CPU /
+2. **Waterfall আরও লম্বা** (code বদলানো): `bff.ts` এর `directPage` এ ধাপ ২ এর `Promise.all` সরিয়ে একটা একটা করে `await` করুন
+   (assignee, তারপর comment)। Mobile এ সময় কত হবে — আগে হিসাব করুন, তারপর চালান। BFF এর ভেতরে একই ভুল করলে কত ক্ষতি?
+3. **Sign এর দাম** (code বদলানো): `gateway.ts` এর `hopCost` এ দুটো process এর `AUTH_MODE` `'signed'` করুন। Gateway এর CPU /
    request কত বাড়ল? (HMAC-SHA256 — microsecond এর ঘরে হওয়ার কথা; RS256 এর যাচাই এর চেয়ে অনেক সস্তা।)
 4. **কম user এ canary:** `USERS=100 npm run gateway` — ১০% এ কয়জন? (এই machine এ: ১০, ৫০% এ ৪৯।) ১০ জন user এর একটা workspace এ
    ১০% canary এর মানে কী — আর workspace ধরে ভাগ করলে (user ধরে না) কী সুবিধা, কী অসুবিধা?
-5. **Mobile BFF এর আকৃতি** (code বদলানো): `service.ts` এর BFF এ mobile এর জন্য `description` পুরো বাদ দাও আর comment ৩টা করো।
+5. **Mobile BFF এর আকৃতি** (code বদলানো): `service.ts` এর BFF এ mobile এর জন্য `description` পুরো বাদ দিন আর comment ৩টা করুন।
    Byte আর সময় কত কমল? কোন বিন্দুর পরে byte কমিয়ে আর লাভ নেই — আর কেন (RTT)?
 
 ## Project Structure

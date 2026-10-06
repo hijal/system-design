@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.3 (WAL), Lesson 5.5 (Transaction), Lesson 5.7 (Replication), Lesson 7.2 (Log, consumer group, partition key), Lesson 7.3 (BullMQ, dual write এর প্রশ্ন), Lesson 7.4 (Idempotent consumer)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Event আর command আলাদা করতে পারবে, আর একটা flow কে event দিয়ে সাজানো (choreography) কখন সাহায্য করে আর কখন একটা অদৃশ্য জট বানায় — বলতে পারবে
-2. Dual write কেন কোনো ক্রম সাজিয়ে সারে না, সেটা exercise এর সংখ্যা দিয়ে দেখাতে পারবে — আর transactional outbox দিয়ে সেটা বন্ধ করতে পারবে (polling relay বা CDC)
-3. একটা event এর চুক্তি design করতে পারবে — নাম, ID, version, কতটা data — যাতে producer আর consumer আলাদাভাবে বদলাতে পারে
+1. Event আর command আলাদা করতে পারবেন, আর একটা flow কে event দিয়ে সাজানো (choreography) কখন সাহায্য করে আর কখন একটা অদৃশ্য জট বানায় — বলতে পারবেন
+2. Dual write কেন কোনো ক্রম সাজিয়ে সারে না, সেটা exercise এর সংখ্যা দিয়ে দেখাতে পারবেন — আর transactional outbox দিয়ে সেটা বন্ধ করতে পারবেন (polling relay বা CDC)
+3. একটা event এর চুক্তি design করতে পারবেন — নাম, ID, version, কতটা data — যাতে producer আর consumer আলাদাভাবে বদলাতে পারে
 
 **Tier:** 1 — Runnable Code (Docker এ Postgres + Redis; writer আর relay আসলেই মাঝপথে `SIGKILL` হয়)
 
@@ -32,9 +32,9 @@ res.status(201).json(comment);
 
 1. **একটা deploy এর পরে:** কয়েকজন user বলল তাদের নতুন comment search এ আসছে না, আর mention করা মানুষ email পায়নি। Comment গুলো database এ আছে। Stream এ তাদের কোনো event নেই।
 2. **Redis এর একটা failover এর ৩ সেকেন্ড:** সেই ৩ সেকেন্ডে লেখা সব comment — একই অবস্থা। কোনো error নেই, কারণ `xadd` এর ব্যর্থতা `catch` করে log করা হয়েছিল (user কে 201 দিতে হবে তো — comment তো সেভ হয়েছে)।
-3. **একজন engineer ক্রমটা উল্টাল** — "আগে event, তারপর commit, তাহলে event হারাবে না।" এক সপ্তাহ পরে: কেউ একটা email পেল "Rahim তোমাকে একটা comment এ mention করেছে", link এ click করে — 404। আর পরের Redis maintenance এর সময় পাঁচ মিনিট **কেউ comment ই করতে পারল না।**
+3. **একজন engineer ক্রমটা উল্টাল** — "আগে event, তারপর commit, তাহলে event হারাবে না।" এক সপ্তাহ পরে: কেউ একটা email পেল "Rahim আপনাকে একটা comment এ mention করেছে", link এ click করে — 404। আর পরের Redis maintenance এর সময় পাঁচ মিনিট **কেউ comment ই করতে পারল না।**
 
-একই সময়ে product meeting এ অন্য একটা তর্ক। Task complete হলে এখন ছয়টা জিনিস হওয়ার কথা: assignee আর watcher দের notification, analytics, billing এর usage (7.4), customer দের webhook, parent task auto-close, আর sprint এর progress update। Task service এর `complete()` function এ ছয়টা call জমছে। একজন বলল: "সবাইকে call না করে শুধু একটা `task.completed` event ছাড়ো — যার দরকার সে শুনুক।" আরেকজন সাবধান করল: "তাহলে ছয় মাস পরে কেউ বলতে পারবে না task complete হলে ঠিক কী কী হয়।"
+একই সময়ে product meeting এ অন্য একটা তর্ক। Task complete হলে এখন ছয়টা জিনিস হওয়ার কথা: assignee আর watcher দের notification, analytics, billing এর usage (7.4), customer দের webhook, parent task auto-close, আর sprint এর progress update। Task service এর `complete()` function এ ছয়টা call জমছে। একজন বলল: "সবাইকে call না করে শুধু একটা `task.completed` event ছাড়ুন — যার দরকার সে শুনুক।" আরেকজন সাবধান করল: "তাহলে ছয় মাস পরে কেউ বলতে পারবে না task complete হলে ঠিক কী কী হয়।"
 
 দুজনেই ঠিক। আজ দুটো প্রশ্ন: event-driven design কখন ভালো, কখন ক্ষতিকর — আর event টা **নির্ভরযোগ্যভাবে তৈরি** কীভাবে হয়, যেটা 7.3 থেকে পিছিয়ে রাখা প্রশ্ন।
 
@@ -42,18 +42,18 @@ res.status(201).json(comment);
 
 ## ১. Theory
 
-### ১.১ Event আর Command — "ঘটেছে" বনাম "করো"
+### ১.১ Event আর Command — "ঘটেছে" বনাম "করুন"
 
 Lesson 7.2 এ message কে দুই ভাগ করেছিলাম — "কাজ" আর "খবর"। আজ তাদের আনুষ্ঠানিক নাম।
 
-**Command** — কাউকে একটা নির্দিষ্ট কাজ করতে বলা ("এই email পাঠাও", "এই card charge করো"); একজন নির্দিষ্ট প্রাপক আছে, সে কাজটা করতে পারে বা প্রত্যাখ্যান করতে পারে, আর পাঠানোর সময় পাঠক জানে কী হওয়া উচিত।
+**Command** — কাউকে একটা নির্দিষ্ট কাজ করতে বলা ("এই email পাঠান", "এই card charge করুন"); একজন নির্দিষ্ট প্রাপক আছে, সে কাজটা করতে পারে বা প্রত্যাখ্যান করতে পারে, আর পাঠানোর সময় পাঠক জানে কী হওয়া উচিত।
 
 **Event** — এমন একটা ঘটনার খবর যেটা ইতিমধ্যে ঘটে গেছে ("comment তৈরি হলো", "task complete হলো"); এটা একটা তথ্য, প্রত্যাখ্যান করার কিছু নেই, আর প্রকাশক জানে না (জানার দরকারও নেই) কে কে শুনছে বা শুনে কী করবে।
 
 নামেই পার্থক্য ধরা পড়ে: command আদেশসূচক (`SendMentionEmail`, `ChargeCard`), event অতীত কাল (`comment.created`, `task.completed`)। আর দায়িত্বের দিক উল্টো:
 
 ```
-   command:  task service ──"notification পাঠাও"──► notification service
+   command:  task service ──"notification পাঠান"──► notification service
              (task service জানে notification আছে, আর তার কী করা উচিত)
 
    event:    task service ──"task complete হলো"──► [ stream ] ──► notification
@@ -64,7 +64,7 @@ Lesson 7.2 এ message কে দুই ভাগ করেছিলাম — "
 
 একটা সাধারণ ভুল: event এর নামে command পাঠানো — `task.completed.sendEmailToAssignee`। এখানে প্রকাশক আসলে প্রাপক আর কাজ দুটোই ঠিক করে দিচ্ছে, শুধু নামটা event এর মতো। দুটোর দোষ একসাথে পাওয়া যায়: command এর coupling, event এর অদৃশ্যতা।
 
-### ১.২ Event-Driven Architecture — কী পাও, কী দাও
+### ১.২ Event-Driven Architecture — কী পান, কী দেন
 
 Event-driven architecture মানে service গুলো একে অপরকে সরাসরি call না করে event এ **সাড়া দেয়**। Task complete এর ছয়টা কাজ দুইভাবে সাজানো যায়:
 
@@ -88,13 +88,13 @@ Event-driven architecture মানে service গুলো একে অপর�
 
 **Choreography** — একটা বড় কাজ কয়েকটা service এ ভাগ, যেখানে কেউ কাউকে নির্দেশ দেয় না; প্রত্যেকে event শুনে নিজের অংশ করে, আর দরকার হলে নিজের event ছাড়ে।
 
-**কী পাও:**
+**কী পান:**
 
-- **Producer এর coupling কমে।** নতুন একটা কাজ (ধরো "task complete হলে Jira তে sync") মানে নতুন একটা consumer — task service এর code এ হাতও দিতে হয় না।
+- **Producer এর coupling কমে।** নতুন একটা কাজ (ধরুন "task complete হলে Jira তে sync") মানে নতুন একটা consumer — task service এর code এ হাতও দিতে হয় না।
 - **Temporal decoupling (7.1)।** Analytics এক ঘণ্টা বন্ধ থাকলে task complete হওয়া থামে না; analytics ফিরে এসে পিছিয়ে পড়া অংশ পড়ে নেয় (7.2 এর log)।
 - **আলাদা scale, আলাদা ব্যর্থতা।** Webhook এর ধীর customer billing কে ধীর করে না।
 
-**কী দাও:**
+**কী দেন:**
 
 - **Flow অদৃশ্য হয়ে যায়।** (ক) তে "task complete হলে কী হয়" এর উত্তর একটা function পড়লেই। (খ) তে উত্তর ছয়টা repo তে ছড়ানো, আর কোন service কোন event শোনে সেটা কোনো এক জায়গায় লেখা নেই। Meeting এর দ্বিতীয় জন এটাই বলছিল।
 - **Event এর চেইন।** Parent auto-close একটা নতুন `task.completed` ছাড়ে, যেটা আবার parent auto-close কে জাগায়… Event গুলো একে অপরকে ট্রিগার করে এমন একটা জাল বানাতে পারে যেটা কেউ design করেনি — আর লুপও।
@@ -112,7 +112,7 @@ Martin Fowler এর 2017 এর লেখা "What do you mean by 'Event-Driven
 
 **Event-carried state transfer** — event এর সাথেই সেই data যা consumer দের লাগবে (`taskId`, `title`, `assigneeId`, `completedBy`, `completedAt`, `projectId`), যাতে consumer কে ফিরে producer কে জিজ্ঞেস করতে না হয়; consumer চাইলে নিজের কাছে একটা কপি রাখে।
 
-Consumer স্বাধীন হয় — task service বন্ধ থাকলেও notification এর যা দরকার সব event এ আছে। দাম: event বড়, data এর কপি অনেক জায়গায় (আর সব কপি কিছুক্ষণ পুরনো — eventual), আর event এ যা রাখবে সেটা সবাই দেখবে (ব্যক্তিগত তথ্য, secret — কখনো না)।
+Consumer স্বাধীন হয় — task service বন্ধ থাকলেও notification এর যা দরকার সব event এ আছে। দাম: event বড়, data এর কপি অনেক জায়গায় (আর সব কপি কিছুক্ষণ পুরনো — eventual), আর event এ যা রাখবেন সেটা সবাই দেখবে (ব্যক্তিগত তথ্য, secret — কখনো না)।
 
 **Event sourcing** — event কেই source of truth বানানো: task এর বর্তমান অবস্থা database এর row না, বরং তার সব event (`created`, `assigned`, `renamed`, `completed`) শুরু থেকে চালিয়ে পাওয়া ফল। শক্তিশালী (পুরো ইতিহাস, যেকোনো সময়ের অবস্থা আবার বানানো যায়), কিন্তু এটা পুরো system এর design বদলায় — 7.2 এর ১.৪ এর সতর্কতা এখানেও। আজকের বিষয় না; TaskFlow এ database ই source of truth থাকবে, আর event তার **পরিবর্তনের খবর**।
 
@@ -149,7 +149,7 @@ Exercise এর `npm run scenario` — ২০০০টা comment, প্রত�
 
 **"দুটো system কে একটা transaction এ বাঁধা যায় না?"** — Two-phase commit (2PC/XA) ঠিক এটা করার চেষ্টা (Lesson 9.3 এ বিস্তারিত)। কিন্তু Redis Stream, Kafka বা বেশিরভাগ broker এতে অংশ নেয় না, আর যেখানে নেয় সেখানে এটা ধীর আর একটা সমন্বয়কারীর ব্যর্থতায় আটকে যায়। বাস্তবে উত্তর অন্য দিকে: দুটো system এ লেখা না — **একটা** তে লেখা।
 
-### ১.৫ Transactional Outbox — একটা system এ লেখো, পরে পাঠাও
+### ১.৫ Transactional Outbox — একটা system এ লিখুন, পরে পাঠান
 
 **Transactional outbox** — event টা broker এ সরাসরি না পাঠিয়ে, ব্যবসার data এর সাথে **একই database transaction এ** একটা `outbox` table এ লেখা; আলাদা একটা relay process পরে outbox থেকে পড়ে broker এ পাঠায় আর "পাঠানো হয়েছে" চিহ্ন দেয়।
 
@@ -181,7 +181,7 @@ Exercise এর তৃতীয় সারি:
 
 - **হারাল ০, ভুতুড়ে ০।** Writer এর crash এ comment আর outbox row একসাথে rollback — user error দেখল, আর কোথাও কিছু নেই। Consistent।
 - **Redis বন্ধ থাকলে (experiment ১):** হারাল ০, user error ০ — comment তৈরিতে এখন শুধু Postgres লাগে। Event গুলো outbox এ অপেক্ষা করে, Redis ফিরলে relay পাঠায় (দেরি p99 ৪.১ s)। Redis comment এর critical path থেকে বেরিয়ে গেছে।
-- **বাড়তি ১৬০টা।** Relay পাঠাল, `publishedAt` লেখার আগে মরল — পরের relay আবার পাঠায়। Outbox **at-least-once**, exactly-once না। কিন্তু দেখো "আলাদা eventId" = ১৯৫৯ = comment এর সংখ্যা: বাড়তিগুলো সব হুবহু কপি, **একই eventId** সহ — তাই 7.4 এর idempotent consumer (eventId বা effect এর key দিয়ে dedupe) এগুলো নিরাপদে বাদ দেয়। Outbox আর idempotent consumer একসাথে একটা জোড়া — একটা ছাড়া আরেকটা অর্ধেক।
+- **বাড়তি ১৬০টা।** Relay পাঠাল, `publishedAt` লেখার আগে মরল — পরের relay আবার পাঠায়। Outbox **at-least-once**, exactly-once না। কিন্তু দেখুন "আলাদা eventId" = ১৯৫৯ = comment এর সংখ্যা: বাড়তিগুলো সব হুবহু কপি, **একই eventId** সহ — তাই 7.4 এর idempotent consumer (eventId বা effect এর key দিয়ে dedupe) এগুলো নিরাপদে বাদ দেয়। Outbox আর idempotent consumer একসাথে একটা জোড়া — একটা ছাড়া আরেকটা অর্ধেক।
 - **দেরি।** Event আর commit এর মুহূর্তে যায় না — relay এর পরের খোঁজে (p50 ~১০০ ms, `POLL_MS=1000` এ ~৮৪০ ms)।
 
 **Relay বানানোর খুঁটিনাটি** (exercise এর `relay.ts`):
@@ -189,20 +189,20 @@ Exercise এর তৃতীয় সারি:
 - `FOR UPDATE SKIP LOCKED` — একাধিক relay চালালে (বা পুরনোটা আটকে থাকতে নতুনটা চালু হলে) একই row দুজন নেয় না; অন্যের লক করা row বাদ দিয়ে পরেরগুলো নেয়।
 - `WHERE "publishedAt" IS NULL` এর উপর partial index — outbox এ লাখ লাখ পুরনো row থাকলেও খোঁজা দ্রুত।
 - **Batch এর আকার একটা trade-off।** বড় batch = কম round trip; কিন্তু batch একটা transaction, আর মাঝপথে ব্যর্থ হলে পুরোটা আবার। Experiment ৩: প্রতি event এ ৫% crash হলে ৫০ এর batch কোনো crash ছাড়া শেষ হওয়ার সম্ভাবনা ০.৯৫⁵⁰ ≈ ৮% — relay প্রায় থেমে যায় (৬০ সেকেন্ড পরেও ১০৫০টা বাকি)। Batch ৫ এ সব পৌঁছায়। 7.4 এর poison message এর আত্মীয়: একটা খারাপ জিনিস তার সাথের সবাইকে আটকায়।
-- **Outbox পরিষ্কার রাখো।** পাঠানো row জমতেই থাকে (exercise শেষে ২০০০ টা)। কয়েক দিন পরে মুছে ফেলো — বড় আকারে তারিখ দিয়ে partition করে পুরো partition drop (Lesson 5.8)।
+- **Outbox পরিষ্কার রাখুন।** পাঠানো row জমতেই থাকে (exercise শেষে ২০০০ টা)। কয়েক দিন পরে মুছে ফেলুন — বড় আকারে তারিখ দিয়ে partition করে পুরো partition drop (Lesson 5.8)।
 
 **ক্রম — একটা সূক্ষ্ম ফাঁদ (experiment ৪)।** Outbox এর `id` insert এর সময় বরাদ্দ হয়, commit এর সময় না। দুটো transaction একসাথে: T1 id ১০ পেল, T2 id ১১ পেল, T2 আগে commit করল। Relay এই মুহূর্তে খুঁজলে ১১ দেখে (১০ এখনো দৃশ্যমান না), পাঠায়; পরে ১০ পাঠায় — উল্টো ক্রমে। `publishedAt IS NULL` দিয়ে খুঁজলে ১০ হারায় না, শুধু দেরিতে যায়। কিন্তু কেউ যদি "`WHERE id > শেষ পাঠানো id`" দিয়ে relay লেখে (দেখতে বেশি দক্ষ), তাহলে ১১ পাঠানোর পরে cursor ১১ এ — আর ১০ **কখনো** পাঠানো হয় না। নিয়ম: outbox এ cursor না, flag (বা CDC, নিচে)। আর একই task এর event এর ক্রম যদি জরুরি হয় (7.2), সেই task এর লেখাগুলো নিজেরাই ক্রমে commit হয় (একই row এ lock), তাই সাধারণত ঠিক থাকে — কিন্তু একাধিক relay চালালে প্রতি task এর ক্রম রক্ষা নিশ্চিত করতে হয় (যেমন একটা relay, বা key দিয়ে ভাগ করা relay)।
 
 **Polling না করে — Change Data Capture।** Relay প্রতি ২০০ ms এ database কে জিজ্ঞেস করছে — বেশিরভাগ বার "কিছু নেই"। দুটো উন্নতি:
 
-- **`LISTEN`/`NOTIFY`** — writer এর transaction এ একটা `NOTIFY outbox` (Postgres এটা commit এর সময়ই পাঠায়), relay `LISTEN` করে জেগে ওঠে। দেরি কমে, খালি query কমে। (Notification হারাতে পারে — তাই মাঝে মাঝে polling তবু রাখো।)
+- **`LISTEN`/`NOTIFY`** — writer এর transaction এ একটা `NOTIFY outbox` (Postgres এটা commit এর সময়ই পাঠায়), relay `LISTEN` করে জেগে ওঠে। দেরি কমে, খালি query কমে। (Notification হারাতে পারে — তাই মাঝে মাঝে polling তবু রাখুন।)
 - **CDC:**
 
 **Change Data Capture (CDC)** — database এর নিজের পরিবর্তনের খাতা (Postgres এর WAL, logical decoding দিয়ে) পড়ে প্রতিটা পরিবর্তনকে event হিসেবে বের করা — application code কোনো আলাদা query বা call করে না।
 
 Spaced repetition এর উত্তর এখানে ব্যবহার হয়: replica যেভাবে WAL থেকে primary এর প্রতিটা পরিবর্তন ঠিক **commit এর ক্রমে** পায়, একটা CDC tool (সবচেয়ে পরিচিত Debezium, Kafka Connect এর উপর) ঠিক সেভাবেই পায় — আর সেগুলো broker এ লেখে। Outbox এর সাথে মিলিয়ে: CDC শুধু `outbox_events` table এর insert গুলো পড়ে event বানায় (Debezium এর একটা "outbox event router" আছে ঠিক এই কাজের জন্য)। লাভ: polling নেই, দেরি কম, আর commit এর ক্রম (উপরের ফাঁদটা নেই)। দাম: আরেকটা চালানোর মতো system (Debezium, Kafka Connect), database এ logical replication চালু করা, আর replication slot ঠিকমতো না পড়লে WAL জমে database এর disk ভরে যাওয়ার ঝুঁকি। TaskFlow এর আকারে polling relay যথেষ্ট; যেদিন event অনেক আর দেরি জরুরি, সেদিন CDC।
 
-(Consumer এর দিকের যমজ pattern এর নামও জেনে রাখো: **inbox** — consumer যে message প্রক্রিয়া করেছে তার ID একটা table এ, effect এর সাথে একই transaction এ। এটা আসলে 7.4 এর কৌশল ৬, নতুন নামে।)
+(Consumer এর দিকের যমজ pattern এর নামও জেনে রাখুন: **inbox** — consumer যে message প্রক্রিয়া করেছে তার ID একটা table এ, effect এর সাথে একই transaction এ। এটা আসলে 7.4 এর কৌশল ৬, নতুন নামে।)
 
 ### ১.৬ Event এর চুক্তি — যাতে দুই দিক আলাদাভাবে বদলাতে পারে
 
@@ -223,11 +223,11 @@ export const commentCreatedSchema = z.object({
 
 - **প্রতিটা event এ একটা স্থির `eventId`** — outbox row তৈরির সময় বানানো, relay এর প্রতিটা পুনঃপ্রেরণে একই। এটা ছাড়া consumer duplicate চিনতে পারে না।
 - **`occurredAt` আর পাঠানোর সময় আলাদা।** Outbox এ event ৪ সেকেন্ড পরেও যেতে পারে (Redis outage) — consumer এর যুক্তি ঘটনার সময় দিয়ে চলুক।
-- **আকৃতি বদলাও শুধু যোগ করে।** নতুন field optional হিসেবে যোগ করা নিরাপদ (পুরনো consumer উপেক্ষা করে — "tolerant reader")। Field এর নাম বদলানো, মুছে ফেলা, অর্থ বদলানো — নতুন version (`version: 2`, বা নতুন event type), কিছুদিন দুটোই পাঠানো, সব consumer সরলে পুরনো বন্ধ।
+- **আকৃতি বদলান শুধু যোগ করে।** নতুন field optional হিসেবে যোগ করা নিরাপদ (পুরনো consumer উপেক্ষা করে — "tolerant reader")। Field এর নাম বদলানো, মুছে ফেলা, অর্থ বদলানো — নতুন version (`version: 2`, বা নতুন event type), কিছুদিন দুটোই পাঠানো, সব consumer সরলে পুরনো বন্ধ।
 - **Consumer Zod দিয়ে parse করে** (exercise এর relay ও করে — outbox এর JSONB এ পুরনো version এর row থাকতে পারে)। অজানা version এ crash না করে DLQ তে (7.4)।
 - **Secret বা অপ্রয়োজনীয় ব্যক্তিগত তথ্য কখনো না।** Event log এ থাকে, অনেক consumer পড়ে, retention পর্যন্ত থাকে।
 
-> **Trade-off Table — "data লেখো আর event পাঠাও" এর পাঁচটা উপায়**
+> **Trade-off Table — "data লিখুন আর event পাঠান" এর পাঁচটা উপায়**
 
 | উপায়                   | Crash এ                            | Broker বন্ধ থাকলে             | Duplicate          | দেরি            | দাম                                                             |
 | ----------------------- | ---------------------------------- | ----------------------------- | ------------------ | --------------- | --------------------------------------------------------------- |
@@ -251,9 +251,9 @@ export const commentCreatedSchema = z.object({
 
 **"Order তৈরি হলে একটা event পাঠাতে হবে — কীভাবে?"** — এটা প্রায় সবসময় dual write এর পরীক্ষা। দুর্বল উত্তর: "save করে Kafka তে publish করব।" ভালো উত্তর নিজে থেকে প্রশ্নটা তোলে: "save আর publish এর মাঝে crash হলে? উল্টো ক্রমে? — তাই transactional outbox: একই transaction এ outbox row, relay বা CDC পাঠায়, at-least-once, তাই consumer idempotent।" বোনাস: polling বনাম CDC এর trade-off, আর outbox এর id-ক্রম বনাম commit-ক্রমের ফাঁদ।
 
-**"Microservice গুলো কীভাবে কথা বলবে — synchronous call নাকি event?"** — "নির্ভর করে" এর পরে একটা নিয়ম দাও: caller এর উত্তরের জন্য দরকার আর মূল কাজের অংশ → synchronous (বা orchestration); পার্শ্ব-প্রতিক্রিয়া, অনেক শ্রোতা, স্বাধীনভাবে ব্যর্থ হতে পারে → event। তারপর event এর দাম বলো, নিজে থেকে: অদৃশ্য flow, eventual consistency, schema চুক্তি, debug। যে candidate শুধু সুবিধা বলে, interviewer তাকে পরের প্রশ্নে দাম জিজ্ঞেস করে।
+**"Microservice গুলো কীভাবে কথা বলবে — synchronous call নাকি event?"** — "নির্ভর করে" এর পরে একটা নিয়ম দিন: caller এর উত্তরের জন্য দরকার আর মূল কাজের অংশ → synchronous (বা orchestration); পার্শ্ব-প্রতিক্রিয়া, অনেক শ্রোতা, স্বাধীনভাবে ব্যর্থ হতে পারে → event। তারপর event এর দাম বলুন, নিজে থেকে: অদৃশ্য flow, eventual consistency, schema চুক্তি, debug। যে candidate শুধু সুবিধা বলে, interviewer তাকে পরের প্রশ্নে দাম জিজ্ঞেস করে।
 
-**"Event এ কী রাখবে?"** — notification বনাম event-carried state, কেন মাঝামাঝি; স্থির event ID, occurredAt, version, key; additive বদল।
+**"Event এ কী রাখবেন?"** — notification বনাম event-carried state, কেন মাঝামাঝি; স্থির event ID, occurredAt, version, key; additive বদল।
 
 **Production এ বাস্তবে:** Outbox এর সবচেয়ে পরিচিত ব্যর্থতাগুলো: relay মরে আছে আর কেউ জানে না (outbox এর না-পাঠানো row এর সংখ্যা আর সবচেয়ে পুরনোটার বয়সে alert — 7.1 এর queue এর metric এর মতোই); outbox কখনো পরিষ্কার হয় না আর table বিশাল; CDC এর replication slot আটকে গিয়ে primary এর disk ভরে যাওয়া; আর সবচেয়ে সূক্ষ্ম — কেউ একটা "ছোট" route এ outbox ভুলে সরাসরি publish করে, আর dual write চুপচাপ ফিরে আসে। (কিছু team এর জন্য lint rule বা code review checklist এ "broker এ সরাসরি publish নিষেধ"।)
 
@@ -261,13 +261,13 @@ export const commentCreatedSchema = z.object({
 
 ## ৩. Key Takeaway
 
-- **Command** = "করো" (একজন প্রাপক, প্রত্যাখ্যান করা যায়); **event** = "ঘটেছে" (তথ্য, প্রকাশক শ্রোতা জানে না) — নাম অতীত কালে, আর event এর ছদ্মবেশে command না
+- **Command** = "করুন" (একজন প্রাপক, প্রত্যাখ্যান করা যায়); **event** = "ঘটেছে" (তথ্য, প্রকাশক শ্রোতা জানে না) — নাম অতীত কালে, আর event এর ছদ্মবেশে command না
 - **Choreography** producer এর coupling কমায়, নতুন consumer সস্তা, temporal decoupling দেয় — দাম অদৃশ্য flow, event এর চেইন, eventual consistency, কঠিন debug। পার্শ্ব-প্রতিক্রিয়া event এ, মূল কাজ আর জটিল সমন্বয় সরাসরি/orchestration এ
 - Event এ কতটা data: **notification** (ছোট, কিন্তু ফিরে call), **event-carried state transfer** (consumer স্বাধীন, কিন্তু কপি আর বড় event), **event sourcing** (event ই source of truth — আলাদা বড় সিদ্ধান্ত)
 - **Dual write** কোনো ক্রমে সারে না: commit-first এ ৪১টা event হারাল, publish-first এ ৪১টা ভুতুড়ে; Redis outage এ একটায় ৪৪৯ নীরবে হারাল, অন্যটায় ৫৩৪ জন comment ই করতে পারল না
 - **Transactional outbox**: event row একই transaction এ, relay পরে পাঠায় — হারাল ০, ভুতুড়ে ০, broker বন্ধ থাকলেও feature চলে; দাম at-least-once (একই eventId এর duplicate — idempotent consumer লাগে) আর একটু দেরি
 - Relay: `SKIP LOCKED`, partial index, ছোট batch, পরিষ্কার; **cursor না, flag** (id-ক্রম ≠ commit-ক্রম); polling এর বদলে **CDC** WAL থেকে commit-ক্রমে পড়ে, কিন্তু নতুন system চালাতে হয়
-- Event এর চুক্তি: স্থির eventId, occurredAt, version, key; শুধু যোগ করে বদলাও; consumer parse করে, অজানা হলে DLQ; secret কখনো না
+- Event এর চুক্তি: স্থির eventId, occurredAt, version, key; শুধু যোগ করে বদলান; consumer parse করে, অজানা হলে DLQ; secret কখনো না
 
 ---
 
@@ -287,11 +287,11 @@ export const commentCreatedSchema = z.object({
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর `task.completed` event design করো। Consumer: notification (assignee আর watcher দের email — তাদের নাম আর task এর title লাগে), analytics (project, সময়), billing (workspace, মাস), customer webhook (customer কে যা দেখানো যায়)। Event এ ঠিক কোন কোন field রাখবে, কোনগুলো রাখবে না — কেন? তিন মাস পরে product চাইল "কে complete করল" (`completedBy`) যোগ করতে, আর `projectId` এর নাম বদলে `boardId` — প্রতিটা বদল কীভাবে করবে যাতে কোনো consumer না ভাঙে?
-2. একজন teammate outbox বানিয়েছে, কিন্তু একটু আলাদাভাবে: relay শেষ পাঠানো outbox `id` একটা Redis key তে রাখে, আর প্রতিবার `SELECT … WHERE id > :last ORDER BY id LIMIT 100` দিয়ে পড়ে; পাঠানো row সাথে সাথে মুছে না, ৭ দিন পরে। আর throughput বাড়াতে relay চালায় তিনটা। অন্তত তিনটা আলাদা ভুল খুঁজে বের করো — প্রতিটায় কী হারায় বা কী দুবার হয় — আর ঠিক করো।
-3. Choreography এর চেইন: TaskFlow এ তিনটা consumer আছে — (ক) "parent auto-close": সব subtask complete হলে parent কে complete করে (যেটা আবার `task.completed` ছাড়ে); (খ) "sprint auto-advance": sprint এর সব task complete হলে sprint বন্ধ করে পরের sprint খোলে, আর অসমাপ্ত task গুলো সরায় (`task.moved`); (গ) "recurring task": একটা recurring task complete হলে পরের সপ্তাহের কপি তৈরি করে (`task.created`)। একটা recurring subtask এর parent এর সব subtask complete হলে কী কী ঘটে, ক্রমে লেখো। কোথায় বিপদ (লুপ, ক্রম, আংশিক ব্যর্থতা)? এই flow কি choreography তেই থাকবে, নাকি অন্য কিছু?
+1. TaskFlow এর `task.completed` event design করুন। Consumer: notification (assignee আর watcher দের email — তাদের নাম আর task এর title লাগে), analytics (project, সময়), billing (workspace, মাস), customer webhook (customer কে যা দেখানো যায়)। Event এ ঠিক কোন কোন field রাখবেন, কোনগুলো রাখবেন না — কেন? তিন মাস পরে product চাইল "কে complete করল" (`completedBy`) যোগ করতে, আর `projectId` এর নাম বদলে `boardId` — প্রতিটা বদল কীভাবে করবেন যাতে কোনো consumer না ভাঙে?
+2. একজন teammate outbox বানিয়েছে, কিন্তু একটু আলাদাভাবে: relay শেষ পাঠানো outbox `id` একটা Redis key তে রাখে, আর প্রতিবার `SELECT … WHERE id > :last ORDER BY id LIMIT 100` দিয়ে পড়ে; পাঠানো row সাথে সাথে মুছে না, ৭ দিন পরে। আর throughput বাড়াতে relay চালায় তিনটা। অন্তত তিনটা আলাদা ভুল খুঁজে বের করুন — প্রতিটায় কী হারায় বা কী দুবার হয় — আর ঠিক করুন।
+3. Choreography এর চেইন: TaskFlow এ তিনটা consumer আছে — (ক) "parent auto-close": সব subtask complete হলে parent কে complete করে (যেটা আবার `task.completed` ছাড়ে); (খ) "sprint auto-advance": sprint এর সব task complete হলে sprint বন্ধ করে পরের sprint খোলে, আর অসমাপ্ত task গুলো সরায় (`task.moved`); (গ) "recurring task": একটা recurring task complete হলে পরের সপ্তাহের কপি তৈরি করে (`task.created`)। একটা recurring subtask এর parent এর সব subtask complete হলে কী কী ঘটে, ক্রমে লিখুন। কোথায় বিপদ (লুপ, ক্রম, আংশিক ব্যর্থতা)? এই flow কি choreography তেই থাকবে, নাকি অন্য কিছু?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -315,7 +315,7 @@ export const commentCreatedSchema = z.object({
 
 রাখব না: user দের email address (notification service নিজের কাছে বা user service থেকে নেবে — email ব্যক্তিগত তথ্য, event log এ ছড়ানো উচিত না), task এর পুরো description (বড়, আর webhook এ সব customer এর দেখার মতো না — webhook এর জন্য আলাদা একটা বাইরের payload বানানো ভালো, অভ্যন্তরীণ event সরাসরি customer কে না), permission বা internal flag।
 
-বদল: `completedBy` — optional field হিসেবে যোগ (`completedBy?: number`), `version` একই থাকতে পারে (additive বদল); পুরনো consumer উপেক্ষা করে, নতুন consumer না থাকলে সামলায়। `projectId` → `boardId` — নাম বদল ভাঙার মতো বদল। উপায়: কিছুদিন **দুটোই** পাঠাও (`projectId` আর `boardId`, একই মান), consumer দের এক এক করে `boardId` তে সরাও, সবাই সরলে (consumer তালিকা — ১.৭ — এখানে কাজে লাগে) `version: 2` এ `projectId` বাদ। কখনো এক deploy এ নাম বদলানো না।
+বদল: `completedBy` — optional field হিসেবে যোগ (`completedBy?: number`), `version` একই থাকতে পারে (additive বদল); পুরনো consumer উপেক্ষা করে, নতুন consumer না থাকলে সামলায়। `projectId` → `boardId` — নাম বদল ভাঙার মতো বদল। উপায়: কিছুদিন **দুটোই** পাঠান (`projectId` আর `boardId`, একই মান), consumer দের এক এক করে `boardId` তে সরান, সবাই সরলে (consumer তালিকা — ১.৭ — এখানে কাজে লাগে) `version: 2` এ `projectId` বাদ। কখনো এক deploy এ নাম বদলানো না।
 
 **প্রশ্ন ২:**
 
@@ -350,17 +350,17 @@ export const commentCreatedSchema = z.object({
 
 **সৎ নোট:** Sandbox এ Docker এর Postgres 17 আর Redis 8 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `npm run scenario` কয়েকবার — writer এর ৪১টা crash, `commit-first` এর ৪১ হারানো আর `publish-first` এর ৪১ ভুতুড়ে প্রতিবার হুবহু একই (crash comment এর id থেকে ঠিক হয়); outbox এর বাড়তি event আর relay crash এর সংখ্যা run ভেদে বদলায় (এই মেশিনে বাড়তি ১০১–১৬০), কিন্তু হারাল ০, ভুতুড়ে ০, আর "আলাদা eventId = comment সংখ্যা" প্রতিবার। README এর experiment ১, ২, ৩ আর ৫ চালানো হয়েছে; ৪ হাতে আঁকার কাজ। CDC (Debezium) এখানে নেই — polling relay।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **ঘটনা ১–৩ মেলাও:** `npm run scenario` চালাও। TaskFlow এর তিনটা ঘটনার প্রতিটা তুলনা table এর কোন ঘরে? তারপর experiment ১ (Redis outage) — `commit-first` এর ৪৪৯ আর `publish-first` এর ৫৩৪ — এক লাইনে প্রতিটার ক্ষতি user এর চোখে কেমন দেখায়।
+1. **ঘটনা ১–৩ মেলান:** `npm run scenario` চালান। TaskFlow এর তিনটা ঘটনার প্রতিটা তুলনা table এর কোন ঘরে? তারপর experiment ১ (Redis outage) — `commit-first` এর ৪৪৯ আর `publish-first` এর ৫৩৪ — এক লাইনে প্রতিটার ক্ষতি user এর চোখে কেমন দেখায়।
 
-2. **বাড়তি event কোথা থেকে:** outbox এর "বাড়তি" সংখ্যাটা relay crash এর সংখ্যা আর batch এর আকার দিয়ে মোটামুটি ব্যাখ্যা করো (একটা crash এ গড়ে কতগুলো event আবার যায়?)। তারপর একটা ছোট consumer লেখো (Redis `XREADGROUP`) যেটা `eventId` দিয়ে dedupe করে একটা `search_index` table এ লেখে — 7.4 এর কৌশল ৬ দিয়ে — আর দেখাও table এ ঠিক ১৯৫৯টা row।
+2. **বাড়তি event কোথা থেকে:** outbox এর "বাড়তি" সংখ্যাটা relay crash এর সংখ্যা আর batch এর আকার দিয়ে মোটামুটি ব্যাখ্যা করুন (একটা crash এ গড়ে কতগুলো event আবার যায়?)। তারপর একটা ছোট consumer লিখুন (Redis `XREADGROUP`) যেটা `eventId` দিয়ে dedupe করে একটা `search_index` table এ লেখে — 7.4 এর কৌশল ৬ দিয়ে — আর দেখান table এ ঠিক ১৯৫৯টা row।
 
-3. **ক্রমের ফাঁদ** (experiment ৪): একটা সময়ের রেখা আঁকো — দুটো writer, id ১০ আর ১১, ১১ আগে commit — আর দেখাও `publishedAt` flag পদ্ধতিতে কী হয় আর `id > cursor` পদ্ধতিতে কী হয়। তারপর: একই task এর দুটো comment (দুটো আলাদা transaction) কি উল্টো ক্রমে stream এ যেতে পারে? কখন?
+3. **ক্রমের ফাঁদ** (experiment ৪): একটা সময়ের রেখা আঁকুন — দুটো writer, id ১০ আর ১১, ১১ আগে commit — আর দেখান `publishedAt` flag পদ্ধতিতে কী হয় আর `id > cursor` পদ্ধতিতে কী হয়। তারপর: একই task এর দুটো comment (দুটো আলাদা transaction) কি উল্টো ক্রমে stream এ যেতে পারে? কখন?
 
-4. **Batch আর relay** (experiment ৩): `RELAY_CRASH_RATE=0.05` দিয়ে batch ৫০ আর ৫ চালাও, আর ০.৯৫^batch হিসাব করো। TaskFlow এর relay এর batch কত রাখবে, আর relay "আটকে আছে" সেটা কোন metric দেখে টের পাবে?
+4. **Batch আর relay** (experiment ৩): `RELAY_CRASH_RATE=0.05` দিয়ে batch ৫০ আর ৫ চালান, আর ০.৯৫^batch হিসাব করুন। TaskFlow এর relay এর batch কত রাখবেন, আর relay "আটকে আছে" সেটা কোন metric দেখে টের পাবেন?
 
-5. **Design অংশ:** TaskFlow এর event এর তালিকা — অন্তত ছয়টা (`comment.created`, `task.created`, `task.assigned`, `task.completed`, `task.moved`, `member.invited` …)। প্রতিটার জন্য: schema (field সহ), key, কোন কোন consumer আর তারা কী করে, আর কোন route এর কোন transaction এ outbox row লেখা হয়। তারপর প্রশ্ন ৩ এর মতো একটা চেইন খোঁজো তোমার তালিকায় — আছে কি? থাকলে সেটা কীভাবে সামলাবে?
+5. **Design অংশ:** TaskFlow এর event এর তালিকা — অন্তত ছয়টা (`comment.created`, `task.created`, `task.assigned`, `task.completed`, `task.moved`, `member.invited` …)। প্রতিটার জন্য: schema (field সহ), key, কোন কোন consumer আর তারা কী করে, আর কোন route এর কোন transaction এ outbox row লেখা হয়। তারপর প্রশ্ন ৩ এর মতো একটা চেইন খুঁজুন আপনার তালিকায় — আছে কি? থাকলে সেটা কীভাবে সামলাবেন?
 
 ---
 
@@ -385,7 +385,7 @@ Exponential Backoff, Job ID Deduplication, AOF, Idempotent Consumer, Retry Storm
 Poison Message, Dead Letter Queue, Backpressure, Load Shedding, Command, Event,
 Choreography, Event-carried State Transfer, Dual Write, Transactional Outbox, Change Data
 Capture
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 7.6 — Batch vs Stream, OLTP vs OLAP
 =======================
 ```
@@ -394,4 +394,4 @@ Next: 7.6 — Batch vs Stream, OLTP vs OLAP
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের dedupe করা consumer আর ৫ নম্বরের event এর তালিকা। রেডি হলে `next` লিখো — Lesson 7.6 এ যাব: **Batch vs Stream, OLTP vs OLAP — কখন কোন পথ।** আজ TaskFlow এর প্রতিটা পরিবর্তন একটা event হয়ে stream এ যাচ্ছে। Analytics team এখন সেই stream থেকে "কোন project এ এই সপ্তাহে কত task complete হলো" এর dashboard চায় — আর finance চায় গত বছরের প্রতিটা workspace এর মাসিক ব্যবহার। প্রথমটা কি প্রতিটা event আসার সাথে সাথে হিসাব করবে (stream), নাকি রাতে একবার পুরো দিনের (batch)? আর দ্বিতীয় প্রশ্নটা TaskFlow এর production Postgres এ চালালে কী হয় — কেন "সব data আছে" এমন database টাই এই প্রশ্নের জন্য ভুল জায়গা? Module 7 এর শেষ lesson।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের dedupe করা consumer আর ৫ নম্বরের event এর তালিকা। রেডি হলে `next` লিখুন — Lesson 7.6 এ যাব: **Batch vs Stream, OLTP vs OLAP — কখন কোন পথ।** আজ TaskFlow এর প্রতিটা পরিবর্তন একটা event হয়ে stream এ যাচ্ছে। Analytics team এখন সেই stream থেকে "কোন project এ এই সপ্তাহে কত task complete হলো" এর dashboard চায় — আর finance চায় গত বছরের প্রতিটা workspace এর মাসিক ব্যবহার। প্রথমটা কি প্রতিটা event আসার সাথে সাথে হিসাব করবে (stream), নাকি রাতে একবার পুরো দিনের (batch)? আর দ্বিতীয় প্রশ্নটা TaskFlow এর production Postgres এ চালালে কী হয় — কেন "সব data আছে" এমন database টাই এই প্রশ্নের জন্য ভুল জায়গা? Module 7 এর শেষ lesson।

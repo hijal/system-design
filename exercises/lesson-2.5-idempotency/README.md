@@ -49,7 +49,7 @@ curl -X POST http://localhost:3000/api/tasks \
   -d '{"title":"Fix bug"}'
 ```
 
-ঠিক একই command আবার চালাও (একই key)। Expected: দুইবারই ঠিক একই `id` ফেরত আসবে।
+ঠিক একই command আবার চালান (একই key)। Expected: দুইবারই ঠিক একই `id` ফেরত আসবে।
 
 **৩. Duplicate তৈরি হয়নি — verify**
 
@@ -61,17 +61,17 @@ Expected: `count` হবে `1`, দুইটা POST call সত্ত্বে
 
 ## কী দেখার জন্য এটা বানানো
 
-লক্ষ্য করো — একই `Idempotency-Key` দিয়ে দুইবার POST করলেও response এর `id` field ঠিক একই
+লক্ষ্য করুন — একই `Idempotency-Key` দিয়ে দুইবার POST করলেও response এর `id` field ঠিক একই
 থাকে, আর `GET /api/tasks` এ শুধু ১টা task দেখাবে, ২টা না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. একই key দিয়ে কিন্তু **ভিন্ন body** (ভিন্ন title) পাঠিয়ে দেখো কী হয় — এই code টা এখন body
+1. একই key দিয়ে কিন্তু **ভিন্ন body** (ভিন্ন title) পাঠিয়ে দেখুন কী হয় — এই code টা এখন body
    বদলে গেলেও পুরনো cached result-ই ফেরত দেয়। এটা কি ঠিক আচরণ? (Stripe এর মতো real-world
    system এখানে `409 Conflict` দেয় যদি একই key তে ভিন্ন body আসে — এই code এ সেটা যোগ
-   করার চেষ্টা করো।)
-2. `idempotencyStore` তে একটা TTL/expiry যোগ করার চেষ্টা করো।
-3. Server বন্ধ করে আবার চালাও — সব idempotency record হারিয়ে যায় কেন? এটাই in-memory
+   করার চেষ্টা করুন।)
+2. `idempotencyStore` তে একটা TTL/expiry যোগ করার চেষ্টা করুন।
+3. Server বন্ধ করে আবার চালান — সব idempotency record হারিয়ে যায় কেন? এটাই in-memory
    storage এর সীমাবদ্ধতা। Module 4.4 এর পরে এটা Redis এ থাকা উচিত, কারণ (ক) restart এ
    data হারায় না, (খ) horizontal scaling এ একাধিক server এর মধ্যে state শেয়ার হয়।
 

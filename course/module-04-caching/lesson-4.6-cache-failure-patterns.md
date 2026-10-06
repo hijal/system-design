@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 4.4 (Redis Hands-on), Lesson 4.3 (TTL, Eviction)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Cache stampede, hot key, penetration আর avalanche — চারটা ব্যর্থতার ধরন আলাদা করে চিনতে পারবে
-2. প্রতিটার জন্য উপযুক্ত প্রতিকার (single-flight, TTL jitter, local cache, negative caching) বেছে নিতে পারবে
-3. Stampede টা নিজের মেশিনে ঘটিয়ে, তারপর সারিয়ে — **সংখ্যায়** পার্থক্যটা দেখাতে পারবে
+1. Cache stampede, hot key, penetration আর avalanche — চারটা ব্যর্থতার ধরন আলাদা করে চিনতে পারবেন
+2. প্রতিটার জন্য উপযুক্ত প্রতিকার (single-flight, TTL jitter, local cache, negative caching) বেছে নিতে পারবেন
+3. Stampede টা নিজের মেশিনে ঘটিয়ে, তারপর সারিয়ে — **সংখ্যায়** পার্থক্যটা দেখাতে পারবেন
 
 **Tier:** 1 — Runnable Code
 
@@ -26,7 +26,7 @@ Module 4 জুড়ে আমরা TaskFlow এ caching বসিয়েছ
 
 > **Cache এর সবচেয়ে ভয়ংকর ব্যর্থতাগুলো ঘটে তখন, যখন cache ঠিকঠাক কাজ করছিল।**
 
-Cache না থাকলে তোমার DB প্রতিদিন ১০০% load নিত — ধীর, কিন্তু স্থিতিশীল। Cache বসানোর পর DB এখন ৫% নেয়। কিন্তু এর মানে দাঁড়ালো, তোমার DB এখন এমন একটা load এর জন্য আকারে ছোট, যেটা যেকোনো মুহূর্তে ফিরে আসতে পারে। **Cache একটা নির্ভরতা তৈরি করেছে, আর সেই নির্ভরতা ভাঙার নিজস্ব কিছু ধরন আছে।**
+Cache না থাকলে আপনার DB প্রতিদিন ১০০% load নিত — ধীর, কিন্তু স্থিতিশীল। Cache বসানোর পর DB এখন ৫% নেয়। কিন্তু এর মানে দাঁড়ালো, আপনার DB এখন এমন একটা load এর জন্য আকারে ছোট, যেটা যেকোনো মুহূর্তে ফিরে আসতে পারে। **Cache একটা নির্ভরতা তৈরি করেছে, আর সেই নির্ভরতা ভাঙার নিজস্ব কিছু ধরন আছে।**
 
 আজকে সেই ধরনগুলো — আর প্রথমটা আমরা শুধু পড়ব না, নিজের মেশিনে **ঘটাবো**।
 
@@ -36,7 +36,7 @@ Cache না থাকলে তোমার DB প্রতিদিন ১০�
 
 ### ১.১ Cache Stampede — একসাথে সবাই miss করা
 
-দৃশ্যটা ভাবো। TaskFlow এর একটা জনপ্রিয় list, `tasks:user:7`, TTL ৬০ সেকেন্ড। সেকেন্ডে ৫০টা request আসছে।
+দৃশ্যটা ভাবুন। TaskFlow এর একটা জনপ্রিয় list, `tasks:user:7`, TTL ৬০ সেকেন্ড। সেকেন্ডে ৫০টা request আসছে।
 
 ```
 t = 59.9s   cache এ আছে   →  ৫০টা request-ই HIT, DB শান্ত
@@ -49,7 +49,7 @@ t = 60.1s   ৫০টা request   →  ৫০টাই MISS
 
 একে বলে **cache stampede** (বা **thundering herd** — একদল মহিষ একসাথে ছুটে আসার মতো)। ৫০ এ সমস্যা হয়তো টিকে যাবে, কিন্তু ৫০০০ এ DB এর connection pool শেষ হয়ে যাবে, query queue জমবে, latency বাড়বে — আর latency বাড়লে আরও বেশি request একসাথে জমা হবে। এটা নিজেকে নিজে খাওয়ানো একটা চক্র।
 
-**এটা শুধু তত্ত্ব না — exercise এ তুমি এটা ঘটিয়ে দেখবে।** আমার মেশিনে মাপা:
+**এটা শুধু তত্ত্ব না — exercise এ আপনি এটা ঘটিয়ে দেখবেন।** আমার মেশিনে মাপা:
 
 ```
 50 requests at once, cache just emptied, DB query ~200ms:
@@ -62,7 +62,7 @@ t = 60.1s   ৫০টা request   →  ৫০টাই MISS
 
 ### ১.২ একটা জরুরি শর্ত — stampede এর "জানালা"
 
-উপরের মাপে `DB query ~200ms` লেখাটা খেয়াল করেছ? ওটা আলংকারিক না, **ওটাই পুরো ব্যাপারটার শর্ত**।
+উপরের মাপে `DB query ~200ms` লেখাটা খেয়াল করেছেন? ওটা আলংকারিক না, **ওটাই পুরো ব্যাপারটার শর্ত**।
 
 এই exercise টা বানানোর সময় প্রথমে আসল query (~১২ ms) দিয়েই চেষ্টা করেছিলাম, আর stampede **ঘটেইনি** — ৫০টা request পাঠিয়ে DB query হয়েছিল মাত্র ১-২টা। কারণ:
 
@@ -78,7 +78,7 @@ t=13ms   req2..req50 এলো  →  cache এ পেয়ে গেল  →  H
 
 > **Stampede তখনই বিপজ্জনক, যখন origin এর কাজটা ধীর** — একটা ভারী aggregation, একটা external API call, একটা জটিল join। সস্তা query তে stampede নিয়ে দুশ্চিন্তা করা সময়ের অপচয়।
 
-তাই exercise এ `?delay=200` দিয়ে একটা "দামি query" নকল করা হয়েছে — নাহলে সমস্যাটা চোখেই পড়ত না। তোমার production এ প্রশ্নটা তাই দুই ধাপে: _কোন endpoint গুলো ধীর?_ আর _তাদের মধ্যে কোনগুলো জনপ্রিয়?_ — এই দুইয়ের ছেদেই stampede বাস করে।
+তাই exercise এ `?delay=200` দিয়ে একটা "দামি query" নকল করা হয়েছে — নাহলে সমস্যাটা চোখেই পড়ত না। আপনার production এ প্রশ্নটা তাই দুই ধাপে: _কোন endpoint গুলো ধীর?_ আর _তাদের মধ্যে কোনগুলো জনপ্রিয়?_ — এই দুইয়ের ছেদেই stampede বাস করে।
 
 ### ১.৩ Single-flight — একই key, একটাই load
 
@@ -113,7 +113,7 @@ export async function single<T>(key: string, load: () => Promise<T>): Promise<T>
 }
 ```
 
-**একটা সূক্ষ্ম ফাঁদ — কী মুড়ছ সেটা গুরুত্বপূর্ণ।** এই exercise বানানোর সময় আমি প্রথমে শুধু DB load টাকে `single()` দিয়ে মুড়েছিলাম, আর cache এ লেখাটা বাইরে রেখেছিলাম। ফল: ৫০টার বদলে **২টা** DB query — ১টা না। কারণ একটা সরু ফাঁক থেকে যাচ্ছিল:
+**একটা সূক্ষ্ম ফাঁদ — কী মুড়ছেন সেটা গুরুত্বপূর্ণ।** এই exercise বানানোর সময় আমি প্রথমে শুধু DB load টাকে `single()` দিয়ে মুড়েছিলাম, আর cache এ লেখাটা বাইরে রেখেছিলাম। ফল: ৫০টার বদলে **২টা** DB query — ১টা না। কারণ একটা সরু ফাঁক থেকে যাচ্ছিল:
 
 ```
 load শেষ  →  finally চলল, in-flight entry মুছে গেল
@@ -138,39 +138,39 @@ const tasks = await single(key, loadAndCache);
 
 **একটা গুরুত্বপূর্ণ সীমাবদ্ধতা:** এই Map টা **একটা process এর ভেতরে**। TaskFlow এ ৪টা server instance চললে (Module 3 মনে আছে?), প্রতিটা instance এর নিজের Map — মানে ৫০টা query ১টায় নামবে না, নামবে **৪টায়**। ৫০ থেকে ৪ ও বিশাল উন্নতি, কিন্তু ১ পেতে হলে **distributed lock** লাগবে (Redis এ `SET key value NX PX 5000`), যেটা Lesson 6.4 এর বিষয়।
 
-**বিকল্প কৌশল, code ছাড়াই:** Lesson 4.5 এর `stale-while-revalidate` মনে আছে? একই যুক্তি Redis এও খাটানো যায় — TTL শেষ হওয়ার পরেও কিছুক্ষণ বাসি value টা রেখে দাও, আর কেউ চাইলে **বাসিটা সাথে সাথে দিয়ে দাও**, পেছনে একজনকে দিয়ে নতুনটা আনাও। কেউ অপেক্ষাই করে না, DB ও একবারই hit খায়।
+**বিকল্প কৌশল, code ছাড়াই:** Lesson 4.5 এর `stale-while-revalidate` মনে আছে? একই যুক্তি Redis এও খাটানো যায় — TTL শেষ হওয়ার পরেও কিছুক্ষণ বাসি value টা রেখে দিন, আর কেউ চাইলে **বাসিটা সাথে সাথে দিয়ে দিন**, পেছনে একজনকে দিয়ে নতুনটা আনান। কেউ অপেক্ষাই করে না, DB ও একবারই hit খায়।
 
 ### ১.৪ TTL Jitter — সবাই একসাথে মরে না যায়
 
-Stampede এর একটা বড় ভাই আছে। ভাবো, তোমার server restart হলো (deploy, বা Lesson 3.4 এর graceful shutdown এর পর)। Cache খালি। প্রথম মিনিটে ১০০০টা আলাদা key cache এ ঢুকল — **সবগুলোর TTL ঠিক ৩০০ সেকেন্ড**।
+Stampede এর একটা বড় ভাই আছে। ভাবুন, আপনার server restart হলো (deploy, বা Lesson 3.4 এর graceful shutdown এর পর)। Cache খালি। প্রথম মিনিটে ১০০০টা আলাদা key cache এ ঢুকল — **সবগুলোর TTL ঠিক ৩০০ সেকেন্ড**।
 
 ```
 t = 0s     ১০০০টা key cache এ ঢুকল, সবার TTL ৩০০s
 t = 300s   ১০০০টা key একসাথে মরল  →  একসাথে ১০০০টা stampede
 ```
 
-প্রতি ৫ মিনিট পর পর তোমার DB একটা করে ঢেউ খাবে। একে বলে **cache avalanche** — অনেকগুলো key একসাথে expire হওয়া।
+প্রতি ৫ মিনিট পর পর আপনার DB একটা করে ঢেউ খাবে। একে বলে **cache avalanche** — অনেকগুলো key একসাথে expire হওয়া।
 
-প্রতিকার হাস্যকর রকম সহজ — TTL এ একটু **এলোমেলো** মেশাও:
+প্রতিকার হাস্যকর রকম সহজ — TTL এ একটু **এলোমেলো** মেশান:
 
 ```typescript
 const BASE_TTL = 300;
 const ttl = BASE_TTL + Math.floor(Math.random() * 60); // 300–360s
 ```
 
-এখন ওই ১০০০টা key ৬০ সেকেন্ড জুড়ে ছড়িয়ে মরবে, একসাথে না। একে বলে **TTL jitter**। এক লাইনের পরিবর্তন, কিন্তু এটা না থাকলে তোমার DB তে periodic spike আসতেই থাকবে — আর সেই spike এর কারণ খুঁজে বের করা ভয়ানক কঠিন, কারণ graph এ সেটা দেখতে "রহস্যময় প্রতি ৫ মিনিটের চূড়া" এর মতো।
+এখন ওই ১০০০টা key ৬০ সেকেন্ড জুড়ে ছড়িয়ে মরবে, একসাথে না। একে বলে **TTL jitter**। এক লাইনের পরিবর্তন, কিন্তু এটা না থাকলে আপনার DB তে periodic spike আসতেই থাকবে — আর সেই spike এর কারণ খুঁজে বের করা ভয়ানক কঠিন, কারণ graph এ সেটা দেখতে "রহস্যময় প্রতি ৫ মিনিটের চূড়া" এর মতো।
 
 ### ১.৫ Hot Key — একটা key এতই জনপ্রিয় যে সে নিজেই সমস্যা
 
-এবার সম্পূর্ণ আলাদা ধরনের ব্যর্থতা। ধরো TaskFlow এ একটা shared project এর task list, যেটা **পুরো কোম্পানি** দেখে — সেকেন্ডে ৫০,০০০ request, সবই একই key তে।
+এবার সম্পূর্ণ আলাদা ধরনের ব্যর্থতা। ধরুন TaskFlow এ একটা shared project এর task list, যেটা **পুরো কোম্পানি** দেখে — সেকেন্ডে ৫০,০০০ request, সবই একই key তে।
 
 Cache hit ratio ১০০%। TTL নিয়ে কোনো সমস্যা নেই। তবু system ধুঁকছে। কেন?
 
-কারণ **একটা key সবসময় একটা নির্দিষ্ট Redis node এ থাকে**। Redis cluster এ key গুলো hash করে shard এ ভাগ হয় — মানে তুমি ১০টা node যোগ করলেও, ওই একটা key এর সব traffic **একটা node ই** নেবে। আর Redis single-threaded, তাই ওই একটা node এর CPU ১০০% হয়ে বসে থাকবে, বাকি ৯টা অলস।
+কারণ **একটা key সবসময় একটা নির্দিষ্ট Redis node এ থাকে**। Redis cluster এ key গুলো hash করে shard এ ভাগ হয় — মানে আপনি ১০টা node যোগ করলেও, ওই একটা key এর সব traffic **একটা node ই** নেবে। আর Redis single-threaded, তাই ওই একটা node এর CPU ১০০% হয়ে বসে থাকবে, বাকি ৯টা অলস।
 
 একে বলে **hot key** সমস্যা। সমাধান দুটো:
 
-**(ক) Local (in-process) cache — একটা L1 স্তর।** সবচেয়ে জনপ্রিয় key গুলো প্রতিটা app server এর **নিজের memory তেই** কয়েক সেকেন্ডের জন্য রেখে দাও:
+**(ক) Local (in-process) cache — একটা L1 স্তর।** সবচেয়ে জনপ্রিয় key গুলো প্রতিটা app server এর **নিজের memory তেই** কয়েক সেকেন্ডের জন্য রেখে দিন:
 
 ```
 request ──> [process memory, TTL 5s] ──> [Redis] ──> [DB]
@@ -179,7 +179,7 @@ request ──> [process memory, TTL 5s] ──> [Redis] ──> [DB]
 
 ৫ সেকেন্ডের local cache দিয়ে ৫০,০০০ req/s কে Redis এর দিক থেকে নামিয়ে আনা যায় প্রায় **server সংখ্যা ÷ ৫** এ। দাম: এখন staleness এর আরেকটা স্তর যোগ হলো, আর প্রতিটা server এ সামান্য আলাদা data থাকতে পারে।
 
-**(খ) Key splitting.** একই value কে কয়েকটা আলাদা key তে রাখো (`hot:project:3:0` … `hot:project:3:9`), আর প্রতিটা request এলোমেলোভাবে একটা বাছুক। ভিন্ন key মানে ভিন্ন hash, মানে ভিন্ন node — load ছড়িয়ে গেল। দাম: invalidate করতে হলে ১০টাই মুছতে হবে।
+**(খ) Key splitting.** একই value কে কয়েকটা আলাদা key তে রাখুন (`hot:project:3:0` … `hot:project:3:9`), আর প্রতিটা request এলোমেলোভাবে একটা বাছুক। ভিন্ন key মানে ভিন্ন hash, মানে ভিন্ন node — load ছড়িয়ে গেল। দাম: invalidate করতে হলে ১০টাই মুছতে হবে।
 
 ### ১.৬ Cache Penetration — যা নেই, তা বারবার খোঁজা
 
@@ -198,7 +198,7 @@ GET /api/tasks/999999   →  cache এ নেই (স্বাভাবিক, �
 
 প্রতিকার:
 
-**(ক) Negative caching** — "নেই" উত্তরটাও cache করো, শুধু অল্প সময়ের জন্য:
+**(ক) Negative caching** — "নেই" উত্তরটাও cache করুন, শুধু অল্প সময়ের জন্য:
 
 ```typescript
 if (task === null) {
@@ -221,19 +221,19 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 | **Hot Key**     | একটা key তে অস্বাভাবিক traffic         | এক Redis node ১০০% CPU, বাকিরা অলস | local (L1) cache, key splitting       |
 | **Penetration** | অনুপস্থিত id বারবার চাওয়া             | hit ratio ভালো, তবু DB ব্যস্ত      | negative caching, bloom filter        |
 
-লক্ষ্য করো — **চারটার লক্ষণ আলাদা, তাই রোগনির্ণয়টাই আসল কাজ**। "DB তে load বেশি" দেখে যেকোনো একটা প্রতিকার বসিয়ে দিলে কাজ হবে না। DB spike টা কি TTL এর ছন্দে আসছে (stampede/avalanche), নাকি একটানা (penetration), নাকি Redis এর একটা node গরম (hot key) — এটাই তোমার প্রথম প্রশ্ন।
+লক্ষ্য করুন — **চারটার লক্ষণ আলাদা, তাই রোগনির্ণয়টাই আসল কাজ**। "DB তে load বেশি" দেখে যেকোনো একটা প্রতিকার বসিয়ে দিলে কাজ হবে না। DB spike টা কি TTL এর ছন্দে আসছে (stampede/avalanche), নাকি একটানা (penetration), নাকি Redis এর একটা node গরম (hot key) — এটাই আপনার প্রথম প্রশ্ন।
 
 ---
 
 ## ২. Interview Angle
 
-এই lesson টা interview এ সেই জায়গা যেখানে তুমি "caching জানি" থেকে "caching চালিয়েছি" তে উন্নীত হও। প্রায় সব candidate Cache-Aside বলতে পারে; **খুব কম জন বলতে পারে cache থাকার কারণে কী কী নতুন সমস্যা তৈরি হয়**।
+এই lesson টা interview এ সেই জায়গা যেখানে আপনি "caching জানি" থেকে "caching চালিয়েছি" তে উন্নীত হন। প্রায় সব candidate Cache-Aside বলতে পারে; **খুব কম জন বলতে পারে cache থাকার কারণে কী কী নতুন সমস্যা তৈরি হয়**।
 
-সবচেয়ে common প্রশ্ন: **"তোমার একটা জনপ্রিয় cache entry expire হলো, আর ঠিক সেই মুহূর্তে ১০০০টা request এলো — কী হবে?"** এটা সরাসরি stampede এর প্রশ্ন। উত্তরে সমস্যাটার নাম বলো, তারপর প্রতিকার — single-flight/lock, আর stale-while-revalidate। যদি যোগ করতে পারো যে in-process lock একাধিক instance এ শুধু _কমায়_, _মেটায় না_ (distributed lock লাগে), তাহলে তুমি স্পষ্টভাবে আলাদা।
+সবচেয়ে common প্রশ্ন: **"আপনার একটা জনপ্রিয় cache entry expire হলো, আর ঠিক সেই মুহূর্তে ১০০০টা request এলো — কী হবে?"** এটা সরাসরি stampede এর প্রশ্ন। উত্তরে সমস্যাটার নাম বলুন, তারপর প্রতিকার — single-flight/lock, আর stale-while-revalidate। যদি যোগ করতে পারেন যে in-process lock একাধিক instance এ শুধু _কমায়_, _মেটায় না_ (distributed lock লাগে), তাহলে আপনি স্পষ্টভাবে আলাদা।
 
 দ্বিতীয়টা প্রায়ই follow-up হিসেবে আসে: **"cache hit ratio ৯৮%, তবু DB এর load বেশি — কেন হতে পারে?"** এখানে দুটো উত্তরই ভালো: (ক) penetration — যেসব key কখনো cache হয় না সেগুলোই বারবার miss হয়ে DB তে যাচ্ছে; ২% miss দেখতে নিরীহ, কিন্তু সেগুলো কখনো hit এ পরিণত হয় না; (খ) ওই ২% ই হয়তো সবচেয়ে ভারী query।
 
-আর একটা প্রশ্ন যেটা দিয়ে seniority মাপা হয়: **"Redis cluster এ node যোগ করলাম, তবু একটা node এর CPU ১০০% — কেন?"** — hot key। Key hash করে shard এ যায়, তাই একটা key এর traffic কখনো ভাগ হয় না। এটা জানা মানে তুমি Redis কে কালো বাক্স হিসেবে দেখছ না।
+আর একটা প্রশ্ন যেটা দিয়ে seniority মাপা হয়: **"Redis cluster এ node যোগ করলাম, তবু একটা node এর CPU ১০০% — কেন?"** — hot key। Key hash করে shard এ যায়, তাই একটা key এর traffic কখনো ভাগ হয় না। এটা জানা মানে আপনি Redis কে কালো বাক্স হিসেবে দেখছেন না।
 
 ---
 
@@ -268,13 +268,13 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 
 ## ৫. Reflection Questions
 
-আগে নিজে ভেবে উত্তর দাও, তারপর Answer Key খুলো।
+আগে নিজে ভেবে উত্তর দিন, তারপর Answer Key খুলুন।
 
 1. Exercise এ single-flight ৫০টা DB query কে ১ এ নামিয়েছে। কিন্তু TaskFlow production এ ৪টা server instance চলে। তখন সংখ্যাটা কত হবে, আর কেন? ১ এ নামাতে চাইলে কী লাগবে?
 
 2. একজন developer stampede ঠেকাতে TTL ৬০ সেকেন্ড থেকে বাড়িয়ে **১ ঘণ্টা** করে দিল — যুক্তি: "কম expire হলে কম stampede"। এতে stampede কি আসলেই কমবে? আর এই সিদ্ধান্তে কী কী নতুন সমস্যা তৈরি হলো?
 
-3. TaskFlow এর monitoring দেখাচ্ছে: cache hit ratio **৯৭%**, Redis এর CPU স্বাভাবিক, কোনো node গরম না, DB তে load **একটানা বেশি** — কোনো spike নেই, কোনো ছন্দ নেই, শুধু সবসময় বেশি। কোন ব্যর্থতাটা সন্দেহ করবে, আর সেটা নিশ্চিত করতে কী দেখবে?
+3. TaskFlow এর monitoring দেখাচ্ছে: cache hit ratio **৯৭%**, Redis এর CPU স্বাভাবিক, কোনো node গরম না, DB তে load **একটানা বেশি** — কোনো spike নেই, কোনো ছন্দ নেই, শুধু সবসময় বেশি। কোন ব্যর্থতাটা সন্দেহ করবেন, আর সেটা নিশ্চিত করতে কী দেখবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -298,7 +298,7 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 
 মূল কথা: **TTL দিয়ে stampede সারানোর চেষ্টাটাই ভুল ওষুধ**। TTL এর কাজ freshness ঠিক করা; stampede এর ওষুধ single-flight বা stale-while-revalidate। একটা সমস্যার জন্য ভুল knob ঘোরালে অন্য জায়গায় দাম দিতে হয়।
 
-**প্রশ্ন ৩:** **Cache penetration** সন্দেহ করবে।
+**প্রশ্ন ৩:** **Cache penetration** সন্দেহ করবেন।
 
 যুক্তিটা বাদ দেওয়ার প্রক্রিয়ায়:
 
@@ -308,9 +308,9 @@ TTL ছোট রাখা জরুরি, নাহলে জিনিসট�
 
 এটাই penetration এর স্বাক্ষর। সাধারণ miss এর পরে key টা cache এ ঢুকে যায়, তাই পরের বার hit হয় — miss গুলো নিজে থেকেই "সেরে ওঠে"। কিন্তু অনুপস্থিত key এর জন্য cache এ কিছু লেখাই হয় না, তাই **একই key বারবার miss হতে থাকে**, আর প্রতিবার DB পর্যন্ত যায়। Hit ratio তে এগুলো miss হিসেবেই গোনা হয় (Redis এর `keyspace_misses`), কিন্তু ৩% miss দেখে কেউ সন্দেহ করে না — অথচ সেই ৩% ই একটানা DB কে ব্যস্ত রাখছে।
 
-**নিশ্চিত করতে কী দেখবে:** DB এর query log এ কত ভাগ query **শূন্য row** ফেরত দিচ্ছে। যদি সেটা অস্বাভাবিক বেশি হয় (ধরো ৪০%), তাহলে ধরা পড়ে গেল। সাথে application log এ 404 response এর হার দেখো — একই গল্প বলবে।
+**নিশ্চিত করতে কী দেখবেন:** DB এর query log এ কত ভাগ query **শূন্য row** ফেরত দিচ্ছে। যদি সেটা অস্বাভাবিক বেশি হয় (ধরুন ৪০%), তাহলে ধরা পড়ে গেল। সাথে application log এ 404 response এর হার দেখুন — একই গল্প বলবে।
 
-প্রতিকার: negative caching (ছোট TTL সহ), আর যদি id গুলো একটা জানা সীমার হয় তাহলে সীমার বাইরের request গুলো DB তে যাওয়ার আগেই ফিরিয়ে দাও।
+প্রতিকার: negative caching (ছোট TTL সহ), আর যদি id গুলো একটা জানা সীমার হয় তাহলে সীমার বাইরের request গুলো DB তে যাওয়ার আগেই ফিরিয়ে দিন।
 
 </details>
 
@@ -330,13 +330,13 @@ npm run stampede
 
 **যা করতে হবে:**
 
-1. `npm run stampede` চালাও। তোমার মেশিনে single-flight ছাড়া আর সহ — DB query সংখ্যা কত? আমার পাওয়া ৫০ → ১ এর সাথে মেলে?
+1. `npm run stampede` চালান। আপনার মেশিনে single-flight ছাড়া আর সহ — DB query সংখ্যা কত? আমার পাওয়া ৫০ → ১ এর সাথে মেলে?
 
-2. `src/stampede.ts` এ `CONCURRENCY` ৫০ থেকে **২০০** করে দাও। Single-flight ছাড়া সময়টা কীভাবে বাড়ে — রৈখিকভাবে, নাকি তার চেয়ে দ্রুত? কেন বলে মনে করো? (ইঙ্গিত: `src/db.ts` এ `pool: { max: 10 }`।)
+2. `src/stampede.ts` এ `CONCURRENCY` ৫০ থেকে **২০০** করে দিন। Single-flight ছাড়া সময়টা কীভাবে বাড়ে — রৈখিকভাবে, নাকি তার চেয়ে দ্রুত? কেন বলে মনে করেন? (ইঙ্গিত: `src/db.ts` এ `pool: { max: 10 }`।)
 
-3. **TTL jitter যোগ করো।** `src/server.ts` এ `TTL_SECONDS` এর বদলে এমন একটা TTL ব্যবহার করো যাতে ±১০% এলোমেলো মেশানো থাকে। তারপর ব্যাখ্যা করো — এই পরিবর্তনটা §১.১ এর stampede এ সাহায্য করে, নাকি §১.৪ এর avalanche এ? দুটো সমস্যা আলাদা কেন?
+3. **TTL jitter যোগ করুন।** `src/server.ts` এ `TTL_SECONDS` এর বদলে এমন একটা TTL ব্যবহার করুন যাতে ±১০% এলোমেলো মেশানো থাকে। তারপর ব্যাখ্যা করুন — এই পরিবর্তনটা §১.১ এর stampede এ সাহায্য করে, নাকি §১.৪ এর avalanche এ? দুটো সমস্যা আলাদা কেন?
 
-4. **Negative caching বানাও।** একটা নতুন endpoint `GET /api/tasks/:id` যোগ করো যেটা Cache-Aside ব্যবহার করে। এবার এমন একটা id চাও যা নেই (যেমন `999999`), বারবার — `/api/_stats` দেখে বুঝবে প্রতিবার DB তে যাচ্ছে। এবার "নেই" উত্তরটাও ৩০ সেকেন্ডের TTL সহ cache করো, আর আবার মেপে দেখাও পার্থক্যটা।
+4. **Negative caching বানান।** একটা নতুন endpoint `GET /api/tasks/:id` যোগ করুন যেটা Cache-Aside ব্যবহার করে। এবার এমন একটা id চান যা নেই (যেমন `999999`), বারবার — `/api/_stats` দেখে বুঝবেন প্রতিবার DB তে যাচ্ছে। এবার "নেই" উত্তরটাও ৩০ সেকেন্ডের TTL সহ cache করুন, আর আবার মেপে দেখান পার্থক্যটা।
 
 5. **চিন্তার প্রশ্ন (code লাগবে না):** single-flight এর `inFlight` Map টা যদি কখনো `finally` তে delete না করত, তাহলে কী হতো? এটা কী ধরনের bug — আর production এ কত দিন পর ধরা পড়ত?
 
@@ -360,7 +360,7 @@ Discriminated Union, Fail-safe, Offline Queue, Anycast, Cache Key,
 s-maxage, stale-while-revalidate, ETag, Purge, Origin Shield,
 Cache Stampede, Thundering Herd, Single-flight, TTL Jitter,
 Cache Avalanche, Hot Key, Negative Caching
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: Module 4 Exit Challenge
 =======================
 ```
@@ -369,6 +369,6 @@ Next: Module 4 Exit Challenge
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও — বিশেষ করে ২ আর ৪ নম্বর, ওদুটোয় হাতে-কলমে যা দেখবে সেটা পড়ে বোঝা যায় না।
+Exercise টা করে পাঠান — বিশেষ করে ২ আর ৪ নম্বর, ওদুটোয় হাতে-কলমে যা দেখবেন সেটা পড়ে বোঝা যায় না।
 
-রেডি হলে `next` লিখো — **Module 4 Exit Challenge**। ছয়টা lesson এর সবকিছু একসাথে, একটা বাস্তব চাপের scenario তে। তারপর Module 5: Database Design & Scaling — যেখানে আমরা সেই DB টার ভেতরে ঢুকব, যাকে আমরা এতক্ষণ ধরে বাঁচানোর চেষ্টা করছিলাম।
+রেডি হলে `next` লিখুন — **Module 4 Exit Challenge**। ছয়টা lesson এর সবকিছু একসাথে, একটা বাস্তব চাপের scenario তে। তারপর Module 5: Database Design & Scaling — যেখানে আমরা সেই DB টার ভেতরে ঢুকব, যাকে আমরা এতক্ষণ ধরে বাঁচানোর চেষ্টা করছিলাম।

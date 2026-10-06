@@ -91,7 +91,7 @@ export function createCatalog(
 	return { modules, contents, lessons: modules.flatMap((module) => module.lessons) };
 }
 const objective =
-	/\*\*(?:তুমি এই lesson শেষে পারবে|By the end of this lesson you will be able to):\*\*\s*\n+\s*(?:\d+\.|[-*])\s+(.+)/i;
+	/\*\*(?:(?:তুমি|আপনি) এই lesson শেষে পারবেন?|By the end of this lesson you will be able to):\*\*\s*\n+\s*(?:\d+\.|[-*])\s+(.+)/i;
 function plainText(markdown: string): string {
 	return markdown
 		.replace(/\[([^\]]*)]\([^)]*\)/g, '$1')

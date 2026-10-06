@@ -2,15 +2,15 @@
 
 **Module 4 — Caching**
 
-> **Spaced Repetition (Lesson 1.3):** Back-of-the-envelope estimation এ ১ million user, প্রতি user এর ১ KB data — মোটামুটি কত memory লাগবে? (হিসাবটা মাথায় করে বলো)
+> **Spaced Repetition (Lesson 1.3):** Back-of-the-envelope estimation এ ১ million user, প্রতি user এর ১ KB data — মোটামুটি কত memory লাগবে? (হিসাবটা মাথায় করে বলুন)
 
 **Prerequisite:** Lesson 4.2 (Caching Strategies), Lesson 1.3 (Estimation)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. TTL, explicit invalidation আর eviction — এই তিনটা আলাদা জিনিস কেন আলাদা, আর কোনটা কোন সমস্যার উত্তর, সেটা বুঝবে
-2. একটা write হলে ঠিক কোন কোন cache key মুছতে হবে — সেটা key design দেখে বের করতে পারবে
-3. LRU আর LFU eviction policy এর পার্থক্য, আর TaskFlow এর জন্য Redis এ কোনটা বেছে নেবে — বলতে পারবে
+1. TTL, explicit invalidation আর eviction — এই তিনটা আলাদা জিনিস কেন আলাদা, আর কোনটা কোন সমস্যার উত্তর, সেটা বুঝবেন
+2. একটা write হলে ঠিক কোন কোন cache key মুছতে হবে — সেটা key design দেখে বের করতে পারবেন
+3. LRU আর LFU eviction policy এর পার্থক্য, আর TaskFlow এর জন্য Redis এ কোনটা বেছে নেবেন — বলতে পারবেন
 
 **Tier:** 3 — Design Exercise (hands-on Redis implementation পরের lesson, 4.4 তে)
 
@@ -38,11 +38,11 @@
 
 ```
 ১. TTL          → "কতক্ষণ পর নিজে থেকে মুছে যাবে?"     (সময় ঠিক করে)
-২. Invalidation → "data বদলে গেছে, এখনই মুছে দাও"      (তুমি ঠিক করো)
+২. Invalidation → "data বদলে গেছে, এখনই মুছে দিন"      (আপনি ঠিক করুন)
 ৩. Eviction     → "memory ভরে গেছে, কাকে বের করব?"    (Redis ঠিক করে)
 ```
 
-পার্থক্যটা খেয়াল করো — **কে সিদ্ধান্ত নিচ্ছে**, সেটাই মূল কথা। TTL এ ঘড়ি সিদ্ধান্ত নেয়, invalidation এ তোমার code সিদ্ধান্ত নেয়, আর eviction এ Redis নিজে বাধ্য হয়ে সিদ্ধান্ত নেয় — কারণ তার আর জায়গা নেই।
+পার্থক্যটা খেয়াল করুন — **কে সিদ্ধান্ত নিচ্ছে**, সেটাই মূল কথা। TTL এ ঘড়ি সিদ্ধান্ত নেয়, invalidation এ আপনার code সিদ্ধান্ত নেয়, আর eviction এ Redis নিজে বাধ্য হয়ে সিদ্ধান্ত নেয় — কারণ তার আর জায়গা নেই।
 
 ### ১.২ TTL — সবচেয়ে সহজ, আর সবচেয়ে কম নির্ভরযোগ্য
 
@@ -52,7 +52,7 @@ TTL (Time To Live) মানে — "এই key টা N সেকেন্ড �
 await redis.set(cacheKey, JSON.stringify(tasks), 'EX', 300); // 5 minutes
 ```
 
-এর সৌন্দর্য হলো এটা **স্বয়ংক্রিয়**। তুমি invalidate করতে ভুলে গেলেও, সর্বোচ্চ ৫ মিনিট পর পুরনো data নিজে থেকে চলে যাবে। এটা একটা safety net — শেষ ভরসা।
+এর সৌন্দর্য হলো এটা **স্বয়ংক্রিয়**। আপনি invalidate করতে ভুলে গেলেও, সর্বোচ্চ ৫ মিনিট পর পুরনো data নিজে থেকে চলে যাবে। এটা একটা safety net — শেষ ভরসা।
 
 কিন্তু TTL এর দাম হলো একটা জানালা:
 
@@ -78,22 +78,22 @@ t=300s  TTL শেষ  →  পরের read এ DB থেকে নতুন v
 - User এর profile picture → ঘণ্টাখানেক পুরনো দেখালেও চলে → **১ ঘণ্টা**
 - Account balance বা payment status → **এক সেকেন্ডও বাসি চলবে না** → cache-ই করা উচিত না, বা খুব ছোট TTL সহ invalidation বাধ্যতামূলক
 
-### ১.৩ Explicit Invalidation — delete করো, update কোরো না
+### ১.৩ Explicit Invalidation — delete করুন, update করবেন না
 
 TTL শুধু safety net। আসল কাজটা হলো — data বদলানোর **সাথে সাথে** cache কে জানানো। এখানে দুটো পথ আছে, আর একটা স্পষ্টভাবে ভালো:
 
 ```
-পথ ১ (update):  DB তে লেখো  →  cache এ নতুন value লিখে দাও
-পথ ২ (delete):  DB তে লেখো  →  cache key টা মুছে দাও   ← এটাই সাধারণত ভালো
+পথ ১ (update):  DB তে লিখুন  →  cache এ নতুন value লিখে দিন
+পথ ২ (delete):  DB তে লিখুন  →  cache key টা মুছে দিন   ← এটাই সাধারণত ভালো
 ```
 
 **কেন delete ভালো?** তিনটা কারণে:
 
-1. **Update করতে গেলে তোমাকে নতুন value টা বানাতে হবে** — মানে আবার DB query, আবার serialize। Delete এ সেই খরচ নেই, আর data টা আসলে কেউ পড়তে চাইলে তখন এমনিতেই load হয়ে যাবে।
-2. **Race condition কম।** দুইজন একসাথে update করলে, "update" পদ্ধতিতে কার value শেষে cache এ বসবে সেটা অনিশ্চিত — এমনকি পুরনো value নতুনটার উপরে বসে যেতে পারে। Delete এ এই নির্দিষ্ট ঝামেলাটা নেই; cache খালি থাকলে পরের read DB এর সত্যটাই আনবে। তবে delete করলেও race পুরোপুরি চলে যায় না — নিচের নোটটা দেখো।
+1. **Update করতে গেলে আপনাকে নতুন value টা বানাতে হবে** — মানে আবার DB query, আবার serialize। Delete এ সেই খরচ নেই, আর data টা আসলে কেউ পড়তে চাইলে তখন এমনিতেই load হয়ে যাবে।
+2. **Race condition কম।** দুইজন একসাথে update করলে, "update" পদ্ধতিতে কার value শেষে cache এ বসবে সেটা অনিশ্চিত — এমনকি পুরনো value নতুনটার উপরে বসে যেতে পারে। Delete এ এই নির্দিষ্ট ঝামেলাটা নেই; cache খালি থাকলে পরের read DB এর সত্যটাই আনবে। তবে delete করলেও race পুরোপুরি চলে যায় না — নিচের নোটটা দেখুন।
 3. **কেউ হয়তো ওই data আর পড়বেই না।** তাহলে cache এ নতুন value বসিয়ে memory নষ্ট করার মানে কী?
 
-তোমার stack এ:
+আপনার stack এ:
 
 ```typescript
 async function updateTask(
@@ -125,7 +125,7 @@ t=3   Reader : তার ধীর query শেষ হলো → পুরনো
 
 ### ১.৪ কোন key গুলো মুছতে হবে — গত lesson এর প্রশ্নের উত্তর
 
-উপরের code এ লক্ষ্য করেছ, আমি **দুইটা** key মুছেছি? এটাই ছিল গত lesson এর বাড়তি প্রশ্নের উত্তর।
+উপরের code এ লক্ষ্য করেছেন, আমি **দুইটা** key মুছেছি? এটাই ছিল গত lesson এর বাড়তি প্রশ্নের উত্তর।
 
 একটা task update হলে যেসব cache entry বাসি হয়ে যায়:
 
@@ -153,13 +153,13 @@ tasks:user:7:*     ← এই prefix এর সব key একসাথে মু
 tasks:user:7:v12    ← v হলো version number
 ```
 
-User এর কিছু বদলালে version টা এক বাড়িয়ে দাও (`INCR tasks:user:7:version`)। পুরনো `v12` key গুলো আর কেউ খুঁজবেই না — সবাই এখন `v13` চাইবে। পুরনোগুলো TTL শেষে নিজে থেকেই মরে যাবে। মোছার দরকারই নেই।
+User এর কিছু বদলালে version টা এক বাড়িয়ে দিন (`INCR tasks:user:7:version`)। পুরনো `v12` key গুলো আর কেউ খুঁজবেই না — সবাই এখন `v13` চাইবে। পুরনোগুলো TTL শেষে নিজে থেকেই মরে যাবে। মোছার দরকারই নেই।
 
 ### ১.৫ Eviction — memory ভরে গেলে কে যাবে
 
 TTL আর invalidation, দুটোই "data টা আর ঠিক নেই" নিয়ে। Eviction সম্পূর্ণ আলাদা প্রশ্ন — **data হয়তো একদম ঠিক আছে, কিন্তু জায়গা নেই।**
 
-Redis এ তুমি একটা memory সীমা ঠিক করে দাও, আর বলে দাও সীমা ছাড়ালে সে কী করবে:
+Redis এ আপনি একটা memory সীমা ঠিক করে দিন, আর বলে দিন সীমা ছাড়ালে সে কী করবে:
 
 ```bash
 maxmemory 2gb
@@ -176,7 +176,7 @@ Policy গুলো (গুরুত্বপূর্ণ কয়েকটা)
 | `volatile-lru`   | শুধু যেগুলোর TTL সেট করা আছে, তাদের মধ্যে LRU            |
 | `allkeys-random` | যাকে-তাকে random বাদ                                     |
 
-**`noeviction` default — আর এটা প্রায়ই অপ্রত্যাশিত।** অনেকে Redis বসিয়ে maxmemory-policy সেট করতে ভুলে যায়, তারপর memory ভরে গেলে হঠাৎ `OOM command not allowed` error দেখে অবাক হয়। **যদি Redis টা pure cache হিসেবে ব্যবহার করো** (অর্থাৎ data হারালেও DB তে আসলটা আছে), তাহলে `allkeys-lru` প্রায় সবসময়ই সঠিক পছন্দ।
+**`noeviction` default — আর এটা প্রায়ই অপ্রত্যাশিত।** অনেকে Redis বসিয়ে maxmemory-policy সেট করতে ভুলে যায়, তারপর memory ভরে গেলে হঠাৎ `OOM command not allowed` error দেখে অবাক হয়। **যদি Redis টা pure cache হিসেবে ব্যবহার করেন** (অর্থাৎ data হারালেও DB তে আসলটা আছে), তাহলে `allkeys-lru` প্রায় সবসময়ই সঠিক পছন্দ।
 
 ### ১.৬ LRU vs LFU — কোনটা কখন
 
@@ -185,17 +185,17 @@ Policy গুলো (গুরুত্বপূর্ণ কয়েকটা)
 - **LRU (Least Recently Used)** — "সবচেয়ে অনেকক্ষণ ধরে কেউ ছোঁয়নি" সেটা বাদ। প্রশ্ন: **কখন** শেষ ব্যবহার হয়েছে?
 - **LFU (Least Frequently Used)** — "সবচেয়ে কম বার ব্যবহৃত হয়েছে" সেটা বাদ। প্রশ্ন: **কত বার** ব্যবহার হয়েছে?
 
-একটা উদাহরণে পার্থক্যটা পরিষ্কার হয়। ধরো TaskFlow এ:
+একটা উদাহরণে পার্থক্যটা পরিষ্কার হয়। ধরুন TaskFlow এ:
 
 ```
 key A : গত ৩ মাসে ১০,০০০ বার পড়া হয়েছে, কিন্তু শেষ ২ ঘণ্টায় একবারও না
 key B : গত ৩ মাসে মাত্র ৩ বার পড়া হয়েছে, কিন্তু ৫ মিনিট আগে পড়া হয়েছে
 ```
 
-**LRU** বলবে: B সম্প্রতি ব্যবহৃত, তাই **A কে বাদ দাও**।
-**LFU** বলবে: A অনেক জনপ্রিয়, তাই **B কে বাদ দাও**।
+**LRU** বলবে: B সম্প্রতি ব্যবহৃত, তাই **A কে বাদ দিন**।
+**LFU** বলবে: A অনেক জনপ্রিয়, তাই **B কে বাদ দিন**।
 
-কে ঠিক? নির্ভর করে তোমার traffic এর চরিত্রের উপর:
+কে ঠিক? নির্ভর করে আপনার traffic এর চরিত্রের উপর:
 
 - **LRU ভালো** যখন ব্যবহারে একটা "সাম্প্রতিকতা" থাকে — কেউ আজ কাজ করছে মানে সে আরও কিছুক্ষণ করবে। TaskFlow এর সাধারণ ব্যবহারে এটাই স্বাভাবিক।
 - **LFU ভালো** যখন কিছু জিনিস চিরস্থায়ীভাবে জনপ্রিয় — যেমন একটা news site এর homepage। LRU এখানে একটা বিপদে পড়ে: হঠাৎ কোনো scan বা bot এসে একগাদা অচেনা key পড়ে ফেললে, সেগুলো "recent" হয়ে যায় আর সত্যিকারের জনপ্রিয় data গুলোকে বের করে দেয় — একে বলে **cache pollution**।
@@ -204,7 +204,7 @@ key B : গত ৩ মাসে মাত্র ৩ বার পড়া হ�
 
 |                   | **TTL**            | **Invalidation**     | **Eviction**            |
 | ----------------- | ------------------ | -------------------- | ----------------------- |
-| কে সিদ্ধান্ত নেয় | ঘড়ি               | তোমার code           | Redis (বাধ্য হয়ে)      |
+| কে সিদ্ধান্ত নেয় | ঘড়ি               | আপনার code           | Redis (বাধ্য হয়ে)      |
 | কেন ঘটে           | সময় শেষ           | data বদলেছে          | memory শেষ              |
 | কতটা নির্ভুল      | আনুমানিক           | নির্ভুল              | data এর সাথে সম্পর্কহীন |
 | ভুল হলে           | staleness window   | পুরনো data দেখা যায় | hit ratio পড়ে যায়     |
@@ -216,23 +216,23 @@ key B : গত ৩ মাসে মাত্র ৩ বার পড়া হ�
 
 ## ২. Interview Angle
 
-Cache invalidation প্রায় প্রতিটা system design interview এ আসে, কিন্তু সরাসরি না — ঘুরিয়ে। সবচেয়ে common রূপ: **"তোমার design এ user একটা জিনিস update করল, কিন্তু অন্য একজন পুরনোটা দেখছে — কেন, আর কীভাবে ঠিক করবে?"** এখানে TTL আর explicit invalidation দুটোরই কথা বলতে হবে, আর বলতে হবে কেন শুধু TTL যথেষ্ট না (staleness window) এবং কেন শুধু invalidation-ও যথেষ্ট না (কোনো একটা জায়গায় মুছতে ভুলে যাবেই)।
+Cache invalidation প্রায় প্রতিটা system design interview এ আসে, কিন্তু সরাসরি না — ঘুরিয়ে। সবচেয়ে common রূপ: **"আপনার design এ user একটা জিনিস update করল, কিন্তু অন্য একজন পুরনোটা দেখছে — কেন, আর কীভাবে ঠিক করবেন?"** এখানে TTL আর explicit invalidation দুটোরই কথা বলতে হবে, আর বলতে হবে কেন শুধু TTL যথেষ্ট না (staleness window) এবং কেন শুধু invalidation-ও যথেষ্ট না (কোনো একটা জায়গায় মুছতে ভুলে যাবেই)।
 
 একটা ভালো follow-up যেটা অনেকে আটকে যায়: **"invalidate করার সময় DB আগে না cache আগে?"** — উত্তর: **DB আগে, cache পরে**, আর কারণটা বলতে পারতে হবে (মাঝখানে একটা read এসে পুরনো value আবার cache এ ভরে দিতে পারে)।
 
-আর eviction নিয়ে প্রশ্নটা প্রায় সবসময় একই: **"LRU না LFU?"** — এখানে "LRU ভালো" বলে থেমে যেয়ো না। Traffic pattern এর কথা তোলো: recency-driven access এ LRU, চিরস্থায়ী জনপ্রিয়তা থাকলে LFU, আর LFU যে scan/bot এর কারণে হওয়া cache pollution থেকে বাঁচায় — সেটা বলতে পারলে তুমি স্পষ্টভাবে এগিয়ে।
+আর eviction নিয়ে প্রশ্নটা প্রায় সবসময় একই: **"LRU না LFU?"** — এখানে "LRU ভালো" বলে থেমে যাবেন না। Traffic pattern এর কথা তুলুন: recency-driven access এ LRU, চিরস্থায়ী জনপ্রিয়তা থাকলে LFU, আর LFU যে scan/bot এর কারণে হওয়া cache pollution থেকে বাঁচায় — সেটা বলতে পারলে আপনি স্পষ্টভাবে এগিয়ে।
 
 ---
 
 ## ৩. Key Takeaway
 
-- **তিনটা আলাদা প্রক্রিয়া**, গুলিয়ে ফেলা যাবে না: TTL (ঘড়ি সিদ্ধান্ত নেয়), invalidation (তুমি নাও), eviction (Redis বাধ্য হয়ে নেয়)
+- **তিনটা আলাদা প্রক্রিয়া**, গুলিয়ে ফেলা যাবে না: TTL (ঘড়ি সিদ্ধান্ত নেয়), invalidation (আপনি নেন), eviction (Redis বাধ্য হয়ে নেয়)
 - TTL হলো safety net, নির্ভুল সমাধান না — এর দাম হলো **staleness window**
 - Write এ cache **update না করে delete করা** সাধারণত ভালো — কম খরচ, কম race condition
 - ক্রম সবসময় **আগে DB, পরে cache** — উল্টো করলে পুরনো value cache এ ফিরে আসতে পারে
 - একটা write সাধারণত **একাধিক key** বাসি করে (item, list, filtered list, paginated view) — সবগুলো ভাবতে হবে
 - ভালো key naming (namespace, বা version key) ছাড়া invalidation কখনোই সহজ হবে না
-- Production এ `KEYS pattern*` চালিয়ো না — Redis single-threaded, এটা সবাইকে আটকে দেবে; `SCAN` বা version key ব্যবহার করো
+- Production এ `KEYS pattern*` চালাবেন না — Redis single-threaded, এটা সবাইকে আটকে দেবে; `SCAN` বা version key ব্যবহার করুন
 - Redis এ `maxmemory-policy` default `noeviction` — pure cache হলে `allkeys-lru` সেট করা প্রায় সবসময় সঠিক
 
 ---
@@ -253,9 +253,9 @@ Cache invalidation প্রায় প্রতিটা system design interv
 
 ## ৫. Reflection Questions
 
-আগে নিজে ভেবে উত্তর দাও, তারপর Answer Key খুলো।
+আগে নিজে ভেবে উত্তর দিন, তারপর Answer Key খুলুন।
 
-1. TaskFlow এ একজন user একটা task কে "completed" চিহ্নিত করল। তোমার cache এ নিচের key গুলো আছে। কোনগুলো invalidate করতে হবে, আর কোনগুলো ছোঁয়ার দরকার নেই — কেন?
+1. TaskFlow এ একজন user একটা task কে "completed" চিহ্নিত করল। আপনার cache এ নিচের key গুলো আছে। কোনগুলো invalidate করতে হবে, আর কোনগুলো ছোঁয়ার দরকার নেই — কেন?
    `task:99` · `tasks:user:7` · `tasks:user:7:completed` · `tasks:user:12` · `user:7:profile`
 
 2. একজন developer বলছে: "আমি সব key তে ১০ সেকেন্ড TTL দিয়ে দেব, তাহলে invalidation এর ঝামেলাই থাকবে না — সর্বোচ্চ ১০ সেকেন্ড পুরনো data দেখাবে, ব্যস।" যুক্তিটা শুনতে ঠিক লাগছে। এতে সমস্যা কী?
@@ -277,9 +277,9 @@ Cache invalidation প্রায় প্রতিটা system design interv
 
 **প্রশ্ন ২:** যুক্তিটা correctness এর দিক থেকে খারাপ না, কিন্তু **performance এর দিক থেকে এটা cache টাকে প্রায় অকেজো করে দেয়**।
 
-ভেবে দেখো — যদি একটা key তে গড়ে প্রতি ১০ সেকেন্ডে ৩টা request আসে, তাহলে প্রথমটা miss (DB তে যাবে), পরের দুটো hit। Hit ratio ~৬৭%। কিন্তু কম জনপ্রিয় key তে, যেখানে প্রতি ৩০ সেকেন্ডে একটা request — **প্রতিটা request ই miss**, কারণ আগেরটা ততক্ষণে মরে গেছে। Hit ratio প্রায় ০%।
+ভেবে দেখুন — যদি একটা key তে গড়ে প্রতি ১০ সেকেন্ডে ৩টা request আসে, তাহলে প্রথমটা miss (DB তে যাবে), পরের দুটো hit। Hit ratio ~৬৭%। কিন্তু কম জনপ্রিয় key তে, যেখানে প্রতি ৩০ সেকেন্ডে একটা request — **প্রতিটা request ই miss**, কারণ আগেরটা ততক্ষণে মরে গেছে। Hit ratio প্রায় ০%।
 
-মানে তুমি Redis এর খরচ, জটিলতা আর একটা বাড়তি network hop সবই নিচ্ছ, অথচ DB load প্রায় কমছেই না। তার উপর এখন **প্রতি ১০ সেকেন্ডে** সব জনপ্রিয় key একসাথে expire হবে — এতে DB তে হঠাৎ হঠাৎ load এর ঢেউ আসবে (Lesson 4.6 এর **cache stampede**)।
+মানে আপনি Redis এর খরচ, জটিলতা আর একটা বাড়তি network hop সবই নিচ্ছেন, অথচ DB load প্রায় কমছেই না। তার উপর এখন **প্রতি ১০ সেকেন্ডে** সব জনপ্রিয় key একসাথে expire হবে — এতে DB তে হঠাৎ হঠাৎ load এর ঢেউ আসবে (Lesson 4.6 এর **cache stampede**)।
 
 সঠিক পথ: **যুক্তিসঙ্গত TTL (৩০-৬০s) + explicit invalidation**। TTL টা safety net, invalidation টা আসল কাজ।
 
@@ -289,7 +289,7 @@ Application এর চোখে এটা একটা অদ্ভুত অব
 
 User এর চোখে: site ধীরে ধীরে slow হতে থাকবে (যত নতুন data চাওয়া হয়, তত সব DB তে যায়), কিন্তু কিছু "ভাঙবে" না। এই নীরব অবনতিটাই এটাকে বিপজ্জনক বানায় — কোনো loud alarm বাজে না, শুধু latency বাড়তে থাকে।
 
-আর যদি তোমার code এ Redis error টা properly handle করা না থাকে (try/catch ছাড়া `redis.set`), তাহলে ওই error টা request handler এ গিয়ে **user কে 500 দেখাবে** — অথচ DB একদম সুস্থ আছে। এজন্যই cache এর write গুলো সবসময় fail-safe রাখতে হয়: cache এ লিখতে না পারা কখনোই request fail করার কারণ হওয়া উচিত না।
+আর যদি আপনার code এ Redis error টা properly handle করা না থাকে (try/catch ছাড়া `redis.set`), তাহলে ওই error টা request handler এ গিয়ে **user কে 500 দেখাবে** — অথচ DB একদম সুস্থ আছে। এজন্যই cache এর write গুলো সবসময় fail-safe রাখতে হয়: cache এ লিখতে না পারা কখনোই request fail করার কারণ হওয়া উচিত না।
 
 </details>
 
@@ -313,9 +313,9 @@ project:{projectId}:members
 
 1. User 7, project 3 এর একটা task (id 99) এর title বদলালো। কোন কোন key invalidate হবে? Project 3 এ যদি আরও ৪ জন member থাকে, তাদের cached list গুলোর কী হবে — আর এটা কী নতুন সমস্যা তৈরি করে?
 
-2. উপরের সমস্যাটা এড়াতে **version key** পদ্ধতি কীভাবে সাহায্য করতে পারে? `tasks:project:3` এর জন্য একটা version-ভিত্তিক key design লিখে দেখাও।
+2. উপরের সমস্যাটা এড়াতে **version key** পদ্ধতি কীভাবে সাহায্য করতে পারে? `tasks:project:3` এর জন্য একটা version-ভিত্তিক key design লিখে দেখান।
 
-3. TaskFlow এর জন্য Redis এ কোন `maxmemory-policy` বেছে নেবে, আর কেন? তোমার উত্তরে এটাও বলো — যদি একই Redis instance এ cache **এবং** session data (যেগুলো হারালে user logout হয়ে যাবে) দুটোই রাখা হয়, তাহলে তোমার পছন্দ কি বদলাবে?
+3. TaskFlow এর জন্য Redis এ কোন `maxmemory-policy` বেছে নেবেন, আর কেন? আপনার উত্তরে এটাও বলুন — যদি একই Redis instance এ cache **এবং** session data (যেগুলো হারালে user logout হয়ে যাবে) দুটোই রাখা হয়, তাহলে আপনার পছন্দ কি বদলাবে?
 
 ---
 
@@ -332,7 +332,7 @@ Terms learned (Module 4 so far): Cache Hierarchy, CDN, PoP, Edge Cache TTL,
 Buffer Pool, Cache-Aside, Read-Through, Write-Through, Write-Behind,
 Write-Around, Cold Start, TTL, Staleness Window, Cache Invalidation,
 Eviction Policy, LRU, LFU, Cache Pollution
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 4.4 — Redis Hands-on: Express + Sequelize এ caching layer (Tier 1, প্রথম
 runnable code এই module এ)
 =======================
@@ -342,6 +342,6 @@ runnable code এই module এ)
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও — বিশেষ করে ৩ নম্বরের শেষ অংশটা (cache আর session একসাথে), ওখানে একটা ফাঁদ আছে।
+Exercise টা করে পাঠান — বিশেষ করে ৩ নম্বরের শেষ অংশটা (cache আর session একসাথে), ওখানে একটা ফাঁদ আছে।
 
-রেডি হলে `next` লিখো — Lesson 4.4 এ অবশেষে **code**। গত তিনটা lesson এ যা যা ঠিক করেছি — Cache-Aside, invalidate-on-write, TTL, LRU — সবগুলো একসাথে বসিয়ে TaskFlow এ একটা সত্যিকারের Redis caching layer বানাব, Express + Sequelize + Redis দিয়ে। আর মেপে দেখব cache আসলে কতটা পার্থক্য করল।
+রেডি হলে `next` লিখুন — Lesson 4.4 এ অবশেষে **code**। গত তিনটা lesson এ যা যা ঠিক করেছি — Cache-Aside, invalidate-on-write, TTL, LRU — সবগুলো একসাথে বসিয়ে TaskFlow এ একটা সত্যিকারের Redis caching layer বানাব, Express + Sequelize + Redis দিয়ে। আর মেপে দেখব cache আসলে কতটা পার্থক্য করল।

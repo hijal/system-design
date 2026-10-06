@@ -18,7 +18,7 @@
 Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য — script গুলো সাধারণ Node process
 হিসেবে চলবে)।
 
-Port **5434** ব্যবহার করা হয়েছে, যাতে তোমার মেশিনের Postgres (5432) বা Lesson 4.4 এর
+Port **5434** ব্যবহার করা হয়েছে, যাতে আপনার মেশিনের Postgres (5432) বা Lesson 4.4 এর
 exercise (5433) এর সাথে সংঘাত না লাগে।
 
 ## Setup
@@ -55,11 +55,11 @@ npm run counter
 3. How many projects after deleting the task?    2 → Marketing, Website
 ```
 
-এই output টা deterministic — তোমার মেশিনেও হুবহু এটাই আসবে।
+এই output টা deterministic — আপনার মেশিনেও হুবহু এটাই আসবে।
 
 **২. `npm run dashboard`**
 
-Expected (আমার মেশিনে মাপা — তোমারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
+Expected (আমার মেশিনে মাপা — আপনারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
 
 ```
   seeded         : 500 projects × 800 tasks = 400,000 tasks (14.1s)
@@ -94,7 +94,7 @@ Expected (আমার মেশিনে মাপা — তোমারটা
 
 1. **Anomaly গুলো "তত্ত্ব" না।** একটা ছোট schema ভুল থেকে তিনটা আলাদা ধরনের ভুল data —
    আর তিনটার কোনোটাতেই কোনো error আসে না। Database খুশি মনে ভুল data রেখে দেয়।
-2. **Denormalize করার আগে query ঠিক করো।** `dashboard` এ পাতার query টা শুধু ভালো করে লিখেই
+2. **Denormalize করার আগে query ঠিক করুন।** `dashboard` এ পাতার query টা শুধু ভালো করে লিখেই
    (LATERAL) ~২২ গুণ দ্রুত হয়, কোনো schema না বদলে। কিন্তু "সবচেয়ে ব্যস্ত" প্রশ্নে সবগুলো
    গুনতেই হয় — সেখানে কোনো query কৌশল কাজ করে না। **Derived মান দিয়ে sort বা filter** —
    এটাই denormalization এর আসল জায়গা।
@@ -108,31 +108,31 @@ counter তখনো ০ — সবাই ০ পড়ে, সবাই ১ ল
 হারাবে না — কিন্তু দুটো request এর মধ্যে কয়েক millisecond এর ফাঁকও যথেষ্ট। আর এই ধরনের
 bug local এ একজন user দিয়ে test করলে **কখনো ধরা পড়ে না**।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Index সরিয়ে দাও।** `src/models/good.ts` এ `tasks` এর `indexes` থেকে
-   `{ fields: ['projectId', 'status'] }` বাদ দিয়ে `npm run dashboard` চালাও। LATERAL query এর
+1. **Index সরিয়ে দিন।** `src/models/good.ts` এ `tasks` এর `indexes` থেকে
+   `{ fields: ['projectId', 'status'] }` বাদ দিয়ে `npm run dashboard` চালান। LATERAL query এর
    সময় কী হয়? কেন? (ইঙ্গিত: প্রতিটা project এর count এখন কীভাবে বের হবে? Lesson 5.4 এর
    preview।)
 
-2. **Race টা বাস্তবের কাছাকাছি আনো।** `src/counter.ts` এর `naive()` এর শুরুতে একটা ছোট
-   random delay যোগ করো:
+2. **Race টা বাস্তবের কাছাকাছি আনুন।** `src/counter.ts` এর `naive()` এর শুরুতে একটা ছোট
+   random delay যোগ করুন:
 
    ```typescript
    await new Promise((resolve) => setTimeout(resolve, Math.random() * 50));
    ```
 
-   এখন কতগুলো হারায়? কয়েকবার চালাও। Delay ৫০০ ms করলে? সংখ্যাটা কমে, কিন্তু কি শূন্য হয়?
-   "কম হারায়" আর "হারায় না" এর মধ্যে পার্থক্যটা নিজের ভাষায় লেখো।
+   এখন কতগুলো হারায়? কয়েকবার চালান। Delay ৫০০ ms করলে? সংখ্যাটা কমে, কিন্তু কি শূন্য হয়?
+   "কম হারায়" আর "হারায় না" এর মধ্যে পার্থক্যটা নিজের ভাষায় লিখুন।
 
 3. **Transaction আছে কিন্তু atomic না।** `atomic()` এর ভেতরে `Project.increment` এর বদলে
-   `naive()` এর মতো `findByPk` → `+1` → `save()` লেখো, কিন্তু সবকিছু `transaction` এর ভেতরে
+   `naive()` এর মতো `findByPk` → `+1` → `save()` লিখুন, কিন্তু সবকিছু `transaction` এর ভেতরে
    রেখে (`{ transaction }` দিয়ে)। এবার কি ২০০ আসে? না আসলে — transaction থাকা সত্ত্বেও
    কেন? (এটাই Lesson 5.5 এর isolation level এর গল্পের শুরু।)
 
-4. **Status বদলানোর path ভুলে যাও।** একটা ছোট function লেখো যেটা ২০টা task এর `status`
-   `'done'` করে দেয় কিন্তু counter কমায় না। তারপর `reconcile()` চালিয়ে দেখো সে ধরতে পারে
-   কিনা। Task তৈরি ছাড়া আর কোন কোন কাজে `openTaskCount` বদলানো দরকার — একটা তালিকা বানাও।
+4. **Status বদলানোর path ভুলে যান।** একটা ছোট function লিখুন যেটা ২০টা task এর `status`
+   `'done'` করে দেয় কিন্তু counter কমায় না। তারপর `reconcile()` চালিয়ে দেখুন সে ধরতে পারে
+   কিনা। Task তৈরি ছাড়া আর কোন কোন কাজে `openTaskCount` বদলানো দরকার — একটা তালিকা বানান।
 
 ## Teardown
 

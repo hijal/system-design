@@ -63,7 +63,7 @@ rm -rf data
    checksum: Postgres 750000 / 37499250000 · DuckDB 750000 / 37499250000 → match ✓
 ```
 
-Checksum এর সংখ্যা তোমার মেশিনেও হুবহু এই হবে; সময় আলাদা হবে।
+Checksum এর সংখ্যা আপনার মেশিনেও হুবহু এই হবে; সময় আলাদা হবে।
 
 **২. `npm run olap`** (এই মেশিনে):
 
@@ -121,23 +121,23 @@ DuckDB Postgres এর চেয়ে এক অঙ্কের (১০x) ক�
 - **শেষ দুই সারি:** দ্রুত আর শেষে ঠিক — দুটোই পাওয়া যায়, কিন্তু দাম হলো ফল একবার বলে পরে বদলানো (downstream
   কে সংশোধন সামলাতে হবে), বা দুটো pipeline।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **একটা analytics query:** `ANALYTICS_LOOPS=1 npm run olap`। OLTP এর p99 কত হলো? (এই মেশিনে ১.২ ms — প্রায়
    অপরিবর্তিত, কিন্তু throughput ১৫৪৩৪ থেকে ৯৯০৭।) একটা report "ক্ষতি করে না" বলা কি নিরাপদ? চারটা একসাথে
    চললে?
 2. **Index দিয়ে বাঁচানো যায়?** Postgres এ `CREATE INDEX task_events_analytics ON task_events (type, workspace_id, occurred_at) INCLUDE
-(duration_ms);` দাও (`docker compose exec postgres psql -U taskflow`), তারপর `npm run olap`। Plan বদলাল?
+(duration_ms);` দিন (`docker compose exec postgres psql -U taskflow`), তারপর `npm run olap`। Plan বদলাল?
    Analytics কত দ্রুত হলো, আর table এর আকার আর প্রতিটা insert এর দাম কী হলো (Lesson 5.4)? (এই মেশিনে: index-only
    scan, ২৫৭ ms থেকে ১৪৩ ms; table + index ৩৯৬ MB থেকে ৫৬৫ MB; আর analytics চলার সময় OLTP এর p99 তবু ~৬৯ ms।)
-   শেষে index টা `DROP INDEX task_events_analytics;` দিয়ে মুছে দিও।
+   শেষে index টা `DROP INDEX task_events_analytics;` দিয়ে মুছে দেবেন।
 3. **Outage ছাড়া:** `OUTAGE_HOUR=-1 npm run stream`। Processing time এর খারাপতম ঘণ্টা কত? (এই মেশিনে ৬.৪৬% —
    কাজের সময় শুরু আর শেষের ঢালে।) এখন processing time কি "যথেষ্ট ভালো"? কোন dashboard এর জন্য হ্যাঁ, কোনটার
    জন্য না?
 4. **দেরিতে আসা বেশি:** `LATE_SHARE=0.1 npm run stream` (১০% ঘটনা ঘণ্টাখানেক দেরিতে)। Lateness ১০ মিনিটের stream
    এর ভুল কত? (এই মেশিনে ~১০%।) সংশোধন ছাড়া এই সংখ্যা দিয়ে billing করা যায়?
-5. **Lateness এর দাম:** `stream.ts` এ একটা নতুন সারি যোগ করো — lateness ৩০ মিনিট, সংশোধন সহ। তোমার dashboard এর
-   জন্য কোন lateness বাছবে — কোন দুটো সংখ্যা পাশাপাশি রেখে সিদ্ধান্ত নিলে?
+5. **Lateness এর দাম:** `stream.ts` এ একটা নতুন সারি যোগ করুন — lateness ৩০ মিনিট, সংশোধন সহ। আপনার dashboard এর
+   জন্য কোন lateness বাছবেন — কোন দুটো সংখ্যা পাশাপাশি রেখে সিদ্ধান্ত নিলে?
 
 ## Project Structure
 

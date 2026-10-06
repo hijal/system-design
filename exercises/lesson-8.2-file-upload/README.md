@@ -17,14 +17,14 @@
 
 - Object store টা **SeaweedFS 4.47**, AWS S3 না — `s3.json` এ একটা identity দেওয়া, তাই signature আসলেই যাচাই হয় (8.1 এ
   authentication বন্ধ ছিল)। Presigned URL, multipart, CORS এখানে S3 এর নিয়মেই আচরণ করেছে; অন্য S3-compatible system এ
-  যাচাই করে নিও। AWS S3 এর সীমাগুলো (part এর ন্যূনতম ৫ MB, সর্বোচ্চ ১০,০০০ part, একটা PUT এ সর্বোচ্চ ৫ GB) documentation
+  যাচাই করে নেবেন। AWS S3 এর সীমাগুলো (part এর ন্যূনতম ৫ MB, সর্বোচ্চ ১০,০০০ part, একটা PUT এ সর্বোচ্চ ৫ GB) documentation
   থেকে; এখানে ন্যূনতম part এর নিয়মটা (`EntityTooSmall`) SeaweedFS ও মানে।
 - `through-app` এর "ধীর user" মানে client নিজে গতি বেঁধে রাখে (প্রতি সেকেন্ডে ১৬ MB); app আলাদা process, তার memory আর
   event loop মাপা হয়। আসল process, আসল সময় — সংখ্যা সামান্য বদলাবে।
 - `resume` এর upload গুলো আসল (presigned URL, মাঝপথে connection আসলেই কাটা), কিন্তু **সময়** একটা হিসাব — local network
   এ আসল সময় অর্থহীন দ্রুত। কোন byte এ ছিঁড়বে সেটা seed দেওয়া। Default seed ১১ বাছা হয়েছে কারণ তার ছেঁড়ার দূরত্ব গুলো
   (৪৩, ৪৫, ৫৬, ৫৪ MB …) গড় ৬০ MB এর কাছে — অন্য seed এ ভাগ্য অন্য (seed ৭ এ প্রথম দুটো ছেঁড়া ২ MB এর মধ্যে, তারপর আর
-  না — তখন সব পদ্ধতি প্রায় সমান)। তাই script এর শেষে একই network এর একটা model, ১০০০টা seed এ — গড় আর p95 সেখান থেকে পড়ো।
+  না — তখন সব পদ্ধতি প্রায় সমান)। তাই script এর শেষে একই network এর একটা model, ১০০০টা seed এ — গড় আর p95 সেখান থেকে পড়ুন।
 - `cdn` এর "CDN" একটা ছোট Express proxy, এই process এ — CloudFront/Cloudflare না; token টা CDN এর signed URL এর **ধারণা**
   (path + মেয়াদ এর HMAC), কোনো নির্দিষ্ট CDN এর format না।
 - Lesson এর SvelteKit এর code এই exercise এ চালানো হয়নি (browser লাগে); একই HTTP ধাপ গুলো এখানে Node থেকে আসল request
@@ -149,19 +149,19 @@ docker compose down -v
 - **`cdn` এর মাঝের সারি:** CDN থাকলেও প্রত্যেকের presigned URL আলাদা (signature, সময়) — CDN এর cache key আলাদা, তাই একটাও
   hit না। CDN এর নিজের token path আর মেয়াদ যাচাই করে, তারপর token বাদ দিয়ে path এ cache করে — ১৮৫২ MB থেকে ৬৩ MB।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **কম user, কম memory?** `UPLOADERS=4 ROUNDS=1 npm run through-app`। (এই মেশিনে: buffer এ ৭৯ → ৬২৪ MB — ৮ জনে ১১৫৯ MB;
-   প্রতিটা ৬৪ MB এর upload এ ~১৩৫ MB, মানে file এর প্রায় দ্বিগুণ।) ৫০ জন user একসাথে ২ GB এর video upload করলে? (চালিয়ো না —
-   হিসাব করো।)
+   প্রতিটা ৬৪ MB এর upload এ ~১৩৫ MB, মানে file এর প্রায় দ্বিগুণ।) ৫০ জন user একসাথে ২ GB এর video upload করলে? (চালাবেন না —
+   হিসাব করুন।)
 2. **ধীর round trip:** `RTT_MS=600 npm run resume` — খারাপ mobile network। (এই মেশিনে model এ: ৫ MB part ১.৮ মিনিট, ১৬ MB
-   part ১.৭ — এবার ছোট part আর সবচেয়ে ভালো না।) TaskFlow এর part এর আকার কত রাখবে, আর সেটা কি file এর আকার দেখে বদলাবে?
+   part ১.৭ — এবার ছোট part আর সবচেয়ে ভালো না।) TaskFlow এর part এর আকার কত রাখবেন, আর সেটা কি file এর আকার দেখে বদলাবেন?
 3. **ভালো network:** `DROP_EVERY_MB=5000 npm run resume` — প্রায় কখনো ছেঁড়ে না। তখন multipart এর লাভ কী থাকে (ইঙ্গিত: একসাথে
-   কয়েকটা part — `resume.ts` এ part গুলো সমান্তরালে পাঠানোর একটা সংস্করণ লেখো)?
-4. **Token ছাড়া cache:** `cdn.ts` এ `cdn-presigned` mode এর cache key থেকে query বাদ দাও (`cacheKey = path`)। Hit rate কী হলো?
+   কয়েকটা part — `resume.ts` এ part গুলো সমান্তরালে পাঠানোর একটা সংস্করণ লিখুন)?
+4. **Token ছাড়া cache:** `cdn.ts` এ `cdn-presigned` mode এর cache key থেকে query বাদ দিন (`cacheKey = path`)। Hit rate কী হলো?
    আর কী ভাঙল? (ইঙ্গিত: CDN এখন কী যাচাই করছে — কিছু? একজনের presigned URL এর মেয়াদ শেষ হলেও cache থেকে পাবে কি?)
 5. **Replay আটকানো:** `presign.ts` এর ২ নম্বরে একই URL দুবার কাজ করল। `If-None-Match: *` header টা sign এর তালিকায় যোগ করে
-   (Lesson 8.1 এর conditional write) আবার চালাও — দ্বিতীয়বার কী হয়? (যাচাই করা: প্রথমবার 200, একই URL এ দ্বিতীয়বার
+   (Lesson 8.1 এর conditional write) আবার চালান — দ্বিতীয়বার কী হয়? (যাচাই করা: প্রথমবার 200, একই URL এ দ্বিতীয়বার
    412, আর header বাদ দিয়ে পাঠালে 403 — signature মেলে না।) কোন ধরনের upload এ এটা লাগবে, কোনটায় না?
 
 ## Project Structure

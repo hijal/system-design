@@ -127,7 +127,7 @@ blast radius     global: caught      when     harm  control: caught      when   
 100% (all)                 100%      10 s      250                —         —        —
 ```
 
-সব সংখ্যা তোমার machine এও **হুবহু এক** হওয়ার কথা।
+সব সংখ্যা আপনার machine এও **হুবহু এক** হওয়ার কথা।
 
 ## কী দেখার জন্য এটা বানানো
 
@@ -148,7 +148,7 @@ blast radius     global: caught      when     harm  control: caught      when   
 - **ছোট blast radius এ bug দেখতে হলে control group লাগে।** Global error rate এ ০.১% traffic এর ক্ষতি চোখেই
   পড়ে না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **TTL বাড়ালে কি static stability আসে?** `TTL=1800 npm run static`. ব্যর্থ request কত হলো? ৪৫ মিনিটের outage এ
    ৩০ মিনিটের TTL কী কেনে, আর কী কেনে না? কোন TTL এ এই নকশা সত্যিই নিরাপদ হতো — আর তখন সেটা last-known-good
@@ -161,7 +161,7 @@ blast radius     global: caught      when     harm  control: caught      when   
    সবসময় একসাথে deploy এর চেয়ে নিরাপদ? কোন শর্তে না?
 5. **বারবার দেখার দাম:** `Z=2 npm run chaos`. অংশ গ তে ভুল করে থামানো কত হলো? Experiment যদি প্রতি সপ্তাহে
    ৫০টা চলে, z = 2 এ কতগুলো অকারণে থামবে — আর তাতে দলের বিশ্বাসের কী হবে?
-6. **Code বদলে matrix:** `src/journeys.ts` এ `designed.board` থেকে billing এর `150` timeout সরিয়ে দাও, তারপর
+6. **Code বদলে matrix:** `src/journeys.ts` এ `designed.board` থেকে billing এর `150` timeout সরিয়ে দিন, তারপর
    `npm run matrix`। অংশ গ২ এ board এর ঘরে কী এলো? একটা soft dependency কে timeout ছাড়া রাখলে সে আসলে কী?
 
 ## Project Structure

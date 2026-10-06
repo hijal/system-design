@@ -135,7 +135,7 @@ normalized cache key (unknown query dropped)   105   100.0%
 - **Volumetric DDoS app এ পৌঁছানোর আগেই link ভরে দেয়** — app এর rate limit আর origin এর firewall কিছু করে না; বাঁচায়
   CDN/scrubbing আর একটা গোপন origin।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **কম IP এর botnet:** `BOT_IPS=5000 npm run abuse`. প্রতি IP এ ঘণ্টায় ৪০ চেষ্টা — এবার 9.5 এর সীমা কতটা আটকাল
    (মাপা: দখল ৩,৫৪৭ → ১,৭৫৯)? আক্রমণকারীর জন্য এর সমাধান কত সস্তা?
@@ -144,10 +144,10 @@ normalized cache key (unknown query dropped)   105   100.0%
 3. **দ্রুত ধরা বনাম ছোট আয়ু:** `DETECT_MEDIAN_DAYS=3 npm run secrets`, তারপর `ROTATE_DAYS=7 npm run secrets`. ধরা পড়া দ্রুত
    করলে আর rotation ঘন করলে "মোট attacker-দিন" কত হয়? Dynamic credential এর সারি কি বদলায়?
 4. **Denylist এর দেরি:** `PUSH_SECONDS=60 npm run sessions`. Revoke এর পরে গড় কত হলো? কোন কলামটা বদলায়নি?
-5. **নতুন route, পুরনো ভুল:** `src/authz.ts` এর `routes()` এ `GET /boards/:id/comments` যোগ করো `guarded(() => true, 200)`
-   দিয়ে। Matrix test কী বলে? এবার এমনভাবে বদলাও যাতে কোনো route board টা **load করতেই না পারে** permission না দেখে —
-   একটা `loadBoardFor(principal, id)` বানাও, `boards.get` সরাসরি নিষেধ।
-6. **PKCE এর `plain`:** `src/oauth.ts` এ `s256` এর বদলে challenge = verifier (`plain` method) করো। চুরি হওয়া code এর
+5. **নতুন route, পুরনো ভুল:** `src/authz.ts` এর `routes()` এ `GET /boards/:id/comments` যোগ করুন `guarded(() => true, 200)`
+   দিয়ে। Matrix test কী বলে? এবার এমনভাবে বদলান যাতে কোনো route board টা **load করতেই না পারে** permission না দেখে —
+   একটা `loadBoardFor(principal, id)` বানান, `boards.get` সরাসরি নিষেধ।
+6. **PKCE এর `plain`:** `src/oauth.ts` এ `s256` এর বদলে challenge = verifier (`plain` method) করুন। চুরি হওয়া code এর
    আক্রমণ কি এখনও আটকায়? কোন অবস্থায় `plain` আর `S256` এর পার্থক্য আসল?
 
 ## Project Structure

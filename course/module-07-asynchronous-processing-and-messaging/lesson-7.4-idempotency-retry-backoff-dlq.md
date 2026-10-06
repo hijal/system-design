@@ -2,15 +2,15 @@
 
 **Module 7 — Asynchronous Processing & Messaging**
 
-> **Spaced Repetition (Lesson 5.5):** দুটো transaction একই সময়ে `SELECT … FROM sent_notifications WHERE key = 'X'` চালাল, দুজনেই কিছু পেল না, তারপর দুজনেই `INSERT` করল। `READ COMMITTED` এ কী হবে, `SERIALIZABLE` এ কী হবে — আর কোন একটা জিনিস থাকলে isolation level যাই হোক, দুজনের একজন আটকাবেই? আজ ঠিক এই race টা একটা email এর চেহারায় দেখবে।
+> **Spaced Repetition (Lesson 5.5):** দুটো transaction একই সময়ে `SELECT … FROM sent_notifications WHERE key = 'X'` চালাল, দুজনেই কিছু পেল না, তারপর দুজনেই `INSERT` করল। `READ COMMITTED` এ কী হবে, `SERIALIZABLE` এ কী হবে — আর কোন একটা জিনিস থাকলে isolation level যাই হোক, দুজনের একজন আটকাবেই? আজ ঠিক এই race টা একটা email এর চেহারায় দেখবেন।
 
 **Prerequisite:** Lesson 2.5 (Idempotency key), Lesson 5.5 (Transaction, unique constraint), Lesson 6.1 (Timeout মানে "জানি না", fencing), Lesson 7.1 (Backlog, Little's Law), Lesson 7.2 (Ack, at-least-once), Lesson 7.3 (BullMQ, stalled job, retry, job ID)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা consumer কে idempotent বানাতে পারবে — আর যেকোনো কৌশলের জন্য বলতে পারবে ঠিক কোন crash point বা কোন race এ সেটা ভাঙে (হারায়, নাকি দুবার)
-2. কোন error retry করবে আর কোনটা না, কতক্ষণ, কোন layer এ — আর exponential backoff এ jitter কেন লাগে, সেটা সংখ্যা দিয়ে দেখাতে পারবে
-3. Poison message কে dead letter queue এ সরানো, আর consumer এর চেয়ে বেশি কাজ এলে backpressure বা load shedding — TaskFlow এর প্রতিটা job এর জন্য এই নীতিগুলো ঠিক করতে পারবে
+1. একটা consumer কে idempotent বানাতে পারবেন — আর যেকোনো কৌশলের জন্য বলতে পারবেন ঠিক কোন crash point বা কোন race এ সেটা ভাঙে (হারায়, নাকি দুবার)
+2. কোন error retry করবেন আর কোনটা না, কতক্ষণ, কোন layer এ — আর exponential backoff এ jitter কেন লাগে, সেটা সংখ্যা দিয়ে দেখাতে পারবেন
+3. Poison message কে dead letter queue এ সরানো, আর consumer এর চেয়ে বেশি কাজ এলে backpressure বা load shedding — TaskFlow এর প্রতিটা job এর জন্য এই নীতিগুলো ঠিক করতে পারবেন
 
 **Tier:** 1 — Runnable Code (চারটা deterministic simulation — একটা সব crash point আর সব interleaving গুনে দেখে)
 
@@ -20,7 +20,7 @@
 
 Lesson 7.3 এ TaskFlow এর email BullMQ তে গেছে: আলাদা worker, Redis এ job, retry আর backoff, নিজের job ID। কিছু আর হারায় না। Production এ প্রথম দুই সপ্তাহে তিনটা ঘটনা ঘটল:
 
-1. **Mention email দুবার।** 7.3 তেই দেখেছিলাম: worker মরলে তার চলমান job stalled হয়ে আবার চলে। একজন engineer একটা fix দিল — পাঠানোর আগে `sent_notifications` table দেখো, থাকলে বাদ। Duplicate কমল, কিন্তু থামল না। আরেকজন "পুরোপুরি থামাতে" ক্রমটা বদলাল — আগে table এ লেখো, তারপর পাঠাও। এক সপ্তাহ পরে ticket: _"আমাকে একটা comment এ mention করা হয়েছিল, কোনো email পাইনি।"_ Log এ: ঠিক সেই মুহূর্তে একটা worker এর deploy।
+1. **Mention email দুবার।** 7.3 তেই দেখেছিলাম: worker মরলে তার চলমান job stalled হয়ে আবার চলে। একজন engineer একটা fix দিল — পাঠানোর আগে `sent_notifications` table দেখুন, থাকলে বাদ। Duplicate কমল, কিন্তু থামল না। আরেকজন "পুরোপুরি থামাতে" ক্রমটা বদলাল — আগে table এ লিখুন, তারপর পাঠান। এক সপ্তাহ পরে ticket: _"আমাকে একটা comment এ mention করা হয়েছিল, কোনো email পাইনি।"_ Log এ: ঠিক সেই মুহূর্তে একটা worker এর deploy।
 2. **বুধবার সকাল ৯টা।** প্রতিদিনের digest cron একসাথে ৪০ হাজার job ছাড়ে। Provider এর rate limit ছাড়াল, `429`। Retry ছিল "১ সেকেন্ড পরে আবার" — তাই ৯:০০:০১ এ আবার প্রায় ৪০ হাজার, ৯:০০:০২ এ আবার। Provider এর abuse detection TaskFlow এর account ১৫ মিনিটের জন্য আটকে দিল। আর সেই ১৫ মিনিটে যারা password reset চাইল — তাদের email ও গেল না।
 3. **শুক্রবার বিকেল।** একটা project এর data তে একটা ভাঙা email address। সেই address এ প্রতিটা job ব্যর্থ — আর কেউ একজন ঠিক আগের সপ্তাহে "যাতে কিছু না হারায়" বলে `attempts` অসীম করে দিয়েছিল। সোমবার সকালে queue এ ৫০ হাজার job, worker রা বেশিরভাগ সময় সেই ভাঙা job গুলো নিয়েই ব্যস্ত, আর সাধারণ email ঘণ্টাখানেক দেরিতে। কোনো alert বাজেনি — কারণ কিছুই "ব্যর্থ" হয়নি, সবকিছু শুধু "retry হচ্ছে।"
 
@@ -42,13 +42,13 @@ Lesson 7.3 এ TaskFlow এর email BullMQ তে গেছে: আলাদা
                                      worker B একই job তুলে নিল ──────────────────►
 ```
 
-দুটো ভিন্ন সমস্যা, আর আজ দেখবে একটা কৌশল প্রায়ই একটা সারায়, অন্যটা না।
+দুটো ভিন্ন সমস্যা, আর আজ দেখবেন একটা কৌশল প্রায়ই একটা সারায়, অন্যটা না।
 
 "Exactly once" তাহলে কোথা থেকে আসে? Delivery থেকে না — **প্রক্রিয়া** থেকে:
 
 ```
    at-least-once delivery   +   idempotent processing   =   exactly-once effect
-   (broker দেয়)                 (তোমার দায়িত্ব)              (user যা দেখে)
+   (broker দেয়)                 (আপনার দায়িত্ব)              (user যা দেখে)
 ```
 
 User দেখে না message কয়বার এসেছে; দেখে inbox এ কয়টা email। আজকের প্রথম অর্ধেক সেই সংখ্যা ১ রাখার উপায়।
@@ -59,9 +59,9 @@ Lesson 2.5 এ idempotency শিখেছি HTTP API এর দিক থে�
 
 **Idempotent consumer** — এমন consumer যেটা একই message একাধিকবার পেলেও (পরপর বা একসাথে) তার বাইরের প্রভাব (email, database এর বদল, charge) একবারই ঘটায়।
 
-প্রথম উপায়টা প্রায়ই ভুলে যাওয়া হয়: **কাজটাকেই স্বভাবত idempotent বানাও।** `UPDATE tasks SET status = 'done' WHERE id = 7` দশবার চালালেও ফল এক। `UPDATE usage SET count = count + 1` দশবার চালালে দশ গুণ। "সেট করো" idempotent, "বাড়াও" না। যেখানে সম্ভব, effect কে "সেট" এর ভাষায় লেখো — upsert, নির্দিষ্ট মান, key দিয়ে লেখা row। কিন্তু email পাঠানোকে "সেট" বানানো যায় না — পাঠানো মানেই একটা নতুন ঘটনা। সেখানে একটা **dedupe key** লাগে, কোথাও লিখে রাখতে হয় "এটা হয়ে গেছে।"
+প্রথম উপায়টা প্রায়ই ভুলে যাওয়া হয়: **কাজটাকেই স্বভাবত idempotent বানান।** `UPDATE tasks SET status = 'done' WHERE id = 7` দশবার চালালেও ফল এক। `UPDATE usage SET count = count + 1` দশবার চালালে দশ গুণ। "সেট করুন" idempotent, "বাড়ান" না। যেখানে সম্ভব, effect কে "সেট" এর ভাষায় লিখুন — upsert, নির্দিষ্ট মান, key দিয়ে লেখা row। কিন্তু email পাঠানোকে "সেট" বানানো যায় না — পাঠানো মানেই একটা নতুন ঘটনা। সেখানে একটা **dedupe key** লাগে, কোথাও লিখে রাখতে হয় "এটা হয়ে গেছে।"
 
-কোথায় লিখবে, কখন লিখবে — এখানেই সব ভুল। Exercise এর `npm run idempotency` ছয়টা কৌশলের প্রতিটায় **প্রতিটা ধাপের পরে crash** ধরে দেখে (তারপর message আবার আসে), আর দুটো worker একসাথে এলে তাদের ধাপগুলো যত রকম ক্রমে মিশতে পারে **সবগুলো** গোনে। কোনো random নেই — সব সম্ভাবনা গোনা:
+কোথায় লিখবেন, কখন লিখবেন — এখানেই সব ভুল। Exercise এর `npm run idempotency` ছয়টা কৌশলের প্রতিটায় **প্রতিটা ধাপের পরে crash** ধরে দেখে (তারপর message আবার আসে), আর দুটো worker একসাথে এলে তাদের ধাপগুলো যত রকম ক্রমে মিশতে পারে **সবগুলো** গোনে। কোনো random নেই — সব সম্ভাবনা গোনা:
 
 ```
    strategy                                     crash: lost / twice    concurrent: twice
@@ -75,7 +75,7 @@ Lesson 2.5 এ idempotency শিখেছি HTTP API এর দিক থে�
 
 (ডান কলাম হলো "কতগুলো সম্ভাব্য ক্রমে duplicate" — প্রতিটা ক্রম সমান সম্ভাব্য না, কিন্তু শূন্য বনাম অশূন্য টাই আসল কথা।)
 
-**কৌশল ২ — "আগে দেখো"** — ঘটনা ১ এর প্রথম fix। দুটো ফাঁক:
+**কৌশল ২ — "আগে দেখুন"** — ঘটনা ১ এর প্রথম fix। দুটো ফাঁক:
 
 - `send` এর পরে, `insert` এর আগে crash → table এ কিছু নেই → পরের delivery আবার পাঠায়। Crash এর ফাঁক।
 - দুজন একসাথে: A দেখল (নেই), B দেখল (নেই), A পাঠাল, B পাঠাল। ৬৬ টা ক্রমের ৬০টায় duplicate। এটা spaced repetition এর race — **check-then-act**: দেখা আর করার মাঝে অন্য কেউ ঢুকে পড়ে। Lesson 5.5 এর ভাষায়, `SELECT` এর ফল এর উপর ভিত্তি করে `INSERT` করা, আর সাধারণ isolation level এ দুজনেই একই "নেই" দেখে।
@@ -84,9 +84,9 @@ Lesson 2.5 এ idempotency শিখেছি HTTP API এর দিক থে�
 
 **কৌশল ৪ — দাবি + অবস্থা:** দাবির সময় `status = 'pending'`, পাঠানোর পরে `'sent'`। পরের delivery `sent` দেখলে বাদ, `pending` দেখলে বোঝে আগের জন মাঝপথে থেমেছিল — আবার পাঠায়। হারানো বন্ধ! কিন্তু "পাঠাল, তারপর `sent` লেখার আগে crash" → `pending` → আবার পাঠায় → দুবার। আর দুজন একসাথে দুজনেই `pending` দেখে পাঠায়। এটা Lesson 6.1 এর মূল কথা: **"পাঠানো" আর "লিখে রাখা যে পাঠিয়েছি" দুটো আলাদা machine এ দুটো আলাদা ঘটনা** — তাদের মাঝের ফাঁক কোনো ক্রম সাজিয়ে বন্ধ করা যায় না। শুধু ঠিক করা যায় ফাঁকে পড়লে কোন দিকে ভুল হবে: হারানো (কৌশল ৩) না দুবার (কৌশল ৪)।
 
-**কৌশল ৫ — ফাঁকটা provider এর কাছে বন্ধ করা।** কৌশল ৪, কিন্তু পাঠানোর সময় একটা স্থির key provider কে দাও — আর provider নিজে সেই key দ্বিতীয়বার দেখলে পাঠায় না। এখন "পাঠাল কিন্তু লিখতে পারেনি" তে আবার পাঠালেও ক্ষতি নেই — provider জানে। সব crash point আর সব ৬৬ টা ক্রমে ঠিক একবার। 6.1 এর ভাষায়: fencing token কাজ করে যখন resource নিজে যাচাই করে; এখানে resource টা provider, আর যাচাই এর চিহ্ন idempotency key। Stripe এর `Idempotency-Key` header এর কাজ এটাই (Stripe এর documentation অনুযায়ী key গুলো অন্তত ২৪ ঘণ্টা মনে রাখা হয়)।
+**কৌশল ৫ — ফাঁকটা provider এর কাছে বন্ধ করা।** কৌশল ৪, কিন্তু পাঠানোর সময় একটা স্থির key provider কে দিন — আর provider নিজে সেই key দ্বিতীয়বার দেখলে পাঠায় না। এখন "পাঠাল কিন্তু লিখতে পারেনি" তে আবার পাঠালেও ক্ষতি নেই — provider জানে। সব crash point আর সব ৬৬ টা ক্রমে ঠিক একবার। 6.1 এর ভাষায়: fencing token কাজ করে যখন resource নিজে যাচাই করে; এখানে resource টা provider, আর যাচাই এর চিহ্ন idempotency key। Stripe এর `Idempotency-Key` header এর কাজ এটাই (Stripe এর documentation অনুযায়ী key গুলো অন্তত ২৪ ঘণ্টা মনে রাখা হয়)।
 
-**কৌশল ৬ — effect টা নিজের database এ হলে, একই transaction।** Effect যদি email না হয়ে তোমার নিজের database এর একটা লেখা হয় (billing এর usage count বাড়ানো), তাহলে ফাঁকটাই নেই: dedupe row লেখা আর effect একই transaction এ — দুটো একসাথে হয়, নয়তো কোনোটাই না (Lesson 5.5 এর atomicity)। এটাই একমাত্র জায়গা যেখানে "ঠিক একবার" সত্যিকারের, কোনো শর্ত ছাড়া।
+**কৌশল ৬ — effect টা নিজের database এ হলে, একই transaction।** Effect যদি email না হয়ে আপনার নিজের database এর একটা লেখা হয় (billing এর usage count বাড়ানো), তাহলে ফাঁকটাই নেই: dedupe row লেখা আর effect একই transaction এ — দুটো একসাথে হয়, নয়তো কোনোটাই না (Lesson 5.5 এর atomicity)। এটাই একমাত্র জায়গা যেখানে "ঠিক একবার" সত্যিকারের, কোনো শর্ত ছাড়া।
 
 TaskFlow এ কৌশল ৫ আর ৬ এর চেহারা:
 
@@ -124,30 +124,30 @@ async function countCompletedTask(msg: TaskCompletedMessage): Promise<void> {
 
 (`findOrCreate` নিজে ভেতরে unique constraint এর উপর নির্ভর করে race সামলায় — table এ constraint না থাকলে এটা আবার কৌশল ২ এর race। Constraint টাই আসল প্রতিরক্ষা, code না।)
 
-**Provider idempotency key না দিলে?** অনেক email provider দেয় না। তখন সৎ উত্তর: কৌশল ৪ এর ছোট ফাঁকটা থাকবে — "পাঠাল, `sent` লেখার আগে মরল" — আর মাঝে মাঝে একটা duplicate হবে। বেশিরভাগ notification এর জন্য সেটা গ্রহণযোগ্য (হারানোর চেয়ে ভালো); ফাঁকটা ছোট রাখো (পাঠানোর পরেই লেখা), আর গোনো কতবার হচ্ছে। টাকার ক্ষেত্রে গ্রহণযোগ্য না — সেখানে এমন provider বাছো যে key নেয়।
+**Provider idempotency key না দিলে?** অনেক email provider দেয় না। তখন সৎ উত্তর: কৌশল ৪ এর ছোট ফাঁকটা থাকবে — "পাঠাল, `sent` লেখার আগে মরল" — আর মাঝে মাঝে একটা duplicate হবে। বেশিরভাগ notification এর জন্য সেটা গ্রহণযোগ্য (হারানোর চেয়ে ভালো); ফাঁকটা ছোট রাখুন (পাঠানোর পরেই লেখা), আর গুনুন কতবার হচ্ছে। টাকার ক্ষেত্রে গ্রহণযোগ্য না — সেখানে এমন provider বাছুন যে key নেয়।
 
 **তিনটা বাস্তব সিদ্ধান্ত:**
 
 - **Dedupe key কীসের?** Message এর ID না, **effect এর পরিচয়**: `mention:{commentId}:{userId}`। কারণ একই effect কখনো কখনো দুটো আলাদা message হয়ে আসে (producer এর retry, বা পরের lesson এর outbox relay এর duplicate) — তাদের message ID আলাদা, কিন্তু user কে একই email একবারই যাওয়া উচিত।
-- **Key কতদিন রাখবে?** যতদিন একই message আবার আসতে পারে: queue এর retention, retry এর মোট সময়, DLQ থেকে redrive এর সময় (১.৪) — তার চেয়ে বেশি। TaskFlow এ ৩০ দিন, আর তারপর পুরনো row মোছা (তারিখ দিয়ে partition করা table এ পুরো partition drop — Lesson 5.8)।
+- **Key কতদিন রাখবেন?** যতদিন একই message আবার আসতে পারে: queue এর retention, retry এর মোট সময়, DLQ থেকে redrive এর সময় (১.৪) — তার চেয়ে বেশি। TaskFlow এ ৩০ দিন, আর তারপর পুরনো row মোছা (তারিখ দিয়ে partition করা table এ পুরো partition drop — Lesson 5.8)।
 - **Dedupe কোথায়?** সবচেয়ে ভালো: effect যেখানে ঘটে, তার সবচেয়ে কাছে — একই database হলে একই transaction (কৌশল ৬), বাইরের হলে তার নিজের key (কৌশল ৫)।
 
 ### ১.৩ Retry আর Backoff — কখন, কতবার, আর কেন jitter
 
 Idempotency retry কে **নিরাপদ** করে। এবার প্রশ্ন retry কে **কার্যকর** করা — আর নিজের ক্ষতি না করা।
 
-**কোন error retry করবে?** ব্যর্থতা দুই রকম:
+**কোন error retry করবেন?** ব্যর্থতা দুই রকম:
 
 - **Transient (সাময়িক):** timeout, connection বিচ্ছিন্ন, `503`, `429`, `500` এর বেশিরভাগ — আবার চেষ্টায় সফল হতে পারে।
-- **Permanent (স্থায়ী):** `400` (অবৈধ address), `401`/`403`, `404`, validation error, তোমার code এর bug — হাজারবার চেষ্টাতেও একই ফল। (7.3 এর BullMQ এ `UnrecoverableError`।)
+- **Permanent (স্থায়ী):** `400` (অবৈধ address), `401`/`403`, `404`, validation error, আপনার code এর bug — হাজারবার চেষ্টাতেও একই ফল। (7.3 এর BullMQ এ `UnrecoverableError`।)
 
-Permanent কে retry করা শুধু সময় নষ্ট না — ১.৪ এ দেখবে সেটা পুরো system কে টেনে নামায়।
+Permanent কে retry করা শুধু সময় নষ্ট না — ১.৪ এ দেখবেন সেটা পুরো system কে টেনে নামায়।
 
-আর `429` আর `503` এর সাথে প্রায়ই একটা `Retry-After` header আসে — provider নিজে বলে দিচ্ছে কখন আসবে। সেটা মানো; তোমার backoff এর হিসাবের চেয়ে সে তার অবস্থা ভালো জানে।
+আর `429` আর `503` এর সাথে প্রায়ই একটা `Retry-After` header আসে — provider নিজে বলে দিচ্ছে কখন আসবে। সেটা মানুন; আপনার backoff এর হিসাবের চেয়ে সে তার অবস্থা ভালো জানে।
 
-**কোন layer এ retry?** প্রায় উপেক্ষিত প্রশ্ন। ধরো TaskFlow এর worker email service কে ৩ বার চেষ্টা করে, email service provider এর SDK কে ৩ বার, SDK নিজে HTTP এ ৩ বার। Provider ধীর হলে একটা job থেকে provider এ যায় ৩ × ৩ × ৩ = **২৭টা** request — ঠিক যখন সে সবচেয়ে দুর্বল। নিয়ম: **retry এক জায়গায়**, সাধারণত সবচেয়ে উপরের layer এ (যে কাজটার মালিক — এখানে BullMQ job), নিচের layer গুলো দ্রুত ব্যর্থ হোক। বড় system এ এর উপরে একটা **retry budget** থাকে: মোট request এর একটা ছোট ভগ্নাংশের বেশি retry না (Google এর SRE বই এর "Handling Overload" অধ্যায়ে এর একটা রূপ আছে) — তাহলে সব ব্যর্থ হলেও load সর্বোচ্চ ১.১ গুণ হয়, ২৭ গুণ না।
+**কোন layer এ retry?** প্রায় উপেক্ষিত প্রশ্ন। ধরুন TaskFlow এর worker email service কে ৩ বার চেষ্টা করে, email service provider এর SDK কে ৩ বার, SDK নিজে HTTP এ ৩ বার। Provider ধীর হলে একটা job থেকে provider এ যায় ৩ × ৩ × ৩ = **২৭টা** request — ঠিক যখন সে সবচেয়ে দুর্বল। নিয়ম: **retry এক জায়গায়**, সাধারণত সবচেয়ে উপরের layer এ (যে কাজটার মালিক — এখানে BullMQ job), নিচের layer গুলো দ্রুত ব্যর্থ হোক। বড় system এ এর উপরে একটা **retry budget** থাকে: মোট request এর একটা ছোট ভগ্নাংশের বেশি retry না (Google এর SRE বই এর "Handling Overload" অধ্যায়ে এর একটা রূপ আছে) — তাহলে সব ব্যর্থ হলেও load সর্বোচ্চ ১.১ গুণ হয়, ২৭ গুণ না।
 
-**কীভাবে অপেক্ষা করবে — আর retry storm।**
+**কীভাবে অপেক্ষা করবেন — আর retry storm।**
 
 **Retry storm** — অনেক client একসাথে ব্যর্থ হয়ে একসাথে আবার চেষ্টা করে, আর সেই একসাথে আসা ঢেউ নিজেই downstream কে আবার overload করে — ব্যর্থতা নিজেকে টিকিয়ে রাখে।
 
@@ -176,7 +176,7 @@ Permanent কে retry করা শুধু সময় নষ্ট না �
 
 (এই ফর্মুলা আর তুলনাটা AWS এর Marc Brooker এর "Exponential Backoff And Jitter" লেখা থেকে বিখ্যাত — AWS Builders' Library এর "Timeouts, retries, and backoff with jitter" এও আছে। পড়ার মতো।)
 
-মূল কথাটা ধরো: exponential backoff **কত বার** চাপ দেওয়া হয় সেটা কমায়; jitter **একসাথে** চাপ দেওয়া ভাঙে। Retry storm এর আসল রোগ দ্বিতীয়টা। Experiment ২: চেষ্টা ১০ থেকে ২০ করলে স্থির আর jitter-ছাড়া exponential এর সফল ১০০ থেকে ২০০ — সমস্যার মূল ধরা হয়নি, শুধু আরও বেশি ঢেউ।
+মূল কথাটা ধরুন: exponential backoff **কত বার** চাপ দেওয়া হয় সেটা কমায়; jitter **একসাথে** চাপ দেওয়া ভাঙে। Retry storm এর আসল রোগ দ্বিতীয়টা। Experiment ২: চেষ্টা ১০ থেকে ২০ করলে স্থির আর jitter-ছাড়া exponential এর সফল ১০০ থেকে ২০০ — সমস্যার মূল ধরা হয়নি, শুধু আরও বেশি ঢেউ।
 
 **সৎ অংশ — পরিস্থিতি (খ):** job যখন এমনিতেই ছড়িয়ে আসে (৫০/s), আর provider ৫ সেকেন্ড বন্ধ থেকে ফেরে:
 
@@ -188,7 +188,7 @@ Permanent কে retry করা শুধু সময় নষ্ট না �
    exponential + full jitter         2682                44   1000          0    28.0 s     13.3 s
 ```
 
-এখানে jitter এর কোনো লাভ নেই — বরং সামান্য বেশি চেষ্টা। কারণ synchronization ছিলই না; job গুলো আসার সময়েই ছড়ানো। আর experiment ৩ এ (outage ১৫ সেকেন্ড) full jitter এর ৫৩টা job হাল ছাড়ে, jitter-ছাড়া exponential এর একটাও না — full jitter এর গড় অপেক্ষা সীমার অর্ধেক, তাই একই চেষ্টার সংখ্যায় মোট সময় কম। শিক্ষা: jitter synchronization এর ওষুধ, সর্বরোগহর না; আর সীমা ঠিক করো **সময়** দিয়ে ("১০ মিনিট ধরে চেষ্টা"), শুধু সংখ্যা দিয়ে না। Production এ synchronization প্রায় সবসময় আসে কোথাও থেকে — cron, deploy, outage শেষ হওয়া, cache এর একসাথে মেয়াদ শেষ — তাই jitter default হিসেবে রাখো। ("সাথে সাথে আবার" এর কোনো পরিস্থিতিতেই পক্ষে কিছু বলার নেই।)
+এখানে jitter এর কোনো লাভ নেই — বরং সামান্য বেশি চেষ্টা। কারণ synchronization ছিলই না; job গুলো আসার সময়েই ছড়ানো। আর experiment ৩ এ (outage ১৫ সেকেন্ড) full jitter এর ৫৩টা job হাল ছাড়ে, jitter-ছাড়া exponential এর একটাও না — full jitter এর গড় অপেক্ষা সীমার অর্ধেক, তাই একই চেষ্টার সংখ্যায় মোট সময় কম। শিক্ষা: jitter synchronization এর ওষুধ, সর্বরোগহর না; আর সীমা ঠিক করুন **সময়** দিয়ে ("১০ মিনিট ধরে চেষ্টা"), শুধু সংখ্যা দিয়ে না। Production এ synchronization প্রায় সবসময় আসে কোথাও থেকে — cron, deploy, outage শেষ হওয়া, cache এর একসাথে মেয়াদ শেষ — তাই jitter default হিসেবে রাখুন। ("সাথে সাথে আবার" এর কোনো পরিস্থিতিতেই পক্ষে কিছু বলার নেই।)
 
 ### ১.৪ Poison Message আর Dead Letter Queue
 
@@ -221,8 +221,8 @@ Permanent কে retry করা শুধু সময় নষ্ট না �
 এখান থেকে DLQ এর নিয়মগুলো:
 
 1. **সীমা সবসময় থাকবে।** অসীম retry মানে poison এর খরচ অসীম — আর নীরব।
-2. **Error এর ধরন আলাদা করো।** Permanent সাথে সাথে DLQ; transient এর সীমা **সময়ে** ভাবো ("একটা স্বাভাবিক outage এর চেয়ে বেশি"), চেষ্টার সংখ্যায় না।
-3. **DLQ ডাস্টবিন না।** DLQ এর আকার > ০ হলেই alert। কেউ দেখবে, কারণ খুঁজবে (message এর সাথে শেষ error আর চেষ্টার সংখ্যা রাখো), data বা code ঠিক করবে, তারপর redrive।
+2. **Error এর ধরন আলাদা করুন।** Permanent সাথে সাথে DLQ; transient এর সীমা **সময়ে** ভাবুন ("একটা স্বাভাবিক outage এর চেয়ে বেশি"), চেষ্টার সংখ্যায় না।
+3. **DLQ ডাস্টবিন না।** DLQ এর আকার > ০ হলেই alert। কেউ দেখবে, কারণ খুঁজবে (message এর সাথে শেষ error আর চেষ্টার সংখ্যা রাখুন), data বা code ঠিক করবে, তারপর redrive।
 4. **Redrive নিরাপদ হতে হবে** — মানে consumer idempotent (১.২)। DLQ এর একটা job হয়তো আসলে প্রথমবারেই কাজ করে ফেলেছিল, শুধু ack এর সময় ভেঙেছিল।
 5. **DLQ এর retention > মানুষের সাড়া দেওয়ার সময়** — শুক্রবার বিকেলের DLQ সোমবার সকাল পর্যন্ত থাকতে হবে। (7.3 এ `removeOnFail` ৭ দিন ছিল এই কারণে।)
 
@@ -265,44 +265,44 @@ Lesson 7.1 এ দেখেছি queue **capacity বানায় না** �
 
 **TaskFlow এ বাস্তবে কোথায় কোথায় "না" বলা যায়:**
 
-- **Producer এর দিকে (API):** `queue.add` এর আগে queue এর দৈর্ঘ্য দেখো (`queue.getWaitingCount()`), সীমা ছাড়ালে কম জরুরি কাজে `503` + `Retry-After` (বা কাজটা পরে করার জন্য user কে জানানো)। Rate limit (Lesson 9.5) producer এর দিকের আরেকটা রূপ।
+- **Producer এর দিকে (API):** `queue.add` এর আগে queue এর দৈর্ঘ্য দেখুন (`queue.getWaitingCount()`), সীমা ছাড়ালে কম জরুরি কাজে `503` + `Retry-After` (বা কাজটা পরে করার জন্য user কে জানানো)। Rate limit (Lesson 9.5) producer এর দিকের আরেকটা রূপ।
 - **আলাদা queue:** জরুরি আর কম জরুরি একই queue তে না (7.1 এর প্রশ্ন ৩)। Password reset এর নিজের queue আর worker — digest এর ঢেউ তাকে ছোঁয় না।
 - **Provider এর দিকে:** worker এর গতি provider এর সীমার নিচে বাঁধা (BullMQ এর `limiter: { max, duration }`) — ৪০ হাজার digest একসাথে না গিয়ে provider এর গতিতে যায়; তখন `429` আসেই না।
 - **Cron কে ছড়ানো:** ৯টায় ৪০ হাজার job একসাথে না — প্রতিটায় একটা এলোমেলো `delay` (০–১৫ মিনিট)। Jitter, cron এর ভাষায়।
 
-(একটা পরিচিত উদাহরণ যেটা তুমি হয়তো আগেই দেখেছ: Node এর stream। `writable.write()` `false` ফেরত দিলে লেখা থামাও, `'drain'` event এর অপেক্ষা করো — এটাই backpressure, একটা process এর ভেতরে। আর Kafka এর consumer নিজের গতিতে pull করে — 7.2 এর log এ backpressure স্বাভাবিকভাবেই আছে: ধীর consumer শুধু lag বাড়ায়, broker তাকে কিছু ঠেলে দেয় না।)
+(একটা পরিচিত উদাহরণ যেটা আপনি হয়তো আগেই দেখেছেন: Node এর stream। `writable.write()` `false` ফেরত দিলে লেখা থামান, `'drain'` event এর অপেক্ষা করুন — এটাই backpressure, একটা process এর ভেতরে। আর Kafka এর consumer নিজের গতিতে pull করে — 7.2 এর log এ backpressure স্বাভাবিকভাবেই আছে: ধীর consumer শুধু lag বাড়ায়, broker তাকে কিছু ঠেলে দেয় না।)
 
 ### ১.৬ TaskFlow এর নীতি — job ধরে
 
 > **Trade-off Table — TaskFlow এর job গুলোর ব্যর্থতার নীতি**
 
-| Job                | Dedupe key                       | Idempotency কৌশল                              | Retry (transient)                      | Permanent / DLQ                          | Queue / অগ্রাধিকার                                          |
-| ------------------ | -------------------------------- | --------------------------------------------- | -------------------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| Password reset     | `reset:{tokenId}`                | দাবি + অবস্থা + provider key (৫)              | exponential + jitter, ১৫ মিনিট পর্যন্ত | `400` সাথে সাথে DLQ; DLQ > ০ এ alert     | আলাদা, সবচেয়ে উঁচু; কখনো shed না                           |
-| Mention email      | `mention:{commentId}:{userId}`   | ৫ (provider key না দিলে ৪, duplicate গোনা)    | ঐ, ১ ঘণ্টা পর্যন্ত                     | ঐ                                        | Notification queue, উঁচু                                    |
-| Daily digest       | `digest:{userId}:{date}`         | ৫                                             | ঐ, ৬ ঘণ্টা পর্যন্ত; `Retry-After` মানো | ঐ                                        | আলাদা, নিচু; provider limiter; cron jitter; overload এ shed |
-| Usage count        | `usage:{taskId}:{completedAt}`   | একই transaction (৬)                           | exponential + jitter                   | DB constraint error → DLQ                | Billing queue; shed কখনো না                                 |
-| Webhook (customer) | `webhook:{eventId}:{endpointId}` | receiver এর দায়িত্ব — `eventId` header পাঠাও | ২৪ ঘণ্টা পর্যন্ত, বাড়তে থাকা ফাঁকে    | endpoint `410` → বন্ধ; customer কে দেখাও | Customer প্রতি সীমা — একজনের মরা server সবাইকে না আটকায়    |
+| Job                | Dedupe key                       | Idempotency কৌশল                              | Retry (transient)                       | Permanent / DLQ                          | Queue / অগ্রাধিকার                                          |
+| ------------------ | -------------------------------- | --------------------------------------------- | --------------------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
+| Password reset     | `reset:{tokenId}`                | দাবি + অবস্থা + provider key (৫)              | exponential + jitter, ১৫ মিনিট পর্যন্ত  | `400` সাথে সাথে DLQ; DLQ > ০ এ alert     | আলাদা, সবচেয়ে উঁচু; কখনো shed না                           |
+| Mention email      | `mention:{commentId}:{userId}`   | ৫ (provider key না দিলে ৪, duplicate গোনা)    | ঐ, ১ ঘণ্টা পর্যন্ত                      | ঐ                                        | Notification queue, উঁচু                                    |
+| Daily digest       | `digest:{userId}:{date}`         | ৫                                             | ঐ, ৬ ঘণ্টা পর্যন্ত; `Retry-After` মানুন | ঐ                                        | আলাদা, নিচু; provider limiter; cron jitter; overload এ shed |
+| Usage count        | `usage:{taskId}:{completedAt}`   | একই transaction (৬)                           | exponential + jitter                    | DB constraint error → DLQ                | Billing queue; shed কখনো না                                 |
+| Webhook (customer) | `webhook:{eventId}:{endpointId}` | receiver এর দায়িত্ব — `eventId` header পাঠান | ২৪ ঘণ্টা পর্যন্ত, বাড়তে থাকা ফাঁকে     | endpoint `410` → বন্ধ; customer কে দেখান | Customer প্রতি সীমা — একজনের মরা server সবাইকে না আটকায়    |
 
 ---
 
 ## ২. Interview Angle
 
-**"Message queue থেকে পড়া consumer কে exactly-once কীভাবে বানাবে?"** — উত্তরের প্রথম বাক্য: "delivery exactly-once না, at-least-once — আমি effect কে idempotent বানাব।" তারপর কৌশল: dedupe key (effect এর পরিচয় থেকে), unique constraint (check-then-act race কেন ভাঙে, এক বাক্যে), আর effect যেখানে: নিজের database হলে একই transaction, বাইরের হলে তার idempotency key। শেষে সৎ সীমা: বাইরের system key না নিলে একটা ছোট duplicate এর জানালা থাকে — কোথায়, কেন, আর কীভাবে মাপবে। এই শেষ অংশটাই সাধারণত senior আর mid-level উত্তর আলাদা করে।
+**"Message queue থেকে পড়া consumer কে exactly-once কীভাবে বানাবেন?"** — উত্তরের প্রথম বাক্য: "delivery exactly-once না, at-least-once — আমি effect কে idempotent বানাব।" তারপর কৌশল: dedupe key (effect এর পরিচয় থেকে), unique constraint (check-then-act race কেন ভাঙে, এক বাক্যে), আর effect যেখানে: নিজের database হলে একই transaction, বাইরের হলে তার idempotency key। শেষে সৎ সীমা: বাইরের system key না নিলে একটা ছোট duplicate এর জানালা থাকে — কোথায়, কেন, আর কীভাবে মাপবেন। এই শেষ অংশটাই সাধারণত senior আর mid-level উত্তর আলাদা করে।
 
-**"Retry করবে কীভাবে?"** — পাঁচটা শব্দ বলো, কারণ সহ: **transient only** (৪xx না), **exponential backoff**, **jitter** (synchronization ভাঙতে — "retry storm" নামটা বলো), **সীমা** (সময়ে, আর layer এ একবার — retry amplification), **idempotent** (নইলে retry নিজেই bug)। বোনাস: `Retry-After` মানা, retry budget।
+**"Retry করবেন কীভাবে?"** — পাঁচটা শব্দ বলুন, কারণ সহ: **transient only** (৪xx না), **exponential backoff**, **jitter** (synchronization ভাঙতে — "retry storm" নামটা বলুন), **সীমা** (সময়ে, আর layer এ একবার — retry amplification), **idempotent** (নইলে retry নিজেই bug)। বোনাস: `Retry-After` মানা, retry budget।
 
-**"Consumer ধীর, queue বাড়ছে — কী করবে?"** — আগে প্রশ্ন: burst না sustained? Burst হলে queue এর কাজই এটা — lag দেখো, সীমার মধ্যে থাকলে কিছু না। Sustained হলে: consumer scale (যদি downstream নিতে পারে), না হলে backpressure (producer এ `503`/`429`), অগ্রাধিকার দিয়ে load shedding, কম জরুরি কাজ আলাদা queue তে। আর "queue বড় করে দাও" উত্তর না — সেটা শুধু লাইন লম্বা করে।
+**"Consumer ধীর, queue বাড়ছে — কী করবেন?"** — আগে প্রশ্ন: burst না sustained? Burst হলে queue এর কাজই এটা — lag দেখুন, সীমার মধ্যে থাকলে কিছু না। Sustained হলে: consumer scale (যদি downstream নিতে পারে), না হলে backpressure (producer এ `503`/`429`), অগ্রাধিকার দিয়ে load shedding, কম জরুরি কাজ আলাদা queue তে। আর "queue বড় করে দিন" উত্তর না — সেটা শুধু লাইন লম্বা করে।
 
-**Production এ বাস্তবে:** সবচেয়ে সাধারণ ভুলের তালিকা প্রায় নির্দিষ্ট — dedupe এর "আগে দেখো" (race), অসীম retry (poison), DLQ তে alert নেই (নীরব কবরস্থান), সব layer এ retry (২৭ গুণ), jitter ছাড়া backoff (cron এর ঢেউ), আর জরুরি আর কম জরুরি একই queue তে (বুধবার)। একটা নতুন queue চালুর আগে এই তালিকা ধরে একবার দেখে নেওয়া অনেক incident বাঁচায়।
+**Production এ বাস্তবে:** সবচেয়ে সাধারণ ভুলের তালিকা প্রায় নির্দিষ্ট — dedupe এর "আগে দেখুন" (race), অসীম retry (poison), DLQ তে alert নেই (নীরব কবরস্থান), সব layer এ retry (২৭ গুণ), jitter ছাড়া backoff (cron এর ঢেউ), আর জরুরি আর কম জরুরি একই queue তে (বুধবার)। একটা নতুন queue চালুর আগে এই তালিকা ধরে একবার দেখে নেওয়া অনেক incident বাঁচায়।
 
 ---
 
 ## ৩. Key Takeaway
 
 - Delivery **at-least-once**; "exactly once" আসে **idempotent processing** থেকে। একই message আবার আসে দুইভাবে — crash এর পরে পরপর, আর stalled এ একসাথে
-- **"আগে দেখো"** crash এ দুবার আর race এ দুবার (৬৬ এর ৬০ ক্রম); **"আগে দাবি"** (unique constraint) race সারায় কিন্তু crash এ **হারায়**; কাজ আর "কাজ হয়েছে" লেখার মাঝের ফাঁক ক্রম সাজিয়ে বন্ধ হয় না — বন্ধ হয় effect এর নিজের **idempotency key** তে, বা effect নিজের database এ হলে **একই transaction** এ
-- Dedupe key = effect এর পরিচয় (message ID না); key রাখো redrive এর সময়ের চেয়ে বেশি; constraint টাই প্রতিরক্ষা
+- **"আগে দেখুন"** crash এ দুবার আর race এ দুবার (৬৬ এর ৬০ ক্রম); **"আগে দাবি"** (unique constraint) race সারায় কিন্তু crash এ **হারায়**; কাজ আর "কাজ হয়েছে" লেখার মাঝের ফাঁক ক্রম সাজিয়ে বন্ধ হয় না — বন্ধ হয় effect এর নিজের **idempotency key** তে, বা effect নিজের database এ হলে **একই transaction** এ
+- Dedupe key = effect এর পরিচয় (message ID না); key রাখুন redrive এর সময়ের চেয়ে বেশি; constraint টাই প্রতিরক্ষা
 - Retry শুধু transient error এ, এক layer এ, সময়ের সীমায়; exponential backoff **কতবার** কমায়, **jitter** **একসাথে** ভাঙে — synchronized ঢেউ এ jitter ছাড়া ১০০০ এর ১০০, jitter সহ ১০০০ ই সফল; ছড়ানো load এ jitter এর লাভ প্রায় নেই
 - **Poison message** সীমাহীন retry তে worker এর ৭৪% খায়, নীরবে; সীমা + permanent error সাথে সাথে **DLQ** + transient কে outage ঢাকার মতো সময় = poison ২৮%, DLQ তে শুধু poison। DLQ > ০ এ alert, redrive নিরাপদ হতে হবে
 - Queue **burst** শোষে, **sustained overload** সারায় না; **backpressure** চাপ উপরে পাঠায় (কিন্তু কোথাও "না" বলতে হয়), সীমা = অপেক্ষা × গতি; **load shedding** অগ্রাধিকার দিয়ে কোনটা বাদ যাবে বাছে — জরুরি এর p99 ০ ms
@@ -325,11 +325,11 @@ Lesson 7.1 এ দেখেছি queue **capacity বানায় না** �
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর billing: প্রতিটা `task.completed` message এ workspace এর মাসিক usage count ১ বাড়ে, মাস শেষে সেই count দিয়ে invoice। কিন্তু usage count এখন **Redis** এ রাখা (`INCR usage:{workspaceId}:{month}`), আর dedupe এর জন্য কেউ প্রস্তাব দিল Postgres এর একটা `processed_messages` table। এই design এ কোন crash point এ কী ভাঙে? ছয়টা কৌশলের কোনটার মতো? দুটো সমাধান দাও — একটা যেখানে count Redis এই থাকে, একটা যেখানে থাকে না — আর তুমি কোনটা বাছবে।
-2. TaskFlow customer দের server এ webhook পাঠায় (`task.completed` হলে তাদের URL এ POST)। একজন বড় customer এর server ৬ ঘণ্টা বন্ধ। Retry, DLQ, backpressure আর idempotency — চারটার প্রতিটার জন্য বলো তুমি কী করবে, যাতে (ক) সেই customer এর event হারায় না, (খ) বাকি customer দের webhook দেরি না হয়, (গ) সেই customer এর server ফিরলে তাকে একসাথে ৬ ঘণ্টার ঢেউ দিয়ে আবার না ফেলা হয়, আর (ঘ) দুবার পাওয়া event তাদের দিকে ক্ষতি না করে।
-3. বুধবারের ঘটনাটা আবার design করো। ৪০ হাজার digest, provider এর সীমা ১০০/s, password reset দিনে কয়েকশো কিন্তু প্রতিটা ১ মিনিটের মধ্যে যাওয়া দরকার। কোন কোন পরিবর্তন করবে (অন্তত চারটা, এই lesson এর চারটা ভিন্ন অংশ থেকে), আর প্রতিটা ঘটনার কোন অংশটা আটকায়? ৪০ হাজার digest শেষ হতে কত সময় লাগবে, আর সেটা কি গ্রহণযোগ্য?
+1. TaskFlow এর billing: প্রতিটা `task.completed` message এ workspace এর মাসিক usage count ১ বাড়ে, মাস শেষে সেই count দিয়ে invoice। কিন্তু usage count এখন **Redis** এ রাখা (`INCR usage:{workspaceId}:{month}`), আর dedupe এর জন্য কেউ প্রস্তাব দিল Postgres এর একটা `processed_messages` table। এই design এ কোন crash point এ কী ভাঙে? ছয়টা কৌশলের কোনটার মতো? দুটো সমাধান দিন — একটা যেখানে count Redis এই থাকে, একটা যেখানে থাকে না — আর আপনি কোনটা বাছবেন।
+2. TaskFlow customer দের server এ webhook পাঠায় (`task.completed` হলে তাদের URL এ POST)। একজন বড় customer এর server ৬ ঘণ্টা বন্ধ। Retry, DLQ, backpressure আর idempotency — চারটার প্রতিটার জন্য বলুন আপনি কী করবেন, যাতে (ক) সেই customer এর event হারায় না, (খ) বাকি customer দের webhook দেরি না হয়, (গ) সেই customer এর server ফিরলে তাকে একসাথে ৬ ঘণ্টার ঢেউ দিয়ে আবার না ফেলা হয়, আর (ঘ) দুবার পাওয়া event তাদের দিকে ক্ষতি না করে।
+3. বুধবারের ঘটনাটা আবার design করুন। ৪০ হাজার digest, provider এর সীমা ১০০/s, password reset দিনে কয়েকশো কিন্তু প্রতিটা ১ মিনিটের মধ্যে যাওয়া দরকার। কোন কোন পরিবর্তন করবেন (অন্তত চারটা, এই lesson এর চারটা ভিন্ন অংশ থেকে), আর প্রতিটা ঘটনার কোন অংশটা আটকায়? ৪০ হাজার digest শেষ হতে কত সময় লাগবে, আর সেটা কি গ্রহণযোগ্য?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -349,10 +349,10 @@ Lesson 7.1 এ দেখেছি queue **capacity বানায় না** �
 **প্রশ্ন ২:**
 
 - **Retry:** প্রতিটা webhook এর retry সময়ে বাঁধা — যেমন ২৪ ঘণ্টা পর্যন্ত, exponential + jitter, সর্বোচ্চ ফাঁক ঘণ্টাখানেক। ৬ ঘণ্টার outage এর পুরোটা ঢাকে। (Stripe এর মতো বড় provider এর webhook দিনের পর দিন ধরে retry করে।)
-- **Backpressure / isolation (খ এর জন্য):** সব customer এর webhook একটা queue তে একই worker দিয়ে গেলে, মরা server এর timeout (ধরো ১০ s প্রতিটা) worker দের আটকায় — বাকিদের দেরি (7.1 এর cascading)। তাই: customer (endpoint) প্রতি একসাথে চলা request এর সীমা (১–২টা), timeout ছোট (৫ s), আর বারবার ব্যর্থ endpoint কে সাময়িক "বন্ধ" হিসেবে চিহ্নিত করে তার job গুলো পিছিয়ে রাখা — circuit breaker (Lesson 9.4)। বড় আকারে: customer প্রতি আলাদা queue বা partition।
+- **Backpressure / isolation (খ এর জন্য):** সব customer এর webhook একটা queue তে একই worker দিয়ে গেলে, মরা server এর timeout (ধরুন ১০ s প্রতিটা) worker দের আটকায় — বাকিদের দেরি (7.1 এর cascading)। তাই: customer (endpoint) প্রতি একসাথে চলা request এর সীমা (১–২টা), timeout ছোট (৫ s), আর বারবার ব্যর্থ endpoint কে সাময়িক "বন্ধ" হিসেবে চিহ্নিত করে তার job গুলো পিছিয়ে রাখা — circuit breaker (Lesson 9.4)। বড় আকারে: customer প্রতি আলাদা queue বা partition।
 - **ফিরে আসার ঢেউ (গ):** server ফিরলে ৬ ঘণ্টার event একসাথে না — endpoint প্রতি rate limit (যেমন প্রতি সেকেন্ডে ১০টা), আর retry এর jitter এর কারণে event গুলো এমনিতেই ছড়ানো থাকে।
-- **DLQ:** ২৪ ঘণ্টা পরেও ব্যর্থ হলে DLQ — আর customer এর dashboard এ দেখানো ("এই event গুলো পৌঁছায়নি, আবার পাঠাও" বোতাম সহ)। Endpoint `410 Gone` দিলে (স্থায়ী) — আর চেষ্টা না, endpoint বন্ধ, customer কে জানানো।
-- **Idempotency (ঘ):** at-least-once তাই customer দুবার পেতে পারে — প্রতিটা webhook এ একটা স্থির `eventId` header পাঠাও, আর documentation এ বলো "`eventId` দিয়ে dedupe করো।" Receiver এর দিকের idempotency তাদের দায়িত্ব; তোমার দায়িত্ব তাদের সেটা সম্ভব করে দেওয়া (স্থির ID, retry তে বদলায় না)।
+- **DLQ:** ২৪ ঘণ্টা পরেও ব্যর্থ হলে DLQ — আর customer এর dashboard এ দেখানো ("এই event গুলো পৌঁছায়নি, আবার পাঠান" বোতাম সহ)। Endpoint `410 Gone` দিলে (স্থায়ী) — আর চেষ্টা না, endpoint বন্ধ, customer কে জানানো।
+- **Idempotency (ঘ):** at-least-once তাই customer দুবার পেতে পারে — প্রতিটা webhook এ একটা স্থির `eventId` header পাঠান, আর documentation এ বলুন "`eventId` দিয়ে dedupe করুন।" Receiver এর দিকের idempotency তাদের দায়িত্ব; আপনার দায়িত্ব তাদের সেটা সম্ভব করে দেওয়া (স্থির ID, retry তে বদলায় না)।
 
 **প্রশ্ন ৩:** পরিবর্তন, অংশ ধরে:
 
@@ -379,17 +379,17 @@ Lesson 7.1 এ দেখেছি queue **capacity বানায় না** �
 
 **সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; চারটা script দুবার করে চালিয়ে হুবহু একই output; README এর experiment ১–৫ চালানো হয়েছে (১ নম্বরটা `idempotency.ts` বদলে, তারপর ফিরিয়ে), সংখ্যা README তে। এগুলো model: প্রতিটা ধাপ atomic ধরা, provider এর idempotency key সবসময় আছে ধরা (বাস্তবে সব provider দেয় না), storm এর provider overload এ ধীর না হয়ে সাথে সাথে 503 দেয়, আর interleaving এর সংখ্যা "কতগুলো ক্রম সম্ভব" — সমান সম্ভাব্য না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **ঘটনা ১ হাতে:** `idempotency` চালানোর **আগে** কৌশল ২, ৩ আর ৪ এর প্রতিটা crash point এর ফল (০, ১ না ২) অনুমান করে লেখো। তারপর চালিয়ে মেলাও। তারপর experiment ১: "দেখো → লেখো → send" — এটা কৌশল ২ আর ৩ এর কোন দোষ গুলো একসাথে নেয়?
+1. **ঘটনা ১ হাতে:** `idempotency` চালানোর **আগে** কৌশল ২, ৩ আর ৪ এর প্রতিটা crash point এর ফল (০, ১ না ২) অনুমান করে লিখুন। তারপর চালিয়ে মেলান। তারপর experiment ১: "দেখুন → লিখুন → send" — এটা কৌশল ২ আর ৩ এর কোন দোষ গুলো একসাথে নেয়?
 
-2. **ঢেউ গোনো:** storm (ক) এর "স্থির 1 s পরে" নীতিতে ১০০টা সফল — হাতে ব্যাখ্যা করো (প্রতি ঢেউ এ কতজন, provider এর একটা ১০০ ms এর জানালায় কতজন সফল, কয়টা ঢেউ)। তারপর experiment ২ (`MAX_ATTEMPTS=20`) — কেন ২০০, আর কেন এটা সমাধান না?
+2. **ঢেউ গুনুন:** storm (ক) এর "স্থির 1 s পরে" নীতিতে ১০০টা সফল — হাতে ব্যাখ্যা করুন (প্রতি ঢেউ এ কতজন, provider এর একটা ১০০ ms এর জানালায় কতজন সফল, কয়টা ঢেউ)। তারপর experiment ২ (`MAX_ATTEMPTS=20`) — কেন ২০০, আর কেন এটা সমাধান না?
 
-3. **Poison এর খরচ:** dlq এর প্রথম সারির "৭৪%" মোটামুটি হিসাব করো — প্রতি সেকেন্ডে কয়টা poison আসে, প্রতিটা কতক্ষণ পর পর আবার আসে আর কত সময় নেয়, ৩০০ সেকেন্ডে জমে কয়টা। Worker এর ক্ষমতা ৪ worker-সেকেন্ড/সেকেন্ড — কোন মুহূর্তে poison একাই সব খেয়ে ফেলতে শুরু করে?
+3. **Poison এর খরচ:** dlq এর প্রথম সারির "৭৪%" মোটামুটি হিসাব করুন — প্রতি সেকেন্ডে কয়টা poison আসে, প্রতিটা কতক্ষণ পর পর আবার আসে আর কত সময় নেয়, ৩০০ সেকেন্ডে জমে কয়টা। Worker এর ক্ষমতা ৪ worker-সেকেন্ড/সেকেন্ড — কোন মুহূর্তে poison একাই সব খেয়ে ফেলতে শুরু করে?
 
-4. **সীমা হিসাব:** TaskFlow এর mention email এর জন্য user সর্বোচ্চ ২ মিনিট দেরি মেনে নেবে, worker এর গতি ৫০/s। Queue এর সীমা কত রাখবে? `LIMIT` বদলে backpressure চালিয়ে দেখো তোমার সংখ্যায় burst এ কতগুলো ফেরে (experiment ৪ এর মতো)।
+4. **সীমা হিসাব:** TaskFlow এর mention email এর জন্য user সর্বোচ্চ ২ মিনিট দেরি মেনে নেবে, worker এর গতি ৫০/s। Queue এর সীমা কত রাখবেন? `LIMIT` বদলে backpressure চালিয়ে দেখুন আপনার সংখ্যায় burst এ কতগুলো ফেরে (experiment ৪ এর মতো)।
 
-5. **Design অংশ:** ১.৬ এর table টা TaskFlow এর আরও তিনটা job এর জন্য বাড়াও — CSV export (7.3 এর প্রশ্ন ১), attachment thumbnail, আর search index update (`comment.created` থেকে)। প্রতিটার জন্য: dedupe key, idempotency কৌশল (ছয়টার কোনটা, কেন), retry এর সময়সীমা, কোন error permanent, DLQ হলে কে দেখবে, আর overload এ shed হবে কিনা। Search index এর জন্য বিশেষ করে ভাবো: effect টা কি স্বভাবত idempotent বানানো যায় (১.২ এর "সেট" এর ভাষা)?
+5. **Design অংশ:** ১.৬ এর table টা TaskFlow এর আরও তিনটা job এর জন্য বাড়ান — CSV export (7.3 এর প্রশ্ন ১), attachment thumbnail, আর search index update (`comment.created` থেকে)। প্রতিটার জন্য: dedupe key, idempotency কৌশল (ছয়টার কোনটা, কেন), retry এর সময়সীমা, কোন error permanent, DLQ হলে কে দেখবে, আর overload এ shed হবে কিনা। Search index এর জন্য বিশেষ করে ভাবুন: effect টা কি স্বভাবত idempotent বানানো যায় (১.২ এর "সেট" এর ভাষা)?
 
 ---
 
@@ -412,7 +412,7 @@ Message Broker, Competing Consumers, Publish/Subscribe, Acknowledgement, Append-
 Offset, Consumer Group, Head-of-line Blocking, Job State, Delayed Job, Job Lock, Stalled Job,
 Exponential Backoff, Job ID Deduplication, AOF, Idempotent Consumer, Retry Storm, Jitter,
 Poison Message, Dead Letter Queue, Backpressure, Load Shedding
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 7.5 — Event-Driven Architecture basics
 =======================
 ```
@@ -421,4 +421,4 @@ Next: 7.5 — Event-Driven Architecture basics
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ৩ নম্বরের poison এর হিসাব আর ৫ নম্বরের table। রেডি হলে `next` লিখো — Lesson 7.5 এ যাব: **Event-Driven Architecture basics।** তিনটা lesson ধরে একটা প্রশ্ন বারবার পিছিয়ে রেখেছি: assign এর database commit হলো, তারপর `queue.add` এর আগে API মরল — assign আছে, email এর job নেই। উল্টো ক্রমে: job আছে, commit ব্যর্থ। দুটো আলাদা system এ একসাথে লেখার এই dual write সমস্যা আজকের কোনো কৌশলে সারে না — কারণ আজকের সব কৌশল শুরু হয় "message টা এসেছে" ধরে নিয়ে। 7.5 এ সেই message কীভাবে নিশ্চিতভাবে **তৈরি** হয় — transactional outbox — আর তার সাথে event আর command এর পার্থক্য, event-driven design কখন সাহায্য করে আর কখন একটা অদৃশ্য জট বানায়।
+Exercise চালিয়ে পাঠান — বিশেষ করে ৩ নম্বরের poison এর হিসাব আর ৫ নম্বরের table। রেডি হলে `next` লিখুন — Lesson 7.5 এ যাব: **Event-Driven Architecture basics।** তিনটা lesson ধরে একটা প্রশ্ন বারবার পিছিয়ে রেখেছি: assign এর database commit হলো, তারপর `queue.add` এর আগে API মরল — assign আছে, email এর job নেই। উল্টো ক্রমে: job আছে, commit ব্যর্থ। দুটো আলাদা system এ একসাথে লেখার এই dual write সমস্যা আজকের কোনো কৌশলে সারে না — কারণ আজকের সব কৌশল শুরু হয় "message টা এসেছে" ধরে নিয়ে। 7.5 এ সেই message কীভাবে নিশ্চিতভাবে **তৈরি** হয় — transactional outbox — আর তার সাথে event আর command এর পার্থক্য, event-driven design কখন সাহায্য করে আর কখন একটা অদৃশ্য জট বানায়।

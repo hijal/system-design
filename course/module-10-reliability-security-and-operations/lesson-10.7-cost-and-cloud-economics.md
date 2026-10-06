@@ -2,15 +2,15 @@
 
 **Module 10 — Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 1.3):** একটা system এর দিনের মোট request থেকে গড় QPS কীভাবে বের করো, আর peak QPS এর আন্দাজ কীভাবে করো? Server এর সংখ্যা কোনটা দিয়ে ঠিক হয় — গড় না peak? আজ দেখবে, এই প্রশ্নের "peak" উত্তরটা সত্যি, কিন্তু সেটা ২৪ ঘণ্টা ধরে কিনে রাখলে একটা দাম আছে। TaskFlow এর ক্ষেত্রে সেই দামে কেনা capacity এর ৮০% পড়ে থাকে।
+> **Spaced Repetition (Lesson 1.3):** একটা system এর দিনের মোট request থেকে গড় QPS কীভাবে বের করুন, আর peak QPS এর আন্দাজ কীভাবে করুন? Server এর সংখ্যা কোনটা দিয়ে ঠিক হয় — গড় না peak? আজ দেখবেন, এই প্রশ্নের "peak" উত্তরটা সত্যি, কিন্তু সেটা ২৪ ঘণ্টা ধরে কিনে রাখলে একটা দাম আছে। TaskFlow এর ক্ষেত্রে সেই দামে কেনা capacity এর ৮০% পড়ে থাকে।
 
 **Prerequisite:** Lesson 1.3 (Estimation, peak বনাম গড়), Lesson 4.5 (CDN), Lesson 7.4 (Idempotent job), Lesson 7.6 (OLTP বনাম OLAP), Lesson 8.1 (Object storage এর দাম), Lesson 8.2 (Preview, CDN), Lesson 9.1 (Monolith বনাম service), Lesson 10.3 (AZ, static stability), Lesson 10.4 (Log আর metric এর আয়তন), Lesson 10.5 (DDoS), Lesson 10.6 (Blue-green, canary)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা cloud বিলকে লাইন ধরে design এর সিদ্ধান্তে ফেরাতে পারবে: কোন লাইন সময়ে বাড়ে (instance-ঘণ্টা), কোনটা জমায় (GB-মাস), কোনটা নড়াচড়ায় (GB transfer), কোনটা ঘটনায় (request)। আর খরচকে একক ধরে ভাগ করতে পারবে (unit economics: প্রতি workspace, প্রতি plan, প্রতি endpoint), যাতে বোঝা যায় কোন সিদ্ধান্ত টাকা বানায় আর কোনটা খায়
-2. Compute এর তিনটা হাতল আলাদা করে ব্যবহার করতে পারবে: autoscale (ওঠানামার অংশ), commitment (সবসময় চলা অংশ, আর কতটা commit করবে তার অঙ্ক), আর spot (বাধা সহ্য করতে পারা অংশ)। সাথে বলতে পারবে একটা DDoS এর বিল কোথায় থামালে কত
-3. Data কোথায় থাকে আর কোথায় নড়ে, সেটা দিয়ে খরচ নকশা করতে পারবে: storage tier আর lifecycle (ছোট object এর ফাঁদ সহ), log এর দাম কোথায়, NAT বনাম VPC endpoint, AZ জুড়ে traffic। আর cost কে একটা নজরদারির জিনিস বানাতে পারবে, যাতে একটা ভুল মাসের শেষে না, পরের দিন ধরা পড়ে
+1. একটা cloud বিলকে লাইন ধরে design এর সিদ্ধান্তে ফেরাতে পারবেন: কোন লাইন সময়ে বাড়ে (instance-ঘণ্টা), কোনটা জমায় (GB-মাস), কোনটা নড়াচড়ায় (GB transfer), কোনটা ঘটনায় (request)। আর খরচকে একক ধরে ভাগ করতে পারবেন (unit economics: প্রতি workspace, প্রতি plan, প্রতি endpoint), যাতে বোঝা যায় কোন সিদ্ধান্ত টাকা বানায় আর কোনটা খায়
+2. Compute এর তিনটা হাতল আলাদা করে ব্যবহার করতে পারবেন: autoscale (ওঠানামার অংশ), commitment (সবসময় চলা অংশ, আর কতটা commit করবেন তার অঙ্ক), আর spot (বাধা সহ্য করতে পারা অংশ)। সাথে বলতে পারবেন একটা DDoS এর বিল কোথায় থামালে কত
+3. Data কোথায় থাকে আর কোথায় নড়ে, সেটা দিয়ে খরচ নকশা করতে পারবেন: storage tier আর lifecycle (ছোট object এর ফাঁদ সহ), log এর দাম কোথায়, NAT বনাম VPC endpoint, AZ জুড়ে traffic। আর cost কে একটা নজরদারির জিনিস বানাতে পারবেন, যাতে একটা ভুল মাসের শেষে না, পরের দিন ধরা পড়ে
 
 **Tier:** 1 — Runnable Code (চারটা deterministic cost model; cloud account বা Docker লাগে না)
 
@@ -46,12 +46,12 @@ Cloud এর প্রায় প্রতিটা দাম চারটা 
 
 ```
 সময়          instance-ঘণ্টা, NAT/LB/endpoint এর ঘণ্টা     — চালু থাকলেই, ব্যবহার হোক বা না হোক
-জমা          GB-মাস (disk, object, backup, log)          — যতদিন রাখো
+জমা          GB-মাস (disk, object, backup, log)          — যতদিন রাখুন
 নড়াচড়া      GB transfer (internet, AZ জুড়ে, NAT দিয়ে)   — যত bytes, যত বার, যে পথে
 ঘটনা         request (S3 GET/PUT, CDN, lifecycle)        — যত বার
 ```
 
-Design এর প্রতিটা সিদ্ধান্ত এই চারটার কোনো একটা বা একাধিক সংখ্যা বদলায়। Exercise এর `npm run bill` TaskFlow এর পরিমাণ (৩০০ req/s, ৬০,০০০ MAU, ১৮ TB attachment, আগের lesson গুলোর সংখ্যা) আর একটা বড় public cloud এর আনুমানিক তালিকা মূল্য দিয়ে মাসিক বিল বানায়। দাম গুলো 8.1 এর সংখ্যার সাথে মেলানো, আর env দিয়ে বদলানো যায়। দাম বদলায়, তাই ডলারের চেয়ে লাইনগুলোর **অনুপাত** দেখো:
+Design এর প্রতিটা সিদ্ধান্ত এই চারটার কোনো একটা বা একাধিক সংখ্যা বদলায়। Exercise এর `npm run bill` TaskFlow এর পরিমাণ (৩০০ req/s, ৬০,০০০ MAU, ১৮ TB attachment, আগের lesson গুলোর সংখ্যা) আর একটা বড় public cloud এর আনুমানিক তালিকা মূল্য দিয়ে মাসিক বিল বানায়। দাম গুলো 8.1 এর সংখ্যার সাথে মেলানো, আর env দিয়ে বদলানো যায়। দাম বদলায়, তাই ডলারের চেয়ে লাইনগুলোর **অনুপাত** দেখুন:
 
 ```
 line                                             now   now %     after     saved                                      what changed
@@ -114,7 +114,7 @@ Pro আর business এর margin ৯০% এর উপরে। SaaS এর প
 
 - **Free plan মাসে $৮,১৬১**, বিলের প্রায় এক তৃতীয়াংশ, কোনো আয় ছাড়া। এটা একটা ব্যবসার সিদ্ধান্ত (free থেকে paid এ রূপান্তর), কিন্তু এখন সিদ্ধান্তটা একটা সংখ্যা নিয়ে নেওয়া যায়: প্রতি free seat মাসে $০.৩৩।
 - **একটা workspace মাসে $১,৫২৮।** একটা school district, free plan এ, ৩,০০০ ছাত্র, ২ TB attachment, মাসে ১.২ TB download। বাকি free workspace গুলোর গড় $৫.৮৩, এর ২৬০ গুণ। এই একজনকে একটা পরিসংখ্যান না দেখালে খুঁজে পাওয়া যেত না। আর এর উত্তর engineering এর না, product এর: free plan এ storage আর seat এর সীমা (9.5 এর quota), বা তাদের সাথে কথা বলা।
-- শেষ কলামটা দেখো: **seat প্রতি খরচ সব plan এ প্রায় সমান** ($০.৩৩–০.৫২)। খরচ seat এ বাড়ে। তাই seat ধরে দাম রাখাটা খরচের আকৃতির সাথে মেলে। Workspace প্রতি স্থির দাম হলে বড় customer লোকসানের হতো।
+- শেষ কলামটা দেখুন: **seat প্রতি খরচ সব plan এ প্রায় সমান** ($০.৩৩–০.৫২)। খরচ seat এ বাড়ে। তাই seat ধরে দাম রাখাটা খরচের আকৃতির সাথে মেলে। Workspace প্রতি স্থির দাম হলে বড় customer লোকসানের হতো।
 
 **Endpoint ধরে।** একই প্রশ্ন আরও সূক্ষ্মভাবে। অংশ গ তে প্রতিটা endpoint এর একটা call এর পরিবর্তনশীল খরচ: CPU এর ms, DB এর ms, বাইরে যাওয়া bytes, ভেতরের call এর bytes, NAT দিয়ে S3:
 
@@ -130,7 +130,7 @@ Export: call এর ০.০১৩%, পরিবর্তনশীল খরচ�
 
 ### ১.৩ Compute — peak, গড়, আর তিনটা হাতল
 
-**Spaced repetition এর উত্তর:** গড় QPS = দিনের request ÷ ৮৬,৪০০। Peak সাধারণত গড়ের ২–৩ গুণ ধরে নেওয়া হয় (1.3), আর server এর সংখ্যা ঠিক হয় **peak** দিয়ে, কারণ peak এ capacity না থাকলে user রা ভোগে। কথাটা ঠিক। কিন্তু peak থাকে দিনের কয়েক ঘণ্টা, আর সপ্তাহের পাঁচ দিন। বাকি সময় সেই capacity এর দাম দিয়ে যাচ্ছ।
+**Spaced repetition এর উত্তর:** গড় QPS = দিনের request ÷ ৮৬,৪০০। Peak সাধারণত গড়ের ২–৩ গুণ ধরে নেওয়া হয় (1.3), আর server এর সংখ্যা ঠিক হয় **peak** দিয়ে, কারণ peak এ capacity না থাকলে user রা ভোগে। কথাটা ঠিক। কিন্তু peak থাকে দিনের কয়েক ঘণ্টা, আর সপ্তাহের পাঁচ দিন। বাকি সময় সেই capacity এর দাম দিয়ে যাচ্ছেন।
 
 `npm run capacity` এক সপ্তাহের traffic এক মিনিট করে চালায়। দিনে দুপুর ২টায় চূড়া, রাতে আর সপ্তাহান্তে নিচু, বুধবার সকাল ১০টায় একটা marketing email (+৭০০ req/s), আর কিছু এলোমেলো ওঠানামা। গড় ৩০০ req/s, peak ১,১৫০। প্রতিটা instance ৭৫ req/s পর্যন্ত সামলায়, আর নতুন instance চালু হয়ে traffic নিতে ৫ মিনিট লাগে (10.6 এর readiness):
 
@@ -153,7 +153,7 @@ Spot এ খরচ আরও ১২% কম। Experiment ২ এ interruption �
 
 **Commitment।** Autoscale এর পরেও একটা অংশ সবসময় চলে: রাত ৩টাতেও কয়েকটা instance। এই অংশে দ্বিতীয় হাতল:
 
-**Commitment Discount** — এক বা তিন বছরের জন্য একটা নির্দিষ্ট পরিমাণ ব্যবহারের (ঘণ্টায় এত instance, বা ঘণ্টায় এত ডলার) প্রতিশ্রুতি দিয়ে ছাড় পাওয়া। AWS এ Reserved Instance আর Savings Plan, অন্য cloud এ committed use discount, সাধারণত ৩০–৬০%। ব্যবহার হোক বা না হোক, দাম দিতে হয়। তাই প্রশ্ন হলো **কতটা** commit করবে।
+**Commitment Discount** — এক বা তিন বছরের জন্য একটা নির্দিষ্ট পরিমাণ ব্যবহারের (ঘণ্টায় এত instance, বা ঘণ্টায় এত ডলার) প্রতিশ্রুতি দিয়ে ছাড় পাওয়া। AWS এ Reserved Instance আর Savings Plan, অন্য cloud এ committed use discount, সাধারণত ৩০–৬০%। ব্যবহার হোক বা না হোক, দাম দিতে হয়। তাই প্রশ্ন হলো **কতটা** commit করবেন।
 
 অংশ খ তে reactive এর ঘণ্টা ধরে ব্যবহার, ছাড় ৩৫% (এক বছরের আন্দাজ):
 
@@ -183,7 +183,7 @@ instance
 
 ### ১.৪ Storage — tier, lifecycle, আর "সস্তা" এর ফাঁদ
 
-8.1 এ দেখেছিলে, object storage database এর disk এর চেয়ে অনেক সস্তা। এবার object storage এর ভেতরেও tier আছে।
+8.1 এ দেখেছিলেন, object storage database এর disk এর চেয়ে অনেক সস্তা। এবার object storage এর ভেতরেও tier আছে।
 
 **Storage Tiering** — data কে তার বয়স আর ব্যবহার ধরে আলাদা দামের class এ রাখা। ঘন ঘন পড়া data দামি-দ্রুত class এ (S3 Standard), কম পড়া data সস্তা class এ (Infrequent Access, Glacier)। আর সরানোটা **lifecycle rule** দিয়ে স্বয়ংক্রিয়। সস্তা class এর প্রতি GB-মাস কম, কিন্তু তারা পড়ার জন্য (retrieval), সরানোর জন্য (transition request), আর ছোট বা স্বল্পায়ু object এর জন্য (ন্যূনতম আকার আর মেয়াদ) আলাদা দাম নেয়।
 
@@ -193,11 +193,11 @@ instance
 
 ```
 
-- **পুরনো version এর lifecycle একাই এক তৃতীয়াংশ।** Versioning (8.1 এ ভুল মোছা থেকে বাঁচতে) চালু, কিন্তু পুরনো version কখনো মোছা হয় না। ২৪ মাসে ৩০.৫ TB পুরনো version, যা কেউ কখনো পড়বে না। একটা rule: "পুরনো version ৩০ দিন পরে মোছো।"
+- **পুরনো version এর lifecycle একাই এক তৃতীয়াংশ।** Versioning (8.1 এ ভুল মোছা থেকে বাঁচতে) চালু, কিন্তু পুরনো version কখনো মোছা হয় না। ২৪ মাসে ৩০.৫ TB পুরনো version, যা কেউ কখনো পড়বে না। একটা rule: "পুরনো version ৩০ দিন পরে মুছুন।"
 - **বয়স ধরে tier: আরও দুই-তৃতীয়াংশ।** ৩০ দিনের পরে IA, ১৮০ দিনের পরে Glacier Instant Retrieval। ২৪ মাসে $৩২,৪২৪ থেকে $৭,৪৪৫।
 - **Retrieval এর ভয়টা এখানে ছোট।** মাস ১৮ এ একজন customer তার ৩ TB পুরনো file export করল, Glacier IR থেকে: $৮৮ বাড়তি। ভয়টা আসল হয় Glacier এর গভীর class এ (Deep Archive), যেখানে পড়তে ঘণ্টা লাগে আর প্রতি GB এর দাম আলাদা। সেখানে "পুরনো" কে "কখনো পড়া হবে না" ভাবা একটা বাজি।
 
-কিন্তু তৃতীয় আর চতুর্থ সারির পার্থক্যটা দেখো: একটায় সব object IA তে যায়, আরেকটায় শুধু বড়গুলো। কেন? অংশ খ:
+কিন্তু তৃতীয় আর চতুর্থ সারির পার্থক্যটা দেখুন: একটায় সব object IA তে যায়, আরেকটায় শুধু বড়গুলো। কেন? অংশ খ:
 
 ```
 1 TB of only 40 KB objects, one year
@@ -246,7 +246,7 @@ CDN + small previews on the board (40% bytes)     3.0 TB       $279   resize onc
 ```
 
 - **Compression: এক লাইনের config এ $১,৪০০।** JSON অনেক পুনরাবৃত্তিময় (একই key বারবার), তাই gzip বা brotli এ ৪–১০ গুণ ছোট হয়। Express এ `compression` middleware, বা gateway/CDN এ। CPU এর দাম আছে, কিন্তু সাধারণত সেটা bytes এর দামের চেয়ে অনেক কম।
-- **CDN সবসময় সস্তা না।** একই provider এর CDN এর প্রতি GB এর দাম S3 এর egress এর প্রায় সমান, আর request এর fee যোগ হয়। CDN এর আসল লাভ ছিল latency আর origin এর চাপ (4.5, 8.2), আর DDoS (10.5)। টাকা বাঁচে বড় আয়তনে দাম কমার স্তরে, বা অন্য provider এ। "CDN দিলে খরচ কমবে" দাবিটা যাচাই না করে করবে না।
+- **CDN সবসময় সস্তা না।** একই provider এর CDN এর প্রতি GB এর দাম S3 এর egress এর প্রায় সমান, আর request এর fee যোগ হয়। CDN এর আসল লাভ ছিল latency আর origin এর চাপ (4.5, 8.2), আর DDoS (10.5)। টাকা বাঁচে বড় আয়তনে দাম কমার স্তরে, বা অন্য provider এ। "CDN দিলে খরচ কমবে" দাবিটা যাচাই না করে করবেন না।
 - **Byte না পাঠানোই সবচেয়ে সস্তা।** Board এ ৩ MB এর আসল ছবির বদলে ২০০ KB এর preview। 8.2 এর resize, upload এর সময় একবার। Bytes ৬০% কম, আর page দ্রুত।
 
 **NAT gateway, অংশ খ।** Private subnet এর instance (যাদের সরাসরি internet এ যাওয়ার পথ নেই, যেটা নিরাপত্তার জন্য সঠিক) বাইরে যায় NAT gateway দিয়ে। আর NAT প্রতি GB process করার দাম নেয়, গন্তব্য যা-ই হোক। **এমনকি একই region এর S3 এর জন্যও।**
@@ -273,13 +273,13 @@ services, same AZ first (AZ-aware)       34.7 TB       $695  10% to another AZ (
 + a read replica in every AZ           18.1 TB       $363  reads in their own AZ, writes to the primary
 ```
 
-9.1 এর "network call function call না" এর আরেকটা মাত্রা: সে টাকাও নেয়। Load balancer যদি AZ না দেখে পাঠায়, তিনটা AZ এ দুই-তৃতীয়াংশ call অন্য AZ এ যায়, আর প্রতি GB দুই দিকেই দাম। Experiment ৪: প্রতি request এ ২০টা call হলে $৬,৬৩৬, monolith এর ১৬ গুণ। **AZ-aware routing** (একই AZ এর instance আগে, না থাকলে অন্য AZ) এটা দুই-তৃতীয়াংশ কাটে। Kubernetes এ topology-aware routing, service mesh এ locality-weighted load balancing। আর এর একটা reliability এর দামও আছে: এক AZ এ traffic বেশি এলে সেই AZ এর instance গুলো চাপে পড়ে, যদিও অন্য AZ খালি। তাই এই routing এর সাথে প্রতিটা AZ এর আলাদা autoscale আর একটা সীমা লাগে ("নিজের AZ এর instance ৮০% এর বেশি ব্যস্ত হলে অন্য AZ এ পাঠাও")। (Latency ও কমে, কারণ একই AZ এর ভেতরে round trip সাধারণত কম। এখানে মাপা না।)
+9.1 এর "network call function call না" এর আরেকটা মাত্রা: সে টাকাও নেয়। Load balancer যদি AZ না দেখে পাঠায়, তিনটা AZ এ দুই-তৃতীয়াংশ call অন্য AZ এ যায়, আর প্রতি GB দুই দিকেই দাম। Experiment ৪: প্রতি request এ ২০টা call হলে $৬,৬৩৬, monolith এর ১৬ গুণ। **AZ-aware routing** (একই AZ এর instance আগে, না থাকলে অন্য AZ) এটা দুই-তৃতীয়াংশ কাটে। Kubernetes এ topology-aware routing, service mesh এ locality-weighted load balancing। আর এর একটা reliability এর দামও আছে: এক AZ এ traffic বেশি এলে সেই AZ এর instance গুলো চাপে পড়ে, যদিও অন্য AZ খালি। তাই এই routing এর সাথে প্রতিটা AZ এর আলাদা autoscale আর একটা সীমা লাগে ("নিজের AZ এর instance ৮০% এর বেশি ব্যস্ত হলে অন্য AZ এ পাঠান")। (Latency ও কমে, কারণ একই AZ এর ভেতরে round trip সাধারণত কম। এখানে মাপা না।)
 
 ### ১.৬ নিরাপত্তা আর দৃশ্যমানতার দাম — আর একটা DDoS এর বিল
 
 10.4 আর 10.5 এ বেশ কয়েকবার বলেছিলাম "এর দাম আছে"। এবার সংখ্যায়।
 
-**Observability:** বিলের ১১%। Metric series ($১,৮০০, 10.4 এর cardinality: প্রতিটা series এর মাসিক দাম আছে, আর অপ্রয়োজনীয় label এর পুরনো experiment এখনও চলছে), log ($৮৪৬, ভুলে যাওয়া debug), trace collector ($২৮০)। লক্ষ করো, tail sampling এর পরে **trace জমার দাম মাসে $৯**। 10.4 এর tail sampling এর দাম জমায় না, collector এর compute এ ($২৮০)। Observability এর খরচের একটা সাধারণ নিয়ম আছে, আর সেটা সাধারণত বিলের ৫–১৫% এর মধ্যে দেখা যায়। TaskFlow এর ১১% ঠিক আছে, কিন্তু তার অর্ধেক ছিল অপচয়।
+**Observability:** বিলের ১১%। Metric series ($১,৮০০, 10.4 এর cardinality: প্রতিটা series এর মাসিক দাম আছে, আর অপ্রয়োজনীয় label এর পুরনো experiment এখনও চলছে), log ($৮৪৬, ভুলে যাওয়া debug), trace collector ($২৮০)। লক্ষ করুন, tail sampling এর পরে **trace জমার দাম মাসে $৯**। 10.4 এর tail sampling এর দাম জমায় না, collector এর compute এ ($২৮০)। Observability এর খরচের একটা সাধারণ নিয়ম আছে, আর সেটা সাধারণত বিলের ৫–১৫% এর মধ্যে দেখা যায়। TaskFlow এর ১১% ঠিক আছে, কিন্তু তার অর্ধেক ছিল অপচয়।
 
 **DDoS এর বিল।** 10.5 এর L7 flood: ৬০,০০০ req/s, ৪ ঘণ্টা, প্রতি উত্তর ৩০ KB। `npm run capacity` অংশ গ:
 
@@ -291,7 +291,7 @@ answered from CDN cache (cache key fixed)                     0        $0       
 block / challenge at the edge (1 KB answer)                   0        $0        $73.44           $648      $721
 ```
 
-একটা চার ঘণ্টার আক্রমণ, বিল $৭২১ থেকে $৩,৩৫৭, নির্ভর করে কোথায় থামালে। Autoscale এর সীমা ছাড়া system টা আক্রমণকে **খুশি মনে সেবা দেয়**, আর বিল পাঠায়। (বাস্তবে database অনেক আগেই ভেঙে পড়ত, 10.3।) সীমা ৪০ এ বিল $১৪৭, কিন্তু origin আক্রমণে ভরা, তাই বৈধ user দের বেশিরভাগ request ও ব্যর্থ (10.5 এর অংশ গ)। CDN cache থেকে উত্তর দিলে origin বাঁচে, কিন্তু CDN এর egress আর request এর fee দিতে হয়। সবচেয়ে সস্তা হলো আক্রমণকে **ছোট** উত্তর দেওয়া, edge এ। আর একটা জিনিস এখানে তালিকা মূল্যে ধরা নেই: অনেক CDN আর DDoS সুরক্ষার service আক্রমণের traffic এর বিল মাফ করে বা আলাদা চুক্তিতে রাখে। তাদের শর্ত দেখো (এখানে যাচাই করা না)। শিক্ষা: **autoscaling এর একটা উপরের সীমা একটা cost এর নিয়ন্ত্রণ**, যেমন 10.3 এর bulkhead একটা reliability এর নিয়ন্ত্রণ।
+একটা চার ঘণ্টার আক্রমণ, বিল $৭২১ থেকে $৩,৩৫৭, নির্ভর করে কোথায় থামালে। Autoscale এর সীমা ছাড়া system টা আক্রমণকে **খুশি মনে সেবা দেয়**, আর বিল পাঠায়। (বাস্তবে database অনেক আগেই ভেঙে পড়ত, 10.3।) সীমা ৪০ এ বিল $১৪৭, কিন্তু origin আক্রমণে ভরা, তাই বৈধ user দের বেশিরভাগ request ও ব্যর্থ (10.5 এর অংশ গ)। CDN cache থেকে উত্তর দিলে origin বাঁচে, কিন্তু CDN এর egress আর request এর fee দিতে হয়। সবচেয়ে সস্তা হলো আক্রমণকে **ছোট** উত্তর দেওয়া, edge এ। আর একটা জিনিস এখানে তালিকা মূল্যে ধরা নেই: অনেক CDN আর DDoS সুরক্ষার service আক্রমণের traffic এর বিল মাফ করে বা আলাদা চুক্তিতে রাখে। তাদের শর্ত দেখুন (এখানে যাচাই করা না)। শিক্ষা: **autoscaling এর একটা উপরের সীমা একটা cost এর নিয়ন্ত্রণ**, যেমন 10.3 এর bulkhead একটা reliability এর নিয়ন্ত্রণ।
 
 ### ১.৭ Cost কে নজরে রাখা — anomaly, মালিক, আর trade-off
 
@@ -333,7 +333,7 @@ each category daily > its own 7-day average × 1.5  1 day later     1 day later 
 
 > **Trade-off Table — cost এর তিনটা প্রশ্ন, প্রতিটা নকশায়**
 
-| প্রশ্ন                     | কোথায় দেখবে                         | TaskFlow এ কী বদলাল                                    |
+| প্রশ্ন                     | কোথায় দেখবেন                        | TaskFlow এ কী বদলাল                                    |
 | -------------------------- | ------------------------------------ | ------------------------------------------------------ |
 | "এটা কোন চালকে বাড়ে?"     | সময় / জমা / নড়াচড়া / ঘটনা         | প্রতিটা design doc এ এক লাইনের cost এর অনুমান          |
 | "প্রতি একক কত?"            | Unit cost: workspace, seat, endpoint | Plan ধরে showback, export এর সীমা, free plan এর quota  |
@@ -353,20 +353,20 @@ each category daily > its own 7-day average × 1.5  1 day later     1 day later 
 
 ## ২. Interview Angle
 
-Cost প্রায় কখনো আলাদা প্রশ্ন হয় না। আসে দুইভাবে। প্রথমত estimation এর ভেতরে: "এটা চালাতে কত খরচ হবে?" দ্বিতীয়ত trade-off এর সময়: "তুমি তিনটা replica রাখছ, কেন দুটো না?", "এটা কি serverless এ সস্তা হবে?" Senior level এ প্রায়ই সরাসরি: "এই system এর খরচ অর্ধেক করতে বলা হলো, কোথা থেকে শুরু করবে?" দুর্বল উত্তর হলো "reserved instance কিনব, spot ব্যবহার করব।" ভালো উত্তরের আকৃতি:
+Cost প্রায় কখনো আলাদা প্রশ্ন হয় না। আসে দুইভাবে। প্রথমত estimation এর ভেতরে: "এটা চালাতে কত খরচ হবে?" দ্বিতীয়ত trade-off এর সময়: "আপনি তিনটা replica রাখছেন, কেন দুটো না?", "এটা কি serverless এ সস্তা হবে?" Senior level এ প্রায়ই সরাসরি: "এই system এর খরচ অর্ধেক করতে বলা হলো, কোথা থেকে শুরু করবেন?" দুর্বল উত্তর হলো "reserved instance কিনব, spot ব্যবহার করব।" ভালো উত্তরের আকৃতি:
 
-1. **আগে মাপো, তারপর কাটো।** "বিলটা চালক ধরে ভাগ করব: compute, storage, network, observability। সাধারণত সবচেয়ে বড় বিস্ময় network আর non-production এ।" Unit cost দিয়ে বলো: প্রতি user বা প্রতি request।
+1. **আগে মাপুন, তারপর কাটুন।** "বিলটা চালক ধরে ভাগ করব: compute, storage, network, observability। সাধারণত সবচেয়ে বড় বিস্ময় network আর non-production এ।" Unit cost দিয়ে বলুন: প্রতি user বা প্রতি request।
 2. **অপচয় আগে, reliability পরে।** অলস resource, পুরনো data, default network এর পথ (NAT, cross-AZ), compression। তারপর autoscale, commitment, spot, প্রতিটা নিজের অংশে।
-3. **প্রতিটা কাটার দাম বলো।** "একটা NAT এ $৫৪ বাঁচে, কিন্তু একটা AZ এর outage সবার outage হয়।" Cost আর reliability এর বিনিময়, error budget এর ভাষায়।
+3. **প্রতিটা কাটার দাম বলুন।** "একটা NAT এ $৫৪ বাঁচে, কিন্তু একটা AZ এর outage সবার outage হয়।" Cost আর reliability এর বিনিময়, error budget এর ভাষায়।
 4. **নজরদারি।** Tag, ভাগ ধরে দৈনিক anomaly, team এর মালিকানা। এক বারের কাটা আবার বেড়ে যায়, যদি কেউ না দেখে।
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Reserved/savings plan কতটা কিনবে?"_ — সবসময় চলা ভিতের জন্য। নিয়ম: যেখানে ব্যবহার `(১ − ছাড়)` এর বেশি সময় থাকে। TaskFlow এ ৩৫% ছাড়ে ৫টা, যেখানে গড় ৭.৬। আর নমনীয় ধরন বাছো।
+- _"Reserved/savings plan কতটা কিনবেন?"_ — সবসময় চলা ভিতের জন্য। নিয়ম: যেখানে ব্যবহার `(১ − ছাড়)` এর বেশি সময় থাকে। TaskFlow এ ৩৫% ছাড়ে ৫টা, যেখানে গড় ৭.৬। আর নমনীয় ধরন বাছুন।
 - _"Spot কোথায়?"_ — Stateless, idempotent, বাধা সহ্য করে এমন কাজে: worker, batch, CI। Headroom আর কয়েক ধরনের instance এর সাথে। Database বা একমাত্র instance এ না।
 - _"Microservices কি দামি?"_ — প্রতিটা ভেতরের call এর network এর দাম আছে, AZ পেরোলে আরও। AZ-aware routing, কম আর মোটা call। আর প্রতিটা service এর ন্যূনতম capacity, monitoring আর মানুষের দাম।
-- _"Data কোথায় রাখবে?"_ — বয়স আর ব্যবহার ধরে tier, lifecycle দিয়ে। আর তিনটা লুকানো দাম জানো: ন্যূনতম object আকার, transition request, retrieval।
-- _"Serverless কি সস্তা?"_ — কম বা অনিয়মিত traffic এ হ্যাঁ, কারণ অলস সময়ের দাম নেই। স্থির, বেশি traffic এ প্রায়ই না, কারণ প্রতি request এর দাম instance এর চেয়ে বেশি। দুটো রেখা আঁকো আর কোথায় কাটে বলো। (এখানে মাপা না।)
+- _"Data কোথায় রাখবেন?"_ — বয়স আর ব্যবহার ধরে tier, lifecycle দিয়ে। আর তিনটা লুকানো দাম জানেন: ন্যূনতম object আকার, transition request, retrieval।
+- _"Serverless কি সস্তা?"_ — কম বা অনিয়মিত traffic এ হ্যাঁ, কারণ অলস সময়ের দাম নেই। স্থির, বেশি traffic এ প্রায়ই না, কারণ প্রতি request এর দাম instance এর চেয়ে বেশি। দুটো রেখা আঁকুন আর কোথায় কাটে বলুন। (এখানে মাপা না।)
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ ঘটনাগুলো: prod এর মাপের staging, ২৪/৭। NAT দিয়ে S3 বা container image এর traffic। Cross-AZ এর call যা কেউ জানে না। Lifecycle ছাড়া versioning। Debug log আর অপ্রয়োজনীয় metric label। মোছা হয়নি এমন snapshot, volume, load balancer, IP (মোছা instance এর উচ্ছিষ্ট)। Autoscale এর সর্বোচ্চ সীমা ছাড়া একটা loop। আর মাসিক budget alert, যা একমাত্র নজরদারি।
 
@@ -400,13 +400,13 @@ Cost প্রায় কখনো আলাদা প্রশ্ন হয�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. Product team একটা নতুন feature চায়: প্রতিদিন সকালে প্রত্যেক user কে একটা "আজকের board" digest email। ৬০,০০০ MAU। প্রতিটা digest এর জন্য replica তে ৫০ ms এর query, ২০ ms render, email ২০ KB। Email provider এর দাম প্রতি ১,০০০ email এ $০.১০ (ধরে নেওয়া)। (ক) মাসিক খরচের একটা হিসাব করো, চালক ধরে। কোন চালক সবচেয়ে বড়? (খ) Free plan এর ২৮,০০০ user এর জন্য এটা কি দেওয়া উচিত, আর কোন নকশায় খরচ অর্ধেক হয় feature না মেরে? (গ) এই feature এর জন্য একটা cost এর alert কী হবে, আর কোন একটা bug তাকে রাতারাতি দশ গুণ করতে পারে?
+1. Product team একটা নতুন feature চায়: প্রতিদিন সকালে প্রত্যেক user কে একটা "আজকের board" digest email। ৬০,০০০ MAU। প্রতিটা digest এর জন্য replica তে ৫০ ms এর query, ২০ ms render, email ২০ KB। Email provider এর দাম প্রতি ১,০০০ email এ $০.১০ (ধরে নেওয়া)। (ক) মাসিক খরচের একটা হিসাব করুন, চালক ধরে। কোন চালক সবচেয়ে বড়? (খ) Free plan এর ২৮,০০০ user এর জন্য এটা কি দেওয়া উচিত, আর কোন নকশায় খরচ অর্ধেক হয় feature না মেরে? (গ) এই feature এর জন্য একটা cost এর alert কী হবে, আর কোন একটা bug তাকে রাতারাতি দশ গুণ করতে পারে?
 
-2. TaskFlow এর traffic মাসে ৫% করে বাড়ছে। CFO জিজ্ঞেস করলেন: "তিন বছরের commitment এ ৬০% ছাড়, এক বছরের এ ৩৫%। আমরা কেন তিন বছরের পুরোটা কিনছি না, আজকের peak এর সমান?" (ক) "আজকের peak এর সমান" এর সমস্যা কী, `npm run capacity` এর অংশ খ এর সংখ্যা দিয়ে? (খ) বৃদ্ধি থাকলে কতটা আর কবে commit করবে? (গ) তিন বছরে কী কী বদলাতে পারে যা commit কে অকেজো করে, আর কোন ধরনের commit সেই ঝুঁকি কমায়?
+2. TaskFlow এর traffic মাসে ৫% করে বাড়ছে। CFO জিজ্ঞেস করলেন: "তিন বছরের commitment এ ৬০% ছাড়, এক বছরের এ ৩৫%। আমরা কেন তিন বছরের পুরোটা কিনছি না, আজকের peak এর সমান?" (ক) "আজকের peak এর সমান" এর সমস্যা কী, `npm run capacity` এর অংশ খ এর সংখ্যা দিয়ে? (খ) বৃদ্ধি থাকলে কতটা আর কবে commit করবেন? (গ) তিন বছরে কী কী বদলাতে পারে যা commit কে অকেজো করে, আর কোন ধরনের commit সেই ঝুঁকি কমায়?
 
-3. CFO আরও ৩০% কমাতে বললেন। চারটা প্রস্তাব এলো: (১) app এর সব instance spot এ, (২) Multi-AZ standby বাদ দেওয়া, (৩) দুটো read replica এর একটা বাদ, (৪) metric এর retention ১৩ মাস থেকে ১ মাস। প্রতিটার জন্য: কত বাঁচে (বিলের সংখ্যা দিয়ে), কী হারায় (10.3 আর 1.5 এর ভাষায়), আর তোমার সিদ্ধান্ত। শেষে CFO কে এক অনুচ্ছেদে উত্তর লেখো।
+3. CFO আরও ৩০% কমাতে বললেন। চারটা প্রস্তাব এলো: (১) app এর সব instance spot এ, (২) Multi-AZ standby বাদ দেওয়া, (৩) দুটো read replica এর একটা বাদ, (৪) metric এর retention ১৩ মাস থেকে ১ মাস। প্রতিটার জন্য: কত বাঁচে (বিলের সংখ্যা দিয়ে), কী হারায় (10.3 আর 1.5 এর ভাষায়), আর আপনার সিদ্ধান্ত। শেষে CFO কে এক অনুচ্ছেদে উত্তর লিখুন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -429,7 +429,7 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 
 (খ) Free plan এর ২৮,০০০ user এ ~$৯০/মাস। ছোট, কিন্তু প্রশ্নটা অনুপাতের: free user এর **সক্রিয়** অংশই digest পড়বে। নকশা যা খরচ কমায়, feature না মেরে:
 
-- শুধু গত ৭ দিনে সক্রিয় user কে পাঠাও, আর যার board এ গতকাল কিছু বদলায়নি তাকে না ("আজ কিছু নেই" email কেউ চায় না)। সাধারণত সংখ্যা অর্ধেকের নিচে নামে।
+- শুধু গত ৭ দিনে সক্রিয় user কে পাঠান, আর যার board এ গতকাল কিছু বদলায়নি তাকে না ("আজ কিছু নেই" email কেউ চায় না)। সাধারণত সংখ্যা অর্ধেকের নিচে নামে।
 - Free plan এ সাপ্তাহিক digest, paid এ দৈনিক। খরচ free এ ৭ ভাগের এক ভাগ, আর upgrade এর একটা কারণ।
 - User নিজে বন্ধ করতে পারে (আর না খোলা email ৩০ দিন পরে নিজে বন্ধ)।
 
@@ -439,7 +439,7 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 
 (ক) "আজকের peak এর সমান" মানে ২০টা (অংশ ক এর স্থির fleet এর মাপ)। অংশ খ এর টেবিলে ছাড় ৩৫% এ ১২টা commit ইতিমধ্যে on-demand এর চেয়ে **৮.৬% বেশি দামি**। ২১টা এ ৭৮.৫% বেশি। ছাড় ৬০% হলেও (experiment ১) ২১টা এ ৯.৯% বেশি। Peak থাকে সপ্তাহের ২০% এর কম সময়, তাই সেই capacity এর commitment বছরের বেশিরভাগ সময় অব্যবহৃত। Commit করতে হয় ভিত, চূড়া না।
 
-(খ) বৃদ্ধি থাকলে ভিত বাড়ে, তাই commit একবারে না, **সিঁড়ির মতো**: আজ নিয়ম অনুযায়ী মাপা পরিমাণ (৩৫% এ ৫টা, বা একটু কম), তারপর প্রতি ৩–৬ মাসে নতুন ব্যবহার দেখে আরেকটা ছোট commitment যোগ, নিজের মেয়াদে। এতে প্রতিটা ধাপ তখনকার ভিতের সাথে মেলে, আর মেয়াদ গুলো আলাদা সময়ে শেষ হয় (একবারে সব নবায়নের চাপ নেই)। তিন বছরের ছাড় নেবে শুধু ভিতের সেই অংশে যা তুমি প্রায় নিশ্চিত তিন বছর থাকবে (ধরো database, বা app এর ন্যূনতম ৩টা)। বাকিটা এক বছরে।
+(খ) বৃদ্ধি থাকলে ভিত বাড়ে, তাই commit একবারে না, **সিঁড়ির মতো**: আজ নিয়ম অনুযায়ী মাপা পরিমাণ (৩৫% এ ৫টা, বা একটু কম), তারপর প্রতি ৩–৬ মাসে নতুন ব্যবহার দেখে আরেকটা ছোট commitment যোগ, নিজের মেয়াদে। এতে প্রতিটা ধাপ তখনকার ভিতের সাথে মেলে, আর মেয়াদ গুলো আলাদা সময়ে শেষ হয় (একবারে সব নবায়নের চাপ নেই)। তিন বছরের ছাড় নেবেন শুধু ভিতের সেই অংশে যা আপনি প্রায় নিশ্চিত তিন বছর থাকবে (ধরুন database, বা app এর ন্যূনতম ৩টা)। বাকিটা এক বছরে।
 
 (গ) তিন বছরে যা বদলাতে পারে: instance এর নতুন প্রজন্ম বা ধরন (ARM এ গেলে দাম ২০% কম, আর পুরনো ধরনের reservation অকেজো), region (10.8 এ দ্বিতীয় region), architecture (কিছু অংশ serverless বা container platform এ), ব্যবসা (traffic না বাড়া, বা একটা বড় customer চলে যাওয়া), আর দাম নিজেই (cloud এর তালিকা মূল্য সময়ের সাথে প্রায়ই কমে)। ঝুঁকি কমায় **নমনীয় commitment**: নির্দিষ্ট instance এর ধরনে না, ঘণ্টায় এত **ডলারের** compute এর প্রতিশ্রুতি (AWS এর Compute Savings Plan এর মতো), যা ধরন, আকার, region, এমনকি কিছু serverless এও খাটে। ছাড় একটু কম, কিন্তু ভবিষ্যতের ভুলের দাম অনেক কম।
 
@@ -449,9 +449,9 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 
 (২) **Multi-AZ standby বাদ:** primary এর লাইন $১,৪৬০ এর অর্ধেক, commit সহ ~$৪৭৫/মাস বাঁচে। হারায়: primary এর AZ বা machine মরলে স্বয়ংক্রিয় failover (১–২ মিনিট) এর বদলে replica কে হাতে promote করা, বা backup থেকে restore। ঘণ্টার outage, আর async replica থেকে promote করলে শেষ কয়েক সেকেন্ডের লেখা হারানোর সম্ভাবনা (5.7, 6.1)। 99.9% এর SLO এ মাসের error budget ৪৩ মিনিট। একটা failover এর ঘটনাই তা শেষ করে। **সিদ্ধান্ত:** না। Production এর primary database হলো সেই জায়গা যেখানে redundancy কেনা হয়। Staging এ হ্যাঁ।
 
-(৩) **একটা read replica বাদ:** commit সহ ~$৪৭৫ বাঁচে। হারায়: পড়ার ক্ষমতা অর্ধেক (একটা replica এ সব read), একটা replica এর রক্ষণাবেক্ষণ বা মৃত্যুর সময় সব read primary তে (5.7)। আর ১.৫ এর "প্রতি AZ এ replica" এর cross-AZ এর সাশ্রয় কমে। **সিদ্ধান্ত:** মেপে দেখো। Replica গুলোর CPU কত? যদি দুটোই ৩০% এর নিচে, তাহলে replica গুলো ছোট করা (কম vCPU) একটা বাদ দেওয়ার চেয়ে ভালো: খরচ কাছাকাছি কমে, redundancy থাকে।
+(৩) **একটা read replica বাদ:** commit সহ ~$৪৭৫ বাঁচে। হারায়: পড়ার ক্ষমতা অর্ধেক (একটা replica এ সব read), একটা replica এর রক্ষণাবেক্ষণ বা মৃত্যুর সময় সব read primary তে (5.7)। আর ১.৫ এর "প্রতি AZ এ replica" এর cross-AZ এর সাশ্রয় কমে। **সিদ্ধান্ত:** মেপে দেখুন। Replica গুলোর CPU কত? যদি দুটোই ৩০% এর নিচে, তাহলে replica গুলো ছোট করা (কম vCPU) একটা বাদ দেওয়ার চেয়ে ভালো: খরচ কাছাকাছি কমে, redundancy থাকে।
 
-(৪) **Metric এর retention ১৩ মাস → ১ মাস:** metric এর দাম সাধারণত series এর সংখ্যায়, retention এ কম (১.৪ এর log এর যুক্তি)। তাই সাশ্রয় সম্ভবত ছোট, provider এর দামের কাঠামো দেখে বলতে হবে। হারায়: বছর-থেকে-বছর তুলনা, capacity planning (গত বছরের নভেম্বরের চূড়া), ধীর regression খোঁজা। **সিদ্ধান্ত:** না, তার বদলে পুরনো data কে downsample করো (১৩ মাস রাখো, কিন্তু ৩০ দিনের পরে ১ ঘণ্টার resolution এ)। জায়গা আর দাম অনেক কম, দীর্ঘমেয়াদি তুলনা থাকে।
+(৪) **Metric এর retention ১৩ মাস → ১ মাস:** metric এর দাম সাধারণত series এর সংখ্যায়, retention এ কম (১.৪ এর log এর যুক্তি)। তাই সাশ্রয় সম্ভবত ছোট, provider এর দামের কাঠামো দেখে বলতে হবে। হারায়: বছর-থেকে-বছর তুলনা, capacity planning (গত বছরের নভেম্বরের চূড়া), ধীর regression খোঁজা। **সিদ্ধান্ত:** না, তার বদলে পুরনো data কে downsample করুন (১৩ মাস রাখুন, কিন্তু ৩০ দিনের পরে ১ ঘণ্টার resolution এ)। জায়গা আর দাম অনেক কম, দীর্ঘমেয়াদি তুলনা থাকে।
 
 **CFO কে উত্তর:** "আমরা ইতিমধ্যে বিল ৬৯% কমিয়েছি ($২৬,২৯০ → $৮,২৭৬, আয়ের ১০% থেকে ৩%)। প্রায় সবটাই অপচয় কেটে, reliability এ কোনো ছাড় ছাড়া। চারটা নতুন প্রস্তাবের তিনটা (সব spot, Multi-AZ বাদ, replica বাদ) একসাথে মাসে ~$১,৩০০ বাঁচায়, কিন্তু প্রতিটা একটা নির্দিষ্ট ব্যর্থতাকে ঘণ্টার outage বানায়। আমাদের ৯৯.৯% এর প্রতিশ্রুতিতে তার একটাই মাসের পুরো error budget খেয়ে ফেলে, আর business plan এর customer দের SLA এর ক্ষতিপূরণ এক ঘটনায় এর চেয়ে বেশি। চতুর্থটার (metric) বদলে আমরা downsample করব। বাকি সুযোগ আছে replica এর মাপ ঠিক করা আর free plan এর storage এর সীমায় (school district একাই মাসে $১,৫২৮)। সেটা product এর সিদ্ধান্ত, আর আমরা সংখ্যা দিতে পারি। আর এখন থেকে প্রতিটা team এর নিজের খরচের dashboard আর দৈনিক alert আছে, যাতে এই কথোপকথন ছয় মাস পরে না, ছয় দিনে হয়।"
 
@@ -467,19 +467,19 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 
 `bill` TaskFlow এর মাসিক বিল ২৩টা লাইনে বানায় (আগে আর পরে), plan আর endpoint ধরে ভাগ করে, আর ৬০ দিনের দৈনিক বিলে চারটা anomaly detector চালায়। `capacity` এক সপ্তাহের traffic এক মিনিট করে চালায় চারটা নীতিতে, commitment এর পরিমাণ খোঁজে, আর একটা DDoS এর বিল চার জায়গায় থামিয়ে মাপে। `storage` ২৪ মাসে attachment এর lifecycle, ছোট object এর ফাঁদ, log এর ঢোকানো বনাম রাখা, আর activity এর offload মাপে। `traffic` egress, NAT বনাম endpoint আর AZ জুড়ে traffic এর নকশা তুলনা করে। `bill` এর app এর লাইন `capacity` এর একই model থেকে আসে (`src/fleet.ts`)।
 
-**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; চারটা script দুবার করে, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ তোমার। **সব দাম আনুমানিক**। একটা বড় public cloud এর তালিকা মূল্যের আন্দাজ, 8.1 এর সংখ্যার সাথে মেলানো, `src/prices.ts` এ এক জায়গায়, আর এখানে যাচাই করা না। আসল দাম region, provider, আয়তনের স্তর আর চুক্তি ভেদে বদলায়। **TaskFlow এর পরিমাণ গুলোও ধরে নেওয়া** (৩০০ req/s, প্রতি request এ ৬টা ভেতরের call আর ৩০ KB, ৬০ TB S3 এর traffic NAT দিয়ে, free plan এর ভাগ, endpoint এর CPU আর DB এর ms, email এর দাম), আগের lesson গুলোর সংখ্যা থেকে। CFO এর email এর "ছয় মাস আগে $১১,০০০" গল্পের অংশ, মাপা না। Plan ধরে খরচের ভাগ একটা নির্দিষ্ট চালকের নিয়মে (request, GB, seat)। অন্য নিয়মে অন্য সংখ্যা আসবে। `capacity` একটা simulation: spot এর interruption ঘণ্টা প্রতি একটা সম্ভাবনা, instance এর boot ৫ মিনিট, আসল autoscaler এর আচরণ আলাদা হতে পারে। **যা মাপা হয়নি:** আসল cloud বিল, serverless এর দাম, latency এর উপর AZ-aware routing এর প্রভাব, DDoS এর সুরক্ষায় বিল মাফের শর্ত, CDN এর আয়তনের ছাড়। ১.৮ এর TaskFlow এর সিদ্ধান্ত একটা নকশা, চালানো না।
+**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; চারটা script দুবার করে, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ আপনার। **সব দাম আনুমানিক**। একটা বড় public cloud এর তালিকা মূল্যের আন্দাজ, 8.1 এর সংখ্যার সাথে মেলানো, `src/prices.ts` এ এক জায়গায়, আর এখানে যাচাই করা না। আসল দাম region, provider, আয়তনের স্তর আর চুক্তি ভেদে বদলায়। **TaskFlow এর পরিমাণ গুলোও ধরে নেওয়া** (৩০০ req/s, প্রতি request এ ৬টা ভেতরের call আর ৩০ KB, ৬০ TB S3 এর traffic NAT দিয়ে, free plan এর ভাগ, endpoint এর CPU আর DB এর ms, email এর দাম), আগের lesson গুলোর সংখ্যা থেকে। CFO এর email এর "ছয় মাস আগে $১১,০০০" গল্পের অংশ, মাপা না। Plan ধরে খরচের ভাগ একটা নির্দিষ্ট চালকের নিয়মে (request, GB, seat)। অন্য নিয়মে অন্য সংখ্যা আসবে। `capacity` একটা simulation: spot এর interruption ঘণ্টা প্রতি একটা সম্ভাবনা, instance এর boot ৫ মিনিট, আসল autoscaler এর আচরণ আলাদা হতে পারে। **যা মাপা হয়নি:** আসল cloud বিল, serverless এর দাম, latency এর উপর AZ-aware routing এর প্রভাব, DDoS এর সুরক্ষায় বিল মাফের শর্ত, CDN এর আয়তনের ছাড়। ১.৮ এর TaskFlow এর সিদ্ধান্ত একটা নকশা, চালানো না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `bill` চালানোর **আগে** লিখে ফেলো: TaskFlow এর বিলের সবচেয়ে বড় তিনটা লাইন কী হবে, আর network এর ভাগ কত %? তারপর চালিয়ে মেলাও। কোন লাইন তোমাকে সবচেয়ে অবাক করল, আর কেন সেটা কেউ design করেনি?
+1. **আগে অনুমান:** `bill` চালানোর **আগে** লিখে ফেলুন: TaskFlow এর বিলের সবচেয়ে বড় তিনটা লাইন কী হবে, আর network এর ভাগ কত %? তারপর চালিয়ে মেলান। কোন লাইন আপনাকে সবচেয়ে অবাক করল, আর কেন সেটা কেউ design করেনি?
 
-2. **নিজের commitment:** `COMMIT_DISCOUNT=0.6 npm run capacity` আর `COMMIT_DISCOUNT=0.2 npm run capacity`। সেরা commit কীভাবে বদলায়? "ব্যবহার ≥ c সময়ের কত %" এর কলাম আর `(১ − ছাড়)` এর নিয়ম মিলিয়ে দেখো।
+2. **নিজের commitment:** `COMMIT_DISCOUNT=0.6 npm run capacity` আর `COMMIT_DISCOUNT=0.2 npm run capacity`। সেরা commit কীভাবে বদলায়? "ব্যবহার ≥ c সময়ের কত %" এর কলাম আর `(১ − ছাড়)` এর নিয়ম মিলিয়ে দেখুন।
 
-3. **নিজের lifecycle rule:** `src/storage.ts` এ একটা নতুন নীতি যোগ করো: ৯০ দিনে IA, ৩৬৫ দিনে Glacier IR, আর ছোট object কখনো না। ২৪ মাসের মোট কত? তারপর `EXPORT_GB=20000` দিয়ে দেখো: retrieval কোন বিন্দু থেকে tier এর সাশ্রয় খেয়ে ফেলে?
+3. **নিজের lifecycle rule:** `src/storage.ts` এ একটা নতুন নীতি যোগ করুন: ৯০ দিনে IA, ৩৬৫ দিনে Glacier IR, আর ছোট object কখনো না। ২৪ মাসের মোট কত? তারপর `EXPORT_GB=20000` দিয়ে দেখুন: retrieval কোন বিন্দু থেকে tier এর সাশ্রয় খেয়ে ফেলে?
 
-4. **একটা feature এর দাম:** `src/bill.ts` এর `ENDPOINTS` এ reflection question ১ এর digest যোগ করো (`callsPerMonth: 1_800_000`, DB আর CPU এর ms, ২০ KB বাইরে) আর একটা email provider এর খরচের লাইন। তোমার হাতের হিসাব আর model মেলে?
+4. **একটা feature এর দাম:** `src/bill.ts` এর `ENDPOINTS` এ reflection question ১ এর digest যোগ করুন (`callsPerMonth: 1_800_000`, DB আর CPU এর ms, ২০ KB বাইরে) আর একটা email provider এর খরচের লাইন। আপনার হাতের হিসাব আর model মেলে?
 
-5. **Design অংশ:** TaskFlow এর জন্য এক পাতার "cost নীতি"। (ক) প্রতিটা resource এর tag এর তালিকা আর CI তে কীভাবে বাধ্য করবে। (খ) তিনটা unit cost এর metric, আর প্রতিটার জন্য কোন পরিবর্তনে কে জাগবে (ticket, page না)। (গ) Design review এর template এ cost এর অংশে কোন তিনটা প্রশ্ন থাকবে। (ঘ) কোন সাশ্রয় কখনো করা হবে না (reliability এর রেখা), আর কেন। (ঙ) Free plan এর জন্য দুটো সীমা, unit economics এর সংখ্যা দিয়ে যুক্তি সহ।
+5. **Design অংশ:** TaskFlow এর জন্য এক পাতার "cost নীতি"। (ক) প্রতিটা resource এর tag এর তালিকা আর CI তে কীভাবে বাধ্য করবেন। (খ) তিনটা unit cost এর metric, আর প্রতিটার জন্য কোন পরিবর্তনে কে জাগবে (ticket, page না)। (গ) Design review এর template এ cost এর অংশে কোন তিনটা প্রশ্ন থাকবে। (ঘ) কোন সাশ্রয় কখনো করা হবে না (reliability এর রেখা), আর কেন। (ঙ) Free plan এর জন্য দুটো সীমা, unit economics এর সংখ্যা দিয়ে যুক্তি সহ।
 
 ---
 
@@ -511,7 +511,7 @@ Authentication / Authorization, JWT, BOLA, Refresh Token Rotation, OAuth 2.0 + P
 Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canary Release, Feature Flag,
 Version Skew, Lock Queue, Expand / Contract, Unit Economics, Cost Allocation, Commitment Discount, Spot
 Instance, Data Transfer Cost, Storage Tiering, Cost Anomaly Detection
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 10.8 — Multi-region & geo-distribution
 =======================
 ```
@@ -522,4 +522,4 @@ Next: 10.8 — Multi-region & geo-distribution
 
 আজকের সুতোটা: **cost একটা requirement, আর বিলের প্রতিটা লাইন একটা design এর সিদ্ধান্ত যার দাম কেউ লেখেনি।** সবচেয়ে বড় লাইনগুলো আসে default আর অভ্যাস থেকে: staging, NAT, AZ জুড়ে call। খরচকে একক ধরে ভাগ করলে সিদ্ধান্ত নেওয়া যায়। Compute এর তিনটা হাতল তিনটা আলাদা অংশের জন্য। "সস্তা" class এর লুকানো দাম আছে। Bytes কোথায় নড়ে সেটাই প্রায়ই সবচেয়ে বড় বিস্ময়। আর মাসের শেষের একটা সংখ্যা নজরদারি না।
 
-আজ একটা দাম বারবার এসেছে কিন্তু আমরা তার পুরোটা দেখিনি: AZ পেরোনোর দাম। এক region এর তিনটা AZ এর মধ্যে, কয়েক মাইল দূরে, এক মিলিসেকেন্ডের round trip। এবার ভাবো দুটো region, Dhaka আর Frankfurt, হাজার কিলোমিটার দূরে, প্রতি round trip এ ১৫০ ms। TaskFlow এর ইউরোপের একজন বড় customer বলেছে তাদের data ইউরোপের বাইরে যেতে পারবে না। আর Singapore এর user রা অভিযোগ করছে board খুলতে ৮০০ ms। রেডি হলে `next` লিখো — **Lesson 10.8: Multi-Region & Geo-Distribution** এ যাব। সেখানে প্রশ্নটা: একটা system কে একাধিক region এ চালালে কী কী আবার কঠিন হয়ে যায় (consistency, লেখা কোথায় যাবে, failover, data কোথায় থাকবে), আর কখন সেটা দাম আর জটিলতার যোগ্য। আর কখন না।
+আজ একটা দাম বারবার এসেছে কিন্তু আমরা তার পুরোটা দেখিনি: AZ পেরোনোর দাম। এক region এর তিনটা AZ এর মধ্যে, কয়েক মাইল দূরে, এক মিলিসেকেন্ডের round trip। এবার ভাবুন দুটো region, Dhaka আর Frankfurt, হাজার কিলোমিটার দূরে, প্রতি round trip এ ১৫০ ms। TaskFlow এর ইউরোপের একজন বড় customer বলেছে তাদের data ইউরোপের বাইরে যেতে পারবে না। আর Singapore এর user রা অভিযোগ করছে board খুলতে ৮০০ ms। রেডি হলে `next` লিখুন — **Lesson 10.8: Multi-Region & Geo-Distribution** এ যাব। সেখানে প্রশ্নটা: একটা system কে একাধিক region এ চালালে কী কী আবার কঠিন হয়ে যায় (consistency, লেখা কোথায় যাবে, failover, data কোথায় থাকবে), আর কখন সেটা দাম আর জটিলতার যোগ্য। আর কখন না।

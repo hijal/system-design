@@ -27,7 +27,7 @@ Nginx চলবে http://localhost:8080 এ।
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-**১. একই endpoint বারবার call করো — `servedBy` field বদলাতে থাকবে**
+**১. একই endpoint বারবার call করুন — `servedBy` field বদলাতে থাকবে**
 
 ```bash
 curl http://localhost:8080/api/tasks
@@ -49,20 +49,20 @@ Expected: `{"status":"ok","instance":"backend-X"}` (কোনো একটা in
 
 ## কী দেখার জন্য এটা বানানো
 
-লক্ষ্য করো — তুমি কখনোই সরাসরি backend1/backend2/backend3 এর সাথে কথা বলছ না (তাদের কোনো
-port ই host machine এ expose করা হয়নি), শুধু Nginx এর port 8080 এর সাথে কথা বলছ। এটাই
+লক্ষ্য করুন — আপনি কখনোই সরাসরি backend1/backend2/backend3 এর সাথে কথা বলছেন না (তাদের কোনো
+port ই host machine এ expose করা হয়নি), শুধু Nginx এর port 8080 এর সাথে কথা বলছেন। এটাই
 Reverse Proxy এর মূল কথা — backend topology client থেকে সম্পূর্ণ হিডেন।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. `nginx.conf` এ `least_conn;` uncomment করে `docker compose restart nginx` করো। তারপর
+1. `nginx.conf` এ `least_conn;` uncomment করে `docker compose restart nginx` করুন। তারপর
    একটা backend এ ইচ্ছাকৃতভাবে delay যোগ করে (`server.ts` এ `setTimeout` সহ নতুন endpoint
-   বানিয়ে) দেখো distribution কীভাবে বদলায়।
-2. `ip_hash;` uncomment করে দেখো — বারবার call করলে কি সবসময় একই backend এ যাচ্ছে?
-   (তোমার নিজের IP থেকে সব request আসছে বলে।)
-3. একটা backend container বন্ধ করে দাও (`docker compose stop backend2`), তারপর কয়েকবার
-   curl করো — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা
-   দেখবে: plain open-source Nginx নিজে থেকে **active health check** করে না by default।
+   বানিয়ে) দেখুন distribution কীভাবে বদলায়।
+2. `ip_hash;` uncomment করে দেখুন — বারবার call করলে কি সবসময় একই backend এ যাচ্ছে?
+   (আপনার নিজের IP থেকে সব request আসছে বলে।)
+3. একটা backend container বন্ধ করে দিন (`docker compose stop backend2`), তারপর কয়েকবার
+   curl করুন — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা
+   দেখবেন: plain open-source Nginx নিজে থেকে **active health check** করে না by default।
    এটাই Lesson 3.4 এর বিষয়।
 
 ## Teardown
@@ -89,4 +89,4 @@ lesson-3.3-nginx-reverse-proxy/
 
 - Backend `server.ts` — `tsc --noEmit` clean pass (repo তে যাচাই করা)
 - পুরো Docker Compose + Nginx integration — **সরাসরি চালিয়ে verify করা হয়নি** (এই
-  environment এ Docker নেই)। তোমার মেশিনে চালিয়ে উপরের acceptance criteria মিলিয়ে দেখো।
+  environment এ Docker নেই)। আপনার মেশিনে চালিয়ে উপরের acceptance criteria মিলিয়ে দেখুন।

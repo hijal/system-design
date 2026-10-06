@@ -2,17 +2,17 @@
 
 **Module 5 — Database Design & Scaling**
 
-> **Spaced Repetition (Lesson 1.5):** Availability আর Reliability এর পার্থক্য কী? এমন একটা উদাহরণ দাও যেখানে একটা system **available** কিন্তু **reliable** না।
+> **Spaced Repetition (Lesson 1.5):** Availability আর Reliability এর পার্থক্য কী? এমন একটা উদাহরণ দিন যেখানে একটা system **available** কিন্তু **reliable** না।
 
 **Prerequisite:** Lesson 1.3 (Latency numbers), Lesson 4.1 (Buffer Pool), Lesson 5.1 (SQL vs NoSQL), Lesson 5.2 (Schema)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Database disk এ data কীভাবে রাখে (page), আর B-tree কেন ৪ লাখ row এর মধ্যে একটা row মাত্র কয়েকটা page পড়ে খুঁজে পায় — ব্যাখ্যা করতে পারবে
-2. WAL কীভাবে crash এর পরেও committed data বাঁচায় — নিজের ভাষায় বলতে পারবে
-3. B-tree আর LSM-tree এর trade-off (write, read, space) বলে, একটা workload এর জন্য কোন ধরনের storage engine মানায় সেটা যুক্তি দিয়ে বলতে পারবে
+1. Database disk এ data কীভাবে রাখে (page), আর B-tree কেন ৪ লাখ row এর মধ্যে একটা row মাত্র কয়েকটা page পড়ে খুঁজে পায় — ব্যাখ্যা করতে পারবেন
+2. WAL কীভাবে crash এর পরেও committed data বাঁচায় — নিজের ভাষায় বলতে পারবেন
+3. B-tree আর LSM-tree এর trade-off (write, read, space) বলে, একটা workload এর জন্য কোন ধরনের storage engine মানায় সেটা যুক্তি দিয়ে বলতে পারবেন
 
-**Tier:** 3 — Design Exercise (সাথে একটা optional "নিজের চোখে দেখো" অংশ, Docker এ চালানো যায়)
+**Tier:** 3 — Design Exercise (সাথে একটা optional "নিজের চোখে দেখুন" অংশ, Docker এ চালানো যায়)
 
 ---
 
@@ -41,7 +41,7 @@ LOG:  database system is ready to accept connections
 
 ### ১.১ Disk এর একক — Page
 
-Lesson 1.3 এর latency table মনে করো: memory থেকে পড়া disk থেকে পড়ার চেয়ে হাজার গুণের বেশি দ্রুত। আর disk থেকে পড়ার খরচের বড় অংশটা হলো "যাওয়া" — একবার গেলে ১ byte পড়ো বা কয়েক হাজার byte, খরচ প্রায় একই।
+Lesson 1.3 এর latency table মনে করুন: memory থেকে পড়া disk থেকে পড়ার চেয়ে হাজার গুণের বেশি দ্রুত। আর disk থেকে পড়ার খরচের বড় অংশটা হলো "যাওয়া" — একবার গেলে ১ byte পড়ুন বা কয়েক হাজার byte, খরচ প্রায় একই।
 
 তাই database কখনো একটা একটা row করে disk এ পড়ে-লেখে না। সে কাজ করে নির্দিষ্ট আকারের block এ, যাকে বলে **page**।
 
@@ -116,13 +116,13 @@ Index কীভাবে query তে কাজে লাগে, composite index
 ```
 একটা commit এর যাত্রা:
 
-১. Buffer pool (memory) এ page বদলাও        ┌──────────────────────┐
+১. Buffer pool (memory) এ page বদলান        ┌──────────────────────┐
    — disk এ এখনো কিছু লেখা হয়নি             │ memory: page 809 ✎   │
                                               └──────────────────────┘
-২. পরিবর্তনের বর্ণনা WAL এর শেষে যোগ করো     ┌──────────────────────────────────┐
+২. পরিবর্তনের বর্ণনা WAL এর শেষে যোগ করুন     ┌──────────────────────────────────┐
    — sequential, ছোট (একটা insert ≈ ৪৪০ byte) │ WAL: …│insert│update│insert ← নতুন │
                                               └──────────────────────────────────┘
-৩. WAL টা disk এ নিশ্চিতভাবে লেখো (fsync)
+৩. WAL টা disk এ নিশ্চিতভাবে লিখুন (fsync)
    — এরপরেই client কে "COMMIT সফল" বলা হয়    ✓ এখন data নিরাপদ
 
 ৪. বদলানো data page গুলো disk এ লেখা হয়     (পরে, ধীরে সুস্থে, একসাথে অনেকগুলো)
@@ -143,7 +143,7 @@ Index কীভাবে query তে কাজে লাগে, composite index
 
 ### ১.৪ LSM-tree — কখনো জায়গামতো লিখব না
 
-B-tree তে লেখা মানে গাছের সঠিক জায়গা খুঁজে সেখানে বসানো — random write। এখন ধরো তোমার workload এমন: **সেকেন্ডে লাখো write**, বেশিরভাগ নতুন data (message, sensor reading, event), update প্রায় নেই। তখন প্রশ্ন আসে: WAL এর মতো **সব কিছুই** যদি শুধু শেষে যোগ করে লিখি?
+B-tree তে লেখা মানে গাছের সঠিক জায়গা খুঁজে সেখানে বসানো — random write। এখন ধরুন আপনার workload এমন: **সেকেন্ডে লাখো write**, বেশিরভাগ নতুন data (message, sensor reading, event), update প্রায় নেই। তখন প্রশ্ন আসে: WAL এর মতো **সব কিছুই** যদি শুধু শেষে যোগ করে লিখি?
 
 এটাই **LSM-tree (Log-Structured Merge-tree)** এর মূল ধারণা। Cassandra, ScyllaDB, RocksDB, LevelDB — সবাই এটা ব্যবহার করে।
 
@@ -198,7 +198,7 @@ WRITE                                              READ (key = "task:42")
 | পড়া (একটা key)           | অনুমানযোগ্য — গাছের উচ্চতা অনুযায়ী কয়েকটা page | memtable + কয়েকটা SSTable (bloom filter সাহায্য করে)      |
 | Range scan ("৪২ থেকে ৯৯") | খুব ভালো — leaf গুলো sorted, পাশাপাশি            | ভালো, কিন্তু কয়েকটা SSTable মিলিয়ে পড়তে হয়             |
 | Update/Delete             | জায়গামতো                                        | নতুন version / tombstone, আসল পরিষ্কার compaction এ        |
-| Background কাজ            | Checkpoint (Postgres এ VACUUM ও — নিচে দেখো)     | Compaction — CPU আর disk I/O খায়, latency spike আনতে পারে |
+| Background কাজ            | Checkpoint (Postgres এ VACUUM ও — নিচে দেখুন)    | Compaction — CPU আর disk I/O খায়, latency spike আনতে পারে |
 | কীসের জন্য বানানো         | সাধারণ কাজ — মিশ্র read/write, transaction       | বিশাল write volume, time-series, append-heavy              |
 
 **সৎ সতর্কতা:** "B-tree = read এর জন্য, LSM = write এর জন্য" — এটা একটা কাজের **সাধারণ নিয়ম**, আইন না। বাস্তব performance নির্ভর করে workload, hardware (SSD তে random write এর দাম HDD এর চেয়ে অনেক কম), আর configuration (যেমন কোন compaction strategy) এর উপর। একই workload এ কে জিতবে — সেটা **মেপে** দেখতে হয়।
@@ -220,7 +220,7 @@ WRITE                                              READ (key = "task:42")
 | MySQL (InnoDB)                        | RocksDB, LevelDB (অনেক system এর নিচে embedded) |
 | SQLite                                | CockroachDB (Pebble — RocksDB-অনুপ্রাণিত)       |
 
-**TaskFlow এর জন্য এর মানে কী?** Storage engine database বেছে নেওয়ার **একটা** কারণ, একমাত্র না। Lesson 5.1 এর পাঁচটা প্রশ্ন (data shape, access pattern, consistency, সংখ্যা, operations) এখনো প্রথমে আসে। Storage engine এর জ্ঞান তোমাকে শুধু আরেকটা প্রশ্ন করতে শেখায়: "এই workload এ write কত, আর সেটা কি append-heavy?" — আর উত্তরটা **সংখ্যা দিয়ে** দিতে হবে, "write-heavy" শব্দটা দিয়ে না। সেকেন্ডে কয়েকশো write একটা B-tree database এর জন্য খুবই সাধারণ; LSM এর সুবিধা স্পষ্ট হয় যখন সংখ্যাটা অনেক, অনেক বড় আর একটা machine এ আর ধরে না।
+**TaskFlow এর জন্য এর মানে কী?** Storage engine database বেছে নেওয়ার **একটা** কারণ, একমাত্র না। Lesson 5.1 এর পাঁচটা প্রশ্ন (data shape, access pattern, consistency, সংখ্যা, operations) এখনো প্রথমে আসে। Storage engine এর জ্ঞান আপনাকে শুধু আরেকটা প্রশ্ন করতে শেখায়: "এই workload এ write কত, আর সেটা কি append-heavy?" — আর উত্তরটা **সংখ্যা দিয়ে** দিতে হবে, "write-heavy" শব্দটা দিয়ে না। সেকেন্ডে কয়েকশো write একটা B-tree database এর জন্য খুবই সাধারণ; LSM এর সুবিধা স্পষ্ট হয় যখন সংখ্যাটা অনেক, অনেক বড় আর একটা machine এ আর ধরে না।
 
 ---
 
@@ -234,7 +234,7 @@ Storage engine নিয়ে সরাসরি প্রশ্ন senior inte
 - _"Index কেন query দ্রুত করে?"_ — B-tree, page-sized node, বিশাল fan-out, তাই কয়েকটা page পড়েই খোঁজা। বোনাস: "৪ লাখ row এ ৩ স্তর" এর মতো একটা সংখ্যা বলতে পারা
 - _"Cassandra কেন write এ দ্রুত?"_ — LSM: memtable + commit log, disk এ শুধু sequential write, update/delete ও নতুন write; দাম হলো read এ একাধিক SSTable আর background compaction
 
-**যেটা ভালো উত্তরকে আলাদা করে:** trade-off টা নিজে থেকে বলা। "LSM write এ দ্রুত" বলার পরে যোগ করো — "কিন্তু compaction CPU আর disk খায়, মাঝে মাঝে latency spike আনে, আর অনেক delete থাকলে tombstone read কে ধীর করে।" এটা দেখায় তুমি শুধু slide মুখস্থ করোনি।
+**যেটা ভালো উত্তরকে আলাদা করে:** trade-off টা নিজে থেকে বলা। "LSM write এ দ্রুত" বলার পরে যোগ করুন — "কিন্তু compaction CPU আর disk খায়, মাঝে মাঝে latency spike আনে, আর অনেক delete থাকলে tombstone read কে ধীর করে।" এটা দেখায় আপনি শুধু slide মুখস্থ করোনি।
 
 **Production এ বাস্তবে:** বেশিরভাগ engineer কখনো নিজে storage engine বদলায় না — কিন্তু এর জ্ঞান প্রতিদিন কাজে লাগে: কেন একটা বিশাল `UPDATE` এর পর table ফুলে যায় (MVCC + VACUUM), কেন WAL এর disk ভরে গেলে database থেমে যায়, কেন Cassandra এ অনেক delete করা table হঠাৎ ধীর — এগুলো সবই আজকের lesson এর সরাসরি ফল।
 
@@ -248,7 +248,7 @@ Storage engine নিয়ে সরাসরি প্রশ্ন senior inte
 - **LSM-tree**: কখনো জায়গামতো লেখা না — memtable → immutable SSTable → compaction; update মানে নতুন version, delete মানে tombstone
 - আসল trade-off তিনটা amplification এ — write, read, space; "B-tree read এর জন্য, LSM write এর জন্য" একটা সাধারণ নিয়ম, আইন না
 - Storage engine database এর **লক্ষ্য** থেকে আসে — Postgres general-purpose (B-tree), Cassandra বিশাল append-heavy write (LSM)
-- "Write-heavy" একটা অনুভূতি; সিদ্ধান্ত নাও **সংখ্যা** দিয়ে
+- "Write-heavy" একটা অনুভূতি; সিদ্ধান্ত নিন **সংখ্যা** দিয়ে
 
 ---
 
@@ -268,11 +268,11 @@ Storage engine নিয়ে সরাসরি প্রশ্ন senior inte
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. WAL ছাড়াও তো database প্রতিটা commit এ বদলানো data page গুলো সাথে সাথে disk এ লিখে দিতে পারত — তাহলেও তো data হারাত না। WAL এর বাড়তি জটিলতা কেন? অন্তত দুটো কারণ বলো।
+1. WAL ছাড়াও তো database প্রতিটা commit এ বদলানো data page গুলো সাথে সাথে disk এ লিখে দিতে পারত — তাহলেও তো data হারাত না। WAL এর বাড়তি জটিলতা কেন? অন্তত দুটো কারণ বলুন।
 2. একটা LSM database এ একটা user এর profile (একই key) দিনে ১০০ বার update হয়। দুই সপ্তাহ পরে disk এ কী অবস্থা, আর compaction না চললে সেই key পড়তে কী হবে? B-tree database এ একই কাজ করলে পার্থক্য কী?
-3. TaskFlow এর একজন engineer performance বাড়াতে পুরো database এ `synchronous_commit = off` করে দিতে চাইছে। তুমি কী বলবে? পুরোপুরি "না" বলার বদলে কোনো মাঝামাঝি পথ আছে কি?
+3. TaskFlow এর একজন engineer performance বাড়াতে পুরো database এ `synchronous_commit = off` করে দিতে চাইছে। আপনি কী বলবেন? পুরোপুরি "না" বলার বদলে কোনো মাঝামাঝি পথ আছে কি?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -281,7 +281,7 @@ Storage engine নিয়ে সরাসরি প্রশ্ন senior inte
 
 **প্রশ্ন ২:** LSM এ প্রতিটা update একটা **নতুন version** — জায়গামতো কিছু বদলায় না। দুই সপ্তাহে ১৪০০টা version বিভিন্ন SSTable এ ছড়িয়ে আছে (space amplification)। পড়ার সময় সবচেয়ে নতুনটা খুঁজতে memtable থেকে শুরু করে নতুন→পুরনো SSTable দেখা হয় — সর্বশেষ version টা সাধারণত নতুন file এ থাকে বলে দ্রুতই পাওয়া যায়, কিন্তু compaction না চললে SSTable এর সংখ্যা বাড়তেই থাকে, disk ভরে, আর যে key গুলো পুরনো file এ আছে সেগুলোর read ধীর হয় (read amplification)। Compaction ১৪০০টা version থেকে একটা রাখে। B-tree এ (index এর দিক থেকে) key একটাই জায়গায়, প্রতিবার সেখানেই বদলায় — space প্রায় বাড়ে না। (Postgres এর table এ MVCC এর কারণে পুরনো row version কিছুক্ষণ থাকে, সেটা VACUUM পরিষ্কার করে — এক অর্থে এটাও একটা "compaction" এর মতো কাজ।)
 
-**প্রশ্ন ৩:** পুরো database এ বন্ধ করা মানে crash এ যেকোনো **সাম্প্রতিক** commit হারাতে পারে — task, comment, এমনকি ভবিষ্যতের payment। User "saved" দেখেছে কিন্তু data নেই — এটা reliability ভাঙা (spaced repetition প্রশ্নের সাথে মেলাও: system available থাকবে, কিন্তু reliable না)। মাঝামাঝি পথ: `synchronous_commit` **প্রতি transaction এ** ঠিক করা যায় (`SET LOCAL synchronous_commit = off`)। তাই শুধু যেখানে সাম্প্রতিক কিছু data হারানো গ্রহণযোগ্য — যেমন analytics event, "last seen" timestamp — সেখানে বন্ধ করো; task, comment, billing এ default (on) রাখো। আর আগে মেপে দেখো commit latency আসলেই সমস্যা কিনা — প্রায়ই bottleneck অন্য কোথাও।
+**প্রশ্ন ৩:** পুরো database এ বন্ধ করা মানে crash এ যেকোনো **সাম্প্রতিক** commit হারাতে পারে — task, comment, এমনকি ভবিষ্যতের payment। User "saved" দেখেছে কিন্তু data নেই — এটা reliability ভাঙা (spaced repetition প্রশ্নের সাথে মেলান: system available থাকবে, কিন্তু reliable না)। মাঝামাঝি পথ: `synchronous_commit` **প্রতি transaction এ** ঠিক করা যায় (`SET LOCAL synchronous_commit = off`)। তাই শুধু যেখানে সাম্প্রতিক কিছু data হারানো গ্রহণযোগ্য — যেমন analytics event, "last seen" timestamp — সেখানে বন্ধ করুন; task, comment, billing এ default (on) রাখুন। আর আগে মেপে দেখুন commit latency আসলেই সমস্যা কিনা — প্রায়ই bottleneck অন্য কোথাও।
 
 </details>
 
@@ -291,26 +291,26 @@ Storage engine নিয়ে সরাসরি প্রশ্ন senior inte
 
 **Tier 3 — Design Exercise**
 
-আমি এখনই model answer দিচ্ছি না — তুমি চেষ্টা করার পর critique করব।
+আমি এখনই model answer দিচ্ছি না — আপনি চেষ্টা করার পর critique করব।
 
-> নিচের চারটা workload এর জন্য বলো — B-tree ভিত্তিক (যেমন Postgres) নাকি LSM ভিত্তিক (যেমন Cassandra) storage engine বেশি মানায়, আর কেন:
+> নিচের চারটা workload এর জন্য বলুন — B-tree ভিত্তিক (যেমন Postgres) নাকি LSM ভিত্তিক (যেমন Cassandra) storage engine বেশি মানায়, আর কেন:
 >
 > 1. **Smart meter:** ১০ লাখ বিদ্যুৎ মিটার, প্রতিটা প্রতি ১০ সেকেন্ডে একটা reading পাঠায়; মূল read হলো "মিটার X এর গত ২৪ ঘণ্টার reading"; পুরনো reading কখনো বদলায় না, ২ বছর পর মুছে ফেলা হয়
 > 2. **ব্যাংকের ledger:** প্রতিটা লেনদেনে দুটো account এর balance একসাথে বদলাতে হয়; auditor যেকোনো সময় যেকোনো ধরনের report চাইতে পারে
 > 3. **E-commerce product catalog:** ৫০ লাখ product, দিনে কয়েক হাজার update, কিন্তু সেকেন্ডে হাজার হাজার read — নাম, category, দামের range দিয়ে filter
-> 4. **TaskFlow এর activity log** — Lesson 5.1 এর exercise এ তুমি এর estimation করেছ। সেই সংখ্যা নিয়ে আবার ভাবো: storage engine এর দৃষ্টিকোণ থেকে কি তোমার সিদ্ধান্ত বদলায়?
+> 4. **TaskFlow এর activity log** — Lesson 5.1 এর exercise এ আপনি এর estimation করেছেন। সেই সংখ্যা নিয়ে আবার ভাবুন: storage engine এর দৃষ্টিকোণ থেকে কি আপনার সিদ্ধান্ত বদলায়?
 >
-> প্রতিটার জন্য লেখো:
+> প্রতিটার জন্য লিখুন:
 >
-> - **(ক)** সেকেন্ডে write কত (যেখানে সংখ্যা দেওয়া আছে, হিসাব করো), আর write গুলো append নাকি update
+> - **(ক)** সেকেন্ডে write কত (যেখানে সংখ্যা দেওয়া আছে, হিসাব করুন), আর write গুলো append নাকি update
 > - **(খ)** মূল read pattern — একটা key, range, নাকি ad-hoc
-> - **(গ)** তোমার পছন্দ, আর **কোন amplification** টা তুমি মেনে নিচ্ছ
+> - **(গ)** আপনার পছন্দ, আর **কোন amplification** টা আপনি মেনে নিচ্ছেন
 >
-> **বোনাস প্রশ্ন:** Workload ১ এ ২ বছর পুরনো reading মুছতে হবে। LSM এ delete কীভাবে কাজ করে মনে রেখে বলো — প্রতিটা reading আলাদা করে delete করলে কী সমস্যা হতে পারে, আর এর চেয়ে ভালো উপায় কী হতে পারে?
+> **বোনাস প্রশ্ন:** Workload ১ এ ২ বছর পুরনো reading মুছতে হবে। LSM এ delete কীভাবে কাজ করে মনে রেখে বলুন — প্রতিটা reading আলাদা করে delete করলে কী সমস্যা হতে পারে, আর এর চেয়ে ভালো উপায় কী হতে পারে?
 
-### নিজের চোখে দেখো (optional, Docker লাগবে)
+### নিজের চোখে দেখুন (optional, Docker লাগবে)
 
-আজকের lesson এর সংখ্যাগুলো তুমি নিজের মেশিনে বের করতে পারো। এটা exercise এর অংশ না — শুধু কৌতূহলের জন্য। (এই machine এ Postgres 17 দিয়ে চালিয়ে দেখা হয়েছে।)
+আজকের lesson এর সংখ্যাগুলো আপনি নিজের মেশিনে বের করতে পারেন। এটা exercise এর অংশ না — শুধু কৌতূহলের জন্য। (এই machine এ Postgres 17 দিয়ে চালিয়ে দেখা হয়েছে।)
 
 ```bash
 docker run -d --name pg53 -v pg53_data:/var/lib/postgresql/data \
@@ -339,7 +339,7 @@ UPDATE tasks SET status = 'done' WHERE id = 7;
 SELECT ctid FROM tasks WHERE id = 7;               -- a new place — MVCC
 ```
 
-তারপর crash টা নিজে ঘটাও — `psql` থেকে বেরিয়ে:
+তারপর crash টা নিজে ঘটান — `psql` থেকে বেরিয়ে:
 
 ```bash
 docker exec pg53 psql -U postgres -c \
@@ -368,7 +368,7 @@ Schema-on-read, Access Pattern, Document Store, Wide-column Store,
 Polyglot Persistence, Cardinality, Junction Table, Data Anomaly,
 Normalization, Normal Form, Denormalization, Reconciliation Job,
 Page, B-tree, WAL, Memtable, SSTable, Compaction, Write Amplification
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 5.4 — Indexing Deep Dive (EXPLAIN ANALYZE সহ)
 =======================
 ```
@@ -377,4 +377,4 @@ Next: 5.4 — Indexing Deep Dive (EXPLAIN ANALYZE সহ)
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও — বিশেষ করে workload ১ এর write সংখ্যাটা, আর বোনাস প্রশ্ন। রেডি হলে `next` লিখো — Lesson 5.4 এ যাব: **Indexing Deep Dive** — আজকের B-tree টা query তে ঠিক কীভাবে কাজে লাগে, composite index এ column এর ক্রম কেন গুরুত্বপূর্ণ, কেন index থাকলেও Postgres কখনো কখনো সেটা ব্যবহার করে না, আর `EXPLAIN ANALYZE` কীভাবে পড়তে হয় — সব TaskFlow এর আসল query দিয়ে, hands-on।
+Exercise টা করে পাঠান — বিশেষ করে workload ১ এর write সংখ্যাটা, আর বোনাস প্রশ্ন। রেডি হলে `next` লিখুন — Lesson 5.4 এ যাব: **Indexing Deep Dive** — আজকের B-tree টা query তে ঠিক কীভাবে কাজে লাগে, composite index এ column এর ক্রম কেন গুরুত্বপূর্ণ, কেন index থাকলেও Postgres কখনো কখনো সেটা ব্যবহার করে না, আর `EXPLAIN ANALYZE` কীভাবে পড়তে হয় — সব TaskFlow এর আসল query দিয়ে, hands-on।

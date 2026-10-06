@@ -2,15 +2,15 @@
 
 **Module 3 — Load Balancing & Proxies**
 
-> **Spaced Repetition (Lesson 1.5):** p99 latency কেন average latency এর চেয়ে বেশি গুরুত্বপূর্ণ? একটা API এর average ৮০ms কিন্তু p99 ৩ সেকেন্ড হলে তুমি কী সন্দেহ করবে?
+> **Spaced Repetition (Lesson 1.5):** p99 latency কেন average latency এর চেয়ে বেশি গুরুত্বপূর্ণ? একটা API এর average ৮০ms কিন্তু p99 ৩ সেকেন্ড হলে আপনি কী সন্দেহ করবেন?
 
 **Prerequisite:** Lesson 3.1 (Load Balancer, L4/L7), Lesson 3.2 (LB Algorithms)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Forward Proxy আর Reverse Proxy এর মূল পার্থক্য (কে "লুকিয়ে" আছে — client নাকি server) ব্যাখ্যা করতে পারবে
-2. বুঝবে কেন Load Balancer আসলে একটা বিশেষ ধরনের Reverse Proxy
-3. Nginx দিয়ে একটা কাজ-করা reverse proxy + load balancer setup করতে পারবে, এবং Round Robin আচরণ নিজের চোখে verify করতে পারবে
+1. Forward Proxy আর Reverse Proxy এর মূল পার্থক্য (কে "লুকিয়ে" আছে — client নাকি server) ব্যাখ্যা করতে পারবেন
+2. বুঝবেন কেন Load Balancer আসলে একটা বিশেষ ধরনের Reverse Proxy
+3. Nginx দিয়ে একটা কাজ-করা reverse proxy + load balancer setup করতে পারবেন, এবং Round Robin আচরণ নিজের চোখে verify করতে পারবেন
 
 **Tier:** 2 — Infra Setup (Docker Compose + Nginx config + TypeScript backend)
 
@@ -18,9 +18,9 @@
 
 ## ০. TaskFlow এখন কোথায়
 
-Lesson 3.1-3.2 এ আমরা load balancer এর তত্ত্ব শিখেছি — L4/L7, Round Robin, Least Connections। আজকে সময় এসেছে এটা **সত্যিই বানানোর** — Nginx দিয়ে, তোমার নিজের মেশিনে চলা একটা বাস্তব multi-container setup।
+Lesson 3.1-3.2 এ আমরা load balancer এর তত্ত্ব শিখেছি — L4/L7, Round Robin, Least Connections। আজকে সময় এসেছে এটা **সত্যিই বানানোর** — Nginx দিয়ে, আপনার নিজের মেশিনে চলা একটা বাস্তব multi-container setup।
 
-কিন্তু তার আগে একটা concept পরিষ্কার করা দরকার — "Proxy" শব্দটা তুমি "Load Balancer" এর সমার্থক হিসেবে ব্যবহার করে আসছ এতদিন, কিন্তু আসলে Proxy একটা বৃহত্তর concept, আর এর দুটো সম্পূর্ণ ভিন্ন ধরন আছে — একটা client কে রক্ষা করে, আরেকটা server কে। আজকের lesson এই পার্থক্যটা দিয়ে শুরু হবে।
+কিন্তু তার আগে একটা concept পরিষ্কার করা দরকার — "Proxy" শব্দটা আপনি "Load Balancer" এর সমার্থক হিসেবে ব্যবহার করে আসছেন এতদিন, কিন্তু আসলে Proxy একটা বৃহত্তর concept, আর এর দুটো সম্পূর্ণ ভিন্ন ধরন আছে — একটা client কে রক্ষা করে, আরেকটা server কে। আজকের lesson এই পার্থক্যটা দিয়ে শুরু হবে।
 
 ---
 
@@ -37,7 +37,7 @@ Server এর দৃষ্টিকোণ থেকে: "একটা request �
 আসল client, নাকি proxy - সেটা জানি না" (client identity hidden)
 ```
 
-**বাস্তব উদাহরণ:** office এর corporate proxy (সব employee এর traffic একটা central proxy দিয়ে যায়, company সেটা monitor/filter করতে পারে), অথবা VPN (তোমার real IP hide করে, server শুধু VPN এর IP দেখে)।
+**বাস্তব উদাহরণ:** office এর corporate proxy (সব employee এর traffic একটা central proxy দিয়ে যায়, company সেটা monitor/filter করতে পারে), অথবা VPN (আপনার real IP hide করে, server শুধু VPN এর IP দেখে)।
 
 ### ১.২ Reverse Proxy — Server এর প্রতিনিধি
 
@@ -50,7 +50,7 @@ Client এর দৃষ্টিকোণ থেকে: "একটাই server 
 (backend topology hidden)
 ```
 
-**এখানেই সেই connection যেটা তুমি আশা করছিলে** — Lesson 3.1-3.2 এ যে "Load Balancer" নিয়ে আমরা কথা বলেছি, সেটা আসলে **একটা বিশেষ ধরনের Reverse Proxy** — যার কাজ শুধু "server কে হাইড করা" না, বরং একাধিক server এর মধ্যে **intelligently traffic ভাগ করাও**।
+**এখানেই সেই connection যেটা আপনি আশা করছিলেন** — Lesson 3.1-3.2 এ যে "Load Balancer" নিয়ে আমরা কথা বলেছি, সেটা আসলে **একটা বিশেষ ধরনের Reverse Proxy** — যার কাজ শুধু "server কে হাইড করা" না, বরং একাধিক server এর মধ্যে **intelligently traffic ভাগ করান**।
 
 > **Trade-off Table — Forward vs Reverse Proxy**
 
@@ -61,11 +61,11 @@ Client এর দৃষ্টিকোণ থেকে: "একটাই server 
 | সাধারণ ব্যবহার              | Corporate filtering, VPN, anonymity | Load balancing, caching, SSL termination, security |
 | কার infrastructure এ বসে    | সাধারণত client এর network এ         | সাধারণত server এর infrastructure এ                 |
 
-**একটা সহজ মনে রাখার উপায়:** Forward Proxy তোমার (client এর) _পক্ষ_ নেয় internet এর বিরুদ্ধে। Reverse Proxy server এর _পক্ষ_ নেয় client দের বিরুদ্ধে (protective অর্থে, adversarial না)। "Forward" মানে তুমি client হিসেবে সামনের দিকে proxy ব্যবহার করছ; "Reverse" মানে flow টা উল্টো দিক থেকে (server দিকে থেকে) সেট আপ করা।
+**একটা সহজ মনে রাখার উপায়:** Forward Proxy আপনার (client এর) _পক্ষ_ নেয় internet এর বিরুদ্ধে। Reverse Proxy server এর _পক্ষ_ নেয় client দের বিরুদ্ধে (protective অর্থে, adversarial না)। "Forward" মানে আপনি client হিসেবে সামনের দিকে proxy ব্যবহার করছেন; "Reverse" মানে flow টা উল্টো দিক থেকে (server দিকে থেকে) সেট আপ করা।
 
 ### ১.৩ Reverse Proxy এর বাড়তি কাজ — শুধু Load Balancing না
 
-একটা Reverse Proxy (যেমন Nginx) শুধু traffic ভাগ করা ছাড়াও আরও অনেক কাজ করে, যেগুলো তোমার এখন পর্যন্ত শেখা concept গুলোর সাথে সরাসরি যুক্ত:
+একটা Reverse Proxy (যেমন Nginx) শুধু traffic ভাগ করা ছাড়াও আরও অনেক কাজ করে, যেগুলো আপনার এখন পর্যন্ত শেখা concept গুলোর সাথে সরাসরি যুক্ত:
 
 - **SSL/TLS Termination** (Lesson 3.1) — client-facing HTTPS handle করে, backend এর সাথে সাধারণ HTTP এ কথা বলে
 - **Static file serving** — CSS/JS/images সরাসরি Nginx থেকে সার্ভ করা, Express server কে এই কাজ থেকে মুক্ত রাখা
@@ -102,7 +102,7 @@ Client এর দৃষ্টিকোণ থেকে: "একটাই server 
 ## ৫. Reflection Questions
 
 1. একটা company তাদের employee দের social media access বন্ধ করতে চায় office network এ — এটা কি Forward নাকি Reverse Proxy এর কাজ?
-2. TaskFlow এর Nginx setup এ, যদি শুধু ১টা backend server থাকে (horizontal scaling এখনো না হয়ে থাকলে), তাহলে কি Nginx বসানোর কোনো মানে আছে? কেন (SSL termination, static serving এর কথা চিন্তা করো)?
+2. TaskFlow এর Nginx setup এ, যদি শুধু ১টা backend server থাকে (horizontal scaling এখনো না হয়ে থাকলে), তাহলে কি Nginx বসানোর কোনো মানে আছে? কেন (SSL termination, static serving এর কথা চিন্তা করুন)?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -121,7 +121,7 @@ Client এর দৃষ্টিকোণ থেকে: "একটাই server 
 
 > **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-3.3-nginx-reverse-proxy/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-3.3-nginx-reverse-proxy) — `docker compose up` করলেই চলবে। পুরো setup, acceptance criteria আর experiment ওই folder এর `README.md` তে আছে।
 
-আমরা ৩টা identical TypeScript/Express backend instance বানাব, আর তাদের সামনে Nginx বসাব reverse proxy + load balancer হিসেবে। Backend এর TypeScript অংশ `tsc --noEmit` দিয়ে verify করা হয়েছে (clean pass)। কিন্তু পুরো Docker Compose + Nginx integration টা এখানে সরাসরি চালিয়ে verify করা হয়নি — **সততার সাথে বলছি, এটা তোমার নিজের মেশিনে চালিয়ে দেখতে হবে।**
+আমরা ৩টা identical TypeScript/Express backend instance বানাব, আর তাদের সামনে Nginx বসাব reverse proxy + load balancer হিসেবে। Backend এর TypeScript অংশ `tsc --noEmit` দিয়ে verify করা হয়েছে (clean pass)। কিন্তু পুরো Docker Compose + Nginx integration টা এখানে সরাসরি চালিয়ে verify করা হয়নি — **সততার সাথে বলছি, এটা আপনার নিজের মেশিনে চালিয়ে দেখতে হবে।**
 
 **Project Structure:**
 
@@ -137,7 +137,7 @@ lesson-3.3-nginx-reverse-proxy/
 └── README.md
 ```
 
-**মূল কৌশল** যেটা Round Robin কে চোখে দেখায়: প্রতিটা backend environment variable থেকে একটা নাম পায় আর response এ সেটা ফেরত দেয়, তাই দেখা যায় কোন instance তোমাকে serve করল।
+**মূল কৌশল** যেটা Round Robin কে চোখে দেখায়: প্রতিটা backend environment variable থেকে একটা নাম পায় আর response এ সেটা ফেরত দেয়, তাই দেখা যায় কোন instance আপনাকে serve করল।
 
 ```typescript
 // Docker Compose gives each instance a name via an environment variable,
@@ -166,19 +166,19 @@ upstream taskflow_backend {
 }
 ```
 
-**যাচাই করো (acceptance criteria):**
+**যাচাই করুন (acceptance criteria):**
 
 ```bash
 curl http://localhost:8080/api/tasks   # repeat several times
 ```
 
-Expected: `servedBy` ঘুরে ঘুরে আসবে — `backend-1`, `backend-2`, `backend-3`, `backend-1`, ... এটাই Round Robin এর প্রমাণ। আরও লক্ষ্য করো — তুমি কখনোই সরাসরি backend1/2/3 এর সাথে কথা বলছ না (তাদের কোনো port ই host এ expose করা হয়নি) — শুধু Nginx এর port 8080 এর সাথে। এটাই Reverse Proxy এর মূল কথা: backend topology client থেকে সম্পূর্ণ লুকানো।
+Expected: `servedBy` ঘুরে ঘুরে আসবে — `backend-1`, `backend-2`, `backend-3`, `backend-1`, ... এটাই Round Robin এর প্রমাণ। আরও লক্ষ্য করুন — আপনি কখনোই সরাসরি backend1/2/3 এর সাথে কথা বলছেন না (তাদের কোনো port ই host এ expose করা হয়নি) — শুধু Nginx এর port 8080 এর সাথে। এটাই Reverse Proxy এর মূল কথা: backend topology client থেকে সম্পূর্ণ লুকানো।
 
-**তারপর নিজে ভেঙে দেখো (experiments):**
+**তারপর নিজে ভেঙে দেখুন (experiments):**
 
-1. `nginx.conf` এ `least_conn;` uncomment করে `docker compose restart nginx` করো। তারপর একটা backend এ ইচ্ছাকৃতভাবে delay যোগ করে (`setTimeout` সহ নতুন endpoint বানিয়ে) দেখো distribution কীভাবে বদলায়।
-2. `ip_hash;` uncomment করে দেখো — বারবার call করলে কি সবসময় একই backend এ যাচ্ছে? (তোমার নিজের IP থেকে সব request আসছে বলে।)
-3. একটা backend container বন্ধ করে দাও (`docker compose stop backend2`), তারপর কয়েকবার curl করো — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা দেখবে: plain open-source Nginx by default **active health check** করে না। এটাই Lesson 3.4 এর বিষয়।
+1. `nginx.conf` এ `least_conn;` uncomment করে `docker compose restart nginx` করুন। তারপর একটা backend এ ইচ্ছাকৃতভাবে delay যোগ করে (`setTimeout` সহ নতুন endpoint বানিয়ে) দেখুন distribution কীভাবে বদলায়।
+2. `ip_hash;` uncomment করে দেখুন — বারবার call করলে কি সবসময় একই backend এ যাচ্ছে? (আপনার নিজের IP থেকে সব request আসছে বলে।)
+3. একটা backend container বন্ধ করে দিন (`docker compose stop backend2`), তারপর কয়েকবার curl করুন — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা দেখবেন: plain open-source Nginx by default **active health check** করে না। এটাই Lesson 3.4 এর বিষয়।
 
 ---
 
@@ -207,4 +207,4 @@ Next: 3.4 — Health Check, Failover, Sticky Session, Graceful Shutdown
 
 ## ৮. পরের ধাপ
 
-Docker Compose টা নিজের মেশিনে চালিয়ে দেখো, বিশেষ করে experiment #৩ (backend বন্ধ করলে কী হয়) — এটা পরের lesson এর জন্য একটা perfect setup। রেডি হলে `next` লিখো — Lesson 3.4, Health Check, Failover, Sticky Session, Graceful Shutdown — এখানে ঠিক সেই সমস্যাটার সমাধান আসবে যেটা experiment #৩ এ তুমি দেখবে।
+Docker Compose টা নিজের মেশিনে চালিয়ে দেখুন, বিশেষ করে experiment #৩ (backend বন্ধ করলে কী হয়) — এটা পরের lesson এর জন্য একটা perfect setup। রেডি হলে `next` লিখুন — Lesson 3.4, Health Check, Failover, Sticky Session, Graceful Shutdown — এখানে ঠিক সেই সমস্যাটার সমাধান আসবে যেটা experiment #৩ এ আপনি দেখবেন।

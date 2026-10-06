@@ -2,15 +2,15 @@
 
 **Module 5 — Database Design & Scaling**
 
-> **Spaced Repetition (Lesson 1.3):** প্রতিদিন ২০ লাখ নতুন row, প্রতিটা ~৫০০ byte — এক বছরে মোটামুটি কত storage লাগবে? মাথায় মাথায় হিসাব করো, তারপর ধাপগুলো লেখো।
+> **Spaced Repetition (Lesson 1.3):** প্রতিদিন ২০ লাখ নতুন row, প্রতিটা ~৫০০ byte — এক বছরে মোটামুটি কত storage লাগবে? মাথায় মাথায় হিসাব করুন, তারপর ধাপগুলো লিখুন।
 
 **Prerequisite:** Lesson 1.6 (Vertical vs Horizontal), Lesson 5.4 (Index), Lesson 5.5 (Transaction), Lesson 5.7 (Replication)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Partitioning আর sharding এর পার্থক্য বলতে পারবে, আর Postgres partitioning কখন সত্যিই কাজে আসে (আর কখন আসে না) — মাপা সংখ্যা দিয়ে
-2. একটা system এর জন্য shard key বেছে নিতে পারবে, আর hot partition কীভাবে জন্মায় আর কীভাবে এড়াতে হয় বলতে পারবে
-3. Sharding এর পরে কী কী ভাঙে — cross-shard query, transaction, unique ID, resharding — বুঝবে, আর "এখনই কি shard করা দরকার?" প্রশ্নের উত্তর সংখ্যা দিয়ে দিতে পারবে
+1. Partitioning আর sharding এর পার্থক্য বলতে পারবেন, আর Postgres partitioning কখন সত্যিই কাজে আসে (আর কখন আসে না) — মাপা সংখ্যা দিয়ে
+2. একটা system এর জন্য shard key বেছে নিতে পারবেন, আর hot partition কীভাবে জন্মায় আর কীভাবে এড়াতে হয় বলতে পারবেন
+3. Sharding এর পরে কী কী ভাঙে — cross-shard query, transaction, unique ID, resharding — বুঝবেন, আর "এখনই কি shard করা দরকার?" প্রশ্নের উত্তর সংখ্যা দিয়ে দিতে পারবেন
 
 **Tier:** 1 — Runnable Code (Docker এ ৩টা Postgres)
 
@@ -24,7 +24,7 @@ TaskFlow আর ছোট নেই। এক বছরে ২০ লাখ dail
 - **আকার:** সবচেয়ে বড় table `activity_log` — প্রতিদিন কয়েক কোটি event। Disk ভরে আসছে, আর এক বছরের বেশি পুরনো event মুছে ফেলার রাতের job এখন কয়েক ঘণ্টা চলে আর database কে ধীর করে দেয়।
 - **সবচেয়ে বড় customer:** একটা enterprise company একাই TaskFlow এর সব task এর ৪০% তৈরি করে।
 
-Lesson 1.6 এ শিখেছিলে: একটা machine কে বড় করার (vertical scaling) একটা সীমা আছে। Replica read ভাগ করে; write আর storage ভাগ করতে হলে **data টাকেই ভাগ করতে হবে**। আজকের lesson সেটা নিয়ে — আর ভাগ করলে কী কী সুবিধা হারায়, সেটা নিয়েও। কারণ sharding হলো system design এর সবচেয়ে দামি সিদ্ধান্তগুলোর একটা, আর একবার করলে ফেরা খুব কঠিন।
+Lesson 1.6 এ শিখেছিলেন: একটা machine কে বড় করার (vertical scaling) একটা সীমা আছে। Replica read ভাগ করে; write আর storage ভাগ করতে হলে **data টাকেই ভাগ করতে হবে**। আজকের lesson সেটা নিয়ে — আর ভাগ করলে কী কী সুবিধা হারায়, সেটা নিয়েও। কারণ sharding হলো system design এর সবচেয়ে দামি সিদ্ধান্তগুলোর একটা, আর একবার করলে ফেরা খুব কঠিন।
 
 ---
 
@@ -39,7 +39,7 @@ Lesson 1.6 এ শিখেছিলে: একটা machine কে বড় �
 
 মানে sharding হলো machine জুড়ে partitioning। একটা একই machine এর সীমার ভেতরে থাকে (storage সামলানো সহজ হয়, কিন্তু CPU আর disk একটাই); আরেকটা সীমা ভাঙে (write আর storage সত্যিই কয়েক machine এ ভাগ হয়) — কিন্তু বিশাল দাম দিয়ে।
 
-**আগে জিজ্ঞেস করো — shard কি এখনই লাগবে?** Sharding এর জটিলতা এত বেশি যে এর আগে সাধারণত এগুলো চেষ্টা করা হয়:
+**আগে জিজ্ঞেস করুন — shard কি এখনই লাগবে?** Sharding এর জটিলতা এত বেশি যে এর আগে সাধারণত এগুলো চেষ্টা করা হয়:
 
 1. **Vertical scaling** — বড় machine। আজকের cloud এ একটা database server এ শতাধিক core আর কয়েক TB memory পাওয়া যায়।
 2. **Read replica আর cache** (Lesson 5.7, Module 4) — read এর চাপ সরাতে
@@ -90,7 +90,7 @@ plain table: DELETE (103,334 rows)         99 ms   WAL   11.5 MB   table size 14
 partitioned: DETACH + DROP partition        8 ms   WAL    0.1 MB   (the whole file is gone)
 ```
 
-`DELETE` প্রতিটা row আলাদা করে "মৃত" চিহ্নিত করে, প্রতিটার জন্য WAL লেখে (Lesson 5.3), আর — লক্ষ করো — table এর আকার **এক byte ও কমেনি**। মৃত row এর জায়গা VACUUM পরে আবার ব্যবহারযোগ্য করে, কিন্তু disk এর জায়গা operating system কে ফেরত দেয় না। অন্যদিকে একটা partition `DROP` করা মানে তার file টাই মুছে ফেলা — প্রায় কোনো WAL নেই, সাথে সাথে disk খালি। TaskFlow এর রাতের কয়েক ঘণ্টার cleanup job এর উত্তর এটাই।
+`DELETE` প্রতিটা row আলাদা করে "মৃত" চিহ্নিত করে, প্রতিটার জন্য WAL লেখে (Lesson 5.3), আর — লক্ষ করুন — table এর আকার **এক byte ও কমেনি**। মৃত row এর জায়গা VACUUM পরে আবার ব্যবহারযোগ্য করে, কিন্তু disk এর জায়গা operating system কে ফেরত দেয় না। অন্যদিকে একটা partition `DROP` করা মানে তার file টাই মুছে ফেলা — প্রায় কোনো WAL নেই, সাথে সাথে disk খালি। TaskFlow এর রাতের কয়েক ঘণ্টার cleanup job এর উত্তর এটাই।
 
 **Partitioning কখন:** time-series data (log, event, metric) যেটা সময় দিয়ে query আর সময় দিয়ে মোছা হয়। **কখন না:** শুধু "table বড়" বলে — index ঠিক থাকলে বড় table ও দ্রুত, আর partition key ছাড়া query গুলো ধীর হয়ে যাবে।
 
@@ -131,7 +131,7 @@ export function moduloShard(key: string, shardCount: number): number {
 }
 ```
 
-দুটো জিনিস এখানে জরুরি। প্রথমত, hash টা **stable** হতে হবে — একই key সবসময় একই shard, যেকোনো app instance এ, যেকোনো দিন। দ্বিতীয়ত — আর এটা exercise বানাতে গিয়েই ধরা পড়েছে — hash টা **ভালোভাবে মেশানো** হতে হবে। প্রথমে শুধু FNV-1a ব্যবহার করেছিলাম; প্রায়-একই রকম key গুলোতে সেটা এত অসমভাবে ভাগ করছিল যে একটা shard ৪৭% key পাচ্ছিল, আরেকটা ১২%। শেষে একটা mixing ধাপ (`fmix32`, MurmurHash3 থেকে) যোগ করতে হয়েছে। Production এ নিজে hash বানিও না — MurmurHash3, xxHash এর মতো পরীক্ষিত কিছু ব্যবহার করো।
+দুটো জিনিস এখানে জরুরি। প্রথমত, hash টা **stable** হতে হবে — একই key সবসময় একই shard, যেকোনো app instance এ, যেকোনো দিন। দ্বিতীয়ত — আর এটা exercise বানাতে গিয়েই ধরা পড়েছে — hash টা **ভালোভাবে মেশানো** হতে হবে। প্রথমে শুধু FNV-1a ব্যবহার করেছিলাম; প্রায়-একই রকম key গুলোতে সেটা এত অসমভাবে ভাগ করছিল যে একটা shard ৪৭% key পাচ্ছিল, আরেকটা ১২%। শেষে একটা mixing ধাপ (`fmix32`, MurmurHash3 থেকে) যোগ করতে হয়েছে। Production এ নিজে hash বানাবেন না — MurmurHash3, xxHash এর মতো পরীক্ষিত কিছু ব্যবহার করুন।
 
 Exercise এর `npm run shard` — ৩০০টা workspace, ৩ লাখ task, ৩টা shard। একটা workspace এর ভেতরের query শুধু তার shard এ যায়:
 
@@ -163,7 +163,7 @@ hash(workspaceId, projectId)    17%  33%  25%  25%                   33%        
 - **`hash(workspaceId)`** — workspace এর সব query আর transaction এক shard এ (নিয়ম ৩ আর ৪ ✓)। কিন্তু বড় customer এর shard ৫৫% write খায় (নিয়ম ২ ✗)।
 - **`hash(taskId)`** — নিখুঁত সমান ভাগ। কিন্তু একটা workspace এর task গুলো ৪টা shard এই ছড়ানো — "এই workspace এর সব খোলা task" এর মতো প্রতিটা সাধারণ query এখন সব shard এ যায় (নিয়ম ৩ ✗)।
 - **`range(createdAt)`** — সবচেয়ে খারাপ: আজকের **সব** write শেষ shard এ; বাকি তিনটা বসে থাকে। Time-based range key এর ক্লাসিক ফাঁদ — auto-increment id দিয়ে range sharding এও ঠিক একই হয়।
-- **`hash(workspaceId, projectId)`** — একটা মাঝামাঝি: বড় workspace ৪টা shard এ ছড়াল, project এর ভেতরের query এখনো এক shard এ। কিন্তু লক্ষ করো ভাগটা পুরো সমান হয়নি (৩৩%) — বড় workspace এ মাত্র ২০টা project, ২০টা টুকরো ৪টা shard এ সমানভাবে পড়ে না। Key এর মান যত বেশি, ভাগ তত মসৃণ (নিয়ম ১)।
+- **`hash(workspaceId, projectId)`** — একটা মাঝামাঝি: বড় workspace ৪টা shard এ ছড়াল, project এর ভেতরের query এখনো এক shard এ। কিন্তু লক্ষ করুন ভাগটা পুরো সমান হয়নি (৩৩%) — বড় workspace এ মাত্র ২০টা project, ২০টা টুকরো ৪টা shard এ সমানভাবে পড়ে না। Key এর মান যত বেশি, ভাগ তত মসৃণ (নিয়ম ১)।
 
 **নিখুঁত key নেই।** TaskFlow এর জন্য `workspaceId` ভালো শুরু — কারণ প্রায় সব কাজ একটা workspace এর ভেতরে, আর একটা workspace এর data একসাথে থাকলে JOIN আর transaction আগের মতো চলে। SaaS product এ এটাকে বলে **tenant দিয়ে sharding** — সবচেয়ে প্রচলিত pattern। সমস্যা শুধু বড় customer (পরের section)।
 
@@ -200,7 +200,7 @@ Sharding এর আসল দাম এখানে। Lesson 5.1 এ relational
   shard0: 11.0 ms, shard1: 4.8 ms, shard2: 4.6 ms — the total equals the slowest one
 ```
 
-মোট সময় সবচেয়ে ধীর shard এর সমান — আর সবচেয়ে ধীর টা হলো সেই hot shard0। Shard যত বেশি, কোনো একটা ধীর হওয়ার সম্ভাবনা তত বেশি (Lesson 1.5 এর tail latency এর কথা মনে করো)। আর প্রতিটা এমন query সব shard কে কাজ করায় — ১০টা shard মানে ১০ গুণ database এর কাজ। তাই "সব workspace জুড়ে" ধরনের report সাধারণত sharded database এ চালানো হয় না — data একটা আলাদা analytics store এ পাঠানো হয় (Lesson 7.6 এর OLAP)।
+মোট সময় সবচেয়ে ধীর shard এর সমান — আর সবচেয়ে ধীর টা হলো সেই hot shard0। Shard যত বেশি, কোনো একটা ধীর হওয়ার সম্ভাবনা তত বেশি (Lesson 1.5 এর tail latency এর কথা মনে করুন)। আর প্রতিটা এমন query সব shard কে কাজ করায় — ১০টা shard মানে ১০ গুণ database এর কাজ। তাই "সব workspace জুড়ে" ধরনের report সাধারণত sharded database এ চালানো হয় না — data একটা আলাদা analytics store এ পাঠানো হয় (Lesson 7.6 এর OLAP)।
 
 **২. Shard পেরোনো JOIN** — database করতে পারে না; app কে প্রতিটা shard থেকে এনে নিজে জোড়া লাগাতে হয় (Lesson 5.6 এর batching, এবার কয়েক database জুড়ে)।
 
@@ -213,7 +213,7 @@ step 2: the app crashed before deleting it from shard0 ✗
 → project 8 is now on shard0 (1) and on shard2 (1) — in both places! No single transaction could prevent it
 ```
 
-দুটো আলাদা database, দুটো আলাদা COMMIT — Lesson 5.5 এর atomicity এখানে নেই। এর সমাধান (Saga pattern, two-phase commit) Lesson 9.3 এর পুরো বিষয়। আপাতত নিয়মটা: **shard key এমনভাবে বাছো যাতে এমন কাজ বিরল হয়।**
+দুটো আলাদা database, দুটো আলাদা COMMIT — Lesson 5.5 এর atomicity এখানে নেই। এর সমাধান (Saga pattern, two-phase commit) Lesson 9.3 এর পুরো বিষয়। আপাতত নিয়মটা: **shard key এমনভাবে বাছুন যাতে এমন কাজ বিরল হয়।**
 
 **৪. Unique ID।** প্রতিটা shard এর নিজের `serial`/auto-increment থাকলে দুটো shard এ একই id তৈরি হবে — "task 1001" দুটো আলাদা task। তাই sharded system এ id সাধারণত database এর বাইরে তৈরি হয় — UUID, অথবা সময় + machine + ক্রম মিলিয়ে বানানো id (Twitter এর Snowflake এই ধারণার বিখ্যাত উদাহরণ), যেটা shard জুড়ে unique আর মোটামুটি সময়ের ক্রমে সাজানো।
 
@@ -234,11 +234,11 @@ ideal (only the new shard's share = 1/4)    25.0%
 
 **Resharding** — shard এর সংখ্যা বা তাদের মধ্যে data এর ভাগ বদলানো, আর সেই অনুযায়ী data এক shard থেকে আরেকটায় সরানো।
 
-`hash % N` এ একটা shard যোগ করলে প্রায় **তিন-চতুর্থাংশ** data কে জায়গা বদলাতে হয় — কারণ প্রায় প্রতিটা key এর ভাগশেষ বদলে যায়। আদর্শভাবে শুধু নতুন shard এর ভাগটুকু (২৫%) সরা উচিত। **Consistent hashing** ঠিক এটাই করে — key আর shard দুটোকেই একটা বৃত্তের উপর বসিয়ে, যাতে নতুন shard শুধু তার পাশের অংশটুকু নেয়। এটা কীভাবে কাজ করে, virtual node কেন লাগে — সেটা Lesson 10.1 এর পুরো deep dive; আজকের জন্য শুধু সংখ্যাটা মনে রাখো: ৭৫% বনাম ~২৫%।
+`hash % N` এ একটা shard যোগ করলে প্রায় **তিন-চতুর্থাংশ** data কে জায়গা বদলাতে হয় — কারণ প্রায় প্রতিটা key এর ভাগশেষ বদলে যায়। আদর্শভাবে শুধু নতুন shard এর ভাগটুকু (২৫%) সরা উচিত। **Consistent hashing** ঠিক এটাই করে — key আর shard দুটোকেই একটা বৃত্তের উপর বসিয়ে, যাতে নতুন shard শুধু তার পাশের অংশটুকু নেয়। এটা কীভাবে কাজ করে, virtual node কেন লাগে — সেটা Lesson 10.1 এর পুরো deep dive; আজকের জন্য শুধু সংখ্যাটা মনে রাখুন: ৭৫% বনাম ~২৫%।
 
 আর একটা বিকল্প যেটা বাস্তবে খুব প্রচলিত: **শুরু থেকেই অনেক বেশি logical shard** (যেমন ১০২৪টা), যেগুলো অল্প কয়েকটা physical server এ রাখা। Machine বাড়ালে কয়েকটা logical shard পুরোটা নতুন machine এ সরে যায় — কোনো key এর shard বদলায় না।
 
-Data সরানোর কাজটা নিজেও কঠিন — চালু system এ, কোনো downtime ছাড়া: নতুন জায়গায় কপি করা, সরানোর সময় দুই জায়গাতেই লেখা, মিলিয়ে দেখা, তারপর read সরানো। এই কারণেই অনেক team নিজে sharding বানায় না — Postgres এর জন্য Citus, MySQL এর জন্য Vitess এর মতো tool, অথবা শুরু থেকেই distributed database (Lesson 5.1 এর CockroachDB, YugabyteDB, DynamoDB) — যারা ভাগ আর সরানো নিজেরাই সামলায়। তবে shard key বাছার দায়িত্ব তখনো তোমার।
+Data সরানোর কাজটা নিজেও কঠিন — চালু system এ, কোনো downtime ছাড়া: নতুন জায়গায় কপি করা, সরানোর সময় দুই জায়গাতেই লেখা, মিলিয়ে দেখা, তারপর read সরানো। এই কারণেই অনেক team নিজে sharding বানায় না — Postgres এর জন্য Citus, MySQL এর জন্য Vitess এর মতো tool, অথবা শুরু থেকেই distributed database (Lesson 5.1 এর CockroachDB, YugabyteDB, DynamoDB) — যারা ভাগ আর সরানো নিজেরাই সামলায়। তবে shard key বাছার দায়িত্ব তখনো আপনার।
 
 > **Trade-off Table — Routing এর ধরন**
 
@@ -247,13 +247,13 @@ Data সরানোর কাজটা নিজেও কঠিন — চা�
 | Hash % N           | সমান (ভালো hash হলে)     | সব shard এ         | ~(N−1)/N data সরে          | Key এর ওজন জানে না — বড় tenant গরম       |
 | Consistent hashing | সমান (virtual node সহ)   | সব shard এ         | শুধু নতুন shard এর ভাগ সরে | বোঝা আর ঠিকমতো বানানো জটিল (10.1)         |
 | Range              | Data এর ধরনের উপর নির্ভর | এক বা অল্প shard এ | একটা range ভাগ করা         | নতুন data শেষ shard এ — hot               |
-| Directory          | যেমন ঠিক করো             | নির্ভর করে         | Lookup বদলাও, data সরাও    | Lookup table নিজেই নির্ভরতা আর bottleneck |
+| Directory          | যেমন ঠিক করুন            | নির্ভর করে         | Lookup বদলান, data সরান    | Lookup table নিজেই নির্ভরতা আর bottleneck |
 
 ---
 
 ## ২. Interview Angle
 
-**"এই system টা কীভাবে scale করবে?"** — sharding প্রায়ই আসে, কিন্তু দুর্বল উত্তর হলো সাথে সাথে "database shard করব"। ভালো উত্তর আগে সংখ্যা দেয় (Lesson 1.3): "peak এ কত write/s, কত TB data — একটা machine এ আঁটে কি?" প্রায়ই উত্তর "হ্যাঁ, অনেক দিন পর্যন্ত", আর এটা বলতে পারাটাই senior লক্ষণ।
+**"এই system টা কীভাবে scale করবেন?"** — sharding প্রায়ই আসে, কিন্তু দুর্বল উত্তর হলো সাথে সাথে "database shard করব"। ভালো উত্তর আগে সংখ্যা দেয় (Lesson 1.3): "peak এ কত write/s, কত TB data — একটা machine এ আঁটে কি?" প্রায়ই উত্তর "হ্যাঁ, অনেক দিন পর্যন্ত", আর এটা বলতে পারাটাই senior লক্ষণ।
 
 **Shard করতেই হলে, interviewer এর follow-up গুলো প্রায় নিশ্চিত:**
 
@@ -261,8 +261,8 @@ Data সরানোর কাজটা নিজেও কঠিন — চা�
 - _"একজন celebrity / একটা বড় customer এর কী হবে?"_ — hot partition, আর প্রতিকার (আলাদা shard, salting)
 - _"আরও shard লাগলে?"_ — `hash % N` এর সমস্যা, consistent hashing বা অনেক logical shard
 - _"সব user জুড়ে একটা report চাই?"_ — scatter-gather এর দাম, আর analytics এর জন্য আলাদা store
-- _"দুই shard জুড়ে transaction?"_ — এড়াও (key দিয়ে), না পারলে Saga (Lesson 9.3)
-- _"ID কীভাবে বানাবে?"_ — UUID বা Snowflake-ধরনের id; auto-increment না
+- _"দুই shard জুড়ে transaction?"_ — এড়ান (key দিয়ে), না পারলে Saga (Lesson 9.3)
+- _"ID কীভাবে বানাবেন?"_ — UUID বা Snowflake-ধরনের id; auto-increment না
 
 **Production এ বাস্তবে:** বড় বড় কোম্পানির engineering blog এ sharding migration এর গল্প প্রায়ই মাসের পর মাসের project হিসেবে লেখা হয় — এটা একটা দামি, ঝুঁকিপূর্ণ কাজ। তাই সিদ্ধান্তটা যত দেরিতে সম্ভব নেওয়া হয়, আর নেওয়া হলে shard key নিয়ে সবচেয়ে বেশি সময় দেওয়া হয়।
 
@@ -296,11 +296,11 @@ Data সরানোর কাজটা নিজেও কঠিন — চা�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. একটা chat app (WhatsApp ধরনের) এর message table shard করতে হবে। দুটো প্রস্তাব: `userId` (যে পাঠিয়েছে) অথবা `conversationId`। প্রতিটায় "একটা conversation এর সর্বশেষ ৫০টা message দেখাও" query কেমন চলবে? কোনটা বাছবে, আর একটা ১০ লাখ member এর group এর কী হবে?
-2. TaskFlow ৪টা shard এ, প্রতিটার নিজের Postgres `serial` id। একজন developer বলল, "id এর সংঘাত এড়াতে shard0 odd id, shard1 even id দিক — সহজ সমাধান।" এতে সমস্যা কী? তুমি কী প্রস্তাব করবে?
-3. TaskFlow এর CTO বললেন: "আমরা এখন ৩০০ write/s এ, database ২০০ GB। Scale এর জন্য প্রস্তুত থাকতে এখনই ১৬টা shard এ ভাগ করে ফেলি।" তুমি কী বলবে? সংখ্যা দিয়ে যুক্তি দাও, আর বলো কোন অবস্থায় তুমি sharding এর পরিকল্পনা শুরু করতে বলবে।
+1. একটা chat app (WhatsApp ধরনের) এর message table shard করতে হবে। দুটো প্রস্তাব: `userId` (যে পাঠিয়েছে) অথবা `conversationId`। প্রতিটায় "একটা conversation এর সর্বশেষ ৫০টা message দেখান" query কেমন চলবে? কোনটা বাছবেন, আর একটা ১০ লাখ member এর group এর কী হবে?
+2. TaskFlow ৪টা shard এ, প্রতিটার নিজের Postgres `serial` id। একজন developer বলল, "id এর সংঘাত এড়াতে shard0 odd id, shard1 even id দিক — সহজ সমাধান।" এতে সমস্যা কী? আপনি কী প্রস্তাব করবেন?
+3. TaskFlow এর CTO বললেন: "আমরা এখন ৩০০ write/s এ, database ২০০ GB। Scale এর জন্য প্রস্তুত থাকতে এখনই ১৬টা shard এ ভাগ করে ফেলি।" আপনি কী বলবেন? সংখ্যা দিয়ে যুক্তি দিন, আর বলুন কোন অবস্থায় আপনি sharding এর পরিকল্পনা শুরু করতে বলবেন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -309,7 +309,7 @@ Data সরানোর কাজটা নিজেও কঠিন — চা�
 
 **প্রশ্ন ২:** Odd/even শুধু ২টা shard এর জন্য কাজ করে। ৪টা shard এ? `id % 4` দিয়ে offset — সম্ভব, কিন্তু shard সংখ্যা বদলালে (১.৭) পুরো নিয়ম ভেঙে যায়, আর পুরনো id গুলোর অর্থ বদলে যায়। আর id দেখে shard বোঝা গেলেও, id এর সাথে shard key (workspace) এর কোনো সম্পর্ক নেই — বিভ্রান্তিকর। ভালো সমাধান: database এর বাইরে id তৈরি — UUID (সরল, কোনো সমন্বয় লাগে না; দাম: বড়, আর random UUID B-tree index এ এলোমেলো জায়গায় বসে — Lesson 5.3 — তাই সময়-ক্রমের UUIDv7 ভালো), অথবা Snowflake-ধরনের ৬৪-bit id (সময় + machine id + ক্রম — ছোট, মোটামুটি সময়ের ক্রমে)।
 
-**প্রশ্ন ৩:** সংখ্যা: ৩০০ write/s আর ২০০ GB — একটা সাধারণ Postgres server এর জন্য আরামদায়ক এলাকা (Lesson 5.1 এর estimation এর মতো)। এখন ১৬টা shard মানে: প্রতিটা feature এ shard key এর কথা ভাবা, কোনো cross-workspace report এ scatter-gather, cross-shard transaction নিষেধ, ১৬টা database এর migration, backup, monitoring — আর সবচেয়ে বড় কথা, আজকের অনুমানে বাছা shard key হয়তো দুই বছর পরের access pattern এর সাথে মিলবে না, আর তখন বদলানো আরও কঠিন। কী বলবে: এখন সরল রাখো, কিন্তু **প্রস্তুত** থাকো — সব table এ `workspaceId` রাখো, workspace পেরোনো JOIN আর transaction এড়াও, id database এর বাইরে বানাও (যাতে পরে shard করা সহজ হয়)। পরিকল্পনা শুরু করার সংকেত: write এর হার বড় machine এর মাপা সীমার একটা বড় অংশে পৌঁছানো (ধরো ৫০–৬০%, আর বৃদ্ধির হার দিয়ে হিসাব করে সীমা কবে ছোঁবে), storage এর বৃদ্ধি একটা machine এর disk ছাড়ানোর পথে, অথবা একটা নির্দিষ্ট table (activity log) বাকি সবার চেয়ে অনেক দ্রুত বাড়ছে — তখন প্রথমে সেটাকে আলাদা করো।
+**প্রশ্ন ৩:** সংখ্যা: ৩০০ write/s আর ২০০ GB — একটা সাধারণ Postgres server এর জন্য আরামদায়ক এলাকা (Lesson 5.1 এর estimation এর মতো)। এখন ১৬টা shard মানে: প্রতিটা feature এ shard key এর কথা ভাবা, কোনো cross-workspace report এ scatter-gather, cross-shard transaction নিষেধ, ১৬টা database এর migration, backup, monitoring — আর সবচেয়ে বড় কথা, আজকের অনুমানে বাছা shard key হয়তো দুই বছর পরের access pattern এর সাথে মিলবে না, আর তখন বদলানো আরও কঠিন। কী বলবেন: এখন সরল রাখুন, কিন্তু **প্রস্তুত** থাকুন — সব table এ `workspaceId` রাখুন, workspace পেরোনো JOIN আর transaction এড়ান, id database এর বাইরে বানান (যাতে পরে shard করা সহজ হয়)। পরিকল্পনা শুরু করার সংকেত: write এর হার বড় machine এর মাপা সীমার একটা বড় অংশে পৌঁছানো (ধরুন ৫০–৬০%, আর বৃদ্ধির হার দিয়ে হিসাব করে সীমা কবে ছোঁবে), storage এর বৃদ্ধি একটা machine এর disk ছাড়ানোর পথে, অথবা একটা নির্দিষ্ট table (activity log) বাকি সবার চেয়ে অনেক দ্রুত বাড়ছে — তখন প্রথমে সেটাকে আলাদা করুন।
 
 </details>
 
@@ -323,17 +323,17 @@ Data সরানোর কাজটা নিজেও কঠিন — চা�
 
 তিনটা আলাদা Postgres, প্রতিটা একটা shard। `partition` একটা database এর ভেতরে মাস অনুযায়ী partitioning মাপে; `shard` `workspaceId` দিয়ে আসল routing, scatter-gather আর shard পেরোনো কাজ দেখায়; `keys` database ছাড়া (deterministic) shard key আর resharding এর হিসাব করে। Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `partition` দুবার, `shard` আর `keys` তিনবার — shard এর ভাগ আর `keys` এর সংখ্যা প্রতিবার হুবহু এক।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. তিনটা script চালাও। `partition` এ তোমার মেশিনে কোন query তে partitioned table **ধীর** হলো, আর কেন? এক লাইনে লেখো partitioning কখন ব্যবহার করবে।
+1. তিনটা script চালান। `partition` এ আপনার মেশিনে কোন query তে partitioned table **ধীর** হলো, আর কেন? এক লাইনে লিখুন partitioning কখন ব্যবহার করবেন।
 
-2. **বড় customer কে আলাদা করো** (README experiment ২): workspace 7 কে shard0 তে, বাকিদের shard1 আর shard2 তে। Task এর ভাগ কেমন হলো? এই routing বজায় রাখতে কী কী নতুন দায়িত্ব যোগ হলো?
+2. **বড় customer কে আলাদা করুন** (README experiment ২): workspace 7 কে shard0 তে, বাকিদের shard1 আর shard2 তে। Task এর ভাগ কেমন হলো? এই routing বজায় রাখতে কী কী নতুন দায়িত্ব যোগ হলো?
 
-3. **Composite key এর সূক্ষ্মতা** (experiment ৩): project সংখ্যা ২০ থেকে ২০০। "সবচেয়ে ব্যস্ত" কলাম কী হলো? Shard key এর "অনেক আলাদা মান" নিয়মটা এর সাথে মিলিয়ে ব্যাখ্যা করো।
+3. **Composite key এর সূক্ষ্মতা** (experiment ৩): project সংখ্যা ২০ থেকে ২০০। "সবচেয়ে ব্যস্ত" কলাম কী হলো? Shard key এর "অনেক আলাদা মান" নিয়মটা এর সাথে মিলিয়ে ব্যাখ্যা করুন।
 
-4. **Virtual node কমাও** (experiment ৪): ২০০ থেকে ১। কত % সরল, আর প্রতিটা shard এর ভাগ কেমন? Lesson 10.1 এর জন্য একটা প্রশ্ন লিখে রাখো যেটা তুমি জানতে চাও।
+4. **Virtual node কমান** (experiment ৪): ২০০ থেকে ১। কত % সরল, আর প্রতিটা shard এর ভাগ কেমন? Lesson 10.1 এর জন্য একটা প্রশ্ন লিখে রাখুন যেটা আপনি জানতে চান।
 
-5. **Design অংশ:** TaskFlow এর তিনটা বড় table — `tasks`, `activity_log`, `notifications` (প্রতিটা user এর জন্য, ৩০ দিন রাখা হয়)। প্রতিটার জন্য বলো: partition, shard, দুটোই, নাকি কিছুই না — আর partition বা shard key কী, কারণ সহ। Workspace পেরোনো কোন কোন feature তোমার সিদ্ধান্তে কঠিন হয়ে যাবে, আর সেগুলো কীভাবে সামলাবে?
+5. **Design অংশ:** TaskFlow এর তিনটা বড় table — `tasks`, `activity_log`, `notifications` (প্রতিটা user এর জন্য, ৩০ দিন রাখা হয়)। প্রতিটার জন্য বলুন: partition, shard, দুটোই, নাকি কিছুই না — আর partition বা shard key কী, কারণ সহ। Workspace পেরোনো কোন কোন feature আপনার সিদ্ধান্তে কঠিন হয়ে যাবে, আর সেগুলো কীভাবে সামলাবেন?
 
 ---
 
@@ -359,7 +359,7 @@ N+1 Query, Eager Loading, Cartesian Explosion, Leader-Follower Replication,
 Replication Lag, Read-Your-Writes Consistency, Synchronous Replication,
 Failover, RPO/RTO, Multi-Leader Replication, Partitioning, Sharding,
 Shard Key, Partition Pruning, Hot Partition, Scatter-Gather, Resharding
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 5.9 — CAP Theorem, ACID vs BASE, Quorum (R+W>N)
 =======================
 ```
@@ -368,4 +368,4 @@ Next: 5.9 — CAP Theorem, ACID vs BASE, Quorum (R+W>N)
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ৫ নম্বরের তিনটা table এর সিদ্ধান্ত। রেডি হলে `next` লিখো — Lesson 5.9 এ যাব, Module 5 এর শেষ lesson: **CAP Theorem, ACID vs BASE, আর Quorum** — replica আর shard মিলে এখন TaskFlow এর data কয়েকটা machine এ। Network ভাঙলে (আর ভাঙবেই) system কে একটা বেছে নিতে হয়: সবাইকে সঠিক উত্তর দেবে, নাকি সবাইকে উত্তর দেবে? CAP আসলে কী বলে (আর কী বলে না — এটা নিয়ে ভুল ধারণা প্রচুর), leaderless database এ `R + W > N` কীভাবে consistency আনে, আর TaskFlow এর কোন অংশ কোন দিকে যাবে।
+Exercise চালিয়ে পাঠান — বিশেষ করে ৫ নম্বরের তিনটা table এর সিদ্ধান্ত। রেডি হলে `next` লিখুন — Lesson 5.9 এ যাব, Module 5 এর শেষ lesson: **CAP Theorem, ACID vs BASE, আর Quorum** — replica আর shard মিলে এখন TaskFlow এর data কয়েকটা machine এ। Network ভাঙলে (আর ভাঙবেই) system কে একটা বেছে নিতে হয়: সবাইকে সঠিক উত্তর দেবে, নাকি সবাইকে উত্তর দেবে? CAP আসলে কী বলে (আর কী বলে না — এটা নিয়ে ভুল ধারণা প্রচুর), leaderless database এ `R + W > N` কীভাবে consistency আনে, আর TaskFlow এর কোন অংশ কোন দিকে যাবে।

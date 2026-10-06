@@ -18,7 +18,7 @@ Docker এ একটা আসল PostgreSQL **streaming replication** cluster �
 Node.js 22+ এবং Docker (Docker Compose v2 সহ)। Port **5438** (primary) আর **5439** (replica) খালি থাকতে হবে।
 
 `failover` script নিজে `docker` command চালায় (`network disconnect`, `compose kill`) — তাই এই folder
-থেকেই চালাতে হবে, আর তোমার user এর Docker চালানোর অনুমতি থাকতে হবে।
+থেকেই চালাতে হবে, আর আপনার user এর Docker চালানোর অনুমতি থাকতে হবে।
 
 ## Setup
 
@@ -27,7 +27,7 @@ docker compose up -d --wait   # the primary starts, then the replica copies itse
 npm install
 ```
 
-Replication চলছে কিনা দেখো:
+Replication চলছে কিনা দেখুন:
 
 ```bash
 docker compose exec primary psql -U taskflow -c "SELECT application_name, state, sync_state FROM pg_stat_replication"
@@ -112,24 +112,24 @@ docker compose down -v && docker compose up -d --wait
 4. **Synchronous replication ও জাদু না।** Replica না থাকলে commit **চিরকাল আটকে থাকে**, আর app
    cancel করলেও transaction টা primary তে commit থেকে যায় — "timeout = rollback" না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Replica কে থামাও, sync write চালাও।** `docker compose stop replica`, তারপর:
+1. **Replica কে থামান, sync write চালান।** `docker compose stop replica`, তারপর:
    `docker compose exec primary psql -U taskflow -c "BEGIN; SET LOCAL synchronous_commit = remote_apply; CREATE TABLE IF NOT EXISTS x (id int); COMMIT;"`
-   কী হয়? (`Ctrl+C` দিয়ে থামাও, তারপর `docker compose start replica`।) এটাই synchronous replication এর
+   কী হয়? (`Ctrl+C` দিয়ে থামান, তারপর `docker compose start replica`।) এটাই synchronous replication এর
    availability এর দাম — একটা replica নেই মানে কোনো sync write নেই।
 
-2. **Replica থেকে লেখার চেষ্টা করো।** `docker compose exec replica psql -U taskflow -c "INSERT INTO tasks (title) VALUES ('x')"`
+2. **Replica থেকে লেখার চেষ্টা করুন।** `docker compose exec replica psql -U taskflow -c "INSERT INTO tasks (title) VALUES ('x')"`
    — কী error আসে? কেন replica read-only?
 
-3. **Lag এর সংখ্যা database থেকে পড়ো।** `npm run ryw` চলার সময় আরেকটা terminal এ:
+3. **Lag এর সংখ্যা database থেকে পড়ুন।** `npm run ryw` চলার সময় আরেকটা terminal এ:
    `docker compose exec primary psql -U taskflow -c "SELECT write_lag, flush_lag, replay_lag FROM pg_stat_replication"`
    তিনটা সংখ্যা আলাদা কেন? কোনটা ২০০ ms এর কাছাকাছি, আর কেন?
 
-4. **Split brain এর বীজ।** `npm run failover` এর পরে (reset করার **আগে**) পুরনো primary কে আবার চালু করো:
+4. **Split brain এর বীজ।** `npm run failover` এর পরে (reset করার **আগে**) পুরনো primary কে আবার চালু করুন:
    `docker compose start primary`। এখন দুটো database ই write নেয়। দুটোতে `SELECT kind, count(*) FROM events GROUP BY kind`
-   চালিয়ে তুলনা করো। App যদি ভুল করে পুরনোটায় লেখে, কী হবে? (এটাই Lesson 6.1 এর split brain।)
-   তারপর reset করো।
+   চালিয়ে তুলনা করুন। App যদি ভুল করে পুরনোটায় লেখে, কী হবে? (এটাই Lesson 6.1 এর split brain।)
+   তারপর reset করুন।
 
 ## Teardown
 

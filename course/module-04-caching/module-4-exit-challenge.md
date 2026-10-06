@@ -15,29 +15,29 @@ Module 4 এর ৬টা lesson শেষ — cache hierarchy, চারটা 
 > - PostgreSQL এ `pool: { max: 10 }` per instance
 > - `/share/{token}` এ `Cache-Control: public, max-age=300` দেওয়া আছে
 > - Shared list এর data আসে `tasks:project:{id}` cache key থেকে, TTL ৩০০s, সব key এর TTL ঠিক ৩০০
-> - Page এর উপরে একটা ছোট banner: _"তুমি login করা আছো — নিজের list দেখো"_ (login না থাকলে দেখায় না)
+> - Page এর উপরে একটা ছোট banner: _"আপনি login করা আছেন — নিজের list দেখুন"_ (login না থাকলে দেখায় না)
 >
 > **যা ঘটছে:** DB এর CPU প্রতি ৫ মিনিটে একবার ১০০% এ উঠছে, তারপর নেমে যাচ্ছে। Redis এর একটা মাত্র process এর CPU ৯৫%। Support এ দুইজন user অভিযোগ করেছেন যে তাঁরা **অন্য কারো নাম** banner এ দেখেছেন। আর গত রাতে হঠাৎ কিছু user হঠাৎ logout হয়ে গিয়েছিলেন।
 
-তোমার কাজ — নিচের প্রতিটা প্রশ্নে Module 4 (এবং প্রাসঙ্গিক জায়গায় Module 1-3) এর concept প্রয়োগ করে সিদ্ধান্ত নাও, reasoning সহ:
+আপনার কাজ — নিচের প্রতিটা প্রশ্নে Module 4 (এবং প্রাসঙ্গিক জায়গায় Module 1-3) এর concept প্রয়োগ করে সিদ্ধান্ত নিন, reasoning সহ:
 
 **১. প্রতি ৫ মিনিটের DB spike (Lesson 4.6)**
-CPU ঠিক ৫ মিনিট পরপর ১০০% এ উঠছে — এই ছন্দটাই সবচেয়ে বড় সূত্র। কোন ব্যর্থতা ঘটছে, আর তুমি কীভাবে নিশ্চিত হবে? প্রতিকার হিসেবে ঠিক কী কী করবে, আর কোনটা আগে (সবচেয়ে কম খরচে সবচেয়ে বেশি লাভ)?
+CPU ঠিক ৫ মিনিট পরপর ১০০% এ উঠছে — এই ছন্দটাই সবচেয়ে বড় সূত্র। কোন ব্যর্থতা ঘটছে, আর আপনি কীভাবে নিশ্চিত হবে? প্রতিকার হিসেবে ঠিক কী কী করবেন, আর কোনটা আগে (সবচেয়ে কম খরচে সবচেয়ে বেশি লাভ)?
 
 **২. Banner এ অন্য কারো নাম (Lesson 4.5)**
-এটা performance bug না — এটা কী, আর ঠিক কীভাবে ঘটল? `Cache-Control: public, max-age=300` আর ওই banner টা একসাথে থাকলে কেন এটা ঘটতেই হবে? দুটো আলাদা সমাধান দাও — একটা যেখানে banner থাকে, আরেকটা যেখানে থাকে না — আর বলো কোনটা তুমি বেছে নেবে, কেন।
+এটা performance bug না — এটা কী, আর ঠিক কীভাবে ঘটল? `Cache-Control: public, max-age=300` আর ওই banner টা একসাথে থাকলে কেন এটা ঘটতেই হবে? দুটো আলাদা সমাধান দিন — একটা যেখানে banner থাকে, আরেকটা যেখানে থাকে না — আর বলুন কোনটা আপনি বেছে নেবেন, কেন।
 
 **৩. Redis এর একটা process ৯৫% CPU (Lesson 4.6)**
-Redis এ node যোগ করলে কি এটা সমাধান হবে? কেন, বা কেন না? তোমার প্রস্তাবিত সমাধানে staleness এর কোন নতুন স্তর যোগ হচ্ছে, আর সেটা এই use case এ গ্রহণযোগ্য কিনা — বলো।
+Redis এ node যোগ করলে কি এটা সমাধান হবে? কেন, বা কেন না? আপনার প্রস্তাবিত সমাধানে staleness এর কোন নতুন স্তর যোগ হচ্ছে, আর সেটা এই use case এ গ্রহণযোগ্য কিনা — বলুন।
 
 **৪. রাতের হঠাৎ logout (Lesson 4.3)**
-Cache আর session একই Redis এ, আর `maxmemory-policy` সেট করা নেই। রাতে ঠিক কী ঘটেছিল বলে মনে করো? Default policy কী, আর সেটা থাকলে এই লক্ষণটা ব্যাখ্যা করা যায়, নাকি অন্য কিছু ঘটেছে? তোমার সমাধানে **শুধু policy বদলানো যথেষ্ট কিনা** সেটাও বলো।
+Cache আর session একই Redis এ, আর `maxmemory-policy` সেট করা নেই। রাতে ঠিক কী ঘটেছিল বলে মনে করেন? Default policy কী, আর সেটা থাকলে এই লক্ষণটা ব্যাখ্যা করা যায়, নাকি অন্য কিছু ঘটেছে? আপনার সমাধানে **শুধু policy বদলানো যথেষ্ট কিনা** সেটাও বলুন।
 
 **৫. Connection pool (Lesson 4.6 + 1.6)**
 ৪টা instance × `pool: { max: 10 }` = সর্বোচ্চ ৪০টা concurrent DB connection। Stampede এর মুহূর্তে সেকেন্ডে ৪০,০০০ request এর কতগুলো DB পর্যন্ত পৌঁছাতে চাইবে, আর pool শেষ হয়ে গেলে বাকিদের কী হবে? Pool size বাড়ানো কি সঠিক প্রতিকার?
 
-**৬. পুরো নকশাটা আবার সাজাও (Lesson 4.1-4.6)**
-সব জেনে, `/share/{token}` এর জন্য একটা সম্পূর্ণ caching নকশা লেখো — browser থেকে DB পর্যন্ত প্রতিটা স্তরে কী থাকবে, TTL কত, key কী, invalidation কীভাবে, আর কোন ব্যর্থতার বিরুদ্ধে কোন রক্ষাকবচ। এক পাতায় ধরাতে হবে।
+**৬. পুরো নকশাটা আবার সাজান (Lesson 4.1-4.6)**
+সব জেনে, `/share/{token}` এর জন্য একটা সম্পূর্ণ caching নকশা লিখুন — browser থেকে DB পর্যন্ত প্রতিটা স্তরে কী থাকবে, TTL কত, key কী, invalidation কীভাবে, আর কোন ব্যর্থতার বিরুদ্ধে কোন রক্ষাকবচ। এক পাতায় ধরাতে হবে।
 
 **মনে রাখার কথা:** এই module এর দুটো জায়গায় সবচেয়ে সহজে ভুল হয় — (ক) cache down হলে latency ধসে পড়া, (খ) `public` বনাম `private` এর নিরাপত্তা তাৎপর্য। আজকের scenario তে দুটোই লুকিয়ে আছে। আর সবচেয়ে গুরুত্বপূর্ণ অভ্যাসটা: **প্রতিকার বসানোর আগে রোগনির্ণয়** — "DB load বেশি" যথেষ্ট না, "spike নাকি একটানা, আর কোন ছন্দে" — সেটাই আসল প্রশ্ন।
 
@@ -45,7 +45,7 @@ Cache আর session একই Redis এ, আর `maxmemory-policy` সেট �
 
 ---
 
-## ২. Self-Check — এই Module শেষে তুমি এগুলো পারার কথা
+## ২. Self-Check — এই Module শেষে আপনি এগুলো পারার কথা
 
 - [ ] একটা request এর পুরো path জুড়ে caching এর স্তরগুলো (browser → CDN → proxy → app → DB buffer pool) বলতে পারি, আর কোন স্তর কোন ধরনের data এর জন্য উপযুক্ত — জানি
 - [ ] Cache-Aside, Read-Through, Write-Through, Write-Behind, Write-Around — পাঁচটার কাজ আর trade-off আলাদা করে বলতে পারি
@@ -58,7 +58,7 @@ Cache আর session একই Redis এ, আর `maxmemory-policy` সেট �
 - [ ] Express + Sequelize + Redis দিয়ে একটা কাজ করা Cache-Aside layer **নিজে বানিয়েছি**, আর cache এর লাভটা মেপে দেখিয়েছি (Lesson 4.4)
 - [ ] Cache থেকে আসা data ও runtime input — Zod দিয়ে validate করতে হয়, `as` দিয়ে না — এটা কেন, বুঝি
 - [ ] Cache এর ব্যর্থতা কখনো request ব্যর্থ করা উচিত না, আর client এর offline queue বা command timeout ঠিক না থাকলে "cache down" কীভাবে "site down" হয়ে যায় — হাতে-কলমে দেখেছি
-- [ ] `max-age` / `s-maxage` / `private` / `no-cache` / `no-store` — কোনটা কাকে উদ্দেশ্য করে বলা, আর `no-cache` যে "cache কোরো না" মানে না — জানি
+- [ ] `max-age` / `s-maxage` / `private` / `no-cache` / `no-store` — কোনটা কাকে উদ্দেশ্য করে বলা, আর `no-cache` যে "cache করবেন না" মানে না — জানি
 - [ ] Personalized response CDN এ cache হলে সেটা bug না, **breach** — এই ঝুঁকিটা চিনি
 - [ ] Content hashing কেন purge এর চেয়ে ভালো — বলতে পারি
 - [ ] Stampede, avalanche, hot key, penetration — চারটার **লক্ষণ আলাদা করে** চিনতে পারি এবং উপযুক্ত প্রতিকার বেছে নিতে পারি
@@ -75,15 +75,15 @@ Cache আর session একই Redis এ, আর `maxmemory-policy` সেট �
 
 **দেখার জন্য:**
 
-- Cloudflare এর "Cache Rules" আর "Tiered Cache" documentation — Lesson 4.5 এর cache key, `Vary`, আর origin shield এর ধারণাগুলো একটা বাস্তব CDN এ ঠিক কীভাবে configure হয়, সেটা দেখতে পাবে। TaskFlow যেহেতু Cloudflare এ, এটা সরাসরি কাজে লাগবে।
+- Cloudflare এর "Cache Rules" আর "Tiered Cache" documentation — Lesson 4.5 এর cache key, `Vary`, আর origin shield এর ধারণাগুলো একটা বাস্তব CDN এ ঠিক কীভাবে configure হয়, সেটা দেখতে পাবেন। TaskFlow যেহেতু Cloudflare এ, এটা সরাসরি কাজে লাগবে।
 
 **Project এর জন্য:**
 
-- Lesson 4.4 এর exercise টায় ফিরে গিয়ে (নিজের সময়ে) **negative caching** আর **TTL jitter** দুটোই যোগ করো — Lesson 4.6 এর exercise ৩ আর ৪। তারপর `npm run stampede` আর `npm run bench` আবার চালিয়ে সংখ্যাগুলো আগের সাথে মিলিয়ে দেখো।
-- আরও এক ধাপ এগোতে চাইলে: `src/singleflight.ts` এর in-process Map টা Redis-ভিত্তিক distributed lock দিয়ে বদলে দেখো (`SET key val NX PX 5000`)। ৪টা instance চালিয়ে (Lesson 3.3 এর docker-compose এর মতো) stampede মেপে দেখো — ৪ থেকে ১ এ নামে কিনা। এটা Lesson 6.4 এর একটা চমৎকার প্রস্তুতি।
+- Lesson 4.4 এর exercise টায় ফিরে গিয়ে (নিজের সময়ে) **negative caching** আর **TTL jitter** দুটোই যোগ করুন — Lesson 4.6 এর exercise ৩ আর ৪। তারপর `npm run stampede` আর `npm run bench` আবার চালিয়ে সংখ্যাগুলো আগের সাথে মিলিয়ে দেখুন।
+- আরও এক ধাপ এগোতে চাইলে: `src/singleflight.ts` এর in-process Map টা Redis-ভিত্তিক distributed lock দিয়ে বদলে দেখুন (`SET key val NX PX 5000`)। ৪টা instance চালিয়ে (Lesson 3.3 এর docker-compose এর মতো) stampede মেপে দেখুন — ৪ থেকে ১ এ নামে কিনা। এটা Lesson 6.4 এর একটা চমৎকার প্রস্তুতি।
 
 ---
 
-Exit challenge টা করে পাঠাও। রেডি হলে `next` লিখলে আমরা **Module 5: Database Design & Scaling** এ যাব — Lesson 5.1 দিয়ে শুরু, SQL vs NoSQL এর আসল trade-off।
+Exit challenge টা করে পাঠান। রেডি হলে `next` লিখলে আমরা **Module 5: Database Design & Scaling** এ যাব — Lesson 5.1 দিয়ে শুরু, SQL vs NoSQL এর আসল trade-off।
 
 Module 4 জুড়ে আমরা DB কে বাঁচানোর চেষ্টা করেছি — cache দিয়ে তার কাজ কমিয়েছি, তার সামনে ঢাল ধরেছি। Module 5 এ সেই DB টার **ভেতরে** ঢুকব: সে data টা আসলে কীভাবে রাখে, index কেন query দ্রুত করে, transaction এর দাম কী, আর যখন একটা machine আর যথেষ্ট না — তখন কী।

@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.2 (Counter আর lost update), Lesson 5.3 (WAL, MVCC এর ঝলক)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. ACID এর চারটা অক্ষর আসলে কী guarantee দেয় (আর কী দেয় না) — বলতে পারবে, আর Postgres এর MVCC কীভাবে "snapshot" দেখায় সেটা বুঝবে
-2. পাঁচটা anomaly — dirty read, non-repeatable read, phantom, lost update, write skew — চিনবে, আর Postgres এর প্রতিটা isolation level কোনটা আটকায় সেটা বলতে পারবে (নিজের চোখে দেখা ফল দিয়ে)
-3. একটা race condition এর জন্য সঠিক সমাধান বাছবে — `FOR UPDATE`, atomic update, optimistic locking, নাকি `SERIALIZABLE` + retry — আর প্রতিটার দাম জানবে
+1. ACID এর চারটা অক্ষর আসলে কী guarantee দেয় (আর কী দেয় না) — বলতে পারবেন, আর Postgres এর MVCC কীভাবে "snapshot" দেখায় সেটা বুঝবেন
+2. পাঁচটা anomaly — dirty read, non-repeatable read, phantom, lost update, write skew — চিনবেন, আর Postgres এর প্রতিটা isolation level কোনটা আটকায় সেটা বলতে পারবেন (নিজের চোখে দেখা ফল দিয়ে)
+3. একটা race condition এর জন্য সঠিক সমাধান বাছবেন — `FOR UPDATE`, atomic update, optimistic locking, নাকি `SERIALIZABLE` + retry — আর প্রতিটার দাম জানবেন
 
 **Tier:** 1 — Runnable Code
 
@@ -18,7 +18,7 @@
 
 ## ০. TaskFlow এখন কোথায়
 
-Lesson 5.2 এ একটা প্রশ্ন খোলা রেখে এসেছিলাম। Counter বাড়ানোর naive code টা — "পড়ো, JS এ +1 করো, লিখো" — **transaction এর ভেতরে** রেখেও update হারাচ্ছিল। "Transaction তো সব নিরাপদ করে দেয়" — তাহলে?
+Lesson 5.2 এ একটা প্রশ্ন খোলা রেখে এসেছিলাম। Counter বাড়ানোর naive code টা — "পড়ুন, JS এ +1 করুন, লিখুন" — **transaction এর ভেতরে** রেখেও update হারাচ্ছিল। "Transaction তো সব নিরাপদ করে দেয়" — তাহলে?
 
 আর এই সপ্তাহে support এ আরেকটা অদ্ভুত ticket এসেছে:
 
@@ -34,10 +34,10 @@ Lesson 5.2 এ একটা প্রশ্ন খোলা রেখে এস�
 
 ### ১.১ Transaction আর ACID — চারটা প্রতিশ্রুতি
 
-**Transaction** তুমি Sequelize এ চেনো — কয়েকটা query কে একটা একক হিসেবে চালানো। Database এর বই এ এর প্রতিশ্রুতিগুলোকে একসাথে বলা হয় **ACID**:
+**Transaction** আপনি Sequelize এ চেনেন — কয়েকটা query কে একটা একক হিসেবে চালানো। Database এর বই এ এর প্রতিশ্রুতিগুলোকে একসাথে বলা হয় **ACID**:
 
 - **A — Atomicity:** হয় সব, নয়তো কিছুই না। Transaction এর মাঝখানে error বা crash হলে আগের সব বদল বাতিল। (এটা আসলে "abortability" — পুরোটা ফেলে দেওয়ার ক্ষমতা। Lesson 5.3 এর WAL এর কারণে crash এর পরেও এটা টিকে থাকে।)
-- **C — Consistency:** Transaction শেষে data সবসময় বৈধ অবস্থায় থাকবে। কিন্তু এখানে একটা সূক্ষ্ম কথা আছে — database শুধু সেই নিয়মগুলো রক্ষা করতে পারে যেগুলো তুমি তাকে **বলেছ**: foreign key, `UNIQUE`, `CHECK`, `NOT NULL`। "অন্তত একজন admin থাকবে" এর মতো নিয়ম database জানে না — সেটা তোমার code এর দায়িত্ব। আর ঠিক এই জায়গাতেই আজকের দ্বিতীয় bug।
+- **C — Consistency:** Transaction শেষে data সবসময় বৈধ অবস্থায় থাকবে। কিন্তু এখানে একটা সূক্ষ্ম কথা আছে — database শুধু সেই নিয়মগুলো রক্ষা করতে পারে যেগুলো আপনি তাকে **বলেছেন**: foreign key, `UNIQUE`, `CHECK`, `NOT NULL`। "অন্তত একজন admin থাকবে" এর মতো নিয়ম database জানে না — সেটা আপনার code এর দায়িত্ব। আর ঠিক এই জায়গাতেই আজকের দ্বিতীয় bug।
 - **I — Isolation:** একসাথে চলা transaction গুলো একে অপরের কাজে নাক গলাবে না — **কতটা** গলাবে না, সেটা isolation level ঠিক করে। আজকের মূল বিষয়।
 - **D — Durability:** Commit হলে data হারাবে না, crash হলেও। Lesson 5.3 এর WAL + fsync।
 
@@ -55,7 +55,7 @@ await sequelize.transaction(async (transaction) => {
 
 Unmanaged (`const t = await sequelize.transaction()` তারপর নিজে `t.commit()`/`t.rollback()`) — exercise এর `anomalies.ts` এ দুটো transaction এর ধাপ হাতে সাজাতে এটাই ব্যবহার হয়েছে।
 
-**সবচেয়ে সাধারণ Sequelize bug:** প্রতিটা query তে `{ transaction }` pass করতে ভুলে যাওয়া। ভুলে গেলে সেই query **transaction এর বাইরে, pool এর অন্য একটা connection এ** চলে — transaction এর কোনো guarantee তার উপর খাটে না। আর যদি সেই row টা transaction এর lock এ থাকে, query টা transaction শেষ হওয়ার অপেক্ষা করে, আর transaction অপেক্ষা করে query এর — app চিরকাল আটকে থাকে। (Exercise এর experiment ৪ এ নিজে দেখবে।)
+**সবচেয়ে সাধারণ Sequelize bug:** প্রতিটা query তে `{ transaction }` pass করতে ভুলে যাওয়া। ভুলে গেলে সেই query **transaction এর বাইরে, pool এর অন্য একটা connection এ** চলে — transaction এর কোনো guarantee তার উপর খাটে না। আর যদি সেই row টা transaction এর lock এ থাকে, query টা transaction শেষ হওয়ার অপেক্ষা করে, আর transaction অপেক্ষা করে query এর — app চিরকাল আটকে থাকে। (Exercise এর experiment ৪ এ নিজে দেখবেন।)
 
 ### ১.২ কেন সব Transaction লাইন ধরে চালানো হয় না?
 
@@ -65,7 +65,7 @@ Unmanaged (`const t = await sequelize.transaction()` তারপর নিজ�
 
 ### ১.৩ MVCC — প্রতিটা Transaction একটা "Snapshot" দেখে
 
-Postgres কীভাবে একসাথে চলা transaction আলাদা রাখে, সেটা না বুঝলে isolation level গুলো মুখস্থের জিনিস হয়ে থাকে। Lesson 5.3 এ একটা ঝলক দেখেছিলে — `UPDATE` এর পর row এর `ctid` বদলে গিয়েছিল, কারণ Postgres পুরনো row টা মুছে না দিয়ে **নতুন version** লেখে।
+Postgres কীভাবে একসাথে চলা transaction আলাদা রাখে, সেটা না বুঝলে isolation level গুলো মুখস্থের জিনিস হয়ে থাকে। Lesson 5.3 এ একটা ঝলক দেখেছিলেন — `UPDATE` এর পর row এর `ctid` বদলে গিয়েছিল, কারণ Postgres পুরনো row টা মুছে না দিয়ে **নতুন version** লেখে।
 
 **MVCC (Multi-Version Concurrency Control)** — একটা row এর একাধিক version একসাথে রাখা, যাতে প্রতিটা transaction একটা নির্দিষ্ট মুহূর্তের "snapshot" দেখতে পারে — অন্য কেউ সেই row বদলাচ্ছে কিনা তাতে কিছু যায় আসে না।
 
@@ -134,7 +134,7 @@ TaskFlow এ কোথায় সমস্যা? একটা report transact
     → final value 6 (should be 7) — one update silently lost, nobody got an error
 ```
 
-দেখো — দুজনেই transaction এ, দুজনেই সফল, কোনো error নেই। READ COMMITTED শুধু নিশ্চিত করে তুমি **commit হওয়া** data পড়বে; সে নিশ্চিত করে না যে তুমি যা পড়েছ সেটা তুমি লেখার সময় পর্যন্ত **সত্য থাকবে**। B এর পড়া "5" তার লেখার সময় আর সত্য ছিল না।
+দেখুন — দুজনেই transaction এ, দুজনেই সফল, কোনো error নেই। READ COMMITTED শুধু নিশ্চিত করে আপনি **commit হওয়া** data পড়বেন; সে নিশ্চিত করে না যে আপনি যা পড়েছেন সেটা আপনি লেখার সময় পর্যন্ত **সত্য থাকবে**। B এর পড়া "5" তার লেখার সময় আর সত্য ছিল না।
 
 একই জিনিস REPEATABLE READ এ:
 
@@ -145,7 +145,7 @@ TaskFlow এ কোথায় সমস্যা? একটা report transact
     → final value 6 — B's work didn't happen, but B knows it; a retry gives 7. Not silently lost
 ```
 
-এখানে Postgres ধরে ফেলেছে: B এর snapshot এ row টা এক রকম, অথচ B লিখতে যাওয়ার আগে অন্য কেউ সেটা বদলে commit করেছে। সে B কে লিখতে দেয় না — **serialization failure** (SQLSTATE `40001`) ছুড়ে দেয়। এর অর্থ: "তোমার পড়া data পুরনো; পুরো transaction টা আবার শুরু থেকে চালাও।" Update এখনো হয়নি — কিন্তু **নীরবে হারায়নি**, আর এই পার্থক্যটাই সব।
+এখানে Postgres ধরে ফেলেছে: B এর snapshot এ row টা এক রকম, অথচ B লিখতে যাওয়ার আগে অন্য কেউ সেটা বদলে commit করেছে। সে B কে লিখতে দেয় না — **serialization failure** (SQLSTATE `40001`) ছুড়ে দেয়। এর অর্থ: "আপনার পড়া data পুরনো; পুরো transaction টা আবার শুরু থেকে চালান।" Update এখনো হয়নি — কিন্তু **নীরবে হারায়নি**, আর এই পার্থক্যটাই সব।
 
 **৫. Write skew — দুজনেই নিয়ম মেনেছে, তবু নিয়ম ভেঙেছে।** এটাই admin bug:
 
@@ -162,7 +162,7 @@ TaskFlow এ কোথায় সমস্যা? একটা report transact
 
 REPEATABLE READ কেন ধরতে পারল না, যখন lost update ধরেছিল? কারণ এখানে দুজন **আলাদা row** বদলেছে — রহিম নিজের row, করিম নিজের row। কোনো row এ দুজনের লেখা নেই, তাই কোনো সংঘাত দেখা যায় না। সমস্যাটা row এ না — সমস্যাটা **যে শর্ত দুজনেই পড়ে সিদ্ধান্ত নিয়েছে** ("admin ২ জন"), সেটা অন্যের লেখায় মিথ্যা হয়ে গেছে।
 
-**Write skew** — দুটো transaction একই data পড়ে একটা শর্ত যাচাই করে, তারপর **আলাদা আলাদা** row এ লেখে, আর তাদের মিলিত ফলাফল সেই শর্ত ভেঙে দেয়। Pattern টা সবসময় একই: **পড়ো → শর্ত যাচাই করো → সেই শর্তের উপর ভিত্তি করে অন্য কোথাও লেখো।** বাস্তব উদাহরণ: দুজন একই meeting room একই সময়ে book করা, দুজন শেষ ticket কেনা, দুজন doctor একই রাতে on-call থেকে ছুটি নেওয়া।
+**Write skew** — দুটো transaction একই data পড়ে একটা শর্ত যাচাই করে, তারপর **আলাদা আলাদা** row এ লেখে, আর তাদের মিলিত ফলাফল সেই শর্ত ভেঙে দেয়। Pattern টা সবসময় একই: **পড়ুন → শর্ত যাচাই করুন → সেই শর্তের উপর ভিত্তি করে অন্য কোথাও লিখুন।** বাস্তব উদাহরণ: দুজন একই meeting room একই সময়ে book করা, দুজন শেষ ticket কেনা, দুজন doctor একই রাতে on-call থেকে ছুটি নেওয়া।
 
 SERIALIZABLE এ একই ঘটনা:
 
@@ -186,15 +186,15 @@ Postgres এর SERIALIZABLE (যেটার ভেতরের পদ্ধত
 | Lost update         | **নীরবে ঘটে**            | ধরে — error `40001` দেয় | ধরে — `40001` |
 | Write skew          | **ঘটে**                  | **ঘটে**                  | ধরে — `40001` |
 
-**সৎ সতর্কতা:** এই table টা **Postgres** এর। SQL standard এ REPEATABLE READ phantom আটকানোর দায় নেয় না — Postgres বেশি দেয়। আর MySQL (InnoDB) এর default ও "REPEATABLE READ", কিন্তু তার ভেতরের পদ্ধতি আলাদা, তাই guarantee ও পুরোপুরি এক না। **একই নামের level, ভিন্ন database এ ভিন্ন আচরণ** — database বদলালে নিজের database এর documentation পড়ো, নাম দেখে ধরে নিও না।
+**সৎ সতর্কতা:** এই table টা **Postgres** এর। SQL standard এ REPEATABLE READ phantom আটকানোর দায় নেয় না — Postgres বেশি দেয়। আর MySQL (InnoDB) এর default ও "REPEATABLE READ", কিন্তু তার ভেতরের পদ্ধতি আলাদা, তাই guarantee ও পুরোপুরি এক না। **একই নামের level, ভিন্ন database এ ভিন্ন আচরণ** — database বদলালে নিজের database এর documentation পড়ুন, নাম দেখে ধরে নেবেন না।
 
-### ১.৫ Write Skew কীভাবে ঠিক করবে
+### ১.৫ Write Skew কীভাবে ঠিক করবেন
 
 তিনটা উপায়:
 
 1. **SERIALIZABLE + retry।** সবচেয়ে সাধারণ সমাধান — Postgres নিজে খুঁজে বের করে। দাম: ব্যর্থ transaction আর retry, আর database কে পড়ার হিসাব রাখতে বাড়তি কাজ।
-2. **যা পড়ছ সেটা lock করো।** Admin row গুলো `SELECT ... FOR UPDATE` দিয়ে পড়লে, দ্বিতীয় transaction কে প্রথমটার শেষ হওয়া পর্যন্ত অপেক্ষা করতে হয় — তারপর সে নতুন অবস্থা (১ জন admin) দেখে। (Exercise এর experiment ২।)
-3. **সংঘাতকে একটা row এ নিয়ে আসো।** কখনো কখনো পড়া row গুলো lock করা যায় না — যেমন meeting room booking এ "এই সময়ে কোনো booking **নেই**" যাচাই করা; যে row নেই তাকে lock করবে কীভাবে? তখন একটা নির্দিষ্ট row কে "তালা" হিসেবে ব্যবহার করা হয় — যেমন ওই project এর row টা `FOR UPDATE` করা — যাতে ওই project এর সব membership বদল একটা একটা করে হয়।
+2. **যা পড়ছেন সেটা lock করুন।** Admin row গুলো `SELECT ... FOR UPDATE` দিয়ে পড়লে, দ্বিতীয় transaction কে প্রথমটার শেষ হওয়া পর্যন্ত অপেক্ষা করতে হয় — তারপর সে নতুন অবস্থা (১ জন admin) দেখে। (Exercise এর experiment ২।)
+3. **সংঘাতকে একটা row এ নিয়ে আসুন।** কখনো কখনো পড়া row গুলো lock করা যায় না — যেমন meeting room booking এ "এই সময়ে কোনো booking **নেই**" যাচাই করা; যে row নেই তাকে lock করবেন কীভাবে? তখন একটা নির্দিষ্ট row কে "তালা" হিসেবে ব্যবহার করা হয় — যেমন ওই project এর row টা `FOR UPDATE` করা — যাতে ওই project এর সব membership বদল একটা একটা করে হয়।
 
 আর যদি নিয়মটা database constraint হিসেবে প্রকাশ করা যায় (`UNIQUE`, `CHECK`, exclusion constraint), সেটাই সবচেয়ে ভালো — database নিজে রক্ষা করবে, কোনো level যাই হোক।
 
@@ -215,7 +215,7 @@ strategy                                final value  retries      time
 
 প্রথম দুটো লাইন Lesson 5.2 এর রহস্যের উত্তর: **transaction একা কিছুই সমাধান করেনি** (১০০ এর মধ্যে ৯০টা হারাল)। বাকি পাঁচটা সঠিক — কিন্তু তারা তিনটা একেবারে ভিন্ন দর্শন থেকে আসে:
 
-**ক. আগে তালা নাও — pessimistic locking।** "সংঘাত হবেই ধরে নাও; পড়ার মুহূর্তেই row টা নিজের করে নাও।" **Pessimistic locking** — পড়ার সময়েই row lock করা (`SELECT ... FOR UPDATE`), যাতে অন্য কেউ সেই row বদলাতে বা lock করতে চাইলে অপেক্ষা করে। Sequelize এ:
+**ক. আগে তালা নিন — pessimistic locking।** "সংঘাত হবেই ধরে নিন; পড়ার মুহূর্তেই row টা নিজের করে নিন।" **Pessimistic locking** — পড়ার সময়েই row lock করা (`SELECT ... FOR UPDATE`), যাতে অন্য কেউ সেই row বদলাতে বা lock করতে চাইলে অপেক্ষা করে। Sequelize এ:
 
 ```typescript
 sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) => {
@@ -230,7 +230,7 @@ sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) =>
 
 `anomalies` এর timeline এ দেখা গেছে কী হয়: B একই row `FOR UPDATE` পড়তে চাইলে ৩০০ ms পরেও অপেক্ষায়, A commit করতেই B **নতুন মান (6)** পড়ে, আর 7 লেখে। কোনো retry নেই, কোনো error নেই — শুধু লাইন।
 
-**খ. হিসাবটা database কে দাও — atomic update।** `UPDATE projects SET "openTaskCount" = "openTaskCount" + 1` — পড়া আর লেখা একটাই statement। READ COMMITTED এও নিরাপদ: দুজন একসাথে এলে দ্বিতীয়জন row lock এর জন্য অপেক্ষা করে, আর lock পেলে Postgres row এর **সর্বশেষ commit হওয়া version** এর উপর হিসাবটা আবার করে। সাতটার মধ্যে সবচেয়ে দ্রুত আর সবচেয়ে সরল। যখন পারো, এটাই প্রথম পছন্দ।
+**খ. হিসাবটা database কে দিন — atomic update।** `UPDATE projects SET "openTaskCount" = "openTaskCount" + 1` — পড়া আর লেখা একটাই statement। READ COMMITTED এও নিরাপদ: দুজন একসাথে এলে দ্বিতীয়জন row lock এর জন্য অপেক্ষা করে, আর lock পেলে Postgres row এর **সর্বশেষ commit হওয়া version** এর উপর হিসাবটা আবার করে। সাতটার মধ্যে সবচেয়ে দ্রুত আর সবচেয়ে সরল। যখন পারেন, এটাই প্রথম পছন্দ।
 
 এর একটা শক্তিশালী রূপ — **শর্তসহ atomic update**, শেষ জিনিস বিক্রির মতো সমস্যার জন্য:
 
@@ -238,9 +238,9 @@ sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) =>
 UPDATE products SET stock = stock - 1 WHERE id = $1 AND stock > 0
 ```
 
-তারপর দেখো কয়টা row বদলেছে — ০ হলে stock শেষ। যাচাই আর লেখা এক statement এ, তাই দুজন শেষ জিনিসটা কিনতে পারে না।
+তারপর দেখুন কয়টা row বদলেছে — ০ হলে stock শেষ। যাচাই আর লেখা এক statement এ, তাই দুজন শেষ জিনিসটা কিনতে পারে না।
 
-**গ. সংঘাত ধরো, আবার চেষ্টা করো — optimistic।** "সংঘাত কদাচিৎ হয় ধরে নাও; কোনো lock নিও না; লেখার সময় যাচাই করো কেউ মাঝখানে বদলেছে কিনা; বদলালে আবার চেষ্টা করো।" তিনটা কৌশল এই গোত্রে:
+**গ. সংঘাত ধরুন, আবার চেষ্টা করুন — optimistic।** "সংঘাত কদাচিৎ হয় ধরে নিন; কোনো lock নেবেন না; লেখার সময় যাচাই করুন কেউ মাঝখানে বদলেছে কিনা; বদলালে আবার চেষ্টা করুন।" তিনটা কৌশল এই গোত্রে:
 
 - **REPEATABLE READ / SERIALIZABLE (৫, ৭)** — Postgres নিজে সংঘাত ধরে `40001` দেয়
 - **Optimistic locking (৬)** — application নিজে ধরে। **Optimistic locking** — row এ একটা `version` column রাখা; লেখার সময় `WHERE version = <যা পড়েছিলাম>` দিয়ে লেখা, আর ০টা row বদলালে বোঝা যায় কেউ আগে বদলে দিয়েছে। Sequelize এ model এ `version: true` দিলে `save()` নিজেই এটা করে আর `OptimisticLockError` ছোড়ে:
@@ -275,7 +275,7 @@ export async function withRetry<T>(
 }
 ```
 
-তিনটা জিনিস লক্ষ করো: (১) শুধু **retry করার মতো** error এ আবার চেষ্টা — `40001`, deadlock (`40P01`), `OptimisticLockError`; বাকি সব error সাথে সাথে উপরে যায়। (২) **পুরো transaction** আবার চলে, শুধু ব্যর্থ query না — কারণ transaction এ যা পড়া হয়েছিল সেটাই এখন পুরনো। (৩) **Backoff + jitter** — সবাই একসাথে আবার চেষ্টা করলে আবার একসাথে ধাক্কা খাবে; Lesson 4.6 এর TTL jitter এর মতোই যুক্তি, আর Lesson 7.4 এ এটা পুরো গভীরে আসবে।
+তিনটা জিনিস লক্ষ করুন: (১) শুধু **retry করার মতো** error এ আবার চেষ্টা — `40001`, deadlock (`40P01`), `OptimisticLockError`; বাকি সব error সাথে সাথে উপরে যায়। (২) **পুরো transaction** আবার চলে, শুধু ব্যর্থ query না — কারণ transaction এ যা পড়া হয়েছিল সেটাই এখন পুরনো। (৩) **Backoff + jitter** — সবাই একসাথে আবার চেষ্টা করলে আবার একসাথে ধাক্কা খাবে; Lesson 4.6 এর TTL jitter এর মতোই যুক্তি, আর Lesson 7.4 এ এটা পুরো গভীরে আসবে।
 
 **Table টার সবচেয়ে শিক্ষণীয় সংখ্যা:** optimistic locking এ **১২০৬টা retry** — প্রতিটা সফল লেখার জন্য গড়ে ১২টা ব্যর্থ চেষ্টা, আর সবচেয়ে ধীর। কারণ ১০০ জন **একই row** এ লিখছে — এটা optimistic এর জন্য সবচেয়ে খারাপ পরিস্থিতি। Optimistic এর জায়গা হলো যেখানে সংঘাত **কদাচিৎ**: দুজন একই task এর description একই মুহূর্তে edit করছে — বিরল ঘটনা, আর তখন lock না নেওয়ার সুবিধাটাই বড়। একটা গরম counter এ pessimistic বা atomic অনেক ভালো।
 
@@ -284,17 +284,17 @@ export async function withRetry<T>(
 | কৌশল                    | কখন                                                         | দাম                                                             |
 | ----------------------- | ----------------------------------------------------------- | --------------------------------------------------------------- |
 | Atomic update           | হিসাবটা এক statement এ লেখা যায় (`x = x + 1`, `stock > 0`) | সবচেয়ে কম; জটিল business logic এক statement এ ধরে না           |
-| `SELECT ... FOR UPDATE` | পড়ো → JS এ সিদ্ধান্ত → লেখো, একটা নির্দিষ্ট row এ          | অপেক্ষা; transaction লম্বা হলে সবাই লাইনে; deadlock এর সম্ভাবনা |
+| `SELECT ... FOR UPDATE` | পড়ুন → JS এ সিদ্ধান্ত → লিখুন, একটা নির্দিষ্ট row এ        | অপেক্ষা; transaction লম্বা হলে সবাই লাইনে; deadlock এর সম্ভাবনা |
 | Optimistic (`version`)  | সংঘাত বিরল; user অনেকক্ষণ ধরে edit করে (form খোলা রেখে)     | সংঘাত বেশি হলে retry এর ঝড়; retry logic লাগবেই                 |
 | REPEATABLE READ + retry | Transaction জুড়ে সামঞ্জস্যপূর্ণ snapshot দরকার (report)    | Lost update ধরে, কিন্তু **write skew ধরে না**; retry লাগবে      |
 | SERIALIZABLE + retry    | জটিল নিয়ম যেটা অনেক row পড়ে যাচাই হয় (admin, booking)    | ব্যর্থ transaction বেশি; retry বাধ্যতামূলক; বাড়তি overhead     |
 
 ### ১.৭ বাস্তব নিয়ম
 
-- **Default READ COMMITTED বেশিরভাগ কাজের জন্য যথেষ্ট** — যদি তুমি জানো এটা কী দেয় না। "পড়ো → সিদ্ধান্ত নাও → লেখো" pattern দেখলেই থামো আর ভাবো: আমি যা পড়েছি, লেখার আগে সেটা বদলে যেতে পারে কি?
+- **Default READ COMMITTED বেশিরভাগ কাজের জন্য যথেষ্ট** — যদি আপনি জানেন এটা কী দেয় না। "পড়ুন → সিদ্ধান্ত নিন → লিখুন" pattern দেখলেই থামুন আর ভাবুন: আমি যা পড়েছি, লেখার আগে সেটা বদলে যেতে পারে কি?
 - **সম্ভব হলে atomic update।** তারপর row-নির্দিষ্ট কাজে `FOR UPDATE`। জটিল নিয়মে SERIALIZABLE।
-- **Retry করলে side effect সাবধানে।** Transaction এর ভেতরে email পাঠালে, আর transaction টা তিনবার retry হলে — user তিনটা email পাবে, অথচ data তে একবারই বদল হয়েছে। Email, payment API call, message — এগুলো **commit এর পরে** করো (নিরাপদ উপায় "outbox pattern", Module 7 এ)।
-- **Transaction ছোট রাখো।** Transaction যতক্ষণ খোলা, ততক্ষণ lock ধরা থাকে (Lesson 5.2 এর hot row), আর একটা connection আটকে থাকে (Lesson 5.6)। Transaction এর ভেতরে কখনো network call না।
+- **Retry করলে side effect সাবধানে।** Transaction এর ভেতরে email পাঠালে, আর transaction টা তিনবার retry হলে — user তিনটা email পাবে, অথচ data তে একবারই বদল হয়েছে। Email, payment API call, message — এগুলো **commit এর পরে** করুন (নিরাপদ উপায় "outbox pattern", Module 7 এ)।
+- **Transaction ছোট রাখুন।** Transaction যতক্ষণ খোলা, ততক্ষণ lock ধরা থাকে (Lesson 5.2 এর hot row), আর একটা connection আটকে থাকে (Lesson 5.6)। Transaction এর ভেতরে কখনো network call না।
 
 ---
 
@@ -302,9 +302,9 @@ export async function withRetry<T>(
 
 **এই topic interview এ তিনভাবে আসে:**
 
-1. **সরাসরি:** "Isolation level গুলো ব্যাখ্যা করো।" — চারটা level এর নাম বলা যথেষ্ট না। প্রতিটা anomaly এর একটা **ঠিক উদাহরণ** দাও, আর বলো তোমার database (Postgres) এর default কী আর সেটা কী আটকায় না। "Postgres এর default READ COMMITTED lost update আটকায় না" — এটা বললেই বোঝা যায় তুমি বাস্তবে এটা দেখেছ।
+1. **সরাসরি:** "Isolation level গুলো ব্যাখ্যা করুন।" — চারটা level এর নাম বলা যথেষ্ট না। প্রতিটা anomaly এর একটা **ঠিক উদাহরণ** দিন, আর বলুন আপনার database (Postgres) এর default কী আর সেটা কী আটকায় না। "Postgres এর default READ COMMITTED lost update আটকায় না" — এটা বললেই বোঝা যায় আপনি বাস্তবে এটা দেখেছেন।
 
-2. **Design প্রশ্নের ভেতরে লুকানো:** "Ticket booking system design করো" / "Inventory কমাবে কীভাবে যাতে oversell না হয়?" — এখানে interviewer দেখতে চায় তুমি race condition টা নিজে থেকে ধরতে পারো কিনা। ভালো উত্তর: "দুজন একসাথে শেষ seat কিনতে পারে — `UPDATE seats SET status = 'booked' WHERE id = ? AND status = 'free'`, তারপর affected row গুনব; ০ হলে seat চলে গেছে।"
+2. **Design প্রশ্নের ভেতরে লুকানো:** "Ticket booking system design করুন" / "Inventory কমাবেন কীভাবে যাতে oversell না হয়?" — এখানে interviewer দেখতে চায় আপনি race condition টা নিজে থেকে ধরতে পারেন কিনা। ভালো উত্তর: "দুজন একসাথে শেষ seat কিনতে পারে — `UPDATE seats SET status = 'booked' WHERE id = ? AND status = 'free'`, তারপর affected row গুনব; ০ হলে seat চলে গেছে।"
 
 3. **Payment/টাকা:** "দুটো account এর মধ্যে টাকা পাঠানো" — atomicity (দুটো balance একসাথে বদলাবে), আর দুটো একসাথে চলা transfer যাতে একই account থেকে বেশি টাকা তুলে না নেয় (lock, বা শর্তসহ atomic update `WHERE balance >= amount`)। আর deadlock: দুটো transfer উল্টো ক্রমে দুটো account lock করলে — সমাধান সবসময় একই ক্রমে lock নেওয়া (যেমন ছোট id আগে)।
 
@@ -317,11 +317,11 @@ export async function withRetry<T>(
 
 ## ৩. Key Takeaway
 
-- ACID এর "C" এর বড় অংশ তোমার দায়িত্ব — database শুধু সেই নিয়ম রক্ষা করে যেটা constraint হিসেবে তাকে বলা হয়েছে
+- ACID এর "C" এর বড় অংশ আপনার দায়িত্ব — database শুধু সেই নিয়ম রক্ষা করে যেটা constraint হিসেবে তাকে বলা হয়েছে
 - **Transaction একা race আটকায় না** — READ COMMITTED এ transaction এর ভেতরেও ১০০ এর মধ্যে ৯০টা update হারাল
 - Postgres এর MVCC: প্রতিটা transaction একটা snapshot দেখে; READ COMMITTED প্রতি statement এ নতুন, REPEATABLE READ পুরো transaction এ একটা; পড়া-লেখা একে অপরকে আটকায় না
 - Postgres এ dirty read কখনো না; READ COMMITTED এ non-repeatable, phantom, **lost update নীরবে**, write skew; REPEATABLE READ lost update ধরে কিন্তু **write skew ধরে না**; SERIALIZABLE সব ধরে
-- **Write skew** — পড়ো → শর্ত যাচাই → অন্য row এ লেখো; আলাদা row বলে সংঘাত চোখে পড়ে না; SERIALIZABLE, পড়া row এ `FOR UPDATE`, বা একটা row কে তালা বানাও
+- **Write skew** — পড়ুন → শর্ত যাচাই → অন্য row এ লিখুন; আলাদা row বলে সংঘাত চোখে পড়ে না; SERIALIZABLE, পড়া row এ `FOR UPDATE`, বা একটা row কে তালা বানান
 - সমাধানের ক্রম: **atomic update** (শর্তসহ ও) → **`FOR UPDATE`** → **SERIALIZABLE + retry**; optimistic শুধু যেখানে সংঘাত বিরল
 - Retry মানে **পুরো transaction**, শুধু retryable error এ, backoff + jitter সহ; side effect commit এর পরে; transaction ছোট আর network call মুক্ত
 
@@ -343,10 +343,10 @@ export async function withRetry<T>(
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. একটা online shop এর code: `const p = await Product.findByPk(id, { transaction }); if (p.stock > 0) await p.update({ stock: p.stock - 1 }, { transaction });` — READ COMMITTED transaction এর ভেতরে। Stock ১, আর দুজন একই মুহূর্তে "কিনুন" চাপল। কী হবে? এটা কোন anomaly? আর **একটা** SQL statement দিয়ে কীভাবে ঠিক করবে?
-2. TaskFlow এর "user কে project এ যোগ করো" transaction টা SERIALIZABLE, retry সহ, আর transaction এর ভেতরে নতুন member কে একটা welcome email পাঠায়। ব্যস্ত সময়ে কিছু user দুটো-তিনটা welcome email পাচ্ছে। কেন? কীভাবে ঠিক করবে?
+1. একটা online shop এর code: `const p = await Product.findByPk(id, { transaction }); if (p.stock > 0) await p.update({ stock: p.stock - 1 }, { transaction });` — READ COMMITTED transaction এর ভেতরে। Stock ১, আর দুজন একই মুহূর্তে "কিনুন" চাপল। কী হবে? এটা কোন anomaly? আর **একটা** SQL statement দিয়ে কীভাবে ঠিক করবেন?
+2. TaskFlow এর "user কে project এ যোগ করুন" transaction টা SERIALIZABLE, retry সহ, আর transaction এর ভেতরে নতুন member কে একটা welcome email পাঠায়। ব্যস্ত সময়ে কিছু user দুটো-তিনটা welcome email পাচ্ছে। কেন? কীভাবে ঠিক করবেন?
 3. Postgres এর REPEATABLE READ phantom আটকায়, lost update ও ধরে। তাহলে এটাকে পুরোপুরি "serializable" বলা যায় না কেন? Exercise এর কোন ফলটা এর প্রমাণ?
 
 <details>
@@ -358,7 +358,7 @@ export async function withRetry<T>(
 UPDATE products SET stock = stock - 1 WHERE id = $1 AND stock > 0
 ```
 
-তারপর affected row গোনো: ১ হলে বিক্রি সফল, ০ হলে stock শেষ। দ্বিতীয়জনের UPDATE প্রথমজনের lock এর অপেক্ষা করে, তারপর row এর নতুন অবস্থায় (`stock = 0`) শর্ত আবার যাচাই হয় — শর্ত মেলে না, ০ row বদলায়। Sequelize এ:
+তারপর affected row গুনুন: ১ হলে বিক্রি সফল, ০ হলে stock শেষ। দ্বিতীয়জনের UPDATE প্রথমজনের lock এর অপেক্ষা করে, তারপর row এর নতুন অবস্থায় (`stock = 0`) শর্ত আবার যাচাই হয় — শর্ত মেলে না, ০ row বদলায়। Sequelize এ:
 
 ```typescript
 const [affected] = await Product.update(
@@ -370,7 +370,7 @@ const sold = affected === 1;
 
 (যাচাই করা: stock ১, ২০ জন একসাথে — পাঁচবার চালিয়ে প্রতিবার ঠিক ১ জন সফল, stock কখনো negative হয়নি।) একটা ফাঁদ: `Product.decrement(...)` ও একই SQL বানায়, কিন্তু Postgres এ তার return value টা তার type definition এর সাথে মেলে না (একটা nested array আসে) — affected row গুনতে `update` টাই নির্ভরযোগ্য।
 
-**প্রশ্ন ২:** Serialization failure হলে পুরো transaction আবার চলে — email পাঠানোর code ও আবার চলে। কিন্তু email একটা **side effect** — database এর rollback তাকে ফেরত আনতে পারে না। প্রথম চেষ্টায় email চলে গেছে, তারপর transaction ব্যর্থ, দ্বিতীয় চেষ্টায় আবার email। ঠিক করার উপায়: email পাঠাও **commit সফল হওয়ার পরে**, transaction এর বাইরে। আরও নিরাপদ: transaction এর ভেতরে একটা `outbox` table এ "এই email পাঠাতে হবে" লিখে রাখো (এটা rollback হলে সাথে মুছে যায়), আর একটা আলাদা worker সেখান থেকে পড়ে email পাঠায় — এটাই outbox pattern, Module 7 এ বিস্তারিত। আর email service এ idempotency key (Lesson 2.5) দিলে ভুলক্রমে দুবার পাঠানোও আটকানো যায়।
+**প্রশ্ন ২:** Serialization failure হলে পুরো transaction আবার চলে — email পাঠানোর code ও আবার চলে। কিন্তু email একটা **side effect** — database এর rollback তাকে ফেরত আনতে পারে না। প্রথম চেষ্টায় email চলে গেছে, তারপর transaction ব্যর্থ, দ্বিতীয় চেষ্টায় আবার email। ঠিক করার উপায়: email পাঠান **commit সফল হওয়ার পরে**, transaction এর বাইরে। আরও নিরাপদ: transaction এর ভেতরে একটা `outbox` table এ "এই email পাঠাতে হবে" লিখে রাখুন (এটা rollback হলে সাথে মুছে যায়), আর একটা আলাদা worker সেখান থেকে পড়ে email পাঠায় — এটাই outbox pattern, Module 7 এ বিস্তারিত। আর email service এ idempotency key (Lesson 2.5) দিলে ভুলক্রমে দুবার পাঠানোও আটকানো যায়।
 
 **প্রশ্ন ৩:** কারণ REPEATABLE READ (Postgres এ যেটা আসলে snapshot isolation) শুধু **একই row এ দুটো লেখার** সংঘাত ধরে। যখন দুটো transaction একই data **পড়ে** কিন্তু **আলাদা row** এ লেখে, তখন কোনো লেখা-লেখা সংঘাত নেই — অথচ ফলাফল এমন যেটা কোনো ক্রমিক (serial) চালানোয় সম্ভব না। এটাই write skew। প্রমাণ: exercise এর `anomalies` ধাপ ৪ — REPEATABLE READ এ রহিম আর করিম দুজনেই সফলভাবে commit করল, আর admin শূন্য হয়ে গেল; SERIALIZABLE এ দ্বিতীয়জন `40001` পেল। "Serializable" মানে: ফলাফল এমন হবে যেন transaction গুলো কোনো একটা ক্রমে একটার পর একটা চলেছে — write skew এর ফল সেই সংজ্ঞা ভাঙে।
 
@@ -386,17 +386,17 @@ const sold = affected === 1;
 
 দুটো script: `anomalies` দুটো transaction এর ধাপ হাতে সাজানো ক্রমে চালিয়ে পাঁচটা anomaly দেখায় — প্রতিবার হুবহু একই output; `lostupdate` ১০০টা একসাথে `+1` সাতটা কৌশলে মাপে। Retry helper Postgres এর error code Zod দিয়ে চেনে (`as` দিয়ে না)। Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean, `anomalies` দুবার চালিয়ে output হুবহু এক, `lostupdate` তিনবার চালিয়ে ৩–৭ প্রতিবার ১০০/১০০।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. দুটো script চালাও। `anomalies` কি README এর সাথে হুবহু মেলে? `lostupdate` এ কৌশল ২ তে কতগুলো টিকল, আর optimistic (৬) এ কত retry?
+1. দুটো script চালান। `anomalies` কি README এর সাথে হুবহু মেলে? `lostupdate` এ কৌশল ২ তে কতগুলো টিকল, আর optimistic (৬) এ কত retry?
 
-2. **Retry তুলে দাও** (README experiment ১): কৌশল ৭ থেকে `withRetry` সরিয়ে চালাও। কী হলো? এক লাইনে লেখো — SERIALIZABLE বেছে নিলে retry কেন "optional" না।
+2. **Retry তুলে দিন** (README experiment ১): কৌশল ৭ থেকে `withRetry` সরিয়ে চালান। কী হলো? এক লাইনে লিখুন — SERIALIZABLE বেছে নিলে retry কেন "optional" না।
 
-3. **Write skew ঠিক করো SERIALIZABLE ছাড়া** (experiment ২): admin row গুলো `FOR UPDATE` দিয়ে lock করে REPEATABLE READ এ চালাও। B কি অপেক্ষা করল, error পেল, নাকি দুটোই? ফলাফল দেখে ব্যাখ্যা করো কেন।
+3. **Write skew ঠিক করুন SERIALIZABLE ছাড়া** (experiment ২): admin row গুলো `FOR UPDATE` দিয়ে lock করে REPEATABLE READ এ চালান। B কি অপেক্ষা করল, error পেল, নাকি দুটোই? ফলাফল দেখে ব্যাখ্যা করুন কেন।
 
-4. **Contention কমাও** (experiment ৩): ১০০টা increment ১০টা project এ ভাগ করো। Optimistic এর retry কত কমল? এই সংখ্যা থেকে "optimistic কখন ভালো" এর নিয়মটা নিজের ভাষায় লেখো।
+4. **Contention কমান** (experiment ৩): ১০০টা increment ১০টা project এ ভাগ করুন। Optimistic এর retry কত কমল? এই সংখ্যা থেকে "optimistic কখন ভালো" এর নিয়মটা নিজের ভাষায় লিখুন।
 
-5. **Design অংশ:** TaskFlow এ তিনটা নতুন feature। প্রতিটার race condition টা কী, কোন anomaly, আর কোন কৌশলে (১.৬ এর table থেকে) সমাধান করবে — কারণ সহ:
+5. **Design অংশ:** TaskFlow এ তিনটা নতুন feature। প্রতিটার race condition টা কী, কোন anomaly, আর কোন কৌশলে (১.৬ এর table থেকে) সমাধান করবেন — কারণ সহ:
    - (ক) একটা task একজনকেই assign করা যাবে — দুজন manager একই মুহূর্তে একই task দুজন আলাদা মানুষকে assign করছে
    - (খ) Free plan এ একটা workspace এ সর্বোচ্চ ৫টা project — দুটো tab থেকে একসাথে ষষ্ঠ project তৈরি
    - (গ) Task এর description — দুজন একই task এর form খুলে ১০ মিনিট ধরে লিখছে, তারপর দুজনেই save
@@ -420,7 +420,7 @@ Page, B-tree, WAL, Memtable, SSTable, Compaction, Write Amplification,
 Query Planner, Selectivity, Composite Index, Leftmost Prefix Rule,
 Partial Index, Expression Index, Covering Index, ACID, Isolation Level,
 MVCC, Lost Update, Write Skew, Pessimistic Locking, Optimistic Locking
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 5.6 — Connection Pooling, N+1 Problem, Query Optimization
 =======================
 ```
@@ -429,4 +429,4 @@ Next: 5.6 — Connection Pooling, N+1 Problem, Query Optimization
 
 ## ৮. পরের Lesson
 
-Exercise টা চালিয়ে পাঠাও — বিশেষ করে ৩ নম্বরের ফল আর ৫ নম্বরের তিনটা design। রেডি হলে `next` লিখো — Lesson 5.6 এ যাব: **Connection Pooling, N+1 Problem, Query Optimization** — আজ বারবার যে "pool এ ১০টা connection" কথাটা এসেছে, সেটা আসলে কী, pool size কীভাবে ঠিক করতে হয় (বেশি দিলেই ভালো না), Sequelize এর `include` কখন একটা query আর কখন শত শত query বানায়, আর ৪টা Express instance মিলে Postgres এর connection limit কীভাবে ছাড়িয়ে যায় — hands-on, মেপে।
+Exercise টা চালিয়ে পাঠান — বিশেষ করে ৩ নম্বরের ফল আর ৫ নম্বরের তিনটা design। রেডি হলে `next` লিখুন — Lesson 5.6 এ যাব: **Connection Pooling, N+1 Problem, Query Optimization** — আজ বারবার যে "pool এ ১০টা connection" কথাটা এসেছে, সেটা আসলে কী, pool size কীভাবে ঠিক করতে হয় (বেশি দিলেই ভালো না), Sequelize এর `include` কখন একটা query আর কখন শত শত query বানায়, আর ৪টা Express instance মিলে Postgres এর connection limit কীভাবে ছাড়িয়ে যায় — hands-on, মেপে।

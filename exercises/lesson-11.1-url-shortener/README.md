@@ -134,9 +134,9 @@ trips to the sequence (database): 10
   পরেও ৬৩% click পুরনো গন্তব্যে যায়।
 - **প্রতি link এ HLL এখানে ভুল যন্ত্র।** বেশিরভাগ link এ কয়েকটা click, আর ১২ KB এর HLL তাদের জন্য exact set এর চেয়ে বড়।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **আরও তীক্ষ্ণ জনপ্রিয়তা:** `ZIPF_S=1.2 npm run redirect`। ১% cache এর hit rate কত হলো (মাপা: ৬০.৪% → ৮৯.২%)? তোমার
+1. **আরও তীক্ষ্ণ জনপ্রিয়তা:** `ZIPF_S=1.2 npm run redirect`। ১% cache এর hit rate কত হলো (মাপা: ৬০.৪% → ৮৯.২%)? আপনার
    আসল traffic এর s কত, সেটা না মেপে cache এর মাপ ঠিক করা যায় কেন না?
 2. **বেশি ফিরে আসা user:** `HONOR_CACHE=1 REPEAT_MEAN=5 npm run redirect`। 301 এ server কত দেখে (মাপা: ১৬.৬%), আর বন্ধের পরে
    কত click পুরনো গন্তব্যে যায় (৮৮.৮%)? একটা link-in-bio বা QR code এর জন্য এর মানে কী?
@@ -144,7 +144,7 @@ trips to the sequence (database): 10
    কি আসলেই সমস্যা? কখন হবে?
 4. **দশ গুণ বড়:** `NEW_PER_MONTH=1000000000 npm run estimate`। এখন ৬ অক্ষর কবে ভরে (৫ বছরে), ৭ অক্ষরে ১০ বছরে কত ভরা (৩.৪%),
    আর peak লেখা Postgres এর কত (২৩%)? কোন সিদ্ধান্ত বদলাতে হবে, কোনটা না?
-5. **Code বদলানোর কাজ:** `src/app.ts` এ একই URL আবার দিলে (একই owner এর জন্য) পুরনো code ফেরত দেওয়ার ব্যবস্থা করো। কোন
+5. **Code বদলানোর কাজ:** `src/app.ts` এ একই URL আবার দিলে (একই owner এর জন্য) পুরনো code ফেরত দেওয়ার ব্যবস্থা করুন। কোন
    index লাগবে, আর দুজন আলাদা user একই URL দিলে কী হওয়া উচিত — একই code না আলাদা? কেন?
 
 ## Project Structure

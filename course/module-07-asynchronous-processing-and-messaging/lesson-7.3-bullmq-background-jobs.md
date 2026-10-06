@@ -2,15 +2,15 @@
 
 **Module 7 — Asynchronous Processing & Messaging**
 
-> **Spaced Repetition (Lesson 4.3):** TaskFlow এর cache Redis এ `maxmemory-policy allkeys-lru` কেন বেছেছিলাম — memory ভরলে কী হয়, আর সেটা cache এর জন্য কেন ঠিক আছে? আজ একই Redis এ job রাখতে চাইব, আর দেখবে এই এক লাইনের config ঠিক উল্টো হতে হয়।
+> **Spaced Repetition (Lesson 4.3):** TaskFlow এর cache Redis এ `maxmemory-policy allkeys-lru` কেন বেছেছিলাম — memory ভরলে কী হয়, আর সেটা cache এর জন্য কেন ঠিক আছে? আজ একই Redis এ job রাখতে চাইব, আর দেখবেন এই এক লাইনের config ঠিক উল্টো হতে হয়।
 
 **Prerequisite:** Lesson 3.4 (Graceful shutdown), Lesson 4.3–4.4 (Redis, eviction policy), Lesson 6.1 (Lease, process pause), Lesson 7.1 (Job queue, backlog, in-memory queue এর দুর্বলতা), Lesson 7.2 (Ack, at-least-once, competing consumers)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Express API (producer) আর আলাদা worker process (consumer) দিয়ে BullMQ এর উপর একটা টেকসই background job বানাতে পারবে — Zod দিয়ে typed job data, retry, backoff আর নিজের বানানো job ID সহ
-2. একটা job এর পুরো জীবন (waiting → active → completed/failed, delayed, stalled) আঁকতে পারবে, আর বলতে পারবে API, worker বা Redis — কে মরলে job এর কী হয়, সংখ্যা সহ
-3. TaskFlow এর job system production এ চালানোর সিদ্ধান্তগুলো নিতে পারবে: Redis এর config, lock এর মেয়াদ, concurrency, graceful shutdown, আর কী কী মাপতে হবে
+1. Express API (producer) আর আলাদা worker process (consumer) দিয়ে BullMQ এর উপর একটা টেকসই background job বানাতে পারবেন — Zod দিয়ে typed job data, retry, backoff আর নিজের বানানো job ID সহ
+2. একটা job এর পুরো জীবন (waiting → active → completed/failed, delayed, stalled) আঁকতে পারবেন, আর বলতে পারবেন API, worker বা Redis — কে মরলে job এর কী হয়, সংখ্যা সহ
+3. TaskFlow এর job system production এ চালানোর সিদ্ধান্তগুলো নিতে পারবেন: Redis এর config, lock এর মেয়াদ, concurrency, graceful shutdown, আর কী কী মাপতে হবে
 
 **Tier:** 1 — Runnable Code (Docker এ Redis; API, worker আর নকল email provider আলাদা Node process)
 
@@ -18,9 +18,9 @@
 
 ## ০. TaskFlow এখন কোথায়
 
-Lesson 7.2 এর সিদ্ধান্ত: TaskFlow এর message দুই ধরনের। "খবর" (comment তৈরি হলো, task complete হলো) যাবে একটা log এ। আর "কাজ" (এই email পাঠাও, এই export বানাও) যাবে queue তে — per-message ack, retry, delay সহ। TaskFlow এর stack Node আর Redis আগে থেকেই আছে, তাই কাজের জন্য বাছা হলো **BullMQ**: Redis এর উপর বানানো একটা Node/TypeScript job queue library।
+Lesson 7.2 এর সিদ্ধান্ত: TaskFlow এর message দুই ধরনের। "খবর" (comment তৈরি হলো, task complete হলো) যাবে একটা log এ। আর "কাজ" (এই email পাঠান, এই export বানান) যাবে queue তে — per-message ack, retry, delay সহ। TaskFlow এর stack Node আর Redis আগে থেকেই আছে, তাই কাজের জন্য বাছা হলো **BullMQ**: Redis এর উপর বানানো একটা Node/TypeScript job queue library।
 
-আজ সেটা বানাব। আর বানানোর পরে একটা পরীক্ষা, যেটার জন্য দুই lesson ধরে অপেক্ষা করছি। Lesson 7.1 এর শেষ experiment টা মনে করো: in-memory queue, ধীর provider, আর ঠিক মাঝখানে API process এ `SIGKILL`। ফল ছিল:
+আজ সেটা বানাব। আর বানানোর পরে একটা পরীক্ষা, যেটার জন্য দুই lesson ধরে অপেক্ষা করছি। Lesson 7.1 এর শেষ experiment টা মনে করুন: in-memory queue, ধীর provider, আর ঠিক মাঝখানে API process এ `SIGKILL`। ফল ছিল:
 
 ```
    told "ok", email never sent: 103
@@ -62,7 +62,7 @@ BullMQ এ তিনজন খেলোয়াড়:
 ```
 
 - **`Queue`** — producer এর দিক। `queue.add(name, data, options)` job টা Redis এ লেখে, আর ফেরে যখন লেখা হয়ে গেছে।
-- **`Worker`** — consumer এর দিক। Redis থেকে job তোলে, তোমার processor function চালায়, ফল অনুযায়ী job কে পরের অবস্থায় সরায়। `concurrency: 8` মানে এক process একসাথে ৮টা job চালায় (Node এ অপেক্ষার কাজের জন্য যথেষ্ট — Lesson 7.1 এর মতো)।
+- **`Worker`** — consumer এর দিক। Redis থেকে job তোলে, আপনার processor function চালায়, ফল অনুযায়ী job কে পরের অবস্থায় সরায়। `concurrency: 8` মানে এক process একসাথে ৮টা job চালায় (Node এ অপেক্ষার কাজের জন্য যথেষ্ট — Lesson 7.1 এর মতো)।
 - **Redis** — একমাত্র জায়গা যেখানে job এর অবস্থা থাকে। API বা worker, কারো memory তে না। আজকের সব উত্তর এই একটা বাক্য থেকে আসে।
 
 Producer এর দিক, exercise এর `api.ts` থেকে (মূল অংশ):
@@ -86,7 +86,7 @@ app.post('/api/tasks/:id/assign', async (req: Request, res: Response): Promise<v
 });
 ```
 
-দুটো জিনিস লক্ষ করো। `202 Accepted` — "নিয়েছি, পরে হবে" (Lesson 7.1 এর ১.৬)। আর `catch` এ `503` — job লেখা না গেলে user কে সৎভাবে ব্যর্থতা জানানো। 7.1 এর fire-and-forget এর সবচেয়ে বড় পাপ ছিল ঠিক উল্টোটা: কাজ না নিয়েও "সফল" বলা।
+দুটো জিনিস লক্ষ করুন। `202 Accepted` — "নিয়েছি, পরে হবে" (Lesson 7.1 এর ১.৬)। আর `catch` এ `503` — job লেখা না গেলে user কে সৎভাবে ব্যর্থতা জানানো। 7.1 এর fire-and-forget এর সবচেয়ে বড় পাপ ছিল ঠিক উল্টোটা: কাজ না নিয়েও "সফল" বলা।
 
 Consumer এর দিক, `worker.ts`:
 
@@ -111,9 +111,9 @@ const worker = new Worker(QUEUE_NAME, processAssignEmail, {
 });
 ```
 
-**Job data কেন Zod দিয়ে parse?** Main.md এর নিয়ম — runtime input কে `as` দিয়ে বিশ্বাস করা না — এখানে বিশেষভাবে জরুরি। Job data লিখেছে **অন্য process**, হয়তো **অন্য version** এর code। বুধবার deploy হলো, job এর আকৃতিতে একটা নতুন field যোগ হলো — কিন্তু মঙ্গলবারের পুরনো আকৃতির ৫০০টা job তখনো queue তে অপেক্ষা করছে। নতুন worker তাদের পড়বে। `Queue<AssignEmail>` এর generic শুধু compile time এর প্রতিশ্রুতি; Redis এ যা আছে সেটা JSON, আর তার আকৃতি runtime এ যাচাই করতে হয়। (তাই job এর আকৃতি বদলানো একটা ছোট migration এর মতো ভাবো — নতুন field optional রাখো, বা job এর নামে version রাখো।)
+**Job data কেন Zod দিয়ে parse?** Main.md এর নিয়ম — runtime input কে `as` দিয়ে বিশ্বাস করা না — এখানে বিশেষভাবে জরুরি। Job data লিখেছে **অন্য process**, হয়তো **অন্য version** এর code। বুধবার deploy হলো, job এর আকৃতিতে একটা নতুন field যোগ হলো — কিন্তু মঙ্গলবারের পুরনো আকৃতির ৫০০টা job তখনো queue তে অপেক্ষা করছে। নতুন worker তাদের পড়বে। `Queue<AssignEmail>` এর generic শুধু compile time এর প্রতিশ্রুতি; Redis এ যা আছে সেটা JSON, আর তার আকৃতি runtime এ যাচাই করতে হয়। (তাই job এর আকৃতি বদলানো একটা ছোট migration এর মতো ভাবুন — নতুন field optional রাখুন, বা job এর নামে version রাখুন।)
 
-**Worker কেন আলাদা process?** তিনটা কারণ, সবই আগের lesson থেকে। (ক) আলাদা scale: backlog বাড়লে worker বাড়াও, API না। (খ) আলাদা deploy আর crash: worker এর bug API কে ফেলে না। (গ) CPU এর কাজ (PDF, ছবি) worker এর event loop আটকাক, API এর না — ১.৫ এ দেখবে এটা কেন আরও গুরুত্বপূর্ণ। আর একটা ছোট নিয়ম: worker এর Redis connection এ `maxRetriesPerRequest: null` লাগে (worker একটা "blocking" command এ অপেক্ষা করে; Redis সাময়িক না থাকলে ioredis যাতে command ব্যর্থ না করে দেয়) — BullMQ নিজেও না থাকলে সতর্ক করে।
+**Worker কেন আলাদা process?** তিনটা কারণ, সবই আগের lesson থেকে। (ক) আলাদা scale: backlog বাড়লে worker বাড়ান, API না। (খ) আলাদা deploy আর crash: worker এর bug API কে ফেলে না। (গ) CPU এর কাজ (PDF, ছবি) worker এর event loop আটকাক, API এর না — ১.৫ এ দেখবেন এটা কেন আরও গুরুত্বপূর্ণ। আর একটা ছোট নিয়ম: worker এর Redis connection এ `maxRetriesPerRequest: null` লাগে (worker একটা "blocking" command এ অপেক্ষা করে; Redis সাময়িক না থাকলে ioredis যাতে command ব্যর্থ না করে দেয়) — BullMQ নিজেও না থাকলে সতর্ক করে।
 
 ### ১.২ একটা Job এর জীবন
 
@@ -140,9 +140,9 @@ const worker = new Worker(QUEUE_NAME, processAssignEmail, {
 
 **Delayed job** — এমন job যেটা এখনই চালানোর জন্য না, একটা নির্দিষ্ট সময় পরে; ততক্ষণ `delayed` অবস্থায় অপেক্ষা করে, সময় হলে `waiting` এ যায়।
 
-দুটো জায়গা থেকে delayed আসে: তুমি নিজে চাইলে (`queue.add(…, { delay: 24 * 3600_000 })` — "কাল সকালে deadline এর reminder পাঠাও"), আর retry থেকে — একটা চেষ্টা ব্যর্থ হলে job backoff এর সময়টুকু delayed এ বসে থাকে।
+দুটো জায়গা থেকে delayed আসে: আপনি নিজে চাইলে (`queue.add(…, { delay: 24 * 3600_000 })` — "কাল সকালে deadline এর reminder পাঠান"), আর retry থেকে — একটা চেষ্টা ব্যর্থ হলে job backoff এর সময়টুকু delayed এ বসে থাকে।
 
-Lesson 7.2 এর ভাষায় এই ছবিটা পড়ো: `active → completed` হলো **ack**। Processor function সফলভাবে ফিরলে BullMQ job কে completed এ সরায় — তার আগে না। তাই BullMQ স্বভাবতই **at-least-once**: কাজ হলো, "completed" লেখার আগে কিছু ভাঙল — job আবার আসবে। ১.৫ এ এটা সংখ্যায় দেখবে।
+Lesson 7.2 এর ভাষায় এই ছবিটা পড়ুন: `active → completed` হলো **ack**। Processor function সফলভাবে ফিরলে BullMQ job কে completed এ সরায় — তার আগে না। তাই BullMQ স্বভাবতই **at-least-once**: কাজ হলো, "completed" লেখার আগে কিছু ভাঙল — job আবার আসবে। ১.৫ এ এটা সংখ্যায় দেখবেন।
 
 ### ১.৩ ভেতরে কী আছে — আর Redis এর config কেন উল্টো
 
@@ -163,7 +163,7 @@ Exercise এর `npm run inspect` একটা ছোট queue তে প্র�
 
 প্রতিটা job একটা Redis **hash** (name, data, opts, failedReason, timestamp …)। আর অবস্থা গুলো আলাদা আলাদা collection: `wait` একটা list (FIFO), `delayed` একটা sorted set (score = কখন চালু হবে — তাই "পরের কোনটা সময় হলো" দ্রুত খোঁজা যায়), `completed`/`failed` sorted set (score = শেষ হওয়ার সময়)। `events` একটা Redis Stream — Lesson 7.2 এর log! — যেখানে প্রতিটা অবস্থা বদলের খবর থাকে, যাতে অন্য process (dashboard, `QueueEvents`) শুনতে পারে।
 
-এক অবস্থা থেকে আরেকটায় সরানো মানে কয়েকটা key একসাথে বদলানো (list থেকে বের করো, hash এ lock লেখো, active এ যোগ করো)। মাঝপথে crash হলে job অর্ধেক এখানে, অর্ধেক ওখানে থাকত। BullMQ এটা করে **Lua script** দিয়ে — Redis একটা script কে atomically চালায়, অন্য কোনো command মাঝে ঢুকতে পারে না। (Lesson 5.5 এর transaction এর ধারণা, Redis এর ভাষায়।) এই কারণেই নিয়ম: **Redis এর key সরাসরি ছুঁয়ো না, সবসময় BullMQ এর API দিয়ে।**
+এক অবস্থা থেকে আরেকটায় সরানো মানে কয়েকটা key একসাথে বদলানো (list থেকে বের করুন, hash এ lock লিখুন, active এ যোগ করুন)। মাঝপথে crash হলে job অর্ধেক এখানে, অর্ধেক ওখানে থাকত। BullMQ এটা করে **Lua script** দিয়ে — Redis একটা script কে atomically চালায়, অন্য কোনো command মাঝে ঢুকতে পারে না। (Lesson 5.5 এর transaction এর ধারণা, Redis এর ভাষায়।) এই কারণেই নিয়ম: **Redis এর key সরাসরি ছোঁবেন না, সবসময় BullMQ এর API দিয়ে।**
 
 **এবার spaced repetition এর উত্তর — আর আজকের সবচেয়ে সহজে ভুল হওয়া config।** Lesson 4.3 এ cache Redis এ `allkeys-lru` বেছেছিলাম: memory ভরলে Redis সবচেয়ে কম ব্যবহৃত key ফেলে দেয়। Cache এর জন্য এটা নিখুঁত — ফেলে দেওয়া key database থেকে আবার আসবে।
 
@@ -193,7 +193,7 @@ command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendon
    "got 202, the email never went": 0
 ```
 
-7.1 এর queue এর মতোই আকৃতি: provider ধীর হলেও API কয়েক দশ ms, ক্ষতিটা backlog আর দেরিতে। Backlog হাতে মেলাও: ধীর phase এ ৮ worker ÷ ২ s = ৪ email/s বের হয়, আসে ২০ → +১৬/s × ৮ s = **১২৮** (মাপা ১২৭)। একটা পার্থক্য: API এর p50 এখন ~২০–৩০ ms, 7.1 এর in-memory queue এর ~১০ ms না — প্রতিটা `queue.add` Redis এ একটা network round trip। টেকসই হওয়ার দাম, আর সস্তা দাম।
+7.1 এর queue এর মতোই আকৃতি: provider ধীর হলেও API কয়েক দশ ms, ক্ষতিটা backlog আর দেরিতে। Backlog হাতে মেলান: ধীর phase এ ৮ worker ÷ ২ s = ৪ email/s বের হয়, আসে ২০ → +১৬/s × ৮ s = **১২৮** (মাপা ১২৭)। একটা পার্থক্য: API এর p50 এখন ~২০–৩০ ms, 7.1 এর in-memory queue এর ~১০ ms না — প্রতিটা `queue.add` Redis এ একটা network round trip। টেকসই হওয়ার দাম, আর সস্তা দাম।
 
 এবার আসল পরীক্ষা — `CRASH=api`, ধীর phase এর মাঝখানে (১২ সেকেন্ডে) API process `SIGKILL`, সাথে সাথে নতুন API:
 
@@ -208,7 +208,7 @@ command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendon
 
 **শূন্য।** ১০৩ থেকে ০। কারণ ১.১ এর সেই বাক্য: job API এর memory তে কখনো ছিলই না। `queue.add` ফেরার মুহূর্তে job Redis এ; তার পরে API মরুক, বাঁচুক — worker job টা পাবে।
 
-আর "API ব্যর্থ ৩" টা দেখো — এটাও সঠিক আচরণ। মরা API এর কাছে যে ৩টা request গিয়েছিল, তাদের user রা error দেখেছে; তারা আবার চেষ্টা করবে। মিথ্যা "সফল" একটাও না। Durable queue এর আসল অর্জন এই দুটো সংখ্যার জোড়া: **যাকে "হয়েছে" বলা হয়েছে, তার কাজ হবেই; যার কাজ নেওয়া যায়নি, সে জানে।**
+আর "API ব্যর্থ ৩" টা দেখুন — এটাও সঠিক আচরণ। মরা API এর কাছে যে ৩টা request গিয়েছিল, তাদের user রা error দেখেছে; তারা আবার চেষ্টা করবে। মিথ্যা "সফল" একটাও না। Durable queue এর আসল অর্জন এই দুটো সংখ্যার জোড়া: **যাকে "হয়েছে" বলা হয়েছে, তার কাজ হবেই; যার কাজ নেওয়া যায়নি, সে জানে।**
 
 (একটা ফাঁক এখনো আছে, আর সেটা ইচ্ছা করে exercise এর বাইরে রাখা: আসল route এ আগে database এ assign commit হয়, তারপর `queue.add`। Commit হলো, `queue.add` এর আগে API মরল — assign আছে, job নেই। Lesson 7.1 এর ১.৬ এ এর নাম দিয়েছিলাম dual write; সমাধান — transactional outbox — Lesson 7.5 এ।)
 
@@ -233,7 +233,7 @@ Lesson 6.1 এর প্রশ্নটাই, নতুন জায়গা�
    the same email delivered twice (or more): 8
 ```
 
-পড়ো:
+পড়ুন:
 
 1. **কিছু হারায়নি** — মরা worker এর ৮টা active job lock এর মেয়াদ শেষে stalled হলো, নতুন worker তাদের তুলে নিল।
 2. **৮টা email দুবার গেছে** — ঠিক সেই ৮টা। Worker মরার আগে তাদের request provider এ পৌঁছে গিয়েছিল; provider পাঠিয়ে দিয়েছিল; worker "completed" লেখার আগেই মরল। Lesson 7.2 এর ১.৩ এর ছবি, হুবহু: কাজের পরে ack, আর মাঝে crash → **at-least-once**।
@@ -254,9 +254,9 @@ Lesson 6.1 এর প্রশ্নটাই, নতুন জায়গা�
 
 শিক্ষা, 6.1 এর মতোই: **lock এর নিরাপত্তা নির্ভর করে pause এর দৈর্ঘ্য lock এর মেয়াদের চেয়ে অনেক ছোট হওয়ার উপর।** তিনটা প্রতিকার:
 
-- Worker এর event loop আটকিও না। CPU এর ভারী কাজ BullMQ এর **sandboxed processor** এ — processor টা একটা আলাদা file এ, যেটা BullMQ একটা আলাদা child process (বা worker thread) এ চালায়; তখন lock renew করে মূল process, যার event loop মুক্ত।
-- `lockDuration` কে কাজের সবচেয়ে খারাপ pause এর চেয়ে বড় রাখো — আর মেনে নাও যে মরা worker ধরা পড়তে তত দেরি।
-- আর যেহেতু duplicate তবু হবে: **job কে idempotent বানাও** (provider এর idempotency key, বা `sent_notifications` এ unique constraint — Lesson 6.1 আর 7.4)। Exercise এ worker ইচ্ছা করে `job.id` কে provider এর কাছে `key` হিসেবে পাঠায় — আসল provider এ সেটাই idempotency key এর জায়গা, আর তখন এই ৮টা আর ৯টা duplicate provider নিজেই বাদ দিত।
+- Worker এর event loop আটকাবেন না। CPU এর ভারী কাজ BullMQ এর **sandboxed processor** এ — processor টা একটা আলাদা file এ, যেটা BullMQ একটা আলাদা child process (বা worker thread) এ চালায়; তখন lock renew করে মূল process, যার event loop মুক্ত।
+- `lockDuration` কে কাজের সবচেয়ে খারাপ pause এর চেয়ে বড় রাখুন — আর মেনে নিন যে মরা worker ধরা পড়তে তত দেরি।
+- আর যেহেতু duplicate তবু হবে: **job কে idempotent বানান** (provider এর idempotency key, বা `sent_notifications` এ unique constraint — Lesson 6.1 আর 7.4)। Exercise এ worker ইচ্ছা করে `job.id` কে provider এর কাছে `key` হিসেবে পাঠায় — আসল provider এ সেটাই idempotency key এর জায়গা, আর তখন এই ৮টা আর ৯টা duplicate provider নিজেই বাদ দিত।
 
 **আর graceful shutdown — deploy যেমন হওয়া উচিত।** `CRASH=worker-term` — একই মুহূর্তে, কিন্তু `SIGKILL` এর বদলে `SIGTERM`:
 
@@ -266,7 +266,7 @@ Lesson 6.1 এর প্রশ্নটাই, নতুন জায়গা�
    the same email delivered twice (or more): 0
 ```
 
-Duplicate **০**, দেরিতে কোনো লাফ নেই। Worker এর SIGTERM handler (Lesson 3.4 এর graceful shutdown) `worker.close()` ডাকে: নতুন job নেওয়া বন্ধ, চলমান ৮টা শেষ করা, তারপর exit। Kubernetes বা যেকোনো deploy system আগে SIGTERM দেয়, তারপর একটা grace period (Kubernetes এ default ৩০ সেকেন্ড) পরে SIGKILL। তাই নিয়ম: **grace period তোমার সবচেয়ে লম্বা job এর চেয়ে বড় হতে হবে** — নইলে প্রতিটা deploy এক একটা `worker-kill`।
+Duplicate **০**, দেরিতে কোনো লাফ নেই। Worker এর SIGTERM handler (Lesson 3.4 এর graceful shutdown) `worker.close()` ডাকে: নতুন job নেওয়া বন্ধ, চলমান ৮টা শেষ করা, তারপর exit। Kubernetes বা যেকোনো deploy system আগে SIGTERM দেয়, তারপর একটা grace period (Kubernetes এ default ৩০ সেকেন্ড) পরে SIGKILL। তাই নিয়ম: **grace period আপনার সবচেয়ে লম্বা job এর চেয়ে বড় হতে হবে** — নইলে প্রতিটা deploy এক একটা `worker-kill`।
 
 ### ১.৬ Provider ব্যর্থ হলে — Retry আর Backoff
 
@@ -284,7 +284,7 @@ Team এর দ্বিতীয় প্রশ্ন। Processor throw ক�
 
 **Exponential backoff** — প্রতিটা ব্যর্থ চেষ্টার পরে অপেক্ষার সময় গুণে বাড়ে (BullMQ এ `2^(চেষ্টা−1) × delay`: ১, ২, ৪, ৮ সেকেন্ড); সাথে jitter — প্রতিটা অপেক্ষায় একটু এলোমেলোতা — যাতে একসাথে ব্যর্থ হওয়া শত শত job একই মুহূর্তে আবার ঝাঁপিয়ে না পড়ে।
 
-কেন গুণে বাড়ে? Provider যদি সাময়িক চাপে থাকে, সাথে সাথে আবার চেষ্টা তার চাপ আরও বাড়ায়; অপেক্ষা বাড়ালে তাকে সেরে ওঠার সময় দেওয়া হয়। (এর বিস্তারিত — কখন retry করবে না, কত পর্যন্ত, jitter এর গণিত — Lesson 7.4 এর পুরোটা।)
+কেন গুণে বাড়ে? Provider যদি সাময়িক চাপে থাকে, সাথে সাথে আবার চেষ্টা তার চাপ আরও বাড়ায়; অপেক্ষা বাড়ালে তাকে সেরে ওঠার সময় দেওয়া হয়। (এর বিস্তারিত — কখন retry করবেন না, কত পর্যন্ত, jitter এর গণিত — Lesson 7.4 এর পুরোটা।)
 
 `FAIL_RATE=0.3` — provider ৩০% সময় `503`:
 
@@ -296,7 +296,7 @@ Team এর দ্বিতীয় প্রশ্ন। Processor throw ক�
    "got 202, the email never went": 1
 ```
 
-চেষ্টার বণ্টনটা দেখো — প্রায় জ্যামিতিক: প্রতিবার ~৭০% সফল, তাই প্রতিটা ধাপে আগেরটার ~৩০%। ৫ বারই ব্যর্থ হওয়ার সম্ভাবনা 0.3⁵ ≈ 0.24%, ৪৭৮ এর মধ্যে ~১.২ — আর ঠিক **১টা** job `failed`। Retry ছাড়া (experiment ৩, `ATTEMPTS=1`) failed হয় ১৪২টা, ~৩০%।
+চেষ্টার বণ্টনটা দেখুন — প্রায় জ্যামিতিক: প্রতিবার ~৭০% সফল, তাই প্রতিটা ধাপে আগেরটার ~৩০%। ৫ বারই ব্যর্থ হওয়ার সম্ভাবনা 0.3⁵ ≈ 0.24%, ৪৭৮ এর মধ্যে ~১.২ — আর ঠিক **১টা** job `failed`। Retry ছাড়া (experiment ৩, `ATTEMPTS=1`) failed হয় ১৪২টা, ~৩০%।
 
 আর সেই ১টা? "202 পেল, email যায়নি: 1" — কিন্তু 7.1 এর fire-and-forget এর ৬০ এর সাথে এর একটা মৌলিক পার্থক্য: এটা **দৃশ্যমান**। `failed` set এ আছে, কারণ সহ (`provider responded 503`), ৭ দিন থাকবে (`removeOnFail`)। কেউ দেখতে পারে, alert দিতে পারে, ঠিক করে আবার চালাতে পারে (`job.retry()`)। ব্যর্থতা থাকবেই; প্রশ্ন শুধু ব্যর্থতা কোথায় যায় — নীরবতায়, নাকি একটা তালিকায়। (এই তালিকার আনুষ্ঠানিক নাম dead letter queue — 7.4।)
 
@@ -323,7 +323,7 @@ Team এর তৃতীয় প্রশ্ন: user দুবার click �
 
 তিনটা সীমা, প্রতিটা জরুরি:
 
-1. **ID বাছাই একটা design সিদ্ধান্ত।** `assign-{taskId}-{assigneeId}` মানে: একই মানুষকে একই task এ আবার assign করলে (সরিয়ে, তারপর আবার) দ্বিতীয় email যাবে না — যদি প্রথম job এখনো Redis এ থাকে। সেটা কি চাও? নইলে ID তে assignment এর নিজের id বা version যোগ করো। (আর BullMQ এর custom ID তে `:` চলে না, শুধু সংখ্যাও না — তাই `-`।)
+1. **ID বাছাই একটা design সিদ্ধান্ত।** `assign-{taskId}-{assigneeId}` মানে: একই মানুষকে একই task এ আবার assign করলে (সরিয়ে, তারপর আবার) দ্বিতীয় email যাবে না — যদি প্রথম job এখনো Redis এ থাকে। সেটা কি চান? নইলে ID তে assignment এর নিজের id বা version যোগ করুন। (আর BullMQ এর custom ID তে `:` চলে না, শুধু সংখ্যাও না — তাই `-`।)
 2. **Dedupe শুধু যতক্ষণ job Redis এ আছে।** `removeOnComplete` এক ঘণ্টা পরে job মুছে দেয়; তারপর একই ID আবার যোগ করা যায়। দীর্ঘমেয়াদী "একবারই" এর জন্য database এর unique constraint (7.4)। (BullMQ এর আলাদা একটা `deduplication` option ও আছে, নির্দিষ্ট TTL এর জন্য — debounce/throttle ধরনের কাজে।)
 3. **এটা যোগ করার duplicate আটকায়, প্রক্রিয়ার না।** ১.৫ এর stalled job এর duplicate একই ID এর একই job, দুবার **চালানো** — ID সেটা আটকায় না। দুটো আলাদা সমস্যা, দুটো আলাদা সমাধান।
 
@@ -335,7 +335,7 @@ Team এর তৃতীয় প্রশ্ন: user দুবার click �
 
 **AOF (Append-only File)** — Redis প্রতিটা লেখার command একটা file এর শেষে যোগ করে; restart এ file টা আবার চালিয়ে data ফেরত আনে। `appendfsync everysec` মানে file টা প্রতি সেকেন্ডে disk এ পাকা হয় — তাই হঠাৎ মৃত্যুতে সর্বোচ্চ ~১ সেকেন্ডের লেখা হারাতে পারে; `always` এ প্রতিটা লেখায় (নিরাপদ, কিন্তু অনেক ধীর)।
 
-(Lesson 5.3 এর WAL এর কথা মনে পড়ছে? একই ধারণা — আগে খাতায় লেখো, তারপর মনে রাখো।)
+(Lesson 5.3 এর WAL এর কথা মনে পড়ছে? একই ধারণা — আগে খাতায় লিখুন, তারপর মনে রাখুন।)
 
 Exercise এর experiment ১ — scenario চলার সময় আরেক terminal থেকে Redis কে থামানো:
 
@@ -359,7 +359,7 @@ API ব্যর্থ হলো না কেন? কারণ ioredis (BullMQ 
 | Redis                     | আলাদা instance, `noeviction`, AOF `everysec`, replica                    | Job ফেলে দেওয়া চলবে না (১.৩); restart এ টিকবে (১.৮)               |
 | Worker                    | আলাদা deploy, CPU এর কাজ sandboxed processor এ                           | আলাদা scale/crash; event loop আটকালে lock যায় (১.৫)               |
 | Concurrency               | Little's Law: `আসার হার × কাজের সময়`, আর provider এর rate limit এর নিচে | কম হলে backlog, বেশি হলে provider `429` (7.1); BullMQ এর `limiter` |
-| `lockDuration`            | Default ৩০ s রাখো, কাজ ছোট রাখো                                          | ছোট = দ্রুত ধরা, কিন্তু pause এ মিথ্যা stalled (১.৫)               |
+| `lockDuration`            | Default ৩০ s রাখুন, কাজ ছোট রাখুন                                        | ছোট = দ্রুত ধরা, কিন্তু pause এ মিথ্যা stalled (১.৫)               |
 | Graceful shutdown         | SIGTERM → `worker.close()`; grace period > সবচেয়ে লম্বা job             | নইলে প্রতিটা deploy এ duplicate (১.৫)                              |
 | Retry                     | ৫ বার, exponential + jitter; চিরস্থায়ী error এ `UnrecoverableError`     | সাময়িক ব্যর্থতা সারে, চিরস্থায়ী তে সময় নষ্ট হয় না (১.৬)        |
 | Job ID                    | কাজের পরিচয় থেকে (`assign-{taskId}-{assigneeId}`)                       | Double submit এ একটাই job (১.৭)                                    |
@@ -368,15 +368,15 @@ API ব্যর্থ হলো না কেন? কারণ ioredis (BullMQ 
 | `removeOnComplete`/`Fail` | শেষ হওয়া ১ ঘণ্টা, ব্যর্থ ৭ দিন                                          | Redis ভরে না; ব্যর্থ গুলো দেখার সময় থাকে                          |
 | মাপা                      | waiting সংখ্যা, **সবচেয়ে পুরনো waiting job এর বয়স**, failed এর হার     | Backlog আর মরা worker ধরা (7.1); একটা dashboard (যেমন Bull Board)  |
 
-"Job data ছোট রাখো" নিয়ে এক লাইন: assign email এর job এ পুরো task object রাখলে, job চলার সময় (হয়তো ৩০ সেকেন্ড পরে, backlog এ) task এর title বদলে গিয়ে থাকতে পারে — email পুরনো title দেখাবে। Job এ শুধু `taskId` রাখো, worker database থেকে তাজা data পড়ুক। (ব্যতিক্রম: যখন তুমি ইচ্ছা করেই সেই মুহূর্তের data চাও — যেমন "assign করার সময় কে assign করেছিল"।)
+"Job data ছোট রাখুন" নিয়ে এক লাইন: assign email এর job এ পুরো task object রাখলে, job চলার সময় (হয়তো ৩০ সেকেন্ড পরে, backlog এ) task এর title বদলে গিয়ে থাকতে পারে — email পুরনো title দেখাবে। Job এ শুধু `taskId` রাখুন, worker database থেকে তাজা data পড়ুক। (ব্যতিক্রম: যখন আপনি ইচ্ছা করেই সেই মুহূর্তের data চান — যেমন "assign করার সময় কে assign করেছিল"।)
 
 ---
 
 ## ২. Interview Angle
 
-**"Background job system design করো" বা "notification system এ email কীভাবে পাঠাবে?"** — এখানে BullMQ এর নাম লাগে না; লাগে ধারণাগুলো, আর interviewer এর follow-up এর তালিকা প্রায় নির্দিষ্ট: worker মরলে কী হয় (lock/visibility timeout → আবার আসে → at-least-once → idempotent consumer); retry কীভাবে (exponential backoff + jitter, সাময়িক বনাম চিরস্থায়ী error); বারবার ব্যর্থ হলে (dead letter — failed set); একই কাজ দুবার যোগ হলে (deterministic job ID); queue এর store মরলে (persistence, replication এর lag, আর গুরুত্বপূর্ণ কাজের জন্য outbox)। এই পাঁচটা উত্তর তৈরি থাকলে যেকোনো queue tool এর নামে কাজ চলে — AWS SQS এর "visibility timeout" আর BullMQ এর "lock" একই ধারণা।
+**"Background job system design করুন" বা "notification system এ email কীভাবে পাঠাবেন?"** — এখানে BullMQ এর নাম লাগে না; লাগে ধারণাগুলো, আর interviewer এর follow-up এর তালিকা প্রায় নির্দিষ্ট: worker মরলে কী হয় (lock/visibility timeout → আবার আসে → at-least-once → idempotent consumer); retry কীভাবে (exponential backoff + jitter, সাময়িক বনাম চিরস্থায়ী error); বারবার ব্যর্থ হলে (dead letter — failed set); একই কাজ দুবার যোগ হলে (deterministic job ID); queue এর store মরলে (persistence, replication এর lag, আর গুরুত্বপূর্ণ কাজের জন্য outbox)। এই পাঁচটা উত্তর তৈরি থাকলে যেকোনো queue tool এর নামে কাজ চলে — AWS SQS এর "visibility timeout" আর BullMQ এর "lock" একই ধারণা।
 
-**"Delayed job কীভাবে বানাবে — যেমন deadline এর ১ দিন আগে reminder?"** — দুটো পথ, আর trade-off বলা জরুরি: (ক) task তৈরির সময় একটা delayed job (`delay` = deadline − ১ দিন − এখন) — সহজ, কিন্তু deadline বদলালে পুরনো job বাতিল করতে হবে (নিজের job ID থাকলে সহজ: `reminder-{taskId}` মুছে নতুন যোগ), আর মাসখানেক পরের job মাসখানেক Redis এ বসে থাকে; (খ) একটা repeatable/cron job প্রতি কয়েক মিনিটে database থেকে "কাল deadline এমন task" খোঁজে — database ই source of truth, deadline বদলানো কিছু না, কিন্তু একটা query বারবার। বড় সংখ্যা আর বদলাতে থাকা সময়ের জন্য (খ) প্রায়ই নিরাপদ — আর Lesson 6.1 এর মতো তখন নিশ্চিত করতে হয় যে cron টা একজনই চালায় (BullMQ এর repeatable job এর নিজস্ব ব্যবস্থা আছে)।
+**"Delayed job কীভাবে বানাবেন — যেমন deadline এর ১ দিন আগে reminder?"** — দুটো পথ, আর trade-off বলা জরুরি: (ক) task তৈরির সময় একটা delayed job (`delay` = deadline − ১ দিন − এখন) — সহজ, কিন্তু deadline বদলালে পুরনো job বাতিল করতে হবে (নিজের job ID থাকলে সহজ: `reminder-{taskId}` মুছে নতুন যোগ), আর মাসখানেক পরের job মাসখানেক Redis এ বসে থাকে; (খ) একটা repeatable/cron job প্রতি কয়েক মিনিটে database থেকে "কাল deadline এমন task" খোঁজে — database ই source of truth, deadline বদলানো কিছু না, কিন্তু একটা query বারবার। বড় সংখ্যা আর বদলাতে থাকা সময়ের জন্য (খ) প্রায়ই নিরাপদ — আর Lesson 6.1 এর মতো তখন নিশ্চিত করতে হয় যে cron টা একজনই চালায় (BullMQ এর repeatable job এর নিজস্ব ব্যবস্থা আছে)।
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ incident গুলো প্রায় সবসময় এই lesson এর একটা লাইন: cache আর queue একই Redis এ, `allkeys-lru` — backlog এর দিন job হারাল; `removeOnComplete` নেই — Redis এর memory ধীরে ধীরে ভরে একদিন `OOM`; worker এ একটা synchronous ভারী কাজ — "কেন একই invoice দুবার গেল?"; deploy এর grace period job এর চেয়ে ছোট — প্রতিটা deploy এ কয়েকটা duplicate; আর কেউ `failed` set দেখে না — মাসে কয়েকশো কাজ নীরবে পড়ে থাকে।
 
@@ -410,11 +410,11 @@ API ব্যর্থ হলো না কেন? কারণ ioredis (BullMQ 
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর CSV export: user "export" চাপলে একটা job — ৫০ হাজার task পড়া, CSV বানানো (CPU এর কাজ, ~৪০ সেকেন্ড), S3 এ upload, তারপর user কে email এ link। Worker এর option (`lockDuration`, concurrency, attempts), processor কোথায় চলবে, job এ কী data রাখবে, আর user কীভাবে জানবে export তৈরি কিনা — সব ঠিক করো। Default `lockDuration` (৩০ s) রেখে দিলে কী হতো, exercise এর কোন experiment এর মতো?
-2. একজন engineer বলল: "আমাদের cache Redis তো আছে, ১৬ GB, অর্ধেক খালি। আরেকটা Redis চালানোর খরচ কেন? Queue ওখানেই রাখি।" তুমি কী উত্তর দেবে — কী কী ভুল হতে পারে, কোন ঘটনার ক্রমে? যদি budget সত্যিই না থাকে, সবচেয়ে কম খারাপ বিকল্প কী?
-3. Deadline reminder: "task এর deadline এর ২৪ ঘণ্টা আগে assignee কে email।" (ক) Task তৈরির সময় একটা delayed job, (খ) প্রতি ৫ মিনিটে একটা repeatable job যেটা database খোঁজে — দুটো design এর জন্য বলো: deadline বদলালে কী করতে হয়, task delete হলে, Redis এর data হারালে, আর একই reminder দুবার যাওয়া কীভাবে আটকাবে। কোনটা বাছবে?
+1. TaskFlow এর CSV export: user "export" চাপলে একটা job — ৫০ হাজার task পড়া, CSV বানানো (CPU এর কাজ, ~৪০ সেকেন্ড), S3 এ upload, তারপর user কে email এ link। Worker এর option (`lockDuration`, concurrency, attempts), processor কোথায় চলবে, job এ কী data রাখবেন, আর user কীভাবে জানবে export তৈরি কিনা — সব ঠিক করুন। Default `lockDuration` (৩০ s) রেখে দিলে কী হতো, exercise এর কোন experiment এর মতো?
+2. একজন engineer বলল: "আমাদের cache Redis তো আছে, ১৬ GB, অর্ধেক খালি। আরেকটা Redis চালানোর খরচ কেন? Queue ওখানেই রাখি।" আপনি কী উত্তর দেবেন — কী কী ভুল হতে পারে, কোন ঘটনার ক্রমে? যদি budget সত্যিই না থাকে, সবচেয়ে কম খারাপ বিকল্প কী?
+3. Deadline reminder: "task এর deadline এর ২৪ ঘণ্টা আগে assignee কে email।" (ক) Task তৈরির সময় একটা delayed job, (খ) প্রতি ৫ মিনিটে একটা repeatable job যেটা database খোঁজে — দুটো design এর জন্য বলুন: deadline বদলালে কী করতে হয়, task delete হলে, Redis এর data হারালে, আর একই reminder দুবার যাওয়া কীভাবে আটকাবেন। কোনটা বাছবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -458,19 +458,19 @@ API ব্যর্থ হলো না কেন? কারণ ioredis (BullMQ 
 
 `api.ts` producer, `worker.ts` consumer (graceful shutdown সহ), `provider.ts` নকল email provider যেটা গোনে কোন email কয়বার পৌঁছাল, আর `scenario.ts` সবাইকে চালায়, load দেয়, দরকার হলে কাউকে মারে, আর শেষে হিসাব মেলায় — কাকে `202` দেওয়া হয়েছিল বনাম provider এ আসলে কী পৌঁছেছে।
 
-**সৎ নোট:** Sandbox এ Docker এর Redis 8 আর BullMQ 5.81.5 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; baseline আর পাঁচটা run (`CRASH=api`, `worker-kill`, `worker-term`, `FAIL_RATE=0.3`, `DOUBLE_SUBMIT=1`), `WORKER_PROCS=2`, `ATTEMPTS=1` (দুবার), production default lock, event loop আটকানো (experiment ৫, `worker.ts` বদলে তারপর ফিরিয়ে), আর Redis এর restart ও kill — সব চালানো হয়েছে, সংখ্যা README তে। আসল process আর আসল timer, আর `FAIL_RATE` এর ব্যর্থতা এলোমেলো — তাই সংখ্যা প্রতিবার সামান্য আলাদা হবে। Scenario তে `lockDuration` ১০ s আর `stalledInterval` ৫ s (default ৩০/৩০) — run ছোট রাখতে। Redis kill এর পরে "কিছু হারায়নি" একটা run এর ফল — `everysec` এ ~১ সেকেন্ডের ঝুঁকি আছেই। Experiment ১ এর AOF বন্ধ করার অংশটা চালানো হয়নি — ওটা তোমার।
+**সৎ নোট:** Sandbox এ Docker এর Redis 8 আর BullMQ 5.81.5 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; baseline আর পাঁচটা run (`CRASH=api`, `worker-kill`, `worker-term`, `FAIL_RATE=0.3`, `DOUBLE_SUBMIT=1`), `WORKER_PROCS=2`, `ATTEMPTS=1` (দুবার), production default lock, event loop আটকানো (experiment ৫, `worker.ts` বদলে তারপর ফিরিয়ে), আর Redis এর restart ও kill — সব চালানো হয়েছে, সংখ্যা README তে। আসল process আর আসল timer, আর `FAIL_RATE` এর ব্যর্থতা এলোমেলো — তাই সংখ্যা প্রতিবার সামান্য আলাদা হবে। Scenario তে `lockDuration` ১০ s আর `stalledInterval` ৫ s (default ৩০/৩০) — run ছোট রাখতে। Redis kill এর পরে "কিছু হারায়নি" একটা run এর ফল — `everysec` এ ~১ সেকেন্ডের ঝুঁকি আছেই। Experiment ১ এর AOF বন্ধ করার অংশটা চালানো হয়নি — ওটা আপনার।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **১০৩ এর বদলা:** `CRASH=api npm run scenario` চালাও, আর পাশে Lesson 7.1 এর `CRASH_AT_MS=14000 npm run scenario -- queue` এর ফল রাখো। দুটো সংখ্যার পার্থক্যের কারণ এক বাক্যে লেখো। তারপর: এই exercise এ database নেই — আসল route এ database commit আর `queue.add` এর মাঝে API মরলে কী হবে? (Lesson 7.5 এর জন্য প্রশ্নটা লিখে রাখো।)
+1. **১০৩ এর বদলা:** `CRASH=api npm run scenario` চালান, আর পাশে Lesson 7.1 এর `CRASH_AT_MS=14000 npm run scenario -- queue` এর ফল রাখুন। দুটো সংখ্যার পার্থক্যের কারণ এক বাক্যে লিখুন। তারপর: এই exercise এ database নেই — আসল route এ database commit আর `queue.add` এর মাঝে API মরলে কী হবে? (Lesson 7.5 এর জন্য প্রশ্নটা লিখে রাখুন।)
 
-2. **Kill বনাম Term:** `CRASH=worker-kill` আর `CRASH=worker-term` চালাও। "দুবার পৌঁছেছে" আর "দেরি max" এর পার্থক্য ব্যাখ্যা করো — lock, stalled checker, আর `worker.close()` দিয়ে। তারপর experiment ৪ (production default lock) — দেরি কত হলো, আর TaskFlow এর deploy এর grace period কত রাখবে?
+2. **Kill বনাম Term:** `CRASH=worker-kill` আর `CRASH=worker-term` চালান। "দুবার পৌঁছেছে" আর "দেরি max" এর পার্থক্য ব্যাখ্যা করুন — lock, stalled checker, আর `worker.close()` দিয়ে। তারপর experiment ৪ (production default lock) — দেরি কত হলো, আর TaskFlow এর deploy এর grace period কত রাখবেন?
 
-3. **Event loop আটকাও** (experiment ৫): নির্দেশ মতো `worker.ts` বদলাও, চালাও, আর worker এর log আর ফল পড়ো। একটা job আটকালে আটটার lock কেন গেল? Failed এর কারণ কী, আর কেন ঠিক ২টা? তারপর processor টাকে BullMQ এর sandboxed processor বানাও (আলাদা file, `new Worker(QUEUE_NAME, path.join(__dirname, 'processor.js'), …)`) আর আবার চালাও — কী বদলাল? (শেষে code আগের মতো করো।)
+3. **Event loop আটকান** (experiment ৫): নির্দেশ মতো `worker.ts` বদলান, চালান, আর worker এর log আর ফল পড়ুন। একটা job আটকালে আটটার lock কেন গেল? Failed এর কারণ কী, আর কেন ঠিক ২টা? তারপর processor টাকে BullMQ এর sandboxed processor বানান (আলাদা file, `new Worker(QUEUE_NAME, path.join(__dirname, 'processor.js'), …)`) আর আবার চালান — কী বদলাল? (শেষে code আগের মতো করুন।)
 
-4. **Retry এর হিসাব:** `FAIL_RATE=0.3` আর `FAIL_RATE=0.3 ATTEMPTS=1` চালাও। চেষ্টার বণ্টন হাতে হিসাব করো (প্রতিবার ৭০% সফল হলে ৪৭৮ এর কতগুলো ১ বারে, ২ বারে …), আর মেলাও। তারপর provider কে এমনভাবে বদলাও যাতে `to` তে একটা নির্দিষ্ট address এর জন্য সবসময় `400` দেয়, আর worker এ `400` পেলে `UnrecoverableError` throw করো — সেই job কয়বার চেষ্টা হলো?
+4. **Retry এর হিসাব:** `FAIL_RATE=0.3` আর `FAIL_RATE=0.3 ATTEMPTS=1` চালান। চেষ্টার বণ্টন হাতে হিসাব করুন (প্রতিবার ৭০% সফল হলে ৪৭৮ এর কতগুলো ১ বারে, ২ বারে …), আর মেলান। তারপর provider কে এমনভাবে বদলান যাতে `to` তে একটা নির্দিষ্ট address এর জন্য সবসময় `400` দেয়, আর worker এ `400` পেলে `UnrecoverableError` throw করুন — সেই job কয়বার চেষ্টা হলো?
 
-5. **Design অংশ:** TaskFlow এর সব background job এর একটা তালিকা (অন্তত ৬টা: assign email, mention email, password reset, CSV export, attachment thumbnail, deadline reminder)। প্রতিটার জন্য: কোন queue (একটা, নাকি আলাদা — কেন), job ID কীভাবে বানাবে, attempts আর backoff, concurrency (Little's Law দিয়ে, নিজের ধরে নেওয়া সংখ্যায়), CPU এর কাজ হলে sandboxed কিনা, আর duplicate হলে ক্ষতি কী আর কীভাবে আটকাবে। শেষে TaskFlow এর queue Redis এর config (policy, persistence, memory) — এক লাইনে প্রতিটার কারণ।
+5. **Design অংশ:** TaskFlow এর সব background job এর একটা তালিকা (অন্তত ৬টা: assign email, mention email, password reset, CSV export, attachment thumbnail, deadline reminder)। প্রতিটার জন্য: কোন queue (একটা, নাকি আলাদা — কেন), job ID কীভাবে বানাবেন, attempts আর backoff, concurrency (Little's Law দিয়ে, নিজের ধরে নেওয়া সংখ্যায়), CPU এর কাজ হলে sandboxed কিনা, আর duplicate হলে ক্ষতি কী আর কীভাবে আটকাবেন। শেষে TaskFlow এর queue Redis এর config (policy, persistence, memory) — এক লাইনে প্রতিটার কারণ।
 
 ---
 
@@ -491,7 +491,7 @@ Temporal Coupling, Cascading Failure, Fire-and-Forget, Job Queue (Producer/Worke
 Message Broker, Competing Consumers, Publish/Subscribe, Acknowledgement, Append-only Log /
 Offset, Consumer Group, Head-of-line Blocking, Job State, Delayed Job, Job Lock, Stalled Job,
 Exponential Backoff, Job ID Deduplication, AOF
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 7.4 — Idempotency, retry, exponential backoff, DLQ, backpressure
 =======================
 ```
@@ -500,4 +500,4 @@ Next: 7.4 — Idempotency, retry, exponential backoff, DLQ, backpressure
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ৩ নম্বরের event loop এর ব্যাখ্যা আর ৫ নম্বরের job এর তালিকা। রেডি হলে `next` লিখো — Lesson 7.4 এ যাব: **Idempotency, Retry, Exponential Backoff, DLQ, আর Backpressure।** আজ তিনবার একই দেয়ালে ধাক্কা খেয়েছি: worker kill এ ৮টা duplicate, event loop আটকানোয় ৯টা, আর প্রতিবার উত্তর ছিল "consumer কে idempotent বানাও — 7.4 এ।" এবার সেটা বানানো: একটা consumer যেটা একই job দশবার পেলেও email একবারই পাঠায় — আর ঠিক কোন জায়গায় সেটাও ভাঙতে পারে। সাথে retry এর বাকি প্রশ্ন: কখন retry করবে না, কত পর্যন্ত, আর সবাই একসাথে retry করলে কীভাবে তুমি নিজেই নিজের provider কে ফেলে দাও (retry storm); failed job এর তালিকা — dead letter queue — দিয়ে কী করবে; আর backlog যখন সত্যিই সীমাহীন বাড়ছে, তখন producer কে "থামো" বলার উপায় — backpressure।
+Exercise চালিয়ে পাঠান — বিশেষ করে ৩ নম্বরের event loop এর ব্যাখ্যা আর ৫ নম্বরের job এর তালিকা। রেডি হলে `next` লিখুন — Lesson 7.4 এ যাব: **Idempotency, Retry, Exponential Backoff, DLQ, আর Backpressure।** আজ তিনবার একই দেয়ালে ধাক্কা খেয়েছি: worker kill এ ৮টা duplicate, event loop আটকানোয় ৯টা, আর প্রতিবার উত্তর ছিল "consumer কে idempotent বানান — 7.4 এ।" এবার সেটা বানানো: একটা consumer যেটা একই job দশবার পেলেও email একবারই পাঠায় — আর ঠিক কোন জায়গায় সেটাও ভাঙতে পারে। সাথে retry এর বাকি প্রশ্ন: কখন retry করবেন না, কত পর্যন্ত, আর সবাই একসাথে retry করলে কীভাবে আপনি নিজেই নিজের provider কে ফেলে দিন (retry storm); failed job এর তালিকা — dead letter queue — দিয়ে কী করবেন; আর backlog যখন সত্যিই সীমাহীন বাড়ছে, তখন producer কে "থামুন" বলার উপায় — backpressure।

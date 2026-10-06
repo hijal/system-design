@@ -119,18 +119,18 @@ timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms  
 - **Limiter মরলে API মরা উচিত না।** Timeout, breaker, আর নিয়ম ধরে fail mode। Fallback কৃপণ হলে বৈধ user আটকায়, উদার হলে abuser
   বেশি পায় — একটা সচেতন সিদ্ধান্ত।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **ধীর sync:** `SYNC_MS=500 npm run accuracy`। আক্রমণে async sync কত গুণ ঢুকতে দেয় (মাপা: ৭.০২x, এক সেকেন্ডে ১০.০৯x)? Sync
-   এর জানালা আর server সংখ্যার সাথে overshoot এর সম্পর্কটা নিজের ভাষায় লেখো।
+   এর জানালা আর server সংখ্যার সাথে overshoot এর সম্পর্কটা নিজের ভাষায় লিখুন।
 2. **বেশি server:** `SERVERS=200 npm run accuracy`। সীমার নিচের customer এর জন্য "সীমা ভাগ করে" কত গৃহীত (মাপা: ০.১০x)? Async
    sync এর কেন্দ্রের op কী হলো (১,৯৮০/s), আর কেন?
 3. **লম্বা timeout:** `TIMEOUT_MS=50 npm run failure`। Store ধীর হলে fail open এ abuser কত পায় (মাপা: ৪.৪x), আর server এ কতগুলো
    request ঝুলে থাকে (৪৮)? ৫ ms এর তুলনায় কোনটা ভালো, কোনটা খারাপ?
 4. **আরও তীক্ষ্ণ tenant:** `ZIPF_S=1.2 npm run hotkey`। ব্যস্ততম shard এর ক্ষমতার কত (মাপা: ১১৪%), আর ৩২টা shard এ (১০৭%)? এখন
    কোন পরিকল্পনা বাধ্যতামূলক?
-5. **Code বদলানোর কাজ:** `src/client.ts` এ lease এর আকার স্থির (`leaseSize`) না রেখে key এর সাম্প্রতিক হার থেকে হিসাব করো
-   (ধরো শেষ ১ s এ এই server এ যতগুলো request, তার ২০০ ms এর সমান)। `smoke` এর ধাপ ৫ এ lease call কত হয়, আর একটা নতুন, শান্ত
+5. **Code বদলানোর কাজ:** `src/client.ts` এ lease এর আকার স্থির (`leaseSize`) না রেখে key এর সাম্প্রতিক হার থেকে হিসাব করুন
+   (ধরুন শেষ ১ s এ এই server এ যতগুলো request, তার ২০০ ms এর সমান)। `smoke` এর ধাপ ৫ এ lease call কত হয়, আর একটা নতুন, শান্ত
    key এ কী হয়?
 
 ## Project Structure

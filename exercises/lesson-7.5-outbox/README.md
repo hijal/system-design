@@ -4,7 +4,7 @@
 
 ## কী বানাচ্ছি
 
-"Comment তৈরি করো, আর `comment.created` event পাঠাও" — তিনভাবে, আর প্রতিটায় ঠিক সবচেয়ে খারাপ মুহূর্তে
+"Comment তৈরি করুন, আর `comment.created` event পাঠান" — তিনভাবে, আর প্রতিটায় ঠিক সবচেয়ে খারাপ মুহূর্তে
 process কে `SIGKILL` করা:
 
 | Mode            | Writer কী করে                                                                    | কোথায় মরে                    |
@@ -91,7 +91,7 @@ docker compose down -v
 - **Outbox এর দেরি:** commit থেকে stream এ পৌঁছাতে p50 ~১০০ ms — relay এর polling এর দাম। Event এখন আর
   commit এর মুহূর্তে যায় না, একটু পরে যায়।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Redis বন্ধ হলে:** `REDIS_OUTAGE_MS=3000 WRITE_DELAY_MS=5 CRASH_RATE=0 RELAY_CRASH_RATE=0 npm run scenario`
    — চলার মাঝে scenario নিজে `docker compose stop redis` করে, ৩ সেকেন্ড পরে `start`। (এই মেশিনে:
@@ -100,16 +100,16 @@ docker compose down -v
    Redis এর উপর নির্ভর করে, কোনটার করে না?
 2. **Polling এর দাম:** `MODE=outbox POLL_MS=1000 npm run scenario`। দেরি কত হলো? (এই মেশিনে p50 ~৮৪০ ms,
    p99 ১.৫ s।) Relay যত ঘনঘন খোঁজে, database এ তত বেশি query — কীভাবে দুটোই কমানো যায়? (Lesson এ LISTEN/NOTIFY
-   আর CDC দেখো।)
+   আর CDC দেখুন।)
 3. **Batch আর crash:** `MODE=outbox CRASH_RATE=0 RELAY_CRASH_RATE=0.05 npm run scenario` (batch ৫০), তারপর
    একই সাথে `BATCH=5`। (এই মেশিনে: batch ৫০ এ ৬০ সেকেন্ড পরেও ১০৫০টা event পাঠানো বাকি; batch ৫ এ সব পৌঁছায়,
    ৩৪১টা বাড়তি।) ৫০ টা event এর একটা batch কোনো crash ছাড়া শেষ হওয়ার সম্ভাবনা কত (০.৯৫⁵⁰)? এটা Lesson 7.4
    এর কোন ধারণার মতো?
 4. **ক্রম:** `relay.ts` এ `ORDER BY id` আছে। দুটো writer একসাথে চললে id ১০ এর transaction id ১১ এর পরে commit
    হতে পারে। Relay যদি "`WHERE id > শেষ পাঠানো id`" দিয়ে খুঁজত (`publishedAt` এর বদলে), id ১০ এর কী হতো?
-   (Code বদলানোর দরকার নেই — হাতে একটা সময়ের রেখা আঁকো।)
+   (Code বদলানোর দরকার নেই — হাতে একটা সময়ের রেখা আঁকুন।)
 5. **Outbox পরিষ্কার:** সব run এর পরে `outbox_events` এ কয়টা row আছে (`docker compose exec postgres psql -U
-taskflow -c 'select count(*) from outbox_events'`)? দিনে লাখ comment এ এটা কত বড় হবে, আর কীভাবে ছোট রাখবে?
+taskflow -c 'select count(*) from outbox_events'`)? দিনে লাখ comment এ এটা কত বড় হবে, আর কীভাবে ছোট রাখবেন?
 
 ## Project Structure
 

@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.5 (ACID), Lesson 5.7 (Replication, RPO), Lesson 5.8 (Sharding)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. CAP theorem আসলে কী বলে (আর কী বলে না) — সঠিকভাবে বলতে পারবে, আর "CA database" জাতীয় দাবি কেন অর্থহীন সেটা ব্যাখ্যা করবে
-2. PACELC দিয়ে দেখাবে যে partition ছাড়াও প্রতিদিন একটা trade-off চলে — latency বনাম consistency
-3. Leaderless system এ `R + W > N` কেন stale read আটকায় — মাপা simulation দিয়ে দেখাবে; আর ACID বনাম BASE এর পার্থক্য দিয়ে TaskFlow এর কোন অংশ কোন দিকে যাবে ঠিক করবে
+1. CAP theorem আসলে কী বলে (আর কী বলে না) — সঠিকভাবে বলতে পারবেন, আর "CA database" জাতীয় দাবি কেন অর্থহীন সেটা ব্যাখ্যা করবেন
+2. PACELC দিয়ে দেখাবেন যে partition ছাড়াও প্রতিদিন একটা trade-off চলে — latency বনাম consistency
+3. Leaderless system এ `R + W > N` কেন stale read আটকায় — মাপা simulation দিয়ে দেখাবেন; আর ACID বনাম BASE এর পার্থক্য দিয়ে TaskFlow এর কোন অংশ কোন দিকে যাবে ঠিক করবেন
 
 **Tier:** 1 — Runnable Code (single-process simulation, Docker লাগে না)
 
@@ -34,7 +34,7 @@ Module 5 এর শুরুতে TaskFlow এর data ছিল একটা m
 
 ### ১.১ CAP — আসলে কী বলে
 
-প্রচলিত রূপ: "Consistency, Availability, Partition tolerance — তিনটার মধ্যে যেকোনো দুটো বেছে নাও।" এই রূপটা বিভ্রান্তিকর। সঠিক রূপ:
+প্রচলিত রূপ: "Consistency, Availability, Partition tolerance — তিনটার মধ্যে যেকোনো দুটো বেছে নিন।" এই রূপটা বিভ্রান্তিকর। সঠিক রূপ:
 
 **CAP theorem** — একটা distributed system এ যখন **network partition** ঘটে, তখন system কে বেছে নিতে হয়: হয় সব উত্তর সামঞ্জস্যপূর্ণ রাখবে (consistency), নয়তো প্রতিটা request এর উত্তর দেবে (availability) — দুটো একসাথে সম্ভব না।
 
@@ -48,7 +48,7 @@ Module 5 এর শুরুতে TaskFlow এর data ছিল একটা m
 
 ```
    Client 1                                        Client 2
-      │ লেখো: title = "Fix signup"                     │ পড়ো: title?
+      │ লিখুন: title = "Fix signup"                     │ পড়ুন: title?
       ▼                                                ▼
   ┌────────┐        ✂ network কাটা ✂           ┌────────┐
   │ Node A │  ──────────── ✗ ────────────────  │ Node B │
@@ -56,12 +56,12 @@ Module 5 এর শুরুতে TaskFlow এর data ছিল একটা m
   └────────┘                                    └────────┘
 
   Node B এখন Client 2 কে কী বলবে?
-    (ক) পুরনো মান দাও  → available, কিন্তু consistent না (A তে নতুন মান আছে)
-    (খ) error দাও / অপেক্ষা করো → consistent, কিন্তু available না
+    (ক) পুরনো মান দিন  → available, কিন্তু consistent না (A তে নতুন মান আছে)
+    (খ) error দিন / অপেক্ষা করুন → consistent, কিন্তু available না
     তৃতীয় কোনো পথ নেই — B এর কাছে নতুন মান জানার কোনো উপায় নেই।
 ```
 
-**এখান থেকেই "CA" দাবির উত্তর:** partition tolerance কোনো ঐচ্ছিক জিনিস না যেটা "বেছে না নেওয়া" যায়। একাধিক machine মানেই network, আর network ভাঙে। যে system দাবি করে সে CA, সে আসলে হয় (১) একটাই machine এ চলে — তাহলে সে distributed ই না, CAP প্রযোজ্যই না; নয়তো (২) partition এর সময় কী করে সেটা বলছে না — আর যখন partition আসবে, তখন তাকে C বা A এর যেকোনো একটা ছাড়তেই হবে। তাই সঠিক প্রশ্ন সবসময়: **"partition হলে তুমি কী ছাড়ো?"** — CP নাকি AP।
+**এখান থেকেই "CA" দাবির উত্তর:** partition tolerance কোনো ঐচ্ছিক জিনিস না যেটা "বেছে না নেওয়া" যায়। একাধিক machine মানেই network, আর network ভাঙে। যে system দাবি করে সে CA, সে আসলে হয় (১) একটাই machine এ চলে — তাহলে সে distributed ই না, CAP প্রযোজ্যই না; নয়তো (২) partition এর সময় কী করে সেটা বলছে না — আর যখন partition আসবে, তখন তাকে C বা A এর যেকোনো একটা ছাড়তেই হবে। তাই সঠিক প্রশ্ন সবসময়: **"partition হলে আপনি কী ছাড়েন?"** — CP নাকি AP।
 
 ### ১.২ Partition কেমন দেখায় — আর কেন এটা বিরল না
 
@@ -99,14 +99,14 @@ Exercise এর `npm run partition` — ৫টা node, ঢাকায় ৩�
    LWW winner: "Fix login" (Rahim)
 ```
 
-দুজনেই কাজ চালিয়ে গেছে, দুজনেই "saved" দেখেছে। কিন্তু network ফেরার পর করিমের লেখা — যেটা আসলে **পরে** হয়েছিল — **নীরবে হারিয়ে গেল**, কারণ "পরে" ঠিক হয়েছে n4 এর ভুল ঘড়ি দিয়ে। কোনো error নেই, কোনো log নেই। (Lesson 5.7 এর multi-leader conflict এর সাথে মেলাও — আর কেন wall clock বিশ্বাস করা যায় না, সেটা Lesson 6.4।)
+দুজনেই কাজ চালিয়ে গেছে, দুজনেই "saved" দেখেছে। কিন্তু network ফেরার পর করিমের লেখা — যেটা আসলে **পরে** হয়েছিল — **নীরবে হারিয়ে গেল**, কারণ "পরে" ঠিক হয়েছে n4 এর ভুল ঘড়ি দিয়ে। কোনো error নেই, কোনো log নেই। (Lesson 5.7 এর multi-leader conflict এর সাথে মেলান — আর কেন wall clock বিশ্বাস করা যায় না, সেটা Lesson 6.4।)
 
-**আর তুমি এর আগেই এই বাছাই চোখে দেখেছ** — Lesson 5.7 এর Postgres exercise এ:
+**আর আপনি এর আগেই এই বাছাই চোখে দেখেছেন** — Lesson 5.7 এর Postgres exercise এ:
 
 - **Sync replication, replica বিচ্ছিন্ন:** commit চিরকাল অপেক্ষায় — primary লেখা নিচ্ছে না। এটা **CP** এর বাছাই: ভুল উত্তরের চেয়ে কোনো উত্তর না।
-- **Async replication, তারপর failover:** লেখা চলতে থাকল — কিন্তু ২০টা "saved" task promote হওয়া replica তে ছিল না, হারিয়ে গেল। এটা **AP** ধরনের বাছাই: সবসময় লেখা নাও, দাম হিসেবে কিছু লেখা হারানোর ঝুঁকি।
+- **Async replication, তারপর failover:** লেখা চলতে থাকল — কিন্তু ২০টা "saved" task promote হওয়া replica তে ছিল না, হারিয়ে গেল। এটা **AP** ধরনের বাছাই: সবসময় লেখা নিন, দাম হিসেবে কিছু লেখা হারানোর ঝুঁকি।
 
-মানে একই database (Postgres) configuration অনুযায়ী দুই দিকেই যেতে পারে। "Postgres CP নাকি AP?" প্রশ্নটার উত্তর: **কীভাবে চালাচ্ছ তার উপর নির্ভর করে।**
+মানে একই database (Postgres) configuration অনুযায়ী দুই দিকেই যেতে পারে। "Postgres CP নাকি AP?" প্রশ্নটার উত্তর: **কীভাবে চালাচ্ছেন তার উপর নির্ভর করে।**
 
 ### ১.৪ PACELC — Partition না থাকলেও একটা বাছাই
 
@@ -114,7 +114,7 @@ CAP এর একটা বড় সীমাবদ্ধতা: এটা শ�
 
 **PACELC** — CAP এর একটা বিস্তৃত রূপ: **P**artition হলে **A**vailability আর **C**onsistency এর মধ্যে বাছাই; **E**lse (partition না থাকলে) **L**atency আর **C**onsistency এর মধ্যে বাছাই।
 
-"Else" অংশটা তুমি ইতিমধ্যে দুবার মেপেছ:
+"Else" অংশটা আপনি ইতিমধ্যে দুবার মেপেছেন:
 
 - **Lesson 5.7:** `remote_apply` (consistent read-your-writes) → প্রতিটা লেখা ২ ms থেকে ২০২ ms। Consistency কিনতে latency দিলে।
 - **আজকের quorum simulation (১.৫):** `W = 3` → প্রতিটা লেখা p50 ~৪০ ms, কারণ অন্য data center এর replica এর অপেক্ষা; `W = 1` → ২.৩ ms, কিন্তু ১০% পর্যন্ত stale read।
@@ -123,7 +123,7 @@ CAP এর একটা বড় সীমাবদ্ধতা: এটা শ�
 
 ### ১.৫ Quorum — `R + W > N`
 
-Lesson 5.7 এ দেখেছ leader-follower replication: সব লেখা একজন leader এ। Dynamo (Amazon এর) ধারণা থেকে আসা Cassandra, Riak, আর DynamoDB এর মতো system এ কোনো leader নেই — client (বা একটা coordinator) সরাসরি কয়েকটা replica তে লেখে আর কয়েকটা থেকে পড়ে। তিনটা সংখ্যা দিয়ে এটা নিয়ন্ত্রিত:
+Lesson 5.7 এ দেখেছেন leader-follower replication: সব লেখা একজন leader এ। Dynamo (Amazon এর) ধারণা থেকে আসা Cassandra, Riak, আর DynamoDB এর মতো system এ কোনো leader নেই — client (বা একটা coordinator) সরাসরি কয়েকটা replica তে লেখে আর কয়েকটা থেকে পড়ে। তিনটা সংখ্যা দিয়ে এটা নিয়ন্ত্রিত:
 
 - **N** — প্রতিটা data এর কয়টা কপি
 - **W** — একটা লেখা সফল বলার আগে কয়টা replica কে নিশ্চিত করতে হবে
@@ -136,13 +136,13 @@ Lesson 5.7 এ দেখেছ leader-follower replication: সব লেখা 
 ```
 replica:      A      B      C
 লেখা (W=2):   ✓      ✓      ·      ← A আর B নতুন মান পেয়েছে
-পড়া (R=2):   ·      ✓      ✓      ← যেকোনো ২টা থেকে পড়ো...
+পড়া (R=2):   ·      ✓      ✓      ← যেকোনো ২টা থেকে পড়ুন...
                      ▲
                      └── ২ + ২ = ৪ > ৩ — দুটো দলের অন্তত একটা replica সাধারণ হতেই হবে।
                          তাই পড়ার দলে অন্তত একজনের কাছে নতুন মান আছে।
 ```
 
-এটা শুধু একটা গণিতের যুক্তি — তিনটা বাক্সে চারটা বল রাখলে কোনো একটা বাক্সে দুটো পড়বেই। এবার মেপে দেখা যাক। Exercise এর `npm run quorum` — N = ৩, দুটো replica একই data center এ, একটা অন্য data center এ (ধীর); আর বাস্তবের মতো যেকোনো replica মাঝে মাঝে (৫% লেখায়) ৫০ ms পিছিয়ে পড়ে (GC pause, disk stall)। প্রতিটা জোড়ায় ১ লাখ বার "লেখো, সফল হলে সাথে সাথে পড়ো":
+এটা শুধু একটা গণিতের যুক্তি — তিনটা বাক্সে চারটা বল রাখলে কোনো একটা বাক্সে দুটো পড়বেই। এবার মেপে দেখা যাক। Exercise এর `npm run quorum` — N = ৩, দুটো replica একই data center এ, একটা অন্য data center এ (ধীর); আর বাস্তবের মতো যেকোনো replica মাঝে মাঝে (৫% লেখায়) ৫০ ms পিছিয়ে পড়ে (GC pause, disk stall)। প্রতিটা জোড়ায় ১ লাখ বার "লিখুন, সফল হলে সাথে সাথে পড়ুন":
 
 ```
    W  R  W+R>N?   stale read              write p50 / p99      read p50 / p99
@@ -183,11 +183,11 @@ replica:      A      B      C
 
 ### ১.৬ ACID বনাম BASE
 
-Lesson 5.5 এ ACID দেখেছ। AP দিকের system গুলোর দর্শন কে প্রায়ই একটা বিপরীত নামে ডাকা হয়:
+Lesson 5.5 এ ACID দেখেছেন। AP দিকের system গুলোর দর্শন কে প্রায়ই একটা বিপরীত নামে ডাকা হয়:
 
 **BASE** — **B**asically **A**vailable (partition বা failure এও প্রায় সবসময় উত্তর দেয়), **S**oft state (replica গুলোর অবস্থা সাময়িকভাবে ভিন্ন হতে পারে), **E**ventually consistent (নতুন লেখা বন্ধ হলে একসময় সবাই এক হবে)।
 
-**Eventual consistency** — নতুন লেখা না এলে, একসময় সব replica একই মানে পৌঁছাবে। লক্ষ করো এর দুর্বলতা: "একসময়" কতক্ষণ — কোনো সীমা বলা নেই। আর সেই সময়ের মধ্যে যেকোনো পড়া পুরনো মান দিতে পারে। Lesson 5.7 এর async replica eventually consistent; ১.৩ এর AP দিকও — আর সেখানে "এক হওয়া" ঘটেছে একজনের লেখা ফেলে দিয়ে।
+**Eventual consistency** — নতুন লেখা না এলে, একসময় সব replica একই মানে পৌঁছাবে। লক্ষ করুন এর দুর্বলতা: "একসময়" কতক্ষণ — কোনো সীমা বলা নেই। আর সেই সময়ের মধ্যে যেকোনো পড়া পুরনো মান দিতে পারে। Lesson 5.7 এর async replica eventually consistent; ১.৩ এর AP দিকও — আর সেখানে "এক হওয়া" ঘটেছে একজনের লেখা ফেলে দিয়ে।
 
 | দিক           | ACID                                       | BASE                                             |
 | ------------- | ------------------------------------------ | ------------------------------------------------ |
@@ -197,7 +197,7 @@ Lesson 5.5 এ ACID দেখেছ। AP দিকের system গুলোর
 | Conflict      | Transaction আর lock দিয়ে আটকানো (5.5)     | পরে সমাধান — LWW, sibling, CRDT                  |
 | সাধারণ উদাহরণ | Postgres, MySQL (single leader)            | Cassandra, DynamoDB (default), DNS (Lesson 2.1!) |
 
-এটা কঠোর দুই ভাগ না — এটা একটা বর্ণালী। DynamoDB তে strongly consistent read আর transaction আছে; MongoDB তে multi-document transaction আছে (Lesson 5.1); Postgres এর async replica তে পড়লে তুমি BASE এর দুনিয়ায়। প্রশ্নটা database এর নাম না — **তুমি প্রতিটা data এর জন্য কোন guarantee চাও।**
+এটা কঠোর দুই ভাগ না — এটা একটা বর্ণালী। DynamoDB তে strongly consistent read আর transaction আছে; MongoDB তে multi-document transaction আছে (Lesson 5.1); Postgres এর async replica তে পড়লে আপনি BASE এর দুনিয়ায়। প্রশ্নটা database এর নাম না — **আপনি প্রতিটা data এর জন্য কোন guarantee চান।**
 
 আর conflict সামলানোর একটা ভিন্ন দর্শন মনে রাখার মতো: Amazon এর Dynamo paper (২০০৭) এ shopping cart এর উদাহরণ — cart সবসময় লেখার যোগ্য থাকবে (AP), আর conflict হলে দুটো version ই রেখে (sibling) মিলিয়ে ফেলা হবে (দুটো cart এর জিনিস যোগ)। Paper এ তারা নিজেরাই এর দাম স্বীকার করেছে: কখনো কখনো মুছে ফেলা জিনিস cart এ আবার ফিরে আসে। একটা cart এ সেটা মেনে নেওয়া যায়; একটা bank balance এ না।
 
@@ -220,18 +220,18 @@ CTO এর প্রশ্নের উত্তরও এখন দেওয়
 
 ## ২. Interview Angle
 
-**"CAP theorem ব্যাখ্যা করো"** — প্রায় নিশ্চিত প্রশ্ন, আর দুর্বল উত্তরটাই সবচেয়ে প্রচলিত: "তিনটার মধ্যে দুটো বেছে নাও।" শক্ত উত্তর:
+**"CAP theorem ব্যাখ্যা করুন"** — প্রায় নিশ্চিত প্রশ্ন, আর দুর্বল উত্তরটাই সবচেয়ে প্রচলিত: "তিনটার মধ্যে দুটো বেছে নিন।" শক্ত উত্তর:
 
 1. "Partition এর সময় consistency আর availability এর মধ্যে একটা বাছতে হয় — partition tolerance ঐচ্ছিক না, কারণ network ভাঙবেই।"
 2. দুই node এর উদাহরণ দিয়ে কেন (১.১ এর diagram)
 3. "CAP এর consistency মানে linearizability — ACID এর C না"
 4. "আর partition না থাকলেও latency বনাম consistency এর বাছাই আছে — PACELC"
 
-**Quorum এর গণিত প্রশ্ন:** "N = ৫, এমন W আর R বাছো যাতে stale read না হয় আর ২টা node মরলেও লেখা ও পড়া দুটোই চলে।" — উত্তর: `W = R = 3` (৩ + ৩ = ৬ > ৫; ৫ − ২ = ৩ টা জীবিত, দুটোর জন্যই যথেষ্ট)। Follow-up: "read-heavy হলে?" — `R` কমাও, `W` বাড়াও (যেমন `W = 4, R = 2`, তবে তখন ২টা মরলে লেখা বন্ধ — trade-off টা বলো)।
+**Quorum এর গণিত প্রশ্ন:** "N = ৫, এমন W আর R বাছুন যাতে stale read না হয় আর ২টা node মরলেও লেখা ও পড়া দুটোই চলে।" — উত্তর: `W = R = 3` (৩ + ৩ = ৬ > ৫; ৫ − ২ = ৩ টা জীবিত, দুটোর জন্যই যথেষ্ট)। Follow-up: "read-heavy হলে?" — `R` কমান, `W` বাড়ান (যেমন `W = 4, R = 2`, তবে তখন ২টা মরলে লেখা বন্ধ — trade-off টা বলুন)।
 
-**"এই system এর জন্য কোন database?"** — PACELC দিয়ে ভাবো আর বলো: "এই data এর জন্য partition এ কী ছাড়া চলে, আর প্রতিদিন কতটা latency দেওয়া চলে" — তারপর database। আর ১.৭ এর মতো, একই system এ ভিন্ন data এর ভিন্ন বাছাই।
+**"এই system এর জন্য কোন database?"** — PACELC দিয়ে ভাবুন আর বলুন: "এই data এর জন্য partition এ কী ছাড়া চলে, আর প্রতিদিন কতটা latency দেওয়া চলে" — তারপর database। আর ১.৭ এর মতো, একই system এ ভিন্ন data এর ভিন্ন বাছাই।
 
-**Production এ বাস্তবে:** partition সত্যিই হয় — cloud provider দের incident report পড়লে নিয়মিত দেখবে। যে team আগে থেকে ঠিক করে রেখেছে কোন data কোন দিকে, তারা সেই দিন শান্ত থাকে। বাকিরা আবিষ্কার করে যে তাদের system নিজে থেকেই একটা বাছাই করে ফেলেছে — প্রায়ই সবচেয়ে খারাপটা।
+**Production এ বাস্তবে:** partition সত্যিই হয় — cloud provider দের incident report পড়লে নিয়মিত দেখবেন। যে team আগে থেকে ঠিক করে রেখেছে কোন data কোন দিকে, তারা সেই দিন শান্ত থাকে। বাকিরা আবিষ্কার করে যে তাদের system নিজে থেকেই একটা বাছাই করে ফেলেছে — প্রায়ই সবচেয়ে খারাপটা।
 
 ---
 
@@ -263,20 +263,20 @@ CTO এর প্রশ্নের উত্তরও এখন দেওয়
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. Database vendor বলছে তাদের product "CA — consistent এবং available।" Meeting এ তুমি কোন একটা প্রশ্ন জিজ্ঞেস করবে যেটা এই দাবির আসল অর্থ বের করে আনবে? আর সম্ভাব্য উত্তরগুলো কী হতে পারে?
-2. TaskFlow একটা leaderless store এ user এর notification preference রাখবে — N = ৫। এটা খুব read-heavy (প্রতিটা notification পাঠানোর আগে পড়া হয়), খুব কম লেখা হয়। নিয়ম: stale read চলবে না, আর যেকোনো ২টা node মরলেও **পড়া** চলতে হবে। W আর R কত নেবে? কোন দামটা মেনে নিচ্ছ?
-3. Amazon এর shopping cart AP বেছে নিয়েছিল — আর মেনে নিয়েছিল যে মুছে ফেলা জিনিস কখনো কখনো ফিরে আসবে। TaskFlow এর কোন একটা feature এর জন্য এই ধরনের বাছাই (AP + sibling মেলানো) যুক্তিসঙ্গত, আর কোনটার জন্য একেবারেই না? প্রতিটার জন্য একটা করে উদাহরণ দাও।
+1. Database vendor বলছে তাদের product "CA — consistent এবং available।" Meeting এ আপনি কোন একটা প্রশ্ন জিজ্ঞেস করবেন যেটা এই দাবির আসল অর্থ বের করে আনবে? আর সম্ভাব্য উত্তরগুলো কী হতে পারে?
+2. TaskFlow একটা leaderless store এ user এর notification preference রাখবে — N = ৫। এটা খুব read-heavy (প্রতিটা notification পাঠানোর আগে পড়া হয়), খুব কম লেখা হয়। নিয়ম: stale read চলবে না, আর যেকোনো ২টা node মরলেও **পড়া** চলতে হবে। W আর R কত নেবেন? কোন দামটা মেনে নিচ্ছেন?
+3. Amazon এর shopping cart AP বেছে নিয়েছিল — আর মেনে নিয়েছিল যে মুছে ফেলা জিনিস কখনো কখনো ফিরে আসবে। TaskFlow এর কোন একটা feature এর জন্য এই ধরনের বাছাই (AP + sibling মেলানো) যুক্তিসঙ্গত, আর কোনটার জন্য একেবারেই না? প্রতিটার জন্য একটা করে উদাহরণ দিন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:** "**Network partition এর সময় ঠিক কী হয়?** — যেমন আমাদের দুটো data center এর মধ্যের link কাটলে, দুই দিকের client রা কি লিখতে পারবে? পড়লে কি সর্বশেষ মান পাবে?" সম্ভাব্য উত্তর আর তাদের অর্থ: (ক) "আমাদের database একটা machine এ চলে" → CAP প্রযোজ্যই না, আর তাহলে সেই machine মরলে availability শূন্য — "A" দাবিটাই দুর্বল। (খ) "Minority দিক লেখা প্রত্যাখ্যান করে" → এটা আসলে **CP**। (গ) "দুই দিকই লেখা নেয়, পরে মেলানো হয়" → এটা আসলে **AP**, আর পরের প্রশ্ন: "কীভাবে মেলান — LWW হলে কোন লেখা হারায়?" (ঘ) "Partition আমাদের সাথে হয় না" → এটা সবচেয়ে বিপজ্জনক উত্তর — তারা এর কথা ভাবেনি, আর যেদিন হবে সেদিন system একটা অপরিকল্পিত বাছাই করবে। CAP এর আসল ব্যবহার এটাই — একটা দাবিকে সঠিক প্রশ্নে পরিণত করা।
 
-**প্রশ্ন ২:** শর্ত: `R + W > 5` (stale read নেই), আর ২টা মরলেও পড়া চলবে → জীবিত ৩টা থেকে পড়তে হবে → `R ≤ 3`। Read-heavy, তাই R যত ছোট তত দ্রুত পড়া। `R = 1` হলে `W = 5` (১ + ৫ > ৫) — পড়া সবচেয়ে দ্রুত, আর ৪টা মরলেও পড়া চলবে; দাম: প্রতিটা লেখা ৫টা replica এর অপেক্ষায় (সবচেয়ে ধীরটার সমান), আর **একটা** node মরলেই লেখা বন্ধ। `R = 2, W = 4` — পড়া প্রায় সমান দ্রুত, একটা node মরলেও লেখা চলে। Preference খুব কম বদলায়, তাই লেখা মাঝে মাঝে ধীর বা সাময়িক বন্ধ মেনে নেওয়া যায় — `R = 2, W = 4` একটা ভালো মাঝামাঝি; আর `R = 1, W = 5` যুক্তিসঙ্গত যদি লেখা বন্ধ হওয়া সত্যিই সমস্যা না হয় (user কে "একটু পরে চেষ্টা করো" দেখানো)। মূল শিক্ষা: W আর R এর মধ্যে "consistency এর বাজেট" ভাগ করা যায় — read-heavy এ বেশিরভাগ বোঝা লেখার উপর।
+**প্রশ্ন ২:** শর্ত: `R + W > 5` (stale read নেই), আর ২টা মরলেও পড়া চলবে → জীবিত ৩টা থেকে পড়তে হবে → `R ≤ 3`। Read-heavy, তাই R যত ছোট তত দ্রুত পড়া। `R = 1` হলে `W = 5` (১ + ৫ > ৫) — পড়া সবচেয়ে দ্রুত, আর ৪টা মরলেও পড়া চলবে; দাম: প্রতিটা লেখা ৫টা replica এর অপেক্ষায় (সবচেয়ে ধীরটার সমান), আর **একটা** node মরলেই লেখা বন্ধ। `R = 2, W = 4` — পড়া প্রায় সমান দ্রুত, একটা node মরলেও লেখা চলে। Preference খুব কম বদলায়, তাই লেখা মাঝে মাঝে ধীর বা সাময়িক বন্ধ মেনে নেওয়া যায় — `R = 2, W = 4` একটা ভালো মাঝামাঝি; আর `R = 1, W = 5` যুক্তিসঙ্গত যদি লেখা বন্ধ হওয়া সত্যিই সমস্যা না হয় (user কে "একটু পরে চেষ্টা করুন" দেখানো)। মূল শিক্ষা: W আর R এর মধ্যে "consistency এর বাজেট" ভাগ করা যায় — read-heavy এ বেশিরভাগ বোঝা লেখার উপর।
 
-**প্রশ্ন ৩:** **যুক্তিসঙ্গত:** task এর label/tag set — দুই region এ দুজন একই task এ ভিন্ন tag যোগ করল; মেলানোর সময় দুটো set এর union নাও (দুটো tag ই থাকবে)। কখনো কখনো মুছে ফেলা tag ফিরে আসতে পারে — বিরক্তিকর, কিন্তু ক্ষতিকর না, আর user নিজেই আবার মুছতে পারে। একই যুক্তি "কে এই task দেখেছে" এর তালিকা, বা reaction/emoji count। **একেবারেই না:** billing/subscription (দুটো version মানে হয়তো দুবার charge, বা plan downgrade হয়ে আবার upgrade), আর permission — কাউকে project থেকে সরানো হলো, আর partition এর পর মেলানোয় সে আবার ফিরে এলো — এটা একটা security bug, "বিরক্তিকর" না। নিয়ম: **ভুল মেলানোর সবচেয়ে খারাপ ফলটা কী** — সেটা মেনে নেওয়া গেলে AP, না গেলে CP।
+**প্রশ্ন ৩:** **যুক্তিসঙ্গত:** task এর label/tag set — দুই region এ দুজন একই task এ ভিন্ন tag যোগ করল; মেলানোর সময় দুটো set এর union নিন (দুটো tag ই থাকবে)। কখনো কখনো মুছে ফেলা tag ফিরে আসতে পারে — বিরক্তিকর, কিন্তু ক্ষতিকর না, আর user নিজেই আবার মুছতে পারে। একই যুক্তি "কে এই task দেখেছে" এর তালিকা, বা reaction/emoji count। **একেবারেই না:** billing/subscription (দুটো version মানে হয়তো দুবার charge, বা plan downgrade হয়ে আবার upgrade), আর permission — কাউকে project থেকে সরানো হলো, আর partition এর পর মেলানোয় সে আবার ফিরে এলো — এটা একটা security bug, "বিরক্তিকর" না। নিয়ম: **ভুল মেলানোর সবচেয়ে খারাপ ফলটা কী** — সেটা মেনে নেওয়া গেলে AP, না গেলে CP।
 
 </details>
 
@@ -288,19 +288,19 @@ CTO এর প্রশ্নের উত্তরও এখন দেওয়
 
 > **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-5.9-quorum/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-5.9-quorum) — `npm install`, তারপর `npm run quorum` আর `npm run partition`। Docker লাগবে না। পুরো setup, acceptance criteria আর experiment গুলো ওখানকার `README.md` এ আছে।
 
-একটা ছোট, seed দেওয়া simulation — প্রতিটা network যাত্রার সময় নিয়ন্ত্রিত, তাই প্রতিবার হুবহু একই ফল। `quorum` ছয়টা (W, R) জোড়া মাপে; `partition` একটা ৩|২ partition এ CP আর AP এর গল্প চালায়। Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean, কয়েকবার চালিয়ে হুবহু একই output। মনে রেখো এটা simulation — আসল leaderless database এর সব আচরণ (hinted handoff, read repair) এতে নেই।
+একটা ছোট, seed দেওয়া simulation — প্রতিটা network যাত্রার সময় নিয়ন্ত্রিত, তাই প্রতিবার হুবহু একই ফল। `quorum` ছয়টা (W, R) জোড়া মাপে; `partition` একটা ৩|২ partition এ CP আর AP এর গল্প চালায়। Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean, কয়েকবার চালিয়ে হুবহু একই output। মনে রাখবেন এটা simulation — আসল leaderless database এর সব আচরণ (hinted handoff, read repair) এতে নেই।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. দুটো script চালাও, README এর সাথে মিলিয়ে দেখো (হুবহু মেলার কথা)।
+1. দুটো script চালান, README এর সাথে মিলিয়ে দেখুন (হুবহু মেলার কথা)।
 
-2. **ভাগ্যের ফাঁদ** (README experiment ১): `STALL_PROBABILITY` কে `0` করো। `(1, 2)` আর `(2, 1)` এর ফল দেখে কেউ যদি বলে "`R + W ≤ N` ও তো নিরাপদ" — তাকে এক অনুচ্ছেদে কী বলবে?
+2. **ভাগ্যের ফাঁদ** (README experiment ১): `STALL_PROBABILITY` কে `0` করুন। `(1, 2)` আর `(2, 1)` এর ফল দেখে কেউ যদি বলে "`R + W ≤ N` ও তো নিরাপদ" — তাকে এক অনুচ্ছেদে কী বলবেন?
 
-3. **N = ৫** (experiment ২): দুটো replica যোগ করে `(3, 3)`, `(2, 3)`, `(3, 2)` মাপো। কোন জোড়া সবচেয়ে কম latency তে stale read শূন্য রাখে, আর কেন?
+3. **N = ৫** (experiment ২): দুটো replica যোগ করে `(3, 3)`, `(2, 3)`, `(3, 2)` মাপুন। কোন জোড়া সবচেয়ে কম latency তে stale read শূন্য রাখে, আর কেন?
 
-4. **ঘড়ি ঠিক করো** (experiment ৩): n4 এর skew শূন্য করো। LWW এখন কাকে জেতায়? তাহলে কি ঘড়ি ঠিক থাকলেই LWW নিরাপদ? দুটো কারণ দাও কেন না।
+4. **ঘড়ি ঠিক করুন** (experiment ৩): n4 এর skew শূন্য করুন। LWW এখন কাকে জেতায়? তাহলে কি ঘড়ি ঠিক থাকলেই LWW নিরাপদ? দুটো কারণ দিন কেন না।
 
-5. **Design অংশ:** TaskFlow সিঙ্গাপুরে দ্বিতীয় data center খুলছে। ১.৭ এর table টা নিজের মতো করে বানাও — কমপক্ষে ছয় ধরনের data, প্রতিটার জন্য: partition এ CP নাকি AP, স্বাভাবিক সময়ে latency নাকি consistency (PACELC), আর কোন প্রযুক্তি (Postgres sync/async, quorum store, cache)। তারপর CTO এর প্রশ্নের উত্তর তিন লাইনে লেখো: "link কাটলে সিঙ্গাপুরের user কী দেখবে?"
+5. **Design অংশ:** TaskFlow সিঙ্গাপুরে দ্বিতীয় data center খুলছে। ১.৭ এর table টা নিজের মতো করে বানান — কমপক্ষে ছয় ধরনের data, প্রতিটার জন্য: partition এ CP নাকি AP, স্বাভাবিক সময়ে latency নাকি consistency (PACELC), আর কোন প্রযুক্তি (Postgres sync/async, quorum store, cache)। তারপর CTO এর প্রশ্নের উত্তর তিন লাইনে লিখুন: "link কাটলে সিঙ্গাপুরের user কী দেখবে?"
 
 ---
 
@@ -327,7 +327,7 @@ Failover, RPO/RTO, Multi-Leader Replication, Partitioning, Sharding,
 Shard Key, Partition Pruning, Hot Partition, Scatter-Gather, Resharding,
 CAP Theorem, Network Partition, Linearizability, PACELC, BASE,
 Eventual Consistency, Quorum
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: Module 5 Exit Challenge
 =======================
 ```
@@ -336,4 +336,4 @@ Next: Module 5 Exit Challenge
 
 ## ৮. পরের ধাপ
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের উত্তর আর ৫ নম্বরের table। এটা Module 5 এর শেষ lesson। রেডি হলে `next` লিখো — **Module 5 Exit Challenge** এ যাব: একটা mini design challenge (Tier 3) যেখানে পুরো module — data model, index, transaction, pool, replication, sharding, CAP — একটা বাস্তব scenario তে একসাথে প্রয়োগ করতে হবে, একটা "তুমি এগুলো পারার কথা" checklist, আর বই/ভিডিও/project এর recommendation। তারপর Module 6 — Distributed Systems Core, যেখানে আজকের অনেক "Lesson 6.x এ" প্রতিশ্রুতি পূরণ হবে: কেন "অন্যটা মৃত কিনা" জানা এত কঠিন, consensus, আর কেন ঘড়ি বিশ্বাস করা যায় না।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের উত্তর আর ৫ নম্বরের table। এটা Module 5 এর শেষ lesson। রেডি হলে `next` লিখুন — **Module 5 Exit Challenge** এ যাব: একটা mini design challenge (Tier 3) যেখানে পুরো module — data model, index, transaction, pool, replication, sharding, CAP — একটা বাস্তব scenario তে একসাথে প্রয়োগ করতে হবে, একটা "আপনি এগুলো পারার কথা" checklist, আর বই/ভিডিও/project এর recommendation। তারপর Module 6 — Distributed Systems Core, যেখানে আজকের অনেক "Lesson 6.x এ" প্রতিশ্রুতি পূরণ হবে: কেন "অন্যটা মৃত কিনা" জানা এত কঠিন, consensus, আর কেন ঘড়ি বিশ্বাস করা যায় না।

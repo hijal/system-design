@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.4 (Connection Lifecycle intro), 2.1 (DNS)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. TCP আর UDP এর মূল পার্থক্য (reliability, ordering, overhead) বলতে পারবে, এবং কখন কোনটা বেছে নেওয়া উচিত — বুঝবে
-2. TLS handshake এর ভেতরের ধাপগুলো (certificate validation, key exchange) বিস্তারিতভাবে ব্যাখ্যা করতে পারবে
-3. TLS 1.2 আর TLS 1.3 এর মধ্যে round-trip পার্থক্য কেন হয়, এবং "0-RTT" কী সুবিধা দেয় — জানবে
+1. TCP আর UDP এর মূল পার্থক্য (reliability, ordering, overhead) বলতে পারবেন, এবং কখন কোনটা বেছে নেওয়া উচিত — বুঝবেন
+2. TLS handshake এর ভেতরের ধাপগুলো (certificate validation, key exchange) বিস্তারিতভাবে ব্যাখ্যা করতে পারবেন
+3. TLS 1.2 আর TLS 1.3 এর মধ্যে round-trip পার্থক্য কেন হয়, এবং "0-RTT" কী সুবিধা দেয় — জানবেন
 
 **Tier:** 3 — Design Exercise
 
@@ -36,7 +36,7 @@ Lesson 1.4 তে আমরা TCP এর 3-way handshake দেখেছি। 
 
 এই guarantee গুলোর একটা cost আছে — extra overhead (handshake, acknowledgment packet, retransmission logic)।
 
-**UDP (User Datagram Protocol)** — এর মূলমন্ত্র হলো **"দ্রুত পাঠাও, guarantee নেই"**:
+**UDP (User Datagram Protocol)** — এর মূলমন্ত্র হলো **"দ্রুত পাঠান, guarantee নেই"**:
 
 - **No reliability guarantee** — packet হারিয়ে গেলে UDP নিজে থেকে আবার পাঠায় না (application কে নিজে handle করতে হয়, যদি দরকার হয়)
 - **No ordering guarantee** — packet গুলো ভিন্ন ক্রমে পৌঁছাতে পারে
@@ -65,9 +65,9 @@ Client                Server            Client                Server
 | Connection     | Connection-oriented                          | Connectionless                                |
 | Use case       | Web (HTTP/1.1, HTTP/2), file transfer, email | Video call, gaming, DNS query, live streaming |
 
-**কেন কিছু ক্ষেত্রে UDP বেছে নেওয়া হয়:** ভাবো একটা video call — যদি একটা video frame এর packet হারিয়ে যায়, TCP এর মতো সেটা retransmit করে আবার পাঠানোর কোনো মানে নেই, কারণ ততক্ষণে পরের frame গুলো এসে গেছে — পুরনো frame এর জন্য অপেক্ষা করাটাই বরং call কে আরও কাটাকাটা (choppy) করে দেবে। এখানে **একটা frame miss হয়ে যাওয়া, delay হওয়ার চেয়ে ভালো** — এই কারণে video/audio streaming, live gaming, DNS query — এসব ক্ষেত্রে UDP প্রাধান্য পায়।
+**কেন কিছু ক্ষেত্রে UDP বেছে নেওয়া হয়:** ভাবুন একটা video call — যদি একটা video frame এর packet হারিয়ে যায়, TCP এর মতো সেটা retransmit করে আবার পাঠানোর কোনো মানে নেই, কারণ ততক্ষণে পরের frame গুলো এসে গেছে — পুরনো frame এর জন্য অপেক্ষা করাটাই বরং call কে আরও কাটাকাটা (choppy) করে দেবে। এখানে **একটা frame miss হয়ে যাওয়া, delay হওয়ার চেয়ে ভালো** — এই কারণে video/audio streaming, live gaming, DNS query — এসব ক্ষেত্রে UDP প্রাধান্য পায়।
 
-**তোমার জন্য একটা গুরুত্বপূর্ণ connection — HTTP/3 এবং QUIC:** Lesson 1.4 তে আমরা QUIC নিয়ে কথা বলেছিলাম, বলেছিলাম এটা "UDP-based"। এখন সেই কথাটার পূর্ণ অর্থ বোঝা যাচ্ছে — QUIC, UDP এর ওপর তৈরি (TCP এর ওপর না), কিন্তু নিজের মধ্যেই reliability আর ordering যোগ করে দিয়েছে (per-stream ভিত্তিতে, TCP এর মতো পুরো connection ভিত্তিতে না) — এইজন্যই QUIC, TCP এর head-of-line blocking সমস্যা এড়াতে পেরেছে, অথচ তাও reliable।
+**আপনার জন্য একটা গুরুত্বপূর্ণ connection — HTTP/3 এবং QUIC:** Lesson 1.4 তে আমরা QUIC নিয়ে কথা বলেছিলাম, বলেছিলাম এটা "UDP-based"। এখন সেই কথাটার পূর্ণ অর্থ বোঝা যাচ্ছে — QUIC, UDP এর ওপর তৈরি (TCP এর ওপর না), কিন্তু নিজের মধ্যেই reliability আর ordering যোগ করে দিয়েছে (per-stream ভিত্তিতে, TCP এর মতো পুরো connection ভিত্তিতে না) — এইজন্যই QUIC, TCP এর head-of-line blocking সমস্যা এড়াতে পেরেছে, অথচ তাও reliable।
 
 ### ১.২ TLS Handshake — ভেতরের ধাপগুলো
 
@@ -106,21 +106,21 @@ Client                                          Server
 
 TLS 1.3 এর ১-RTT handshake, প্রতিটা নতুন connection এ নেটওয়ার্ক latency অনুযায়ী মোটামুটি ৫০-১০০ millisecond বাঁচায় TLS 1.2 এর তুলনায়। যদি TaskFlow এর কোনো user দূরবর্তী কোনো region এ থাকে (উচ্চ RTT), এই সাশ্রয়টা লক্ষণীয় হয়ে ওঠে, বিশেষ করে যদি একাধিক নতুন connection দরকার হয়।
 
-**0-RTT — আরও একধাপ এগিয়ে:** যদি Client আগে একবার সেই Server এর সাথে connect করে থাকে (session resumption), TLS 1.3 এমনকি সেই ১ round trip টাও বাদ দিতে পারে — Client তার প্রথম message এর সাথেই আগের session এর একটা "pre-shared key" ব্যবহার করে encrypted application data পাঠিয়ে দেয়, আর Server সাথে সাথে সেটা process করতে পারে। তবে এখানে একটা গুরুত্বপূর্ণ security trade-off আছে — 0-RTT data replay attack এর ঝুঁকিতে থাকে, কারণ এটা handshake সম্পূর্ণ হওয়ার আগেই পাঠানো হয় — একজন attacker সেই data capture করে আবার পাঠাতে (replay করতে) পারে। এই কারণে 0-RTT সাধারণত শুধু idempotent operation এ (যেমন একটা cached page load করা) ব্যবহার করা উচিত, payment বা login এর মতো sensitive transaction এ এটা বন্ধ রাখা হয়। (Idempotency শব্দটা Module 7.4 তে formally আসবে; এখানে শুধু এটুকু ধরে রাখো — "একই কাজ দুইবার হলেও ফল একই"।)
+**0-RTT — আরও একধাপ এগিয়ে:** যদি Client আগে একবার সেই Server এর সাথে connect করে থাকে (session resumption), TLS 1.3 এমনকি সেই ১ round trip টাও বাদ দিতে পারে — Client তার প্রথম message এর সাথেই আগের session এর একটা "pre-shared key" ব্যবহার করে encrypted application data পাঠিয়ে দেয়, আর Server সাথে সাথে সেটা process করতে পারে। তবে এখানে একটা গুরুত্বপূর্ণ security trade-off আছে — 0-RTT data replay attack এর ঝুঁকিতে থাকে, কারণ এটা handshake সম্পূর্ণ হওয়ার আগেই পাঠানো হয় — একজন attacker সেই data capture করে আবার পাঠাতে (replay করতে) পারে। এই কারণে 0-RTT সাধারণত শুধু idempotent operation এ (যেমন একটা cached page load করা) ব্যবহার করা উচিত, payment বা login এর মতো sensitive transaction এ এটা বন্ধ রাখা হয়। (Idempotency শব্দটা Module 7.4 তে formally আসবে; এখানে শুধু এটুকু ধরে রাখুন — "একই কাজ দুইবার হলেও ফল একই"।)
 
 ### ১.৩ TLS এর বর্তমান অবস্থা (২০২৬, web search দিয়ে verify করা হয়েছে)
 
 যেহেতু এটা একটা version-dependent তথ্য, আমি এটা যাচাই করে নিয়েছি — ২০২৬ সালের current standard হলো — TLS 1.0 এবং 1.1 সম্পূর্ণ বন্ধ থাকা উচিত (এগুলো known vulnerability এর শিকার, এবং সব major compliance standard এখন এগুলো নিষিদ্ধ করেছে), আর TLS 1.2 এখনও acceptable — এটা এখনও PCI DSS compliant এবং NIST এর ন্যূনতম অনুমোদিত ভার্সন, সব major browser এখনও এটা সাপোর্ট করে। তবে industry best practice হলো TLS 1.2 এবং TLS 1.3 উভয়ই চালু রাখা (TLS 1.3 কে primary preference হিসেবে), কারণ TLS 1.3 দ্রুত (handshake ২ round trip থেকে ১ এ নেমে আসে) এবং বেশি নিরাপদ।
 
-**তোমার জন্য practical takeaway:** যদি তুমি Nginx বা Cloudflare এর মাধ্যমে TaskFlow এর TLS configure করো, `ssl_protocols TLSv1.2 TLSv1.3;` — এই ধরনের setting ব্যবহার করাই এখনকার (২০২৬) স্ট্যান্ডার্ড প্র্যাকটিস, TLS 1.0/1.1 কখনোই enable রাখা উচিত না।
+**আপনার জন্য practical takeaway:** যদি আপনি Nginx বা Cloudflare এর মাধ্যমে TaskFlow এর TLS configure করেন, `ssl_protocols TLSv1.2 TLSv1.3;` — এই ধরনের setting ব্যবহার করাই এখনকার (২০২৬) স্ট্যান্ডার্ড প্র্যাকটিস, TLS 1.0/1.1 কখনোই enable রাখা উচিত না।
 
 ---
 
 ## ২. Interview Angle
 
-TCP vs UDP নিয়ে একটা common interview প্রশ্ন — "তুমি একটা real-time chat feature বানাচ্ছ (TaskFlow এর মতো), কোন protocol ব্যবহার করবে?" এখানে ভালো উত্তর নির্ভর করে চিন্তার ওপর — chat message miss হওয়া গ্রহণযোগ্য না (একটা message হারিয়ে গেলে conversation এর মানে হারিয়ে যায়), তাই এখানে TCP-ভিত্তিক solution (WebSocket, যেটা TCP এর ওপর চলে) দরকার, UDP না — এটা video call এর থেকে আলাদা, যেখানে একটা frame miss হওয়া acceptable।
+TCP vs UDP নিয়ে একটা common interview প্রশ্ন — "আপনি একটা real-time chat feature বানাচ্ছেন (TaskFlow এর মতো), কোন protocol ব্যবহার করবেন?" এখানে ভালো উত্তর নির্ভর করে চিন্তার ওপর — chat message miss হওয়া গ্রহণযোগ্য না (একটা message হারিয়ে গেলে conversation এর মানে হারিয়ে যায়), তাই এখানে TCP-ভিত্তিক solution (WebSocket, যেটা TCP এর ওপর চলে) দরকার, UDP না — এটা video call এর থেকে আলাদা, যেখানে একটা frame miss হওয়া acceptable।
 
-TLS handshake নিয়ে একটা follow-up প্রশ্ন প্রায়ই আসে: "কীভাবে connection latency কমাবে HTTPS এ?" — ভালো উত্তরে TLS 1.3 তে upgrade করা, session resumption/0-RTT enable করা (সাবধানে, শুধু idempotent operation এ), আর keep-alive দিয়ে connection reuse করা (Lesson 1.4) — এই তিনটাই একসাথে mention করা প্রত্যাশিত।
+TLS handshake নিয়ে একটা follow-up প্রশ্ন প্রায়ই আসে: "কীভাবে connection latency কমাবেন HTTPS এ?" — ভালো উত্তরে TLS 1.3 তে upgrade করা, session resumption/0-RTT enable করা (সাবধানে, শুধু idempotent operation এ), আর keep-alive দিয়ে connection reuse করা (Lesson 1.4) — এই তিনটাই একসাথে mention করা প্রত্যাশিত।
 
 ---
 
@@ -150,15 +150,15 @@ TLS handshake নিয়ে একটা follow-up প্রশ্ন প্�
 
 ## ৫. Reflection Questions
 
-1. TaskFlow এ যদি তুমি একটা "live cursor" feature বানাও (Google Docs এর মতো, যেখানে দেখা যায় টিমের অন্য সদস্য কোন task এ এখন কাজ করছে, real-time এ) — TCP নাকি UDP-ভিত্তিক solution বেছে নেবে, আর কেন?
-2. 0-RTT কেন শুধু "idempotent" operation এ নিরাপদ, কিন্তু payment বা login এ নিরাপদ না — নিজের ভাষায় ব্যাখ্যা করো।
+1. TaskFlow এ যদি আপনি একটা "live cursor" feature বানান (Google Docs এর মতো, যেখানে দেখা যায় টিমের অন্য সদস্য কোন task এ এখন কাজ করছে, real-time এ) — TCP নাকি UDP-ভিত্তিক solution বেছে নেবেন, আর কেন?
+2. 0-RTT কেন শুধু "idempotent" operation এ নিরাপদ, কিন্তু payment বা login এ নিরাপদ না — নিজের ভাষায় ব্যাখ্যা করুন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:** এটা একটা interesting borderline case — cursor position এর মতো data, প্রতি মুহূর্তে বদলাচ্ছে এবং পুরনো position জানার তেমন মূল্য নেই (একটা cursor update miss হয়ে গেলে, পরের update এমনিতেই সঠিক অবস্থান জানিয়ে দেবে)। তাই এখানে UDP-এর দর্শনের সাথে ভালো মেলে (packet loss গ্রহণযোগ্য, latency কম রাখাটাই priority)। বাস্তবে, বেশিরভাগ web application এ এটা এখনও WebSocket (TCP-ভিত্তিক) দিয়েই implement হয়, কারণ browser এ raw UDP access সহজলভ্য না, আর TCP এর overhead এই ছোট scale এ তেমন সমস্যা করে না। কিন্তু conceptually, যদি raw protocol choice এর প্রশ্ন হয়, UDP-এর যুক্তি এখানে প্রযোজ্য।
 
-**প্রশ্ন ২:** Idempotent operation মানে — একই operation একাধিকবার চললেও ফলাফল একই থাকে (যেমন, "এই page load করো" — দুইবার load করলেও কোনো ক্ষতি নেই)। কিন্তু payment ("₹৫০০ টাকা পাঠাও") বা login attempt idempotent না — যদি একজন attacker সেই 0-RTT data capture করে replay করে, তাহলে payment দুইবার হয়ে যেতে পারে, বা login attempt দুইবার count হতে পারে (যেটা কোনো rate-limiting/security logic কে বিভ্রান্ত করতে পারে)। তাই non-idempotent, sensitive operation এ 0-RTT ব্যবহার করা বিপজ্জনক — full handshake এর নিশ্চয়তা দরকার।
+**প্রশ্ন ২:** Idempotent operation মানে — একই operation একাধিকবার চললেও ফলাফল একই থাকে (যেমন, "এই page load করুন" — দুইবার load করলেও কোনো ক্ষতি নেই)। কিন্তু payment ("₹৫০০ টাকা পাঠান") বা login attempt idempotent না — যদি একজন attacker সেই 0-RTT data capture করে replay করে, তাহলে payment দুইবার হয়ে যেতে পারে, বা login attempt দুইবার count হতে পারে (যেটা কোনো rate-limiting/security logic কে বিভ্রান্ত করতে পারে)। তাই non-idempotent, sensitive operation এ 0-RTT ব্যবহার করা বিপজ্জনক — full handshake এর নিশ্চয়তা দরকার।
 
 </details>
 
@@ -168,16 +168,16 @@ TLS handshake নিয়ে একটা follow-up প্রশ্ন প্�
 
 **Tier 3 — Design Exercise**
 
-> **Scenario:** তুমি TaskFlow এর জন্য দুটো নতুন feature নিয়ে চিন্তা করছ:
+> **Scenario:** আপনি TaskFlow এর জন্য দুটো নতুন feature নিয়ে চিন্তা করছেন:
 >
-> **Feature A:** "Live Notification Badge" — যখন কেউ তোমাকে task assign করে, একটা ছোট badge count update হয়ে যায় সাথে সাথে, page reload ছাড়া
+> **Feature A:** "Live Notification Badge" — যখন কেউ আপনাকে task assign করে, একটা ছোট badge count update হয়ে যায় সাথে সাথে, page reload ছাড়া
 >
 > **Feature B:** "Bulk Task Import" — user একটা CSV file upload করবে, যেখানে ১০০০টা task একসাথে থাকবে, এবং system সেগুলো সব database এ ঢোকাবে
 >
-> প্রতিটার জন্য বলো:
+> প্রতিটার জন্য বলুন:
 >
-> 1. এটার জন্য TCP নাকি UDP-ভিত্তিক approach যুক্তিসঙ্গত, আর কেন (Lesson এর trade-off table ব্যবহার করে reasoning দাও)
-> 2. এই feature এর জন্য TLS 0-RTT ব্যবহার করা নিরাপদ হবে কিনা — idempotency এর প্রশ্নে বিচার করো
+> 1. এটার জন্য TCP নাকি UDP-ভিত্তিক approach যুক্তিসঙ্গত, আর কেন (Lesson এর trade-off table ব্যবহার করে reasoning দিন)
+> 2. এই feature এর জন্য TLS 0-RTT ব্যবহার করা নিরাপদ হবে কিনা — idempotency এর প্রশ্নে বিচার করুন
 
 ---
 
@@ -207,4 +207,4 @@ Next: 2.3 — REST vs GraphQL vs gRPC
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — Lesson 2.3 এ যাব: REST vs GraphQL vs gRPC — এই তিনটা API design approach এর trade-off, তোমার Express API experience এর সাথে সরাসরি সম্পর্কিত একটা টপিক।
+Exercise টা করে পাঠান। রেডি হলে `next` লিখুন — Lesson 2.3 এ যাব: REST vs GraphQL vs gRPC — এই তিনটা API design approach এর trade-off, আপনার Express API experience এর সাথে সরাসরি সম্পর্কিত একটা টপিক।

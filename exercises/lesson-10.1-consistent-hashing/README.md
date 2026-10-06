@@ -113,7 +113,7 @@ ring (vnode 160)                     2.06x                 2.39x                
 bounded load, c = 1.25               1.25x                 1.25x                 11.3%
 ```
 
-সব সংখ্যা তোমার machine এও **হুবহু এক** হওয়ার কথা — সময় কোথাও মাপা হয়নি।
+সব সংখ্যা আপনার machine এও **হুবহু এক** হওয়ার কথা — সময় কোথাও মাপা হয়নি।
 
 ## কী দেখার জন্য এটা বানানো
 
@@ -131,19 +131,19 @@ bounded load, c = 1.25               1.25x                 1.25x                
 - **Hot key কোনো hash সারাতে পারে না।** Hash key সমান ভাগ করে, request না। একটা key একাই ১৩% traffic হলে
   যে node এ সে পড়ে, সে ২ গুণ চাপ খায় — ring, rendezvous, jump, সবাই।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Virtual node এর মাপ:** `VNODES=10 npm run rebalance`, তারপর `VNODES=1000`. "সরল" কলাম আদর্শ ২০% এর
-   কত কাছে যায়? আর অংশ খ এ মরা node এর key কতজনের মধ্যে ভাগ হয়? তোমার ১০টা node এর cluster এ তুমি কত
-   virtual node বাছবে, আর কেন?
+   কত কাছে যায়? আর অংশ খ এ মরা node এর key কতজনের মধ্যে ভাগ হয়? আপনার ১০টা node এর cluster এ আপনি কত
+   virtual node বাছবেন, আর কেন?
 2. **Traffic এর আকার:** `ZIPF=0.5 npm run cache`, তারপর `ZIPF=1.2`. প্রথম সেকেন্ডের hit rate কীভাবে বদলায়?
    কেন traffic যত বেশি skewed, `hash % N` এর ক্ষতি তত কম দেখায় — আর এটা কেন একটা বিপজ্জনক সান্ত্বনা?
-3. **বেশি node:** `NODES=50 npm run compare`. Rendezvous এর "lookup এর কাজ" কী হলো? কত node এর উপরে তুমি
-   rendezvous এর বদলে ring নেবে?
+3. **বেশি node:** `NODES=50 npm run compare`. Rendezvous এর "lookup এর কাজ" কী হলো? কত node এর উপরে আপনি
+   rendezvous এর বদলে ring নেবেন?
 4. **Bounded load এর factor:** `FACTOR=1.1 npm run compare`, তারপর `FACTOR=2`. "নিজের node এর বাইরে" কলাম
    কীভাবে বদলায়? Cache এর জন্য ওই কলামের মানে কী (নিজের node এর বাইরে মানে ওই node এ data নেই)?
-5. **Jump hash এর শর্ত (code বদলাতে হবে):** `compare.ts` এ `middle` এর বদলে **শেষ** node বাদ দাও। কত %
-   নড়ল? (উত্তর ~৯.৯% হওয়ার কথা।) এবার বলো: jump hash কোন ধরনের system এ মানায়, আর কোথায় একেবারেই না?
+5. **Jump hash এর শর্ত (code বদলাতে হবে):** `compare.ts` এ `middle` এর বদলে **শেষ** node বাদ দিন। কত %
+   নড়ল? (উত্তর ~৯.৯% হওয়ার কথা।) এবার বলুন: jump hash কোন ধরনের system এ মানায়, আর কোথায় একেবারেই না?
 
 ## Project Structure
 

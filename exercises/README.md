@@ -56,7 +56,7 @@ Tier 3 (design exercise) এখানে থাকে না — সেখান
 | [`lesson-12.6-capstone-taskflow/`](lesson-12.6-capstone-taskflow/)                 | 12.6 — Capstone: TaskFlow Design Doc                 | 1    | Task এর write path: optimistic lock, Idempotency-Key, outbox, idempotent notification, মাপা                                        |
 
 প্রতিটা folder এ নিজস্ব `README.md` আছে — setup, run, acceptance criteria, আর "নিজে ভেঙে
-দেখো" experiment সহ।
+দেখুন" experiment সহ।
 
 ## Code এর নিয়ম
 

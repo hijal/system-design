@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 2.5 (Idempotency key), Lesson 7.2 (Queue), Lesson 7.4 (Retry, backoff, DLQ), Lesson 9.4 (Circuit breaker, bulkhead), Lesson 9.5 (Rate limiting), Lesson 10.7 (Cost), Lesson 11.2 (Limiter), Lesson 11.3 (Push, offline), Lesson 11.4 (Fan-out, queue isolation)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা notification system এর আসল সীমাগুলো চিনতে পারবে: খরচ আসে channel থেকে (SMS), গতির সীমা আসে বাইরের provider থেকে, আর সবচেয়ে দুর্লভ সম্পদ user এর মনোযোগ। আর এগুলো থেকে নকশা দাঁড় করাতে পারবে: অগ্রাধিকারের স্তর, channel এর পরিকল্পনা, পছন্দ আর নীরবতা
-2. বাইরের provider এর সাথে নির্ভরযোগ্য ভাবে কথা বলতে পারবে: timeout মানে ব্যর্থতা না, retry আর idempotency key, failover এ কেন key হারায়, outage এ backoff বনাম breaker, আর provider এর সীমার নিচে একটা campaign কে pacing
-3. User কে না জ্বালিয়ে notification পাঠাতে পারবে: aggregation আর collapse key, cap এর দাম, quiet hours আর তার সকালের ঢেউ, আর মরা device token পরিষ্কার রাখা
+1. একটা notification system এর আসল সীমাগুলো চিনতে পারবেন: খরচ আসে channel থেকে (SMS), গতির সীমা আসে বাইরের provider থেকে, আর সবচেয়ে দুর্লভ সম্পদ user এর মনোযোগ। আর এগুলো থেকে নকশা দাঁড় করাতে পারবেন: অগ্রাধিকারের স্তর, channel এর পরিকল্পনা, পছন্দ আর নীরবতা
+2. বাইরের provider এর সাথে নির্ভরযোগ্য ভাবে কথা বলতে পারবেন: timeout মানে ব্যর্থতা না, retry আর idempotency key, failover এ কেন key হারায়, outage এ backoff বনাম breaker, আর provider এর সীমার নিচে একটা campaign কে pacing
+3. User কে না জ্বালিয়ে notification পাঠাতে পারবেন: aggregation আর collapse key, cap এর দাম, quiet hours আর তার সকালের ঢেউ, আর মরা device token পরিষ্কার রাখা
 
 **Tier:** 1 — Runnable Code (চারটা deterministic model আর একটা আসল Express + Zod notification service, fake provider সহ; Docker লাগে না)
 
@@ -20,13 +20,13 @@
 
 আগের চারটা case study তে বারবার একটা বাক্স পাশে রেখেছিলাম: "notification (11.5)"। 11.3 এ offline user কে জাগানো, 11.4 এ নতুন post এর খবর, 10.5 এ password reset এর email। আজ সেই বাক্স খুলব। Interviewer:
 
-> "আমাদের company র সব notification এর জন্য একটা কেন্দ্রীয় system design করো। কয়েকশো service এটা ডাকবে: login এর OTP, অর্ডারের খবর, social এর like আর comment, আর marketing team এর campaign। Push, email, SMS।"
+> "আমাদের company র সব notification এর জন্য একটা কেন্দ্রীয় system design করুন। কয়েকশো service এটা ডাকবে: login এর OTP, অর্ডারের খবর, social এর like আর comment, আর marketing team এর campaign। Push, email, SMS।"
 
 প্রথম ছবি প্রায় সবসময় একটা queue আর একটা worker: "service গুলো queue তে message দেয়, worker পাঠায়।" এটা ঠিক, আর এখানেই প্রশ্নগুলো শুরু:
 
 - "Marketing team ১০ কোটি জনকে একটা campaign পাঠাল। সেই এক ঘণ্টায় কেউ login করলে তার OTP কখন আসবে?"
 - "SMS provider সেকেন্ডে ১০০টার বেশি নেয় না। এটা কার সমস্যা?"
-- "Email provider timeout দিল। আবার পাঠাবে? যদি প্রথমটা আসলে চলে গিয়ে থাকে?"
+- "Email provider timeout দিল। আবার পাঠাবেন? যদি প্রথমটা আসলে চলে গিয়ে থাকে?"
 - "একজনের post viral, ১০ মিনিটে ৫০০ like। তার ফোন ৫০০ বার বাজবে?"
 - "মাসের বিল এলো। এত টাকা কোথায় গেল?"
 
@@ -120,7 +120,7 @@ priority: OTP first, the campaign gets the rest               100 ms    100 ms  
 separate accounts: separate limits for OTP and campaign       100 ms    100 ms       100 ms          0        50 min
 ```
 
-- **এক FIFO:** ৩ লাখ SMS ১০০/s এ ৫০ মিনিট। তার পেছনে প্রতিটা OTP। p50 দুই মিনিট, p99 ৪৯ মিনিট, আর **৬৭,৫০০টা OTP মেয়াদ পার হয়ে পৌঁছায়।** প্রতিটা একজন মানুষ যে login করতে পারল না, আর সম্ভবত আবার "কোড পাঠাও" চাপল, queue তে আরেকটা যোগ করে। 11.4 এর fan-out queue এর শিক্ষা, এবার সীমাটা আরও কঠিন, কারণ সেটা আমাদের না: বেশি worker দিয়ে provider এর সীমা বাড়ে না।
+- **এক FIFO:** ৩ লাখ SMS ১০০/s এ ৫০ মিনিট। তার পেছনে প্রতিটা OTP। p50 দুই মিনিট, p99 ৪৯ মিনিট, আর **৬৭,৫০০টা OTP মেয়াদ পার হয়ে পৌঁছায়।** প্রতিটা একজন মানুষ যে login করতে পারল না, আর সম্ভবত আবার "কোড পাঠান" চাপল, queue তে আরেকটা যোগ করে। 11.4 এর fan-out queue এর শিক্ষা, এবার সীমাটা আরও কঠিন, কারণ সেটা আমাদের না: বেশি worker দিয়ে provider এর সীমা বাড়ে না।
 - **Pacing** — একটা বড় কাজ queue তে একবারে না ঢেলে একটা নির্দিষ্ট হারে (11.2 এর token bucket দিয়ে) ছাড়া, যাতে provider এর ক্ষমতার একটা অংশ সবসময় বাকিদের জন্য খালি থাকে। সীমার ৫০% এ ছাড়লে OTP আর আটকায় না, কিন্তু campaign দ্বিগুণ সময় নেয় (১০০ মিনিট)। আর headroom এর হিসাব জরুরি: experiment ১ এ ৯০% এ ছাড়লে ৯০ + OTP এর ২০ = ১১০%, queue আবার জমে, **৭,৫০৩টা OTP মেয়াদ পার।** Pacing এর হার = সীমা − জরুরি চাপের peak − নিরাপত্তার ফাঁক।
 - **অগ্রাধিকারের queue:** OTP সবসময় আগে, campaign বাকি জায়গা। OTP এ শূন্য সমস্যা, campaign ৬৩ মিনিট। দাম campaign দেয়, আর experiment ২ এ OTP ৯০/s হলে campaign দুই ঘণ্টায়ও শেষ হয় না (starvation)। কিন্তু এখানে সেটাই ঠিক দাম।
 - **আলাদা provider account** (বা আলাদা sender, transactional আর marketing এর জন্য): দুটোর নিজের সীমা। সবচেয়ে পরিষ্কার, campaign ও পুরো গতিতে। দাম: দ্বিতীয় account এর খরচ আর ব্যবস্থাপনা। আর আরেকটা লাভ: marketing এর জন্য spam এর অভিযোগ এলে provider বা email এর receiver সেই sender এর সুনাম কমায়; transactional এর sender আলাদা থাকলে OTP সেই শাস্তি পায় না। Email এ এটা প্রায় বাধ্যতামূলক অভ্যাস।
@@ -143,8 +143,8 @@ on timeout to a second provider (the key is not shared)             0.00%       
 
 - **Retry না করলে ২% হারায়,** যার মধ্যে অর্ধেক আসলে timeout (আমরা ভেবেছি গেছে কিনা জানি না)।
 - **Retry করলে কিছু হারায় না, কিন্তু ১% দুবার যায়:** timeout হওয়া কিন্তু আসলে পাঠানো গুলো। ১০ লাখে ১০,০০০ মানুষ দুটো "আপনার অর্ডার পাঠানো হয়েছে" পায়। একটা OTP দুবার এলে সমস্যা কম; একটা "৫,০০০ টাকা কাটা হয়েছে" দুবার এলে সমস্যা বড়।
-- **Provider idempotency key মানলে শূন্য আর শূন্য।** একই key এর দ্বিতীয় অনুরোধে provider নতুন করে পাঠায় না। কিন্তু সব provider এটা দেয় না। না দিলে উপায়: নিজের দিকে "পাঠানো হয়েছে" এর একটা টেকসই রেকর্ড, আর timeout এর পরে provider এর status API দিয়ে জিজ্ঞেস করা (যদি থাকে), বা ঝুঁকিটা type অনুযায়ী মেনে নেওয়া (OTP: আবার পাঠাও; টাকার খবর: জিজ্ঞেস না করে না)।
-- **Provider Failover** — প্রধান provider ব্যর্থ বা বন্ধ হলে একই notification বিকল্প provider দিয়ে পাঠানো। কিন্তু টেবিলের শেষ সারি দেখো: timeout এর পরে দ্বিতীয় provider এ পাঠালে আবার **১% দুবার**, কারণ দ্বিতীয় provider প্রথমটার key জানে না। Failover আর idempotency একসাথে কঠিন। তাই failover এর শর্ত হওয়া উচিত "প্রধান **নিশ্চিত** ব্যর্থ" (স্পষ্ট error, বা breaker খোলা), "একটা timeout" না।
+- **Provider idempotency key মানলে শূন্য আর শূন্য।** একই key এর দ্বিতীয় অনুরোধে provider নতুন করে পাঠায় না। কিন্তু সব provider এটা দেয় না। না দিলে উপায়: নিজের দিকে "পাঠানো হয়েছে" এর একটা টেকসই রেকর্ড, আর timeout এর পরে provider এর status API দিয়ে জিজ্ঞেস করা (যদি থাকে), বা ঝুঁকিটা type অনুযায়ী মেনে নেওয়া (OTP: আবার পাঠান; টাকার খবর: জিজ্ঞেস না করে না)।
+- **Provider Failover** — প্রধান provider ব্যর্থ বা বন্ধ হলে একই notification বিকল্প provider দিয়ে পাঠানো। কিন্তু টেবিলের শেষ সারি দেখুন: timeout এর পরে দ্বিতীয় provider এ পাঠালে আবার **১% দুবার**, কারণ দ্বিতীয় provider প্রথমটার key জানে না। Failover আর idempotency একসাথে কঠিন। তাই failover এর শর্ত হওয়া উচিত "প্রধান **নিশ্চিত** ব্যর্থ" (স্পষ্ট error, বা breaker খোলা), "একটা timeout" না।
 
 অংশ খ, প্রধান email provider দশ মিনিট বন্ধ, সেকেন্ডে ১,০০০ email:
 
@@ -171,13 +171,13 @@ first one at once, then the window doubles (30 s, 1, 2… min)         6       1
 ```
 
 - **প্রতিটায় একটা:** ৫০০ বার ফোন বাজে। User এর প্রতিক্রিয়া প্রায় নিশ্চিত: notification বন্ধ, আর তখন পরের OTP ও push এ আসে না।
-- **Cap (সর্বোচ্চ একটা প্রতি ৫ মিনিটে, বাকি ফেলে দাও):** ৪টা push, কিন্তু তথ্য হারায়: শেষ দুই মিনিটের like কখনো জানানো হয় না, আর প্রতিটা push শুধু "X like করেছে" বলে, বাকি ১২৪ জনের কথা না। Cap একটা নিরাপত্তার জাল, নকশা না।
+- **Cap (সর্বোচ্চ একটা প্রতি ৫ মিনিটে, বাকি ফেলে দিন):** ৪টা push, কিন্তু তথ্য হারায়: শেষ দুই মিনিটের like কখনো জানানো হয় না, আর প্রতিটা push শুধু "X like করেছে" বলে, বাকি ১২৪ জনের কথা না। Cap একটা নিরাপত্তার জাল, নকশা না।
 - **Aggregation Window (Collapse Key)** — একই user, একই ধরন, একই বিষয়ের notification একটা জানালায় জমিয়ে একটায় মেশানো ("X আর আরও ৪৯ জন like করেছে"), আর device কে একটা **collapse key** দিয়ে পাঠানো, যাতে নতুনটা পুরনোটাকে বদলে দেয়, স্তূপ না হয় (APNs আর FCM দুটোই এই ধারণা দেয়, ভিন্ন নামে)। ৩০ s এর জানালায় ২৬টা push, কিছুই হারায় না, কিন্তু প্রথমটাও ৩০ s দেরিতে।
-- **জানালা যা বাড়ে:** প্রথমটা সাথে সাথে (user জানল "তোমার post এ সাড়া আসছে"), তারপর জানালা ৩০ s, ১ মিনিট, ২ মিনিট… দ্বিগুণ হয়। মাত্র ৬টা push, প্রথমটা সাথে সাথে, কিছু হারায় না। দাম: শেষ like টা ১৪ মিনিট পরে জানানো, যা একটা like এর জন্য কেউ টের পায় না। Exponential backoff এর ধারণা, এবার user এর মনোযোগের জন্য।
+- **জানালা যা বাড়ে:** প্রথমটা সাথে সাথে (user জানল "আপনার post এ সাড়া আসছে"), তারপর জানালা ৩০ s, ১ মিনিট, ২ মিনিট… দ্বিগুণ হয়। মাত্র ৬টা push, প্রথমটা সাথে সাথে, কিছু হারায় না। দাম: শেষ like টা ১৪ মিনিট পরে জানানো, যা একটা like এর জন্য কেউ টের পায় না। Exponential backoff এর ধারণা, এবার user এর মনোযোগের জন্য।
 
 Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০টা like, জানালা বন্ধের আগে ০টা push, তারপর একটা: "fan0 আর আরও 49 জন like করেছে"।
 
-**Quiet Hours** — user এর নিজের সময়ের রাতে (ধরো ১০টা থেকে ৭টা) জরুরি না এমন notification ধরে রাখা আর সকালে পাঠানো। অংশ খ: ১০ লাখ user এর দিনের notification এর প্রায় ৩৭% রাতে তৈরি, তার ৯৫% (জরুরি বাদে) সকাল পর্যন্ত অপেক্ষা করে। আর একটা ফাঁদ: সবাই ঠিক ৭:০০ এ ছাড়া পেলে প্রতিটা time zone এ সকাল ৭টায় এক ঢেউ, এখানে ৩৫ লাখ, যা নিজেই একটা অপরিকল্পিত campaign (আর ১.৪ এর OTP এর সমস্যা আবার)। উপায়: ৭:০০ থেকে ৭:৩০ এর মধ্যে এলোমেলো ছড়ানো (11.3 এর jitter), আর bulk queue তে। জরুরি (OTP, নিরাপত্তার সতর্কতা) কখনো ধরে রাখা হয় না।
+**Quiet Hours** — user এর নিজের সময়ের রাতে (ধরুন ১০টা থেকে ৭টা) জরুরি না এমন notification ধরে রাখা আর সকালে পাঠানো। অংশ খ: ১০ লাখ user এর দিনের notification এর প্রায় ৩৭% রাতে তৈরি, তার ৯৫% (জরুরি বাদে) সকাল পর্যন্ত অপেক্ষা করে। আর একটা ফাঁদ: সবাই ঠিক ৭:০০ এ ছাড়া পেলে প্রতিটা time zone এ সকাল ৭টায় এক ঢেউ, এখানে ৩৫ লাখ, যা নিজেই একটা অপরিকল্পিত campaign (আর ১.৪ এর OTP এর সমস্যা আবার)। উপায়: ৭:০০ থেকে ৭:৩০ এর মধ্যে এলোমেলো ছড়ানো (11.3 এর jitter), আর bulk queue তে। জরুরি (OTP, নিরাপত্তার সতর্কতা) কখনো ধরে রাখা হয় না।
 
 **Device token এর জীবন:** push এর token একটা ফোনের একটা app install এর ঠিকানা। App মুছলে বা ফোন বদলালে সেটা মরে, আর APNs বা FCM পরের পাঠানোয় "unregistered" (বা অনুরূপ) বলে। নিয়ম: সেই উত্তর পেলেই token মুছে ফেলা। Smoke এর ধাপ ৭: erin এর দুটো token, একটা মরা; প্রথম OTP তে দুটো call আর মরাটা মুছে ফেলা, দ্বিতীয় OTP তে একটা call। এটা না করলে ১.২ এর ২১৬ কোটি অপচয় প্রতিদিন বাড়তেই থাকে।
 
@@ -248,7 +248,7 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 - _"Exactly once?"_ — সম্ভব না; timeout এ জানি না। At-least-once + key, provider মানলে; না মানলে type অনুযায়ী ঝুঁকি।
 - _"Provider বন্ধ হলে?"_ — Breaker, বিকল্প provider; আর failover এ key হারায় বলে duplicate এর হিসাব।
 - _"User কে spam না করে?"_ — Aggregation (জানালা যা বাড়ে), collapse key, দৈনিক সীমা, quiet hours (সকালের ঢেউ ছড়িয়ে)।
-- _"Notification পৌঁছাল কিনা কীভাবে জানো?"_ — Provider এর "accepted" মানে পৌঁছানো না। Push এ delivery এর receipt সীমিত; email এ bounce আর complaint এর webhook; SMS এ delivery receipt (DLR)। আর app এর ভেতরে "খোলা হয়েছে" এর event।
+- _"Notification পৌঁছাল কিনা কীভাবে জানেন?"_ — Provider এর "accepted" মানে পৌঁছানো না। Push এ delivery এর receipt সীমিত; email এ bounce আর complaint এর webhook; SMS এ delivery receipt (DLR)। আর app এর ভেতরে "খোলা হয়েছে" এর event।
 - _"Template আর ভাষা?"_ — Template এর version, user এর ভাষা, আর template তৈরি পাঠানোর সময়, যাতে নাম বদলালে পুরনো queue এর notification ও ঠিক নাম দেখায়।
 
 **Production এ বাস্তবে:** সবচেয়ে প্রচলিত ঘটনা: একটা বড় campaign এর সময় OTP আর password reset আটকে যাওয়া, আর "login করতে পারছি না" এর ঢেউ; একটা bug এ একই notification হাজার বার (একটা retry loop key ছাড়া), যা user রা screenshot করে social media তে দেয়; SMS এর বিল এক মাসে দশ গুণ (SMS pumping এর আক্রমণ: কেউ নকল নম্বরে OTP চেয়ে চেয়ে দামি দেশের SMS পাঠায়, 11.2 এর মতো সীমা আর দেশ ধরে সতর্কতা লাগে); আর মরা token এর কারণে push এর delivery এর হার ধীরে ধীরে পড়ে যাওয়া, যা কেউ খেয়াল করে না।
@@ -258,12 +258,12 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 ## ৩. Key Takeaway
 
 - **Notification system এর সীমা বাইরে:** provider এর গতির সীমা, তার দাম, তার ব্যর্থতা। নকশা মানে অন্যের সীমার চারপাশে নিজের নিয়ম
-- **খরচ channel এ:** SMS ১% notification কিন্তু বিলের ৮২%। SMS শুধু fallback, আর দেশ ধরে খরচ দেখো
+- **খরচ channel এ:** SMS ১% notification কিন্তু বিলের ৮২%। SMS শুধু fallback, আর দেশ ধরে খরচ দেখুন
 - **জরুরি আর bulk এক queue তে মরে:** campaign এর পেছনে ৬৭,৫০০ OTP মেয়াদ পার। অগ্রাধিকারের স্তর, আলাদা provider account, আর campaign paced — headroom সহ (৯০% এ ছাড়লে আবার ৭,৫০৩ মেয়াদ পার)
 - **Timeout মানে "জানি না":** retry না করলে ২% হারায়, key ছাড়া retry তে ১% দুবার, provider এ key সহ শূন্য। Failover এ key হারায়, তাই failover শুধু নিশ্চিত ব্যর্থতায় (breaker)
 - **Outage এ backoff একা বাঁচায় না** (p99 ১৩ মিনিট); breaker + বিকল্প provider (p99 ৪০ s)
-- **User এর মনোযোগ একটা সীমিত সম্পদ:** ৫০০ like থেকে ৬টা push, প্রথমটা সাথে সাথে আর কিছু না হারিয়ে (জানালা যা বাড়ে + collapse key)। Cap তথ্য হারায়; quiet hours সকালের ঢেউ বানায়, তাই ছড়াও
-- **মরা token সাথে সাথে মোছো,** নইলে push এর এক-তৃতীয়াংশ অপচয়, আর delivery এর হিসাব মিথ্যা
+- **User এর মনোযোগ একটা সীমিত সম্পদ:** ৫০০ like থেকে ৬টা push, প্রথমটা সাথে সাথে আর কিছু না হারিয়ে (জানালা যা বাড়ে + collapse key)। Cap তথ্য হারায়; quiet hours সকালের ঢেউ বানায়, তাই ছড়ান
+- **মরা token সাথে সাথে মুছুন,** নইলে push এর এক-তৃতীয়াংশ অপচয়, আর delivery এর হিসাব মিথ্যা
 
 ---
 
@@ -283,22 +283,22 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. এক মাসে SMS এর বিল $৭২ লাখ থেকে $৪ কোটি। Dashboard বলছে OTP এর সংখ্যা ছয় গুণ, আর বেশিরভাগ এমন দেশের নম্বরে যেখানে তোমার প্রায় কোনো user নেই, আর সেই OTP গুলোর প্রায় কোনোটাই ব্যবহার হয়নি। (ক) কী ঘটছে? (খ) আজই কী করবে, আর কী করবে না? (গ) এই lesson আর 11.2 এর কোন যন্ত্র দিয়ে এটা স্থায়ী ভাবে আটকাবে, আর তাদের false positive এর দাম কী?
+1. এক মাসে SMS এর বিল $৭২ লাখ থেকে $৪ কোটি। Dashboard বলছে OTP এর সংখ্যা ছয় গুণ, আর বেশিরভাগ এমন দেশের নম্বরে যেখানে আপনার প্রায় কোনো user নেই, আর সেই OTP গুলোর প্রায় কোনোটাই ব্যবহার হয়নি। (ক) কী ঘটছে? (খ) আজই কী করবেন, আর কী করবেন না? (গ) এই lesson আর 11.2 এর কোন যন্ত্র দিয়ে এটা স্থায়ী ভাবে আটকাবেন, আর তাদের false positive এর দাম কী?
 
-2. একটা bank এর app: "আপনার account থেকে ৫০,০০০ টাকা তোলা হয়েছে" এর notification। (ক) এর জন্য কোন channel plan, কোন স্তর, আর quiet hours এর নিয়ম? (খ) এখানে "দুবার পাঠানো" আর "না পাঠানো" এর মধ্যে কোনটা খারাপ, আর সেটা retry আর failover এর নীতি কীভাবে বদলায়? (গ) Provider "sent" বলল, কিন্তু user বলছে পায়নি। কীভাবে জানবে কে ঠিক?
+2. একটা bank এর app: "আপনার account থেকে ৫০,০০০ টাকা তোলা হয়েছে" এর notification। (ক) এর জন্য কোন channel plan, কোন স্তর, আর quiet hours এর নিয়ম? (খ) এখানে "দুবার পাঠানো" আর "না পাঠানো" এর মধ্যে কোনটা খারাপ, আর সেটা retry আর failover এর নীতি কীভাবে বদলায়? (গ) Provider "sent" বলল, কিন্তু user বলছে পায়নি। কীভাবে জানবেন কে ঠিক?
 
-3. Marketing team চায় "সবাইকে, একসাথে, ঠিক রাত ৮টায়" একটা flash sale এর push, ১০ কোটি জনকে। (ক) এই lesson এর সংখ্যা দিয়ে, এর কোন অংশগুলো সমস্যা: push এর provider, তোমার নিজের worker, আর notification খুলে app এ আসা মানুষের ঢেউ (11.3 এর reconnect storm এর মতো)? (খ) একটা নকশা দাও যা marketing এর লক্ষ্য (বেশিরভাগ মানুষ ৮টার কাছাকাছি জানবে) আর system এর সীমা দুটোই মানে।
+3. Marketing team চায় "সবাইকে, একসাথে, ঠিক রাত ৮টায়" একটা flash sale এর push, ১০ কোটি জনকে। (ক) এই lesson এর সংখ্যা দিয়ে, এর কোন অংশগুলো সমস্যা: push এর provider, আপনার নিজের worker, আর notification খুলে app এ আসা মানুষের ঢেউ (11.3 এর reconnect storm এর মতো)? (খ) একটা নকশা দিন যা marketing এর লক্ষ্য (বেশিরভাগ মানুষ ৮টার কাছাকাছি জানবে) আর system এর সীমা দুটোই মানে।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:**
 
-(ক) **SMS pumping (বা "toll fraud"):** কেউ তোমার OTP এর endpoint কে দিয়ে দামি দেশের নম্বরে SMS পাঠাচ্ছে, যেখানে সে নিজে বা তার সহযোগী carrier প্রতি SMS এ টাকার ভাগ পায়। OTP গুলো কেউ ব্যবহার করে না কারণ উদ্দেশ্যটাই SMS পাঠানো, login না। তোমার OTP এর API একটা খোলা "আমার টাকায় SMS পাঠাও" এর বোতাম হয়ে গেছে।
+(ক) **SMS pumping (বা "toll fraud"):** কেউ আপনার OTP এর endpoint কে দিয়ে দামি দেশের নম্বরে SMS পাঠাচ্ছে, যেখানে সে নিজে বা তার সহযোগী carrier প্রতি SMS এ টাকার ভাগ পায়। OTP গুলো কেউ ব্যবহার করে না কারণ উদ্দেশ্যটাই SMS পাঠানো, login না। আপনার OTP এর API একটা খোলা "আমার টাকায় SMS পাঠান" এর বোতাম হয়ে গেছে।
 
-(খ) **আজই:** যেসব দেশে তোমার আসল user প্রায় নেই, সেখানে SMS OTP বন্ধ (বা কঠিন করা: আগে captcha, তারপর SMS); OTP এর endpoint এ IP, device আর নম্বরের prefix ধরে কড়া সীমা; একটা provider এর মাসিক খরচের সীমা আর alert। **করবে না:** সব SMS বন্ধ (আসল user login করতে পারবে না), বা শুধু IP ধরে আটকানো (আক্রমণকারী হাজার IP থেকে আসে, 10.5 এর credential stuffing এর মতো)।
+(খ) **আজই:** যেসব দেশে আপনার আসল user প্রায় নেই, সেখানে SMS OTP বন্ধ (বা কঠিন করা: আগে captcha, তারপর SMS); OTP এর endpoint এ IP, device আর নম্বরের prefix ধরে কড়া সীমা; একটা provider এর মাসিক খরচের সীমা আর alert। **করবেন না:** সব SMS বন্ধ (আসল user login করতে পারবে না), বা শুধু IP ধরে আটকানো (আক্রমণকারী হাজার IP থেকে আসে, 10.5 এর credential stuffing এর মতো)।
 
 (গ) স্থায়ী: (১) **দেশ আর prefix ধরে rate limit আর বাজেট** (11.2): প্রতিটা দেশের SMS এর একটা দৈনিক সীমা, তার স্বাভাবিক ব্যবহারের কয়েক গুণ; ছাড়ালে সেই দেশে fallback বন্ধ আর alert। False positive: সেই দেশে হঠাৎ বৈধ বৃদ্ধি (একটা marketing অভিযান) আটকায়, তাই সীমা বাড়ানোর একটা দ্রুত পথ। (২) **OTP এর conversion এর metric:** পাঠানো OTP এর কত % ব্যবহার হয়, দেশ ধরে; স্বাভাবিক ৬০-৮০%, আক্রমণে প্রায় শূন্য — এটাই সবচেয়ে ভালো সংকেত। (৩) **SMS শুধু fallback** (১.২): push বা app এর ভেতরের যাচাই আগে; SMS কেবল যার push নেই। (৪) নম্বর এর ধরন যাচাই (অনেক provider একটা lookup দেয়: নম্বরটা mobile কিনা, কোন carrier)। প্রতিটার দাম: আসল user এর জন্য একটা বাড়তি ধাপ।
 
@@ -306,7 +306,7 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 
 (ক) **স্তর:** critical (নিরাপত্তা)। **Channel plan:** push আর SMS **দুটোই** (fallback না, একসাথে), কারণ ফোন চুরি বা app মোছা থাকলে push যায় না, আর এটাই সেই মুহূর্ত যখন জানানো সবচেয়ে জরুরি; সাথে app এর ভেতরে একটা স্থায়ী রেকর্ড আর email। **Quiet hours:** কখনো না — রাত ৩টায় টাকা তোলা হলে ঠিক তখনই জানা দরকার।
 
-(খ) এখানে **না পাঠানো অনেক খারাপ** (জালিয়াতি ধরা পড়ে না), দুবার পাঠানো বিরক্তিকর আর বিভ্রান্তিকর ("দুবার তোলা হয়েছে?")। তাই: retry আক্রমণাত্মক, failover দ্রুত (breaker এর সময় ছোট), আর duplicate কমাতে text এ লেনদেনের নির্দিষ্ট id আর সময় ("লেনদেন #A93F, ১৪:০২"), যাতে দুটো একই খবর পেলে user বোঝে এটা একটাই ঘটনা। মানে duplicate এর ক্ষতি কমাও, পাঠানোর নিশ্চয়তা বাড়াও।
+(খ) এখানে **না পাঠানো অনেক খারাপ** (জালিয়াতি ধরা পড়ে না), দুবার পাঠানো বিরক্তিকর আর বিভ্রান্তিকর ("দুবার তোলা হয়েছে?")। তাই: retry আক্রমণাত্মক, failover দ্রুত (breaker এর সময় ছোট), আর duplicate কমাতে text এ লেনদেনের নির্দিষ্ট id আর সময় ("লেনদেন #A93F, ১৪:০২"), যাতে দুটো একই খবর পেলে user বোঝে এটা একটাই ঘটনা। মানে duplicate এর ক্ষতি কমান, পাঠানোর নিশ্চয়তা বাড়ান।
 
 (গ) "sent" মানে provider নিয়েছে, পৌঁছানো না। প্রমাণের সিঁড়ি: (১) আমাদের ইতিহাস: কখন, কোন provider, কোন উত্তর; (২) SMS এর delivery receipt (DLR) carrier থেকে, যদি provider দেয় — "delivered to handset" বনাম "accepted"; (৩) push এর জন্য app এর ভেতর থেকে "পেয়েছি" এর একটা ack (app খোলা থাকলে বা background এ পৌঁছালে, প্ল্যাটফর্মের সীমার মধ্যে); (৪) নিজের পরীক্ষার নম্বর আর device এ নিয়মিত synthetic notification (10.4), যাতে provider বা carrier এর নিঃশব্দ ব্যর্থতা আমরা user এর আগে জানি। শেষ পর্যন্ত carrier এর ভেতরে কী হয়েছে সেটা পুরো দেখা যায় না, আর সেটা সৎভাবে মেনে নিয়ে একাধিক channel এ পাঠানোই উত্তর।
 
@@ -316,9 +316,9 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 
 - **Provider:** APNs/FCM অনেক বড় হার নেয়, কিন্তু অসীম না, আর হঠাৎ বিশাল ঢেউ এ throttling হতে পারে (সীমা প্রকাশিত না, provider এর নীতি)। এক মিনিটে পাঠাতে চাইলে সেকেন্ডে ১৬ লাখ+।
 - **নিজের worker:** ১.২ এর peak (১ লাখ/s) এর ষোল গুণ। এক মিনিটে করতে গেলে বাকি সব notification (OTP সহ) আটকায়, ১.৪ এর সমস্যা।
-- **ফেরার ঢেউ:** notification পেয়ে কয়েক শতাংশ মানুষ একসাথে app খোলে: ধরো ৫% = ৫০ লাখ মানুষ এক-দুই মিনিটে। Login, feed, product এর page — এটা 11.3 এর reconnect storm, এবার পুরো backend এ। আর flash sale এর inventory এর database এ (11.7 এর আগাম ঝলক)।
+- **ফেরার ঢেউ:** notification পেয়ে কয়েক শতাংশ মানুষ একসাথে app খোলে: ধরুন ৫% = ৫০ লাখ মানুষ এক-দুই মিনিটে। Login, feed, product এর page — এটা 11.3 এর reconnect storm, এবার পুরো backend এ। আর flash sale এর inventory এর database এ (11.7 এর আগাম ঝলক)।
 
-(খ) নকশা: "৮টার কাছাকাছি" কে একটা জানালা বানাও, যেমন ৭:৪৫ থেকে ৮:১৫, আর পাঠানো ছড়াও (pacing), headroom রেখে: সেকেন্ডে ~৫৫,০০০, bulk স্তরে। Push এর text এ "৮টা থেকে শুরু" (সময়টা লেখায়, পাঠানোর মুহূর্তে না), যাতে আগে পাওয়া মানুষও ৮টায় আসে বা ঘড়ি দেখে। ফেরার ঢেউ এর জন্য: sale এর page আগে থেকে cache আর CDN এ (4.5), app এর ভেতরে একটা অপেক্ষার ঘর (virtual queue) যা ঢোকার হার নিয়ন্ত্রণ করে, আর ৮টার আগে capacity বাড়ানো (10.7 এর autoscale, কিন্তু পূর্বপরিকল্পিত, কারণ autoscale এর দেরি এই ঢেউ ধরতে পারে না)। আর marketing এর সাথে একটা চুক্তি: এই মাপের campaign সবসময় এই ছকে, আর "সবাই একসাথে" এর অনুরোধের উত্তর সংখ্যা দিয়ে।
+(খ) নকশা: "৮টার কাছাকাছি" কে একটা জানালা বানান, যেমন ৭:৪৫ থেকে ৮:১৫, আর পাঠানো ছড়ান (pacing), headroom রেখে: সেকেন্ডে ~৫৫,০০০, bulk স্তরে। Push এর text এ "৮টা থেকে শুরু" (সময়টা লেখায়, পাঠানোর মুহূর্তে না), যাতে আগে পাওয়া মানুষও ৮টায় আসে বা ঘড়ি দেখে। ফেরার ঢেউ এর জন্য: sale এর page আগে থেকে cache আর CDN এ (4.5), app এর ভেতরে একটা অপেক্ষার ঘর (virtual queue) যা ঢোকার হার নিয়ন্ত্রণ করে, আর ৮টার আগে capacity বাড়ানো (10.7 এর autoscale, কিন্তু পূর্বপরিকল্পিত, কারণ autoscale এর দেরি এই ঢেউ ধরতে পারে না)। আর marketing এর সাথে একটা চুক্তি: এই মাপের campaign সবসময় এই ছকে, আর "সবাই একসাথে" এর অনুরোধের উত্তর সংখ্যা দিয়ে।
 
 </details>
 
@@ -332,17 +332,17 @@ Smoke এর ধাপ ৩-৪ এটা চালায়: bob এর ৫০�
 
 `estimate` চাপ, campaign, channel ধরে খরচ, মরা token আর ইতিহাস হিসাব করে। `queue` provider এর সীমার নিচে campaign আর OTP কে চারটা নীতিতে চালায়। `retry` timeout আর ব্যর্থতায় retry, idempotency key আর failover, আর provider এর outage এ backoff বনাম breaker মাপে। `aggregate` viral like এর চারটা নীতি আর রাতের নীরবতা দেখায়। `smoke` একটা আসল notification service কে fake provider সহ ১০টা ধাপে চালায়।
 
-**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; পাঁচটা script দুবার করে, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, তোমার। **দাম আনুমানিক** (email $০.০০০১, SMS $০.০০৮; SMS এর দাম দেশভেদে অনেক বদলায়), push এ পাঠানোর নিজের দাম নেই বলে ধরা। Provider এর সীমা (১০০ SMS/s), ব্যর্থতা আর timeout এর হার, like এর সময় synthetic। কোন provider idempotency key মানে সেটা provider ভেদে আলাদা। APNs/FCM এর "unregistered" আর collapse key এর ধারণা তাদের documentation থেকে, নাম আর খুঁটিনাটি platform ভেদে আলাদা, এখানে যাচাই করা না। SMS pumping এর ঘটনা প্রকাশিত লেখা থেকে। আইনি বাধ্যবাধকতা (unsubscribe, SMS এর সময়) সাধারণ কথা, আইনি পরামর্শ না। `smoke` এর provider আর store in-memory, ঘড়ি নকল। **যা মাপা হয়নি:** আসল provider এর গতি আর আচরণ, delivery receipt, email এর deliverability, template।
+**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; পাঁচটা script দুবার করে, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, আপনার। **দাম আনুমানিক** (email $০.০০০১, SMS $০.০০৮; SMS এর দাম দেশভেদে অনেক বদলায়), push এ পাঠানোর নিজের দাম নেই বলে ধরা। Provider এর সীমা (১০০ SMS/s), ব্যর্থতা আর timeout এর হার, like এর সময় synthetic। কোন provider idempotency key মানে সেটা provider ভেদে আলাদা। APNs/FCM এর "unregistered" আর collapse key এর ধারণা তাদের documentation থেকে, নাম আর খুঁটিনাটি platform ভেদে আলাদা, এখানে যাচাই করা না। SMS pumping এর ঘটনা প্রকাশিত লেখা থেকে। আইনি বাধ্যবাধকতা (unsubscribe, SMS এর সময়) সাধারণ কথা, আইনি পরামর্শ না। `smoke` এর provider আর store in-memory, ঘড়ি নকল। **যা মাপা হয়নি:** আসল provider এর গতি আর আচরণ, delivery receipt, email এর deliverability, template।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `queue` চালানোর **আগে** লিখে ফেলো: এক FIFO তে OTP এর p50 কত হবে, আর কতগুলো মেয়াদ পার? Campaign কত মিনিট? তারপর চালিয়ে মেলাও।
+1. **আগে অনুমান:** `queue` চালানোর **আগে** লিখে ফেলুন: এক FIFO তে OTP এর p50 কত হবে, আর কতগুলো মেয়াদ পার? Campaign কত মিনিট? তারপর চালিয়ে মেলান।
 
-2. **নিজের খরচ:** `SMS_SHARE=0.002 npm run estimate` (OTP push এ সরানোর পরে)। মাসে কত বাঁচল? তারপর `SMS_COST=0.05` (দামি দেশ) দিয়ে আগের অবস্থা। কোন metric তোমাকে এই পার্থক্য আগে দেখাত?
+2. **নিজের খরচ:** `SMS_SHARE=0.002 npm run estimate` (OTP push এ সরানোর পরে)। মাসে কত বাঁচল? তারপর `SMS_COST=0.05` (দামি দেশ) দিয়ে আগের অবস্থা। কোন metric আপনাকে এই পার্থক্য আগে দেখাত?
 
-3. **Duplicate এর দাম:** `retry` এ `TIMEOUT=0.1` (একটা খারাপ দিন)। Key ছাড়া retry আর failover এ কত দুবার যায়? কোন type এর notification এ তুমি key ছাড়া retry মেনে নেবে, কোনটায় না?
+3. **Duplicate এর দাম:** `retry` এ `TIMEOUT=0.1` (একটা খারাপ দিন)। Key ছাড়া retry আর failover এ কত দুবার যায়? কোন type এর notification এ আপনি key ছাড়া retry মেনে নেবেন, কোনটায় না?
 
-4. **Code বদলানো:** README এর experiment ৫ (দৈনিক marketing এর সীমা)। তারপর `src/notify.ts` এ quiet hours এর শেষে ছাড়া পাওয়া notification গুলো ৩০ মিনিটে ছড়াও (একটা এলোমেলো দেরি, seed সহ, যাতে smoke deterministic থাকে)।
+4. **Code বদলানো:** README এর experiment ৫ (দৈনিক marketing এর সীমা)। তারপর `src/notify.ts` এ quiet hours এর শেষে ছাড়া পাওয়া notification গুলো ৩০ মিনিটে ছড়ান (একটা এলোমেলো দেরি, seed সহ, যাতে smoke deterministic থাকে)।
 
 5. **Design অংশ:** এই notification system এর "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) type, স্তর আর channel plan এর একটা টেবিল; (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত (খরচ সহ); (গ) ছবি, preference আর নিয়ম কোথায় দেখা হয় সহ; (ঘ) provider এর সাথে চুক্তি: সীমা, pacing, retry, key, breaker, failover; (ঙ) একটা campaign এর runbook আর SMS এর খরচের alert।
 
@@ -370,7 +370,7 @@ Per-Conversation Sequence (Sequencer), Presence, Fan-out on Write (Push), Fan-ou
 Hybrid Fan-out, Timeline Cache, Tail Amplification, Hedged Request, Candidate Generation, Priority Tier,
 Provider Throughput Limit, Pacing, Provider Failover, Aggregation Window (Collapse Key), Quiet Hours,
 Device Token Lifecycle
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 11.6 — Case Study: Design a Video Streaming Platform
 =======================
 ```
@@ -381,4 +381,4 @@ Next: 11.6 — Case Study: Design a Video Streaming Platform
 
 আজকের সুতোটা: **যে system এর আসল কাজ অন্যরা করে, তার নকশা মানে অন্যের সীমার চারপাশে নিজের নিয়ম।** Provider এর গতির সীমা worker বাড়িয়ে বাড়ে না, তাই জরুরি আর bulk আলাদা, আর বড় কাজ paced। Provider এর timeout মানে "জানি না", তাই retry একটা key সহ, আর failover শুধু নিশ্চিত ব্যর্থতায়। আর সবচেয়ে দুর্লভ সম্পদ user এর মনোযোগ: তাকে ৫০০ বার জ্বালালে সে সব বন্ধ করে দেয়, জরুরিটাও।
 
-রেডি হলে `next` লিখো — **Lesson 11.6: Design a Video Streaming Platform** এ যাব। এবার data এর আকার সব কিছু ঠিক করে: একটা ঘণ্টার video এর কয়েক GB, কয়েকটা resolution এ, আর লাখ মানুষ একসাথে দেখছে। 8.1 আর 8.2 এর object storage আর upload, 4.5 এর CDN, আর 10.7 এর data transfer এর খরচ এক জায়গায় আসবে। প্রশ্নগুলো: upload এর পরে video কে কীভাবে টুকরো আর ভিন্ন quality তে বানাব (transcoding এর pipeline), দর্শকের network খারাপ হলে quality কীভাবে নিজে নামে (adaptive bitrate), আর মাসের বিলের সবচেয়ে বড় লাইন কেন প্রায় সবসময় CDN এর egress।
+রেডি হলে `next` লিখুন — **Lesson 11.6: Design a Video Streaming Platform** এ যাব। এবার data এর আকার সব কিছু ঠিক করে: একটা ঘণ্টার video এর কয়েক GB, কয়েকটা resolution এ, আর লাখ মানুষ একসাথে দেখছে। 8.1 আর 8.2 এর object storage আর upload, 4.5 এর CDN, আর 10.7 এর data transfer এর খরচ এক জায়গায় আসবে। প্রশ্নগুলো: upload এর পরে video কে কীভাবে টুকরো আর ভিন্ন quality তে বানাব (transcoding এর pipeline), দর্শকের network খারাপ হলে quality কীভাবে নিজে নামে (adaptive bitrate), আর মাসের বিলের সবচেয়ে বড় লাইন কেন প্রায় সবসময় CDN এর egress।

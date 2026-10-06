@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.6 (Vertical/Horizontal Scaling, Stateless/Stateful)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Load Balancer কী কাজ করে এবং কেন horizontal scaling এর জন্য এটা অপরিহার্য — বুঝবে
-2. L4 (Transport Layer) এবং L7 (Application Layer) load balancing এর পার্থক্য এবং প্রতিটার trade-off ব্যাখ্যা করতে পারবে
-3. একটা নির্দিষ্ট scenario দেখে বলতে পারবে L4 নাকি L7 load balancer উপযুক্ত
+1. Load Balancer কী কাজ করে এবং কেন horizontal scaling এর জন্য এটা অপরিহার্য — বুঝবেন
+2. L4 (Transport Layer) এবং L7 (Application Layer) load balancing এর পার্থক্য এবং প্রতিটার trade-off ব্যাখ্যা করতে পারবেন
+3. একটা নির্দিষ্ট scenario দেখে বলতে পারবেন L4 নাকি L7 load balancer উপযুক্ত
 
 **Tier:** 3 — Design Exercise (hands-on Nginx configuration Lesson 3.3 তে আসবে)
 
@@ -42,7 +42,7 @@ Lesson 1.6 তে আমরা বলেছিলাম — horizontal scaling �
 2. **Failover/Health check** — যদি Server 2 down হয়ে যায়, LB সেটা detect করে সেখানে আর request না পাঠিয়ে বাকি live server গুলোতে পাঠায় (এটা বিস্তারিত Lesson 3.4 তে)
 3. **Single entry point দেওয়া** — Client কে শুধু একটা address (LB এর) জানলেই চলে, backend এ কয়টা/কোন server আছে সেটা জানার দরকার নেই
 
-লক্ষ্য করো — Load Balancer ছাড়া horizontal scaling **অর্থহীন**। যদি ৩টা server থাকে কিন্তু সবকিছু manually একটা নির্দিষ্ট server এর IP তে যায়, তাহলে বাকি ২টা server এর কোনো লাভ নেই — এটাই সেই "মিসিং piece" যেটা Lesson 1.6 এ আমরা "black box" হিসেবে রেখে দিয়েছিলাম।
+লক্ষ্য করুন — Load Balancer ছাড়া horizontal scaling **অর্থহীন**। যদি ৩টা server থাকে কিন্তু সবকিছু manually একটা নির্দিষ্ট server এর IP তে যায়, তাহলে বাকি ২টা server এর কোনো লাভ নেই — এটাই সেই "মিসিং piece" যেটা Lesson 1.6 এ আমরা "black box" হিসেবে রেখে দিয়েছিলাম।
 
 ### ১.২ L4 (Transport Layer) Load Balancing
 
@@ -107,20 +107,20 @@ Client ──[HTTP GET /api/tasks, Cookie: session=xyz]──> L7 LB
 
 ### ১.৪ ২০২৬ এ বাস্তবে কী ব্যবহার হয় (web search দিয়ে verify করা হয়েছে)
 
-তোমার stack এর (Express + SvelteKit + Cloudflare) প্রেক্ষিতে এটা প্রাসঙ্গিক — কোন tool কখন বেছে নেওয়া হয়:
+আপনার stack এর (Express + SvelteKit + Cloudflare) প্রেক্ষিতে এটা প্রাসঙ্গিক — কোন tool কখন বেছে নেওয়া হয়:
 
 - Nginx সবচেয়ে ভালো general-purpose L7 reverse proxy — বেশিরভাগ ক্ষেত্রে এটাই default পছন্দ হওয়া উচিত, যদি না কোনো নির্দিষ্ট কারণে অন্য কিছু দরকার হয়
 - HAProxy সবচেয়ে ভালো তখন যখন routing logic সহজ এবং শুধুমাত্র raw performance/throughput সবচেয়ে গুরুত্বপূর্ণ — এটা কোনো web server না, শুধু balance করে, অন্য কিছু না (static file serve করে না, cache করে না)
 - Envoy একটা high-performance proxy, microservices এবং gRPC এর জন্য বিশেষভাবে উপযুক্ত, এবং এটা service mesh এর মধ্যে data plane হিসেবেও ব্যবহৃত হয় — কিন্তু এটার cost হলো বেশি operational complexity, একটা সাধারণ ২-backend website এর জন্য এটা overkill
 - HAProxy তে এখনও পর্যন্ত production-ready HTTP/3 সাপোর্ট নেই — ২০২৬ সালের প্রথম দিকেও এটা "experimental" হিসেবে চিহ্নিত হাই-ট্রাফিক deployment এর জন্য, তাই HTTP/3 দরকার হলে Nginx বা Envoy ব্যবহার করা হয়
 
-**তোমার জন্য practical takeaway:** যেহেতু TaskFlow একটা HTTP-based web application (Express API + SvelteKit frontend), **Nginx-এর মতো একটা L7 load balancer** স্বাভাবিক পছন্দ হবে — এটা আমরা পরের lesson (3.3) এ hands-on করব। যদি TaskFlow ভবিষ্যতে microservice এ ভাগ হয় এবং gRPC ব্যবহার করে (Module 9), তখন Envoy বিবেচনা করার মতো একটা upgrade path হতে পারে।
+**আপনার জন্য practical takeaway:** যেহেতু TaskFlow একটা HTTP-based web application (Express API + SvelteKit frontend), **Nginx-এর মতো একটা L7 load balancer** স্বাভাবিক পছন্দ হবে — এটা আমরা পরের lesson (3.3) এ hands-on করব। যদি TaskFlow ভবিষ্যতে microservice এ ভাগ হয় এবং gRPC ব্যবহার করে (Module 9), তখন Envoy বিবেচনা করার মতো একটা upgrade path হতে পারে।
 
 ---
 
 ## ২. Interview Angle
 
-একটা common interview প্রশ্ন — "Load balancer বসানোর সময় L4 নাকি L7 বেছে নেবে?" ভালো উত্তরের মূল বিন্দু: **যদি routing decision এর জন্য request এর ভেতরের content (URL, header, cookie) জানার দরকার হয়, L7 লাগবেই — এটা optional না।** কিন্তু যদি শুধু raw traffic distribution দরকার (কোনো smart routing ছাড়া), এবং performance সবচেয়ে বেশি গুরুত্বপূর্ণ (যেমন, একটা database connection pool balance করা), L4 যথেষ্ট এবং বেশি efficient।
+একটা common interview প্রশ্ন — "Load balancer বসানোর সময় L4 নাকি L7 বেছে নেবেন?" ভালো উত্তরের মূল বিন্দু: **যদি routing decision এর জন্য request এর ভেতরের content (URL, header, cookie) জানার দরকার হয়, L7 লাগবেই — এটা optional না।** কিন্তু যদি শুধু raw traffic distribution দরকার (কোনো smart routing ছাড়া), এবং performance সবচেয়ে বেশি গুরুত্বপূর্ণ (যেমন, একটা database connection pool balance করা), L4 যথেষ্ট এবং বেশি efficient।
 
 আরেকটা follow-up যেটা প্রায়ই আসে — "একটা LB এর সামনে আরেকটা LB থাকতে পারে কি?" — উত্তর হ্যাঁ, এবং এটা বাস্তবে common — একটা **L4 LB প্রথমে raw traffic নিয়ে বড় regional cluster গুলোর মধ্যে ভাগ করে (দ্রুততার জন্য), তারপর প্রতিটা cluster এর ভেতরে একটা L7 LB smart, content-based routing করে**। এই ধরনের layered architecture বড় company (Google, Netflix) এ common।
 
@@ -204,4 +204,4 @@ Next: 3.2 — LB Algorithms (Round Robin, Least Connections, Consistent Hashing 
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — Lesson 3.2 এ যাব: Load Balancing Algorithms — Round Robin, Least Connections, আর Consistent Hashing এর একটা প্রাথমিক পরিচিতি (full depth পরে Module 10.1 এ)।
+Exercise টা করে পাঠান। রেডি হলে `next` লিখুন — Lesson 3.2 এ যাব: Load Balancing Algorithms — Round Robin, Least Connections, আর Consistent Hashing এর একটা প্রাথমিক পরিচিতি (full depth পরে Module 10.1 এ)।

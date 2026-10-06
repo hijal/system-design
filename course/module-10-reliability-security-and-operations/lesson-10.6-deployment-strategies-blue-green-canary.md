@@ -2,15 +2,15 @@
 
 **Module 10 — Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 5.5):** একটা transaction একটা row এ `UPDATE` করলে সেই row এর lock কখন ছাড়ে — statement শেষ হলে, নাকি transaction শেষ হলে? আর ঠিক তখন আরেকটা transaction সেই row লিখতে চাইলে কী করে? আজ একটা `UPDATE` দেখবে যা মাত্র একটা statement, কিন্তু চলার পুরো ৫ সেকেন্ড TaskFlow এর সব লেখা আটকে রাখে।
+> **Spaced Repetition (Lesson 5.5):** একটা transaction একটা row এ `UPDATE` করলে সেই row এর lock কখন ছাড়ে — statement শেষ হলে, নাকি transaction শেষ হলে? আর ঠিক তখন আরেকটা transaction সেই row লিখতে চাইলে কী করে? আজ একটা `UPDATE` দেখবেন যা মাত্র একটা statement, কিন্তু চলার পুরো ৫ সেকেন্ড TaskFlow এর সব লেখা আটকে রাখে।
 
 **Prerequisite:** Lesson 2.5 (API versioning, idempotency), Lesson 3.4 (Health check, graceful shutdown), Lesson 5.4 (Index, `CONCURRENTLY`), Lesson 5.5 (Lock, transaction), Lesson 7.5 (Event, outbox), Lesson 9.2 (Gateway, BFF), Lesson 10.3 (Blast radius, static stability), Lesson 10.4 (SLI, burn rate)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Big-bang, rolling, blue-green আর canary কে দুটো আলাদা প্রশ্ন দিয়ে তুলনা করতে পারবে। প্রথম প্রশ্ন, একটা খারাপ version **কতজনকে** ছোঁয়। দ্বিতীয়, **কে** সেটা ধরে আর কখন। সংখ্যা দিয়ে দেখাতে পারবে কেন একটা alert বাজে না এমন bug শুধু canary ধরে, কেন canary কে user ধরে sticky করতে হয়, আর ছোট canary কেন কম প্রমাণ দেয়
-2. একটা instance কে request না হারিয়ে বদলাতে পারবে (readiness → অপেক্ষা → `close()` → চলমান request শেষ)। Deploy আর release আলাদা করতে পারবে feature flag দিয়ে, flag এর সঠিক ভাগ (hash(flag + user)), kill switch আর service জুড়ে একই সিদ্ধান্ত সহ
-3. চলমান system এ database এর schema বদলাতে পারবে downtime ছাড়া। কোন DDL পুরো table আটকায়, lock queue কী আর `lock_timeout` কেন, আর expand/contract এর ছয়টা ধাপ। প্রতিটা ধাপে পুরনো আর নতুন code একসাথে চলে আর rollback এর পথ খোলা থাকে
+1. Big-bang, rolling, blue-green আর canary কে দুটো আলাদা প্রশ্ন দিয়ে তুলনা করতে পারবেন। প্রথম প্রশ্ন, একটা খারাপ version **কতজনকে** ছোঁয়। দ্বিতীয়, **কে** সেটা ধরে আর কখন। সংখ্যা দিয়ে দেখাতে পারবেন কেন একটা alert বাজে না এমন bug শুধু canary ধরে, কেন canary কে user ধরে sticky করতে হয়, আর ছোট canary কেন কম প্রমাণ দেয়
+2. একটা instance কে request না হারিয়ে বদলাতে পারবেন (readiness → অপেক্ষা → `close()` → চলমান request শেষ)। Deploy আর release আলাদা করতে পারবেন feature flag দিয়ে, flag এর সঠিক ভাগ (hash(flag + user)), kill switch আর service জুড়ে একই সিদ্ধান্ত সহ
+3. চলমান system এ database এর schema বদলাতে পারবেন downtime ছাড়া। কোন DDL পুরো table আটকায়, lock queue কী আর `lock_timeout` কেন, আর expand/contract এর ছয়টা ধাপ। প্রতিটা ধাপে পুরনো আর নতুন code একসাথে চলে আর rollback এর পথ খোলা থাকে
 
 **Tier:** 1 — Runnable Code (তিনটা deterministic simulation; localhost এ আসল HTTP দিয়ে rolling restart; আর আসল PostgreSQL এ দুটো migration lab, Docker দিয়ে)
 
@@ -54,11 +54,11 @@ client        │ ৮ ঘণ্টা খোলা browser tab, ৬ মাস �
 data / queue  │ v1 এর লেখা event, v1 এর লেখা row  → v2 পড়ে      │       (৭.৫ এর outbox, DLQ এ সপ্তাহ)
 ```
 
-তাই নিয়মটা এক লাইনে: **প্রতিটা পরিবর্তনকে অন্তত তার আগের version এর সাথে চলতে হবে, দুই দিকে।** নতুন code পুরনো data পড়তে পারবে, আর পুরনো code (rollback হলে) নতুন code এর লেখা data পড়তে পারবে। একে বলে N-1 compatibility। বুধবারের rename এই নিয়মটাই দুই দিকে ভেঙেছিল। এই lesson এর বাকিটা এই সেতুর প্রতিটা অংশ ধরে এগোবে। প্রথমে একটা instance বদলানো (১.২)। তারপর অনেক instance কে কোন ক্রমে বদলাবে (১.৩–১.৪)। তারপর code কে release থেকে আলাদা করা (১.৫), version এর সহাবস্থান (১.৬), আর সবচেয়ে কঠিন অংশ, database (১.৭–১.৮)।
+তাই নিয়মটা এক লাইনে: **প্রতিটা পরিবর্তনকে অন্তত তার আগের version এর সাথে চলতে হবে, দুই দিকে।** নতুন code পুরনো data পড়তে পারবে, আর পুরনো code (rollback হলে) নতুন code এর লেখা data পড়তে পারবে। একে বলে N-1 compatibility। বুধবারের rename এই নিয়মটাই দুই দিকে ভেঙেছিল। এই lesson এর বাকিটা এই সেতুর প্রতিটা অংশ ধরে এগোবে। প্রথমে একটা instance বদলানো (১.২)। তারপর অনেক instance কে কোন ক্রমে বদলাবেন (১.৩–১.৪)। তারপর code কে release থেকে আলাদা করা (১.৫), version এর সহাবস্থান (১.৬), আর সবচেয়ে কঠিন অংশ, database (১.৭–১.৮)।
 
 ### ১.২ একটা instance বদলানো — graceful shutdown
 
-3.4 এ graceful shutdown এর ধারণা দেখেছিলে, আর বলেছিলাম এর গভীরে যাব এখানে। সোমবারের ঝাঁকুনিটা ঠিক এই জায়গার।
+3.4 এ graceful shutdown এর ধারণা দেখেছিলেন, আর বলেছিলাম এর গভীরে যাব এখানে। সোমবারের ঝাঁকুনিটা ঠিক এই জায়গার।
 
 Exercise এর `npm run drain` localhost এ একটা আসল ছোট load balancer (round-robin, health check সহ) আর চারটা আসল `node:http` instance চালায়। ২০০ req/s (৮০% GET, ২০% POST) চলার সময় চারটা instance কে একটা একটা করে বদলায়। প্রতিটা নতুন instance চালু হতে ৮০০ ms লাগে, আর প্রথম ১.৫ সেকেন্ড "ঠান্ডা" থাকে (প্রতি request এ +৪০০ ms)। LB এর health check প্রতি ৫০০ ms এ, পরপর দুবার ব্যর্থ হলে instance বাদ। পাঁচ রকম নকশা:
 
@@ -132,18 +132,18 @@ export function shutdownOnSigterm(
 }
 ```
 
-তিনটা জিনিস লক্ষ করো। প্রথমত, `/ready` আর `/health` (liveness, 3.4) আলাদা জিনিস। Readiness মিথ্যা হলে LB traffic সরায়, কিন্তু orchestrator process কে মারে না। দ্বিতীয়ত, `drainMs` কে LB এর health check এর সাথে বাঁধতে হয়। Exercise এ `CHECK_MS × 2 + 500`। Kubernetes এ এটা সাধারণত একটা `preStop` এর অপেক্ষা, কারণ সেখানে endpoint সরানো আর `SIGTERM` প্রায় একসাথে ঘটে। তৃতীয়ত, `hardLimitMs` কে orchestrator এর ধৈর্যের চেয়ে ছোট রাখতে হয় (Kubernetes এর `terminationGracePeriodSeconds`, default ৩০ s)। না হলে নিজের পরিষ্কার exit এর আগেই `SIGKILL` আসে। আর `markWarm()` ডাকা হয় DB connection, cache আর অন্য যা লাগে তা তৈরি হওয়ার পরে।
+তিনটা জিনিস লক্ষ করুন। প্রথমত, `/ready` আর `/health` (liveness, 3.4) আলাদা জিনিস। Readiness মিথ্যা হলে LB traffic সরায়, কিন্তু orchestrator process কে মারে না। দ্বিতীয়ত, `drainMs` কে LB এর health check এর সাথে বাঁধতে হয়। Exercise এ `CHECK_MS × 2 + 500`। Kubernetes এ এটা সাধারণত একটা `preStop` এর অপেক্ষা, কারণ সেখানে endpoint সরানো আর `SIGTERM` প্রায় একসাথে ঘটে। তৃতীয়ত, `hardLimitMs` কে orchestrator এর ধৈর্যের চেয়ে ছোট রাখতে হয় (Kubernetes এর `terminationGracePeriodSeconds`, default ৩০ s)। না হলে নিজের পরিষ্কার exit এর আগেই `SIGKILL` আসে। আর `markWarm()` ডাকা হয় DB connection, cache আর অন্য যা লাগে তা তৈরি হওয়ার পরে।
 
 ### ১.৩ চারটা কৌশল — একটা খারাপ version কতজনকে ছোঁয়
 
-একটা instance নিরাপদে বদলানো গেল। এবার প্রশ্ন হলো ১২টাকে কোন ক্রমে বদলাবে। চারটা পরিচিত উত্তর আছে:
+একটা instance নিরাপদে বদলানো গেল। এবার প্রশ্ন হলো ১২টাকে কোন ক্রমে বদলাবেন। চারটা পরিচিত উত্তর আছে:
 
 - **Big-bang:** সব instance একসাথে নতুন version এ। সরল আর দ্রুত।
 - **Rolling:** একটা একটা করে (বা কয়েকটা করে) বদলানো। সোমবারের TaskFlow এটাই করে। বাড়তি machine লাগে না, কিন্তু মাঝখানে দুই version একসাথে চলে।
 
 **Blue-Green Deployment** — দুটো পুরো, সমান environment। "Blue" এখন traffic পাচ্ছে, "green" এ নতুন version তৈরি আর পরীক্ষা করা হয়। তারপর load balancer (বা DNS) এক মুহূর্তে সব traffic green এ সরায়। Rollback মানে আবার blue তে সরানো, কয়েক সেকেন্ডে, কারণ blue এখনও চলছে। দাম হলো switch এর সময়টায় দ্বিগুণ capacity। আর database সাধারণত দুটোরই এক, তাই "instant rollback" শুধু code এর, data এর না।
 
-**Canary Release** — নতুন version কে প্রথমে traffic এর একটা ছোট অংশে দেওয়া (ধরো ১%), তার SLI কে একই সময়ের পুরনো version এর (baseline) সাথে তুলনা করা, আর ভালো হলে ধাপে ধাপে বাড়ানো (১% → ৫% → ২৫% → ১০০%)। তুলনাটা একটা স্বয়ংক্রিয় **gate** করলে খারাপ version মানুষ জাগার আগেই ফেরত যায়। নামটা খনির ক্যানারি পাখি থেকে, যে বিষাক্ত গ্যাসে আগে অসুস্থ হয়ে খনি শ্রমিকদের সতর্ক করত।
+**Canary Release** — নতুন version কে প্রথমে traffic এর একটা ছোট অংশে দেওয়া (ধরুন ১%), তার SLI কে একই সময়ের পুরনো version এর (baseline) সাথে তুলনা করা, আর ভালো হলে ধাপে ধাপে বাড়ানো (১% → ৫% → ২৫% → ১০০%)। তুলনাটা একটা স্বয়ংক্রিয় **gate** করলে খারাপ version মানুষ জাগার আগেই ফেরত যায়। নামটা খনির ক্যানারি পাখি থেকে, যে বিষাক্ত গ্যাসে আগে অসুস্থ হয়ে খনি শ্রমিকদের সতর্ক করত।
 
 `npm run rollout` এ ৩০০ req/s, ৬০,০০০ user, দুই ঘণ্টা দেখা হয়েছে। TaskFlow এর alert আছে (৫ মিনিটের error > ১% বা ধীর > ৫%), আর alert বাজার পরে মানুষের সিদ্ধান্ত নিতে ১০ মিনিট লাগে (ধরে নেওয়া)। Canary তে আছে z-test এর একটা gate (canary বনাম baseline, ১.৪ এ বিস্তারিত)। তিন রকম bug:
 
@@ -212,12 +212,12 @@ canary   time  canary request   +0.2% hit  +1% hit  false pos.  checked per minu
 তিনটা শিক্ষা:
 
 1. **বড় regression যেকোনো canary ধরে।** +১% (দশ গুণ error) এর জন্য ১% এ ৫ মিনিটই যথেষ্ট, ক্ষতি ৯টা request। এজন্যই প্রথম ধাপ ছোট রাখা হয়: সবচেয়ে খারাপ ভুল গুলো সবচেয়ে সস্তায় ধরা পড়ে।
-2. **ছোট regression এর জন্য প্রমাণ লাগে, আর প্রমাণ মানে request।** +০.২% (বৃহস্পতিবারের মতো) ধরার সম্ভাবনা ১% এ ৫ মিনিটে ২৫%, ৫% এ ১০ মিনিটে ৯৫%। প্রমাণ আসে canary request এর সংখ্যা থেকে, তাই শতাংশ ছোট করলে সময় বাড়াতে হয়। আর শেষ কলাম দেখায় এর উল্টো দিক: যত বেশি request canary তে, bug থাকলে তত বেশি ক্ষতি। এটা একটা আসল trade-off, কোনো জাদুর সংখ্যা নেই। **কম traffic এর service এ** (ধরো billing এর webhook, সেকেন্ডে ২টা) ১% এর canary কখনোই যথেষ্ট প্রমাণ জোগাড় করবে না। সেখানে লাগে বড় শতাংশ, লম্বা সময়, বা অন্য পথ (reflection question ২)।
+2. **ছোট regression এর জন্য প্রমাণ লাগে, আর প্রমাণ মানে request।** +০.২% (বৃহস্পতিবারের মতো) ধরার সম্ভাবনা ১% এ ৫ মিনিটে ২৫%, ৫% এ ১০ মিনিটে ৯৫%। প্রমাণ আসে canary request এর সংখ্যা থেকে, তাই শতাংশ ছোট করলে সময় বাড়াতে হয়। আর শেষ কলাম দেখায় এর উল্টো দিক: যত বেশি request canary তে, bug থাকলে তত বেশি ক্ষতি। এটা একটা আসল trade-off, কোনো জাদুর সংখ্যা নেই। **কম traffic এর service এ** (ধরুন billing এর webhook, সেকেন্ডে ২টা) ১% এর canary কখনোই যথেষ্ট প্রমাণ জোগাড় করবে না। সেখানে লাগে বড় শতাংশ, লম্বা সময়, বা অন্য পথ (reflection question ২)।
 3. **বারবার দেখলে ভুল alarm বাড়ে।** সময় শেষে একবার দেখলে ভুল alarm ১.০–১.৫%। প্রতি মিনিটে "দেখে নিই, z > ৩ কিনা" করলে ৩০ মিনিটে ৫.৫%। প্রতিটা দেখা একটা নতুন সুযোগ, ভাগ্যের ওঠানামা সীমা পেরোনোর। একে বলে peeking বা multiple testing। আর ভুল alarm এর দাম আছে: একটা ভালো version ফেরত যায়, engineer রা gate কে অবিশ্বাস করা শুরু করে। প্রতিকার: প্রতি ধাপে একটা ন্যূনতম request সংখ্যা আর সময়, বারবার দেখার জন্য কঠোর সীমা, অথবা sequential test এর মতো এর জন্যই বানানো পদ্ধতি।
 
 **Baseline কে?** তুলনা হয় **একই সময়ের** পুরনো version এর সাথে, গতকালের সাথে না। দুপুর ২টার traffic, একই cache এর অবস্থা, একই dependency এর মেজাজ। তাই অনেক নকশায় canary এর পাশে একটা সমান আকারের, **নতুন করে চালু করা** পুরনো version এর pool রাখা হয় ("baseline canary")। তাতে নতুন process এর ঠান্ডা cache এর প্রভাব দুই দিকেই সমান থাকে। (Argo Rollouts, Flagger, Spinnaker এর Kayenta এই ধরনের স্বয়ংক্রিয় বিশ্লেষণ করে। এখানে চালানো না।)
 
-**কাদের canary তে পাঠাবে।** `npm run rollout` এর অংশ ঘ তে canary ৫% এ এক ঘণ্টা থাকে:
+**কাদের canary তে পাঠাবেন।** `npm run rollout` এর অংশ ঘ তে canary ৫% এ এক ঘণ্টা থাকে:
 
 ```
 routing              saw the new version  switched between versions
@@ -227,7 +227,7 @@ sticky per user           2,963 (5%)                  0 (0%)
 
 Request এলোমেলো ভাগ করলে ৫% এর canary আসলে **৫৯% user** ছোঁয়। প্রত্যেক user ঘণ্টায় ~১৮টা request করে, তাদের কোনো একটা canary তে পড়লেই হলো। আর সেই ৫৯% দুই version এর মাঝে লাফায়: একবার নতুন UI, পরের click এ পুরনো। Bug থাকলে অভিযোগ আসে প্রায় সবার কাছ থেকে, আর debug করা কঠিন, কারণ একই user এর দুই রকম অভিজ্ঞতা। User (বা workspace) এর id এর hash ধরে canary বাছলে ৫% মানে সত্যিই ৫% মানুষ, প্রতিবার একই মানুষ। Blast radius (10.3) মাপা যায়, আর মানুষের কাছে আচরণ স্থির থাকে।
 
-আর **segment**: বৃহস্পতিবারের bug ছিল ১% traffic এ। Exercise এর experiment ১ (`STEP_MINUTES=3`) এ ধাপ ছোট করলে শুধু-error gate এর sticky canary এটা **একদমই** ধরে না। প্রতিটা ধাপে segment এর request এত কম যে গড়ে পার্থক্য ডুবে যায়, আর bug ১০০% এ পৌঁছায় (৩,৮৫৭টা খারাপ request, ৫৮২ জন)। Segment-aware gate (plan ধরে আলাদা তুলনা) একই bug ৪ মিনিটে ধরে। Gate এর segment গুলো আসে ঠিক সেখান থেকে, যেখানে তোমার customer রা আলাদা: plan, region, workspace এর আকার, client (web, mobile)।
+আর **segment**: বৃহস্পতিবারের bug ছিল ১% traffic এ। Exercise এর experiment ১ (`STEP_MINUTES=3`) এ ধাপ ছোট করলে শুধু-error gate এর sticky canary এটা **একদমই** ধরে না। প্রতিটা ধাপে segment এর request এত কম যে গড়ে পার্থক্য ডুবে যায়, আর bug ১০০% এ পৌঁছায় (৩,৮৫৭টা খারাপ request, ৫৮২ জন)। Segment-aware gate (plan ধরে আলাদা তুলনা) একই bug ৪ মিনিটে ধরে। Gate এর segment গুলো আসে ঠিক সেখান থেকে, যেখানে আপনার customer রা আলাদা: plan, region, workspace এর আকার, client (web, mobile)।
 
 ### ১.৫ Feature Flag — deploy থেকে release আলাদা করা
 
@@ -237,7 +237,7 @@ Flag দিয়ে deploy আর release আলাদা হয়ে যা�
 
 কিন্তু শুক্রবার দেখাল, flag এর তিনটা জিনিস ভুল করা সহজ। `npm run flags`:
 
-**(ক) কীভাবে ভাগ করবে।** ৬০,০০০ user, প্রত্যেকে দিনে ২০টা page, দুটো আলাদা flag ১০% করে:
+**(ক) কীভাবে ভাগ করবেন।** ৬০,০০০ user, প্রত্যেকে দিনে ২০টা page, দুটো আলাদা flag ১০% করে:
 
 ```
 how it splits          saw the new  saw both (flip)  in both flags
@@ -263,7 +263,7 @@ export function isOn(flag: string, userId: string, percent: number): boolean {
 
 আর একটা সুবিধা: ১০% থেকে ২৫% এ বাড়ালে আগের ১০% এর সবাই ২৫% এর ভেতরেই থাকে, কারণ তাদের bucket এর মান বদলায়নি, সীমা সরেছে। কেউ নতুন feature পেয়ে হারায় না।
 
-**(খ) Kill switch কত দ্রুত।** ১২টা instance, নতুন feature এ ১০০ req/s, তার ২০% ব্যর্থ। "বন্ধ করো" সিদ্ধান্তের পরে:
+**(খ) Kill switch কত দ্রুত।** ১২টা instance, নতুন feature এ ১০০ req/s, তার ২০% ব্যর্থ। "বন্ধ করুন" সিদ্ধান্তের পরে:
 
 ```
 how it turns off           all off (avg)          worst    bad requests (avg)
@@ -273,7 +273,7 @@ flag, streaming push                            3 s             3 s             
 no flag: rollback deploy                     11 min          11 min            9,900
 ```
 
-Flag না থাকলে বন্ধ করা মানে rollback deploy (pipeline ৫ মিনিট + rolling)। ৯,৯০০টা খারাপ request। Streaming push এ ৪০। মাঝের সারি দুটো দেখায় poll এর interval কোথায় দাম নেয়। আর 10.3 এর static stability মনে রাখো: flag service মরে গেলে instance শেষ জানা মান ধরে চলে। তাই kill switch এর জন্য একটা দ্বিতীয় পথ রাখা ভালো (ধরো deploy ছাড়া বদলানো যায় এমন environment এর config), যাতে ঠিক যে মুহূর্তে flag service ও মরা, তখনও feature বন্ধ করা যায়।
+Flag না থাকলে বন্ধ করা মানে rollback deploy (pipeline ৫ মিনিট + rolling)। ৯,৯০০টা খারাপ request। Streaming push এ ৪০। মাঝের সারি দুটো দেখায় poll এর interval কোথায় দাম নেয়। আর 10.3 এর static stability মনে রাখুন: flag service মরে গেলে instance শেষ জানা মান ধরে চলে। তাই kill switch এর জন্য একটা দ্বিতীয় পথ রাখা ভালো (ধরুন deploy ছাড়া বদলানো যায় এমন environment এর config), যাতে ঠিক যে মুহূর্তে flag service ও মরা, তখনও feature বন্ধ করা যায়।
 
 **(গ) দুই service, একটা সিদ্ধান্ত।** BFF নতুন UI দেখায়, API নতুন আকারের উত্তর দেয়। ১০ মিনিট, ৫ মিনিটে flag ১০% থেকে ৫০%:
 
@@ -285,9 +285,9 @@ both hash(user), each polls every 30 s   180,000    1,154 (0.64%)
 BFF decides once, sends it in a header     180,000        0 (0.00%)
 ```
 
-শুক্রবারের দ্বিতীয় সারি: একজন session ধরে hash করছিল, আরেকজন user ধরে। **এক তৃতীয়াংশ request** এ UI আর API দুই version এ। আর একই hash হলেও (তৃতীয় সারি), দুই service আলাদা মুহূর্তে নতুন শতাংশ জানে, তাই ১০%→৫০% এর পরের কয়েক সেকেন্ডে অমিল হয়। Experiment ৩ এ poll ৫ মিনিট করলে ৬.৫৩%। উপায় শেষ সারিটা: **সিদ্ধান্ত একবার নাও, তারপর পাঠাও।** BFF (বা gateway) flag দেখে, আর নিচের service কে header এ বলে দেয় (`x-flags: task-api-v2`)। 10.4 এর trace id এর একই যুক্তি: যা পুরো request জুড়ে একই থাকতে হবে, সেটা একবার ঠিক হয় আর সাথে যায়। আর 10.5 এর শিক্ষা মনে রাখো: gateway client এর পাঠানো `x-flags` ফেলে দেয়, নইলে যে কেউ নিজের জন্য flag চালু করতে পারে।
+শুক্রবারের দ্বিতীয় সারি: একজন session ধরে hash করছিল, আরেকজন user ধরে। **এক তৃতীয়াংশ request** এ UI আর API দুই version এ। আর একই hash হলেও (তৃতীয় সারি), দুই service আলাদা মুহূর্তে নতুন শতাংশ জানে, তাই ১০%→৫০% এর পরের কয়েক সেকেন্ডে অমিল হয়। Experiment ৩ এ poll ৫ মিনিট করলে ৬.৫৩%। উপায় শেষ সারিটা: **সিদ্ধান্ত একবার নিন, তারপর পাঠান।** BFF (বা gateway) flag দেখে, আর নিচের service কে header এ বলে দেয় (`x-flags: task-api-v2`)। 10.4 এর trace id এর একই যুক্তি: যা পুরো request জুড়ে একই থাকতে হবে, সেটা একবার ঠিক হয় আর সাথে যায়। আর 10.5 এর শিক্ষা মনে রাখুন: gateway client এর পাঠানো `x-flags` ফেলে দেয়, নইলে যে কেউ নিজের জন্য flag চালু করতে পারে।
 
-**Flag এর ঋণ।** প্রতিটা flag code এ দুটো পথ বানায়, আর দুটো flag চারটা। Release flag ১০০% এ পৌঁছানোর পরে মুছে ফেলতে হয়, code সহ। প্রতিটা flag এর একজন মালিক আর একটা মেয়াদের তারিখ রাখা একটা সাধারণ নিয়ম। আর **কখনো একটা পুরনো flag এর নাম নতুন কাজে পুনর্ব্যবহার কোরো না।** এর সবচেয়ে বিখ্যাত উদাহরণ Knight Capital (২০১২), প্রকাশিত বিবরণ অনুযায়ী (এখানে যাচাই করা না)। একটা পুরনো, অব্যবহৃত flag কে নতুন code এ অন্য অর্থে ব্যবহার করা হয়েছিল। ৮টা server এর একটায় নতুন code deploy হয়নি। সেখানে flag টা চালু হতেই বহু বছরের পুরনো, মরা একটা code পথ জেগে উঠল। ৪৫ মিনিটে প্রায় ৪৪ কোটি ডলারের ক্ষতি। একটা ঘটনায় এই lesson এর তিনটা শিক্ষা: version skew (১.৬), flag এর ঋণ, আর deploy এর ব্যর্থতা ধরার স্বয়ংক্রিয় ব্যবস্থার অভাব।
+**Flag এর ঋণ।** প্রতিটা flag code এ দুটো পথ বানায়, আর দুটো flag চারটা। Release flag ১০০% এ পৌঁছানোর পরে মুছে ফেলতে হয়, code সহ। প্রতিটা flag এর একজন মালিক আর একটা মেয়াদের তারিখ রাখা একটা সাধারণ নিয়ম। আর **কখনো একটা পুরনো flag এর নাম নতুন কাজে পুনর্ব্যবহার করবেন না।** এর সবচেয়ে বিখ্যাত উদাহরণ Knight Capital (২০১২), প্রকাশিত বিবরণ অনুযায়ী (এখানে যাচাই করা না)। একটা পুরনো, অব্যবহৃত flag কে নতুন code এ অন্য অর্থে ব্যবহার করা হয়েছিল। ৮টা server এর একটায় নতুন code deploy হয়নি। সেখানে flag টা চালু হতেই বহু বছরের পুরনো, মরা একটা code পথ জেগে উঠল। ৪৫ মিনিটে প্রায় ৪৪ কোটি ডলারের ক্ষতি। একটা ঘটনায় এই lesson এর তিনটা শিক্ষা: version skew (১.৬), flag এর ঋণ, আর deploy এর ব্যর্থতা ধরার স্বয়ংক্রিয় ব্যবস্থার অভাব।
 
 ### ১.৬ Version skew — পুরনো আর নতুন একসাথে
 
@@ -295,12 +295,12 @@ BFF decides once, sends it in a header     180,000        0 (0.00%)
 
 চারটা জায়গা, চারটা নিয়ম:
 
-- **API (server ↔ client):** field যোগ করো, মুছো না, নাম বদলিও না, এক ধাপে না। Client এর দিকে "tolerant reader": অজানা field উপেক্ষা করো, অনুপস্থিত ঐচ্ছিক field এর জন্য default রাখো। Browser এর tab ঘণ্টার পর ঘণ্টা পুরনো JavaScript চালায়। Mobile app মাস ধরে পুরনো থাকে (2.5 এর versioning)।
-- **Event / queue (producer ↔ consumer):** 7.5 এর outbox এর event কয়েক সেকেন্ড, আর DLQ এ (7.4) সপ্তাহ পরে পড়া হতে পারে। নতুন field যোগ করলে আগে consumer কে deploy করো, যাতে সে নতুন আর পুরনো দুই আকারই বোঝে। তারপর producer। (Producer আগে গেলে পুরনো consumer নতুন event এ কী করবে? উপেক্ষা, নাকি poison message?)
+- **API (server ↔ client):** field যোগ করুন, মুছবেন না, নাম বদলাবেন না, এক ধাপে না। Client এর দিকে "tolerant reader": অজানা field উপেক্ষা করুন, অনুপস্থিত ঐচ্ছিক field এর জন্য default রাখুন। Browser এর tab ঘণ্টার পর ঘণ্টা পুরনো JavaScript চালায়। Mobile app মাস ধরে পুরনো থাকে (2.5 এর versioning)।
+- **Event / queue (producer ↔ consumer):** 7.5 এর outbox এর event কয়েক সেকেন্ড, আর DLQ এ (7.4) সপ্তাহ পরে পড়া হতে পারে। নতুন field যোগ করলে আগে consumer কে deploy করুন, যাতে সে নতুন আর পুরনো দুই আকারই বোঝে। তারপর producer। (Producer আগে গেলে পুরনো consumer নতুন event এ কী করবে? উপেক্ষা, নাকি poison message?)
 - **Service ↔ service:** 9.2 এর internal API এর একই নিয়ম, আর deploy এর ক্রম: যে নতুন জিনিস **বোঝে**, সে আগে। যে নতুন জিনিস **পাঠায়**, সে পরে।
 - **Code ↔ schema:** সবচেয়ে কঠিন, কারণ database একটাই আর সবাই তাকে ভাগ করে। পরের দুটো অংশ এর।
 
-এখানে 10.5 এর key rotation এর কথা মনে করো। প্রথমে সব service এ **দুটো** key দিয়ে যাচাই, তারপর নতুন key দিয়ে sign, তারপর পুরনো key সরানো। এটা ঠিক এই নিয়ম: প্রথমে নতুন জিনিস **বোঝা**, তারপর **পাঠানো**, তারপর পুরনোটা মুছে ফেলা। ১.৮ এ এই একই ছক database এ দেখব।
+এখানে 10.5 এর key rotation এর কথা মনে করুন। প্রথমে সব service এ **দুটো** key দিয়ে যাচাই, তারপর নতুন key দিয়ে sign, তারপর পুরনো key সরানো। এটা ঠিক এই নিয়ম: প্রথমে নতুন জিনিস **বোঝা**, তারপর **পাঠানো**, তারপর পুরনোটা মুছে ফেলা। ১.৮ এ এই একই ছক database এ দেখব।
 
 ### ১.৭ Database এর পরিবর্তন — কোনটা আটকায়, আর lock এর লাইন
 
@@ -308,7 +308,7 @@ BFF decides once, sends it in a header     180,000        0 (0.00%)
 
 Postgres এ প্রায় প্রতিটা `ALTER TABLE` table এর উপর **ACCESS EXCLUSIVE** lock চায়। এটা সবচেয়ে কঠোর lock: সে থাকলে কেউ table পড়তেও পারে না। কাজটা যদি মুহূর্তের হয় (শুধু catalog বদলানো), তাহলে কেউ টেরও পায় না। কিন্তু lock টা **পেতে** হলে আগের সব lock ছাড়া পর্যন্ত অপেক্ষা করতে হয়, আর একটা সাধারণ `SELECT` ও table এ একটা হালকা lock (ACCESS SHARE) রাখে তার transaction শেষ হওয়া পর্যন্ত। এখানেই মারটা: **অপেক্ষারত ACCESS EXCLUSIVE এর পেছনে নতুন আসা প্রতিটা query দাঁড়ায়।** এমনকি সাধারণ `SELECT` ও, যদিও সে নিজে লম্বা report এর সাথে বিরোধ করে না। Postgres lock এর অনুরোধ ক্রমে দেয়, যাতে `ALTER` চিরকাল না-খেয়ে থাকে।
 
-**Lock Queue** — একটা lock এর জন্য অপেক্ষারত অনুরোধের সারি। একটা DDL যখন একটা লম্বা transaction এর পেছনে ACCESS EXCLUSIVE এর জন্য অপেক্ষা করে, তার পেছনে সব নতুন query (পড়াও) সারিতে দাঁড়ায়, তাই মুহূর্তের একটা DDL পুরো table কে লম্বা transaction এর বাকি সময় পর্যন্ত বন্ধ রাখে। প্রতিকার `lock_timeout`: নির্দিষ্ট সময়ে lock না পেলে DDL হাল ছেড়ে দেয় (আর সারি খুলে যায়), তারপর একটু পরে আবার চেষ্টা।
+**Lock Queue** — একটা lock এর জন্য অপেক্ষারত অনুরোধের সারি। একটা DDL যখন একটা লম্বা transaction এর পেছনে ACCESS EXCLUSIVE এর জন্য অপেক্ষা করে, তার পেছনে সব নতুন query (পড়ান) সারিতে দাঁড়ায়, তাই মুহূর্তের একটা DDL পুরো table কে লম্বা transaction এর বাকি সময় পর্যন্ত বন্ধ রাখে। প্রতিকার `lock_timeout`: নির্দিষ্ট সময়ে lock না পেলে DDL হাল ছেড়ে দেয় (আর সারি খুলে যায়), তারপর একটু পরে আবার চেষ্টা।
 
 ```
 সময় →
@@ -348,7 +348,7 @@ in batches (10,000 each, 20 ms apart)     6.16 s    8,271          0 ms         
 
 - **`CREATE INDEX` লেখা আটকায়, পড়া না।** এটা SHARE lock নেয়: read চলে, write অপেক্ষা করে (সর্বোচ্চ ১৯৮ ms)। ১০ লাখ row এ ছোট শোনায়। ৫.৪ এ বলেছিলাম ১০ কোটিতে এটা মিনিট। `CONCURRENTLY` ধীর (৩৩২ ms), কিন্তু write এর সর্বোচ্চ ৩ ms। দুটো দাম আছে: এটা transaction এর ভেতরে চলে না, আর মাঝপথে ব্যর্থ হলে একটা `INVALID` index রেখে যায়, যাকে মুছে আবার চালাতে হয়।
 - **একটা `UPDATE` এ backfill: সব write ৪.৮ সেকেন্ড আটকে।** **Spaced repetition এর উত্তর:** row এর lock ছাড়ে **transaction** শেষে, statement শেষে না। একটা `UPDATE tasks SET priority = 0` একটাই statement, একটাই transaction। সে যে row ছোঁয়, তার lock তার শেষ পর্যন্ত ধরে রাখে। ৪.৯ সেকেন্ডে ধীরে ধীরে ১০ লাখ row এর lock জমে। App এর যে `UPDATE` এমন একটা row এ পড়ে যা backfill ইতিমধ্যে ছুঁয়েছে, সে backfill এর **শেষ** পর্যন্ত অপেক্ষা করে। আর এর পাশে আরও দুটো দাম, যা এখানে মাপা না: এক বিশাল WAL এর ঢেউ, যা replica কে পিছিয়ে দেয় (5.7, 6.3), আর ১০ লাখ dead tuple, যা vacuum কে দিতে হয়।
-- **Batch এ: write এর সর্বোচ্চ ৩৬ ms।** ১০০টা ছোট transaction, প্রতিটা ১০,০০০ row, মাঝে একটু বিরতি। মোট সময় একটু বেশি (৬.২ s), কিন্তু app প্রায় টেরই পায়নি। বাস্তবে batch এর আকার আর বিরতি replica lag দেখে ঠিক করা হয়: lag বাড়লে ধীর হও।
+- **Batch এ: write এর সর্বোচ্চ ৩৬ ms।** ১০০টা ছোট transaction, প্রতিটা ১০,০০০ row, মাঝে একটু বিরতি। মোট সময় একটু বেশি (৬.২ s), কিন্তু app প্রায় টেরই পায়নি। বাস্তবে batch এর আকার আর বিরতি replica lag দেখে ঠিক করা হয়: lag বাড়লে ধীর হোন।
 
 **NOT NULL:**
 
@@ -358,16 +358,16 @@ CHECK NOT VALID → VALIDATE → SET NOT NULL     111 ms      156          2 ms 
    NOT VALID 5 ms, VALIDATE 78 ms (lock: SHARE UPDATE EXCLUSIVE), SET NOT NULL 5 ms (scan skipped), DROP CHECK 5 ms
 ```
 
-`SET NOT NULL` কে পুরো table পড়ে দেখতে হয় কোনো null আছে কিনা, আর সেটা করে ACCESS EXCLUSIVE ধরে। ১০ লাখ row এ ১৪০ ms সব আটকে। কৌশলটা: আগে একটা `CHECK (priority IS NOT NULL) NOT VALID` constraint যোগ করো। এটা মুহূর্তের, কারণ পুরনো row যাচাই হয় না, শুধু নতুন লেখা। তারপর `VALIDATE CONSTRAINT`। এটা পুরো table পড়ে, কিন্তু একটা হালকা lock (SHARE UPDATE EXCLUSIVE) দিয়ে, যা read বা write আটকায় না। তারপর `SET NOT NULL`। Postgres 12 থেকে একটা বৈধ CHECK constraint থাকলে সে scan বাদ দেয় (৫ ms)। শেষে CHECK টা মুছে ফেলো।
+`SET NOT NULL` কে পুরো table পড়ে দেখতে হয় কোনো null আছে কিনা, আর সেটা করে ACCESS EXCLUSIVE ধরে। ১০ লাখ row এ ১৪০ ms সব আটকে। কৌশলটা: আগে একটা `CHECK (priority IS NOT NULL) NOT VALID` constraint যোগ করুন। এটা মুহূর্তের, কারণ পুরনো row যাচাই হয় না, শুধু নতুন লেখা। তারপর `VALIDATE CONSTRAINT`। এটা পুরো table পড়ে, কিন্তু একটা হালকা lock (SHARE UPDATE EXCLUSIVE) দিয়ে, যা read বা write আটকায় না। তারপর `SET NOT NULL`। Postgres 12 থেকে একটা বৈধ CHECK constraint থাকলে সে scan বাদ দেয় (৫ ms)। শেষে CHECK টা মুছে ফেলুন।
 
 **নিয়মগুলো এক জায়গায়:**
 
 1. প্রতিটা migration এ `lock_timeout` (কয়েক সেকেন্ড বা কম) আর retry। আর সাথে `statement_timeout`, যাতে ভুলে একটা লম্বা DDL না চলে।
-2. Default শুধু ধ্রুবক। Volatile মান লাগলে column যোগ করো null দিয়ে, তারপর batch এ backfill।
-3. Index সবসময় `CONCURRENTLY`। ব্যর্থ হলে `INVALID` index খুঁজে মুছো।
+2. Default শুধু ধ্রুবক। Volatile মান লাগলে column যোগ করুন null দিয়ে, তারপর batch এ backfill।
+3. Index সবসময় `CONCURRENTLY`। ব্যর্থ হলে `INVALID` index খুঁজে মুছুন।
 4. Backfill batch এ, ছোট transaction এ, replica lag দেখে।
 5. `NOT NULL`, foreign key, CHECK: আগে `NOT VALID`, তারপর আলাদা করে `VALIDATE`।
-6. Migration এর সময় primary তে লম্বা query নেই (7.6 এর OLAP replica তে)। আর migration এর আগে `pg_stat_activity` তে দেখে নাও।
+6. Migration এর সময় primary তে লম্বা query নেই (7.6 এর OLAP replica তে)। আর migration এর আগে `pg_stat_activity` তে দেখে নিন।
 
 Sequelize এ migration এর ভেতরে `lock_timeout` বসানোর সাবধান পথ হলো transaction এর ভেতরে `SET LOCAL`। Pool এ সাধারণ `SET` দিলে সেটা কোন connection এ গেল, আর পরের query একই connection এ যাবে কিনা, তার কোনো নিশ্চয়তা নেই (5.6)। আর lock না পেলে retry:
 
@@ -429,7 +429,7 @@ then rollback (migration not reverted)  v2 → v1   8,306    4,219          0
 
 ছয় সেকেন্ডে চার হাজারের বেশি error, তিনটা ক্রমের প্রতিটায়। আর তৃতীয় সারিটা বুধবারের সবচেয়ে খারাপ অংশ: rollback ও ভেঙেছে, কারণ schema ফেরেনি। Code এর rollback আর data এর rollback আলাদা জিনিস।
 
-**Expand / Contract** — একটা ভাঙা পরিবর্তনকে (rename, আকার বদল, বিভাজন) কয়েকটা ছোট ধাপে ভাগ করা, যার প্রতিটা নিজে নিজে deploy করা যায় আর ফেরানো যায়, আর প্রতিটা ধাপে পুরনো আর নতুন code দুটোই চলে। আগে **expand**: নতুন জিনিসটা পাশে যোগ করো, দুটোতে লেখো, পুরনো data নতুন জায়গায় আনো, পড়া নতুন জায়গায় সরাও। শেষে **contract**: যখন আর কেউ পুরনোটা ব্যবহার করে না, তখন সেটা মুছে ফেলো। একে "parallel change" ও বলে।
+**Expand / Contract** — একটা ভাঙা পরিবর্তনকে (rename, আকার বদল, বিভাজন) কয়েকটা ছোট ধাপে ভাগ করা, যার প্রতিটা নিজে নিজে deploy করা যায় আর ফেরানো যায়, আর প্রতিটা ধাপে পুরনো আর নতুন code দুটোই চলে। আগে **expand**: নতুন জিনিসটা পাশে যোগ করুন, দুটোতে লিখুন, পুরনো data নতুন জায়গায় আনুন, পড়া নতুন জায়গায় সরান। শেষে **contract**: যখন আর কেউ পুরনোটা ব্যবহার করে না, তখন সেটা মুছে ফেলুন। একে "parallel change" ও বলে।
 
 ```
 ধাপ   schema                           code (rolling)          rollback নিরাপদ?
@@ -459,7 +459,7 @@ step                                        running      op    error  misreads
 
 প্রতিটা ধাপে শূন্য error, শূন্য ভুল পড়া। আর মাঝখানে একটা rollback, সেটাও শূন্য। দাম হলো একটা পরিবর্তনের জন্য **চারটা deploy আর দুটো migration**, কয়েক দিন বা সপ্তাহ জুড়ে। এটাই zero-downtime এর আসল দাম: সময় আর ধৈর্য, কোনো যন্ত্র না।
 
-ধাপ ৫ এর পরের দাগটা লক্ষ করো। ধাপ ৫ এ v2 শুধু `name` এ লেখে, `title` পুরনো হতে থাকে। এখন v1.5 এ rollback করলে v1.5 পুরনো `title` পড়বে। Experiment ৬ এ নিজে দেখো। তাই ধাপ ৫ হলো **point of no return**, আর তার আগে নতুন version কে যথেষ্ট সময় দাও (ধরো এক সপ্তাহ, পুরো একটা ব্যবসার চক্র)। আর ধাপ ৬ এর আগে নিশ্চিত হও যে কোথাও কেউ `title` পড়ছে না: অন্য service, report, ETL, data warehouse এর sync।
+ধাপ ৫ এর পরের দাগটা লক্ষ করুন। ধাপ ৫ এ v2 শুধু `name` এ লেখে, `title` পুরনো হতে থাকে। এখন v1.5 এ rollback করলে v1.5 পুরনো `title` পড়বে। Experiment ৬ এ নিজে দেখুন। তাই ধাপ ৫ হলো **point of no return**, আর তার আগে নতুন version কে যথেষ্ট সময় দিন (ধরুন এক সপ্তাহ, পুরো একটা ব্যবসার চক্র)। আর ধাপ ৬ এর আগে নিশ্চিত হোন যে কোথাও কেউ `title` পড়ছে না: অন্য service, report, ETL, data warehouse এর sync।
 
 **চারটা পরিচিত ভুল**, প্রতিটা মাপা:
 
@@ -479,11 +479,11 @@ backfill condition name IS NULL              v1 → v1.5    9,897       0       
 1. **Dual-write বাদ দিলে কোনো error নেই, আর সেটাই বিপদ।** Backfill এর পরে সরাসরি v2। Rolling এর সময় v1 instance গুলো `title` এ লেখে, v2 গুলো `name` এ। ছয় সেকেন্ডে ২৭৮টা ভুল পড়া, আর ৩,৭১১টা row এর দুই column এ দুই রকম মান। কোনো alert বাজত না। User দেখত তার সদ্য বদলানো board এর নাম আগের মতো। আর contract এর পরে `title` এর পরিবর্তনগুলো চিরতরে হারাত।
 2. **Contract আগেভাগে:** v1.5 এখনও চলছে, `title` মুছে ফেলা হলো। ৮৮০টা error, আর পরিচিত বার্তা।
 3. **Expand এ পুরনো column এর `NOT NULL` না তোলা:** v2 শুধু `name` দিয়ে নতুন board বানাতে চায়, `title` তখনও `NOT NULL`, তাই প্রতিটা নতুন board ব্যর্থ। Expand এ শুধু নতুন জিনিস যোগ করা না, পুরনো জিনিসের **বাধ্যবাধকতা ঢিলে করা** ও লাগে।
-4. **Backfill এর শর্ত `name IS NULL`:** এটা সবচেয়ে সূক্ষ্ম, আর exercise বানানোর সময় আমার নিজের প্রথম সংস্করণে এই ভুলটাই ছিল। ধাপ ২ এর rolling এর সময় একটা row আগে v1.5 লিখেছে (`name = title = 'x'`), তারপর এখনও বেঁচে থাকা একটা v1 instance লিখেছে (`title = 'y'`, `name` তখনও `'x'`)। Backfill `name IS NULL` খোঁজে, এই row কে ছোঁয় না। ফল: ছয়টা row চুপচাপ ভুল, কোনো error নেই। ১০ লাখ row এর table এ, ঘণ্টাব্যাপী rolling এ, এই সংখ্যা হাজার। সঠিক শর্ত `name IS DISTINCT FROM title`। একবার কোনো v1 আর চলছে না, তখন `title` ই সত্যের উৎস, আর যেখানেই দুটো আলাদা, ঠিক করো। আর তার পরে একটা যাচাই query (`count(*) WHERE name IS DISTINCT FROM title` = ০) ধাপ ৪ এর আগে বাধ্যতামূলক।
+4. **Backfill এর শর্ত `name IS NULL`:** এটা সবচেয়ে সূক্ষ্ম, আর exercise বানানোর সময় আমার নিজের প্রথম সংস্করণে এই ভুলটাই ছিল। ধাপ ২ এর rolling এর সময় একটা row আগে v1.5 লিখেছে (`name = title = 'x'`), তারপর এখনও বেঁচে থাকা একটা v1 instance লিখেছে (`title = 'y'`, `name` তখনও `'x'`)। Backfill `name IS NULL` খোঁজে, এই row কে ছোঁয় না। ফল: ছয়টা row চুপচাপ ভুল, কোনো error নেই। ১০ লাখ row এর table এ, ঘণ্টাব্যাপী rolling এ, এই সংখ্যা হাজার। সঠিক শর্ত `name IS DISTINCT FROM title`। একবার কোনো v1 আর চলছে না, তখন `title` ই সত্যের উৎস, আর যেখানেই দুটো আলাদা, ঠিক করুন। আর তার পরে একটা যাচাই query (`count(*) WHERE name IS DISTINCT FROM title` = ০) ধাপ ৪ এর আগে বাধ্যতামূলক।
 
-**বিকল্প।** Dual-write কে app এর বদলে database এ রাখা যায়: একটা trigger, যা `title` লেখা হলে `name` এ কপি করে (আর উল্টো)। এতে v1 কে বদলাতেই হয় না, ধাপ ২ বাদ। দাম হলো trigger এর logic লুকানো (5.2 এর trigger এর আলোচনা), আর দুই দিকের trigger এর অসীম loop এর ঝুঁকি। ছোট rename এর জন্য আরেকটা পথ হলো একটা view বা Sequelize এর `field` mapping: code এ নাম বদলাও, database এ না। Database এর column এর নাম বদলানো অনেক সময় সেই দামের যোগ্যই না।
+**বিকল্প।** Dual-write কে app এর বদলে database এ রাখা যায়: একটা trigger, যা `title` লেখা হলে `name` এ কপি করে (আর উল্টো)। এতে v1 কে বদলাতেই হয় না, ধাপ ২ বাদ। দাম হলো trigger এর logic লুকানো (5.2 এর trigger এর আলোচনা), আর দুই দিকের trigger এর অসীম loop এর ঝুঁকি। ছোট rename এর জন্য আরেকটা পথ হলো একটা view বা Sequelize এর `field` mapping: code এ নাম বদলান, database এ না। Database এর column এর নাম বদলানো অনেক সময় সেই দামের যোগ্যই না।
 
-আর এই ছক database এর বাইরেও আছে। API এর field rename (নতুন field যোগ → client রা দুটোই পড়ে → পুরনো field মোছা), event এর schema বদল, 10.5 এর key rotation, সব একই তিন ধাপ: **যোগ করো, সরাও, মোছো।**
+আর এই ছক database এর বাইরেও আছে। API এর field rename (নতুন field যোগ → client রা দুটোই পড়ে → পুরনো field মোছা), event এর schema বদল, 10.5 এর key rotation, সব একই তিন ধাপ: **যোগ করুন, সরান, মুছুন।**
 
 ### ১.৯ TaskFlow এর সিদ্ধান্ত
 
@@ -512,17 +512,17 @@ backfill condition name IS NULL              v1 → v1.5    9,897       0       
 
 ## ২. Interview Angle
 
-Deployment দুইভাবে আসে। সরাসরি: "how would you deploy this with zero downtime?", "blue-green আর canary এর পার্থক্য?" আর design এর শেষে: "এখন তুমি schema বদলাতে চাও — কীভাবে?" দুর্বল উত্তর হলো "Kubernetes rolling update করবে, কোনো downtime নেই।" ভালো উত্তরের আকৃতি:
+Deployment দুইভাবে আসে। সরাসরি: "how would you deploy this with zero downtime?", "blue-green আর canary এর পার্থক্য?" আর design এর শেষে: "এখন আপনি schema বদলাতে চান — কীভাবে?" দুর্বল উত্তর হলো "Kubernetes rolling update করবেন, কোনো downtime নেই।" ভালো উত্তরের আকৃতি:
 
-1. **সেতুর কথা দিয়ে শুরু করো।** "Deploy এর সময় পুরনো আর নতুন একসাথে চলে: instance, client, schema, queue এর message। তাই প্রতিটা পরিবর্তন N-1 compatible।" এই এক লাইন বাকি সব উত্তরের ভিত্তি।
+1. **সেতুর কথা দিয়ে শুরু করুন।** "Deploy এর সময় পুরনো আর নতুন একসাথে চলে: instance, client, schema, queue এর message। তাই প্রতিটা পরিবর্তন N-1 compatible।" এই এক লাইন বাকি সব উত্তরের ভিত্তি।
 2. **কৌশল, তার gate সহ।** "Canary, ১% থেকে, user ধরে sticky, gate SLI এ (error আর latency), segment ধরে, স্বয়ংক্রিয় rollback।" Gate ছাড়া canary শুধু ধীর rolling।
 3. **Deploy ≠ release।** ঝুঁকির feature flag এর পেছনে, kill switch সহ।
 4. **Database:** expand/contract এর ধাপ, আর অন্তত একটা lock এর বিস্তারিত (lock queue আর `lock_timeout`, বা `CONCURRENTLY`)। এটাই senior এর চিহ্ন।
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Blue-green না canary?"_ — Blue-green কেনে দ্রুত code rollback, দ্বিগুণ capacity দিয়ে, কিন্তু সবাইকে একসাথে ঝুঁকিতে ফেলে আর কেউ না জানলে rollback হয় না। Canary ক্ষতি ছোট রাখে আর alert এর নিচের bug ধরে, দাম সময় আর gate। সংখ্যা দাও: ১% এর bug এ blue-green দুই ঘণ্টায় ৫৮২ জন, canary ৫ জন।
-- _"Column rename কীভাবে করবে?"_ — Expand/contract: নতুন column, dual-write, batch backfill (`IS DISTINCT FROM`), পড়া সরানো, শুধু নতুনটায় লেখা, অপেক্ষার পরে পুরনোটা মোছা। আর বলো কোন ধাপের পরে rollback আর নিরাপদ না।
+- _"Blue-green না canary?"_ — Blue-green কেনে দ্রুত code rollback, দ্বিগুণ capacity দিয়ে, কিন্তু সবাইকে একসাথে ঝুঁকিতে ফেলে আর কেউ না জানলে rollback হয় না। Canary ক্ষতি ছোট রাখে আর alert এর নিচের bug ধরে, দাম সময় আর gate। সংখ্যা দিন: ১% এর bug এ blue-green দুই ঘণ্টায় ৫৮২ জন, canary ৫ জন।
+- _"Column rename কীভাবে করবেন?"_ — Expand/contract: নতুন column, dual-write, batch backfill (`IS DISTINCT FROM`), পড়া সরানো, শুধু নতুনটায় লেখা, অপেক্ষার পরে পুরনোটা মোছা। আর বলুন কোন ধাপের পরে rollback আর নিরাপদ না।
 - _"Index যোগ করলে কী হয়?"_ — সাধারণ `CREATE INDEX` write আটকায়; `CONCURRENTLY` আটকায় না, কিন্তু transaction এ চলে না আর ব্যর্থ হলে `INVALID` index রাখে।
 - _"Rollback কীভাবে?"_ — Code এর rollback আর data এর rollback আলাদা। নতুন version যদি এমন data লেখে যা পুরনো পড়তে পারে না, তাহলে rollback নেই। তাই প্রতিটা ধাপ rollback-safe রাখা।
 - _"Feature flag এর ঝুঁকি?"_ — Flag এর ঋণ, দুটো code পথ, service জুড়ে অমিল, আর পুরনো flag এর পুনর্ব্যবহার (Knight Capital)।
@@ -537,7 +537,7 @@ Deployment দুইভাবে আসে। সরাসরি: "how would you
 - **Graceful shutdown এর ক্রমটাই সব।** Readiness 503 → LB সরানো পর্যন্ত অপেক্ষা → `close()` → চলমান শেষ। হঠাৎ kill এ ৫.৩% ব্যর্থ, শুধু `close()` এ ৪.৭%, graceful এ শূন্য। LB এর retry GET বাঁচায়, POST না
 - **ধরা পড়া আর ক্ষতি থামা আলাদা।** Big-bang/blue-green বড় bug ১ মিনিটে ধরে, কিন্তু ততক্ষণে সবাই ঝুঁকিতে (৪–৫ হাজার খারাপ request)। Canary ধরে ১% এ, ক্ষতি ৪–৮টা। আর ১% traffic এর bug কোনো alert ধরে না; শুধু canary (৫৮২ জন বনাম ৫ জন)
 - **Canary ততটাই ভালো যতটা তার gate।** শুধু error দেখলে latency এর bug ১০০% পর্যন্ত যায়। Gate এ SLI (সফলতা + latency) আর segment। ছোট canary মানে কম প্রমাণ (১%, ৫ মি এ ছোট regression ধরার সম্ভাবনা ২৫%)। বারবার দেখলে ভুল alarm বাড়ে। আর sticky না হলে ৫% canary ৫৯% user ছোঁয়
-- **Feature flag deploy থেকে release আলাদা করে।** ভাগ `hash(flag + user)` (এলোমেলো হলে ৮৮% user লাফায়, flag এর নাম না মেশালে একই user সব experiment এ)। Kill switch ৩ s বনাম rollback deploy ১১ মিনিট। সিদ্ধান্ত একবার নিয়ে পাঠাও (নইলে ৩৪% অমিল)
+- **Feature flag deploy থেকে release আলাদা করে।** ভাগ `hash(flag + user)` (এলোমেলো হলে ৮৮% user লাফায়, flag এর নাম না মেশালে একই user সব experiment এ)। Kill switch ৩ s বনাম rollback deploy ১১ মিনিট। সিদ্ধান্ত একবার নিয়ে পাঠান (নইলে ৩৪% অমিল)
 - **DDL এর আসল বিপদ lock এর লাইন।** একটা ১০ ms এর `ADD COLUMN` একটা লম্বা query এর পেছনে ৫.৭ s সব আটকায়; `lock_timeout` + retry সেটা ২০০ ms এ বাঁধে। Volatile default পুরো table নতুন করে লেখে। Index `CONCURRENTLY`। Backfill batch এ (write সর্বোচ্চ ৪.৮ s থেকে ৩৬ ms)। `NOT NULL` আসে `NOT VALID` + `VALIDATE` দিয়ে
 - **Rename = expand/contract, ছয় ধাপ।** এক ধাপে চার হাজার error, rollback ও ভাঙে। ছয় ধাপে শূন্য। আর সবচেয়ে বিপজ্জনক ভুলগুলো কোনো error দেয় না: dual-write বাদ (৩,৭১১টা row আলাদা), backfill এর শর্ত `IS NULL` (নীরবে ভুল row)
 
@@ -552,20 +552,20 @@ Deployment দুইভাবে আসে। সরাসরি: "how would you
 | **Canary Release**        | নতুন version প্রথমে traffic এর ছোট অংশে (১% → ৫% → …), canary বনাম একই সময়ের baseline এর SLI তুলনা করে একটা স্বয়ংক্রিয় gate এগোয় বা ফেরায়। User ধরে sticky, segment ধরে তুলনা                             |
 | **Feature Flag**          | Code এর একটা শর্ত যার মান deploy ছাড়া চলমান অবস্থায় বদলায় — release, kill switch, experiment, permission। ভাগ `hash(flag + user)`; সিদ্ধান্ত একবার, request এর সাথে যায়; release flag মুছে ফেলতে হয়       |
 | **Version Skew**          | System এর অংশগুলো একই সময়ে আলাদা version এ (instance, client, producer/consumer, code/schema)। স্বাভাবিক অবস্থা; তাই প্রতিটা পরিবর্তন N-1 compatible, আর নতুন version এমন কিছু লেখে না যা পুরনো পড়তে পারে না |
-| **Lock Queue**            | Lock এর অপেক্ষার সারি। লম্বা transaction এর পেছনে ACCESS EXCLUSIVE চাওয়া একটা DDL এর পেছনে সব নতুন query (পড়াও) দাঁড়ায়। প্রতিকার `lock_timeout` + retry                                                    |
+| **Lock Queue**            | Lock এর অপেক্ষার সারি। লম্বা transaction এর পেছনে ACCESS EXCLUSIVE চাওয়া একটা DDL এর পেছনে সব নতুন query (পড়ান) দাঁড়ায়। প্রতিকার `lock_timeout` + retry                                                    |
 | **Expand / Contract**     | ভাঙা পরিবর্তনকে ছোট, আলাদা deploy করা যায় আর ফেরানো যায় এমন ধাপে ভাগ করা — নতুনটা যোগ, দুটোতে লেখা, backfill, পড়া সরানো, শুধু নতুনটায় লেখা, শেষে পুরনোটা মোছা; প্রতিটা ধাপে পুরনো আর নতুন code চলে         |
 
 ---
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. 10.5 এর পরিবর্তন: `memberships` (৩০ লাখ row) এ এখন `(user_id, workspace_id)` এর উপর একটা unique constraint। Guest আনতে লাগবে একটা নতুন `project_id` (null মানে পুরো workspace) আর `role`, আর unique হবে `(user_id, workspace_id, project_id)`। আর `loadBoardFor` এর নতুন logic যা guest বোঝে। (ক) Schema আর code এর ধাপগুলো ক্রমে লেখো: প্রতিটা ধাপে কোন DDL (lock সহ), কোন code version চলছে, আর কোথায় rollback আর নিরাপদ না। (খ) Unique constraint বদলানো কেন একটা বিশেষ সমস্যা, আর downtime ছাড়া কীভাবে করবে? (গ) নতুন guest feature টা কীভাবে release করবে, আর `loadBoardFor` এর নতুন logic এর canary এর gate এ কোন segment অবশ্যই থাকবে?
+1. 10.5 এর পরিবর্তন: `memberships` (৩০ লাখ row) এ এখন `(user_id, workspace_id)` এর উপর একটা unique constraint। Guest আনতে লাগবে একটা নতুন `project_id` (null মানে পুরো workspace) আর `role`, আর unique হবে `(user_id, workspace_id, project_id)`। আর `loadBoardFor` এর নতুন logic যা guest বোঝে। (ক) Schema আর code এর ধাপগুলো ক্রমে লিখুন: প্রতিটা ধাপে কোন DDL (lock সহ), কোন code version চলছে, আর কোথায় rollback আর নিরাপদ না। (খ) Unique constraint বদলানো কেন একটা বিশেষ সমস্যা, আর downtime ছাড়া কীভাবে করবেন? (গ) নতুন guest feature টা কীভাবে release করবেন, আর `loadBoardFor` এর নতুন logic এর canary এর gate এ কোন segment অবশ্যই থাকবে?
 
-2. TaskFlow এর billing service Stripe এর webhook নেয়, সেকেন্ডে গড়ে ২টা। আর মাসের ১ তারিখ রাত ১২টায় একটা job সব workspace এর invoice বানায়। (ক) Webhook handler এর নতুন version এর জন্য ১% এর canary, ১০ মিনিট — কতগুলো request canary দেখবে, আর এতে একটা +১% এর regression ধরা কেন অসম্ভব? তিনটা বিকল্প পথ দাও। (খ) Invoice job এর নতুন version কীভাবে "canary" করবে, যখন সে মাসে একবার চলে? (গ) এখানে ভুলের দাম অন্য service এর চেয়ে কোথায় আলাদা, আর সেটা কৌশলকে কীভাবে বদলায়?
+2. TaskFlow এর billing service Stripe এর webhook নেয়, সেকেন্ডে গড়ে ২টা। আর মাসের ১ তারিখ রাত ১২টায় একটা job সব workspace এর invoice বানায়। (ক) Webhook handler এর নতুন version এর জন্য ১% এর canary, ১০ মিনিট — কতগুলো request canary দেখবে, আর এতে একটা +১% এর regression ধরা কেন অসম্ভব? তিনটা বিকল্প পথ দিন। (খ) Invoice job এর নতুন version কীভাবে "canary" করবেন, যখন সে মাসে একবার চলে? (গ) এখানে ভুলের দাম অন্য service এর চেয়ে কোথায় আলাদা, আর সেটা কৌশলকে কীভাবে বদলায়?
 
-3. Mobile app এর API তে task এর JSON এ `assignee: "email@x.com"` (string) কে `assignee: { id, email, name }` (object) করতে হবে। App store এ পুরনো app version গুলো ছয় মাস পর্যন্ত চলে, আর ৫% user কখনো update করে না। (ক) API এর জন্য একটা expand/contract পরিকল্পনা দাও, প্রতিটা ধাপ সহ। "contract" কখন করবে, আর কীসের ভিত্তিতে? (খ) কোন app version কতজন চালাচ্ছে, সেটা কীভাবে জানবে, 10.4 এর cardinality এর নিয়ম না ভেঙে? (গ) যে ৫% কখনো update করবে না, তাদের নিয়ে কী সিদ্ধান্ত নেবে?
+3. Mobile app এর API তে task এর JSON এ `assignee: "email@x.com"` (string) কে `assignee: { id, email, name }` (object) করতে হবে। App store এ পুরনো app version গুলো ছয় মাস পর্যন্ত চলে, আর ৫% user কখনো update করে না। (ক) API এর জন্য একটা expand/contract পরিকল্পনা দিন, প্রতিটা ধাপ সহ। "contract" কখন করবেন, আর কীসের ভিত্তিতে? (খ) কোন app version কতজন চালাচ্ছে, সেটা কীভাবে জানবেন, 10.4 এর cardinality এর নিয়ম না ভেঙে? (গ) যে ৫% কখনো update করবে না, তাদের নিয়ে কী সিদ্ধান্ত নেবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -590,18 +590,18 @@ step  schema / data                                         code                
 ৬    flag আর পুরনো code পথ মোছা                            v3                           ✗
 ```
 
-Point of no return হলো ধাপ ৫: প্রথম guest row তৈরি হওয়ার মুহূর্ত। তার পরে v1 এ ফিরলে v1 একটা guest কে পুরো workspace এর member ভাববে, কারণ সে `project_id` দেখে না। এটা একটা **security** bug (10.5 এর BOLA)। তাই v1 এর জন্য আরেকটা আগের ধাপ ভালো: v1 এর `loadBoardFor` কে এমনভাবে বদলাও যাতে `project_id IS NOT NULL` এর row সে **উপেক্ষা** করে। এতে v1 ও "নতুন data দেখে নিরাপদে চুপ থাকে", আর rollback নিরাপদ থাকে। N-1 compatibility এর আসল অর্থ এটাই: পুরনো version কে নতুন data সম্পর্কে অন্তত এতটুকু জানতে হয় যাতে ভুল না করে।
+Point of no return হলো ধাপ ৫: প্রথম guest row তৈরি হওয়ার মুহূর্ত। তার পরে v1 এ ফিরলে v1 একটা guest কে পুরো workspace এর member ভাববে, কারণ সে `project_id` দেখে না। এটা একটা **security** bug (10.5 এর BOLA)। তাই v1 এর জন্য আরেকটা আগের ধাপ ভালো: v1 এর `loadBoardFor` কে এমনভাবে বদলান যাতে `project_id IS NOT NULL` এর row সে **উপেক্ষা** করে। এতে v1 ও "নতুন data দেখে নিরাপদে চুপ থাকে", আর rollback নিরাপদ থাকে। N-1 compatibility এর আসল অর্থ এটাই: পুরনো version কে নতুন data সম্পর্কে অন্তত এতটুকু জানতে হয় যাতে ভুল না করে।
 
-(খ) পুরনো unique `(user_id, workspace_id)` থাকলে একজন user একই workspace এ দুটো project এর guest হতে পারে না (দুটো row, একই জোড়া)। আর পুরনোটা আগে মুছলে মাঝখানে duplicate ঢুকে পড়ার সুযোগ থাকে। সঠিক ক্রম: নতুন unique index **আগে** `CONCURRENTLY` তৈরি করো (ধাপ ২)। `CONCURRENTLY` তৈরির সময় যদি কোনো duplicate পায়, index `INVALID` হয়ে ব্যর্থ হয়, আর তখন data পরিষ্কার করে আবার চালাতে হয়। দুটো constraint কিছুক্ষণ একসাথে থাকে, তারপর পুরনোটা মোছো (ধাপ ৫, মুহূর্তের)। Null এর সমস্যা: Postgres এ unique index এ দুটো null আলাদা গণ্য হয়, তাই `(u, w, NULL)` দুবার ঢুকতে পারে। এজন্য `COALESCE(project_id, 0)` এর মতো একটা expression index, অথবা Postgres 15+ এর `NULLS NOT DISTINCT`।
+(খ) পুরনো unique `(user_id, workspace_id)` থাকলে একজন user একই workspace এ দুটো project এর guest হতে পারে না (দুটো row, একই জোড়া)। আর পুরনোটা আগে মুছলে মাঝখানে duplicate ঢুকে পড়ার সুযোগ থাকে। সঠিক ক্রম: নতুন unique index **আগে** `CONCURRENTLY` তৈরি করুন (ধাপ ২)। `CONCURRENTLY` তৈরির সময় যদি কোনো duplicate পায়, index `INVALID` হয়ে ব্যর্থ হয়, আর তখন data পরিষ্কার করে আবার চালাতে হয়। দুটো constraint কিছুক্ষণ একসাথে থাকে, তারপর পুরনোটা মুছুন (ধাপ ৫, মুহূর্তের)। Null এর সমস্যা: Postgres এ unique index এ দুটো null আলাদা গণ্য হয়, তাই `(u, w, NULL)` দুবার ঢুকতে পারে। এজন্য `COALESCE(project_id, 0)` এর মতো একটা expression index, অথবা Postgres 15+ এর `NULLS NOT DISTINCT`।
 
 (গ) Release: guest feature একটা flag এর পেছনে, workspace ধরে। প্রথমে নিজেদের workspace, তারপর কয়েকটা beta customer, তারপর plan ধরে। `loadBoardFor` এর নতুন logic এর canary এর gate এ **segment অবশ্যই**: (১) workspace এর আকার (বৃহস্পতিবারের bug বড় workspace এ ছিল), (২) plan, (৩) actor এর ধরন — owner, member, guest। Authorization এর bug প্রায়ই error দেয় না, ভুল 200 দেয়। তাই gate এ error rate এর পাশে একটা **আচরণের** তুলনা লাগে: canary আর baseline এর 404 এর অনুপাত (হঠাৎ কমে গেলে মানে কেউ এমন কিছু পাচ্ছে যা আগে পেত না)। সাথে 10.5 এর matrix test, CI তে, deploy এর আগে। Canary এমন bug ধরবে না যা "আরও বেশি অনুমতি দেয়" আর কোনো error দেয় না, তাই সেটা test এর কাজ।
 
 **প্রশ্ন ২:**
 
-(ক) ২ req/s × ৬০০ s × ১% = **১২টা request**। Baseline error ধরো ০.৫%; +১% মানে canary তে ১.৫%: ১২টার মধ্যে প্রত্যাশিত ০.১৮টা error। কোনো test একটা error থেকে কিছু বলতে পারে না। ১.৪ এর টেবিলের ভাষায়, প্রমাণ আসে request এর সংখ্যা থেকে, আর এখানে নেই। বিকল্প:
+(ক) ২ req/s × ৬০০ s × ১% = **১২টা request**। Baseline error ধরুন ০.৫%; +১% মানে canary তে ১.৫%: ১২টার মধ্যে প্রত্যাশিত ০.১৮টা error। কোনো test একটা error থেকে কিছু বলতে পারে না। ১.৪ এর টেবিলের ভাষায়, প্রমাণ আসে request এর সংখ্যা থেকে, আর এখানে নেই। বিকল্প:
 
 - **বড় শতাংশ, লম্বা সময়:** ২৫% এ ২৪ ঘণ্টা ≈ ৪৩,০০০টা request। ঝুঁকি বেশি মানুষে, কিন্তু প্রমাণ আসে।
-- **Shadow traffic:** নতুন version কে আসল webhook এর একটা কপি পাঠাও, কিন্তু তার উত্তর বা side effect (DB লেখা) ব্যবহার না করে, শুধু তুলনা করো পুরনোটার সাথে: একই সিদ্ধান্ত নিল কিনা। ১০০% traffic এ পরীক্ষা, শূন্য ঝুঁকিতে। দাম: side effect আলাদা রাখা কঠিন।
+- **Shadow traffic:** নতুন version কে আসল webhook এর একটা কপি পাঠান, কিন্তু তার উত্তর বা side effect (DB লেখা) ব্যবহার না করে, শুধু তুলনা করুন পুরনোটার সাথে: একই সিদ্ধান্ত নিল কিনা। ১০০% traffic এ পরীক্ষা, শূন্য ঝুঁকিতে। দাম: side effect আলাদা রাখা কঠিন।
 - **Replay:** গত সপ্তাহের webhook (idempotency key সহ, 2.5) staging এ নতুন version এ চালিয়ে ফল মেলানো।
 - এবং **ব্যবসার metric** এ gate: "প্রতিটা `invoice.paid` এর পরে workspace সক্রিয় হলো কিনা"। Error rate এর চেয়ে বেশি অর্থবহ।
 
@@ -616,9 +616,9 @@ Point of no return হলো ধাপ ৫: প্রথম guest row তৈর�
 1. **Expand:** নতুন field যোগ, পুরনোটা রেখে: `assignee: "email@x.com"` থাকে, পাশে `assigneeInfo: { id, email, name }`। (একই নামে আকার বদলানো যায় না। পুরনো app `assignee` কে string হিসেবে parse করবে, object পেলে crash।) Server দুটোই পাঠায়, দুটোই নেয় (task তৈরিতে যেকোনো একটা)।
 2. **নতুন app version** শুধু `assigneeInfo` পড়ে আর পাঠায়। Release।
 3. **অপেক্ষা ও মাপা:** কোন app version এখনও `assignee` ব্যবহার করে (নিচে খ)।
-4. **Contract:** যখন `assignee` পড়ে এমন app version এর ব্যবহার একটা সিদ্ধান্তের সীমার নিচে (ধরো ০.৫% সক্রিয় user, বা ছয় মাস, যেটা পরে), তখন সর্বনিম্ন সমর্থিত version বাড়াও (গ), তারপর `assignee` পাঠানো বন্ধ। নতুন নাম `assigneeInfo` রয়ে যায়। চাইলে আরেকটা চক্রে আবার `assignee` নাম ফিরিয়ে আনা যায়, কিন্তু সাধারণত দাম যোগ্য না।
+4. **Contract:** যখন `assignee` পড়ে এমন app version এর ব্যবহার একটা সিদ্ধান্তের সীমার নিচে (ধরুন ০.৫% সক্রিয় user, বা ছয় মাস, যেটা পরে), তখন সর্বনিম্ন সমর্থিত version বাড়ান (গ), তারপর `assignee` পাঠানো বন্ধ। নতুন নাম `assigneeInfo` রয়ে যায়। চাইলে আরেকটা চক্রে আবার `assignee` নাম ফিরিয়ে আনা যায়, কিন্তু সাধারণত দাম যোগ্য না।
 
-Contract এর ভিত্তি তারিখ না, **মাপা ব্যবহার**। আর contract এর পরে কিছু সপ্তাহ server এ "পুরনো field চাওয়া request" গোনা চালু রাখো।
+Contract এর ভিত্তি তারিখ না, **মাপা ব্যবহার**। আর contract এর পরে কিছু সপ্তাহ server এ "পুরনো field চাওয়া request" গোনা চালু রাখুন।
 
 (খ) App প্রতিটা request এ header এ নিজের version পাঠায় (`x-app-version: 4.12.0`)। Metric এ `app_version` label সরাসরি দিলে প্রতিটা নতুন version নতুন series বানায়, আর পুরনো version গুলো বছর ধরে থাকে। Cardinality ধীরে ধীরে বাড়ে, কিন্তু সীমাহীন না। 10.4 এর নিয়মে এটা সীমিত রাখার পথ: label এ শুধু **major.minor**, আর সবচেয়ে নতুন ১০টার বাইরের সব `old`। বিস্তারিত (ঠিক কোন patch version) log আর trace এ, যেখানে cardinality এর দাম নেই। আর আলাদা একটা counter: "পুরনো `assignee` field ব্যবহার করা request, `app_version` (major.minor) ধরে" — contract এর সিদ্ধান্ত এটা দিয়েই।
 
@@ -636,17 +636,17 @@ Contract এর ভিত্তি তারিখ না, **মাপা ব্
 
 `rollout` তিন রকম bug কে ছয়টা কৌশলে চালায়, ভালো version এর দাম মাপে, canary এর আকার আর সময়ের পরিসংখ্যান দেখায়, আর sticky বনাম এলোমেলো routing তুলনা করে। `flags` এ percentage এর ভাগ, kill switch এর গতি আর দুই service এর অমিল। `drain` localhost এ একটা আসল round-robin LB আর চারটা `node:http` instance দিয়ে পাঁচ রকম rolling restart চালায়। `locks` আসল Postgres এ ১০ লাখ row এর পাশে চলমান app load রেখে `ALTER`, index, backfill আর `NOT NULL` মাপে। `rename` আসল Postgres আর Sequelize এ চার রকম app version একই table এ চালায়: এক ধাপে rename, expand/contract, আর চারটা ভুল।
 
-**সৎ নোট:** Sandbox এ Node 26 আর PostgreSQL 17.11 (Docker) এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean। `rollout` আর `flags` দুবার করে, output byte ধরে হুবহু এক। `drain`, `locks` আর `rename` দুবার করে। সংখ্যা কাছাকাছি, শূন্য গুলো আর ক্রম একই। Lesson এ quote করা সংখ্যা এক একটা run থেকে, আর দ্বিতীয় run এর সংখ্যা যেখানে আলাদা সেখানে বলা আছে। README এর experiment ১ আর ৩ চালানো হয়েছে (সংখ্যা lesson এ); ২, ৪, ৫ চালানোর কাজ, আর ৬ code বদলানোর কাজ, তোমার। **`rollout` আর `flags` এ কোনো আসল server নেই।** নকল request, seed দেওয়া PRNG। Alert এর পরে মানুষের ১০ মিনিট, big-bang এর rollback deploy ৫ মিনিট, canary এর ধাপ ১০ মিনিট, segment = ১% traffic, baseline error ০.১%: এগুলো ধরে নেওয়া সংখ্যা। Big-bang এ সব instance একসাথে restart হওয়ার সময়ের capacity এর ঘাটতি model এ নেই। `drain` এর LB নিজের হাতে লেখা, আসল Nginx বা Envoy না। Instance গুলো একই process এ, আর কাজ `setTimeout` দিয়ে নকল। `locks` এর সময় তোমার machine এর উপর নির্ভর করে, আর ১০ লাখ row এর সংখ্যা ১০ কোটিতে বহু গুণ বড় হবে (এখানে মাপা না)। `rename` এর "ভুল পড়া" কলাম একসাথে চলা write এর race বাদ দিয়ে গোনে। কোনো কোনো ভুলের সারিতে (contract আগেভাগে, NOT NULL) ০–৭ এর ওঠানামা দেখা গেছে, যার কিছুটা মাপার সীমা। মূল প্রমাণ error এর সংখ্যা আর SQL এর যাচাই query (`name IS DISTINCT FROM title`)। **যা মাপা হয়নি:** আসল Kubernetes, আসল canary এর tool (Argo Rollouts, Flagger), আসল flag service, replica lag আর WAL (5.7), mobile client। Google SRE বই এর ৭০% এর দাবি আর Knight Capital এর বিবরণ প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। ১.২ আর ১.৭ এর Express আর Sequelize এর code নকশা, চালানো না। ১.৯ এর TaskFlow এর সিদ্ধান্ত একটা নকশা।
+**সৎ নোট:** Sandbox এ Node 26 আর PostgreSQL 17.11 (Docker) এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean। `rollout` আর `flags` দুবার করে, output byte ধরে হুবহু এক। `drain`, `locks` আর `rename` দুবার করে। সংখ্যা কাছাকাছি, শূন্য গুলো আর ক্রম একই। Lesson এ quote করা সংখ্যা এক একটা run থেকে, আর দ্বিতীয় run এর সংখ্যা যেখানে আলাদা সেখানে বলা আছে। README এর experiment ১ আর ৩ চালানো হয়েছে (সংখ্যা lesson এ); ২, ৪, ৫ চালানোর কাজ, আর ৬ code বদলানোর কাজ, আপনার। **`rollout` আর `flags` এ কোনো আসল server নেই।** নকল request, seed দেওয়া PRNG। Alert এর পরে মানুষের ১০ মিনিট, big-bang এর rollback deploy ৫ মিনিট, canary এর ধাপ ১০ মিনিট, segment = ১% traffic, baseline error ০.১%: এগুলো ধরে নেওয়া সংখ্যা। Big-bang এ সব instance একসাথে restart হওয়ার সময়ের capacity এর ঘাটতি model এ নেই। `drain` এর LB নিজের হাতে লেখা, আসল Nginx বা Envoy না। Instance গুলো একই process এ, আর কাজ `setTimeout` দিয়ে নকল। `locks` এর সময় আপনার machine এর উপর নির্ভর করে, আর ১০ লাখ row এর সংখ্যা ১০ কোটিতে বহু গুণ বড় হবে (এখানে মাপা না)। `rename` এর "ভুল পড়া" কলাম একসাথে চলা write এর race বাদ দিয়ে গোনে। কোনো কোনো ভুলের সারিতে (contract আগেভাগে, NOT NULL) ০–৭ এর ওঠানামা দেখা গেছে, যার কিছুটা মাপার সীমা। মূল প্রমাণ error এর সংখ্যা আর SQL এর যাচাই query (`name IS DISTINCT FROM title`)। **যা মাপা হয়নি:** আসল Kubernetes, আসল canary এর tool (Argo Rollouts, Flagger), আসল flag service, replica lag আর WAL (5.7), mobile client। Google SRE বই এর ৭০% এর দাবি আর Knight Capital এর বিবরণ প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। ১.২ আর ১.৭ এর Express আর Sequelize এর code নকশা, চালানো না। ১.৯ এর TaskFlow এর সিদ্ধান্ত একটা নকশা।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `rollout` চালানোর **আগে** লিখে ফেলো: ১% traffic এ ২০% error এর bug। পুরো system এর error rate কত হবে, আর "error > ১%" এর alert কি বাজবে? Blue-green কতজনকে ছোঁবে? তারপর চালিয়ে মেলাও। এবার `STEP_MINUTES=3`। কোন canary bug টা হারাল, আর কোনটা ধরল? কেন?
+1. **আগে অনুমান:** `rollout` চালানোর **আগে** লিখে ফেলুন: ১% traffic এ ২০% error এর bug। পুরো system এর error rate কত হবে, আর "error > ১%" এর alert কি বাজবে? Blue-green কতজনকে ছোঁবে? তারপর চালিয়ে মেলান। এবার `STEP_MINUTES=3`। কোন canary bug টা হারাল, আর কোনটা ধরল? কেন?
 
-2. **নিজের graceful shutdown:** একটা ছোট Express app এ ১.২ এর `shutdownOnSigterm` আর `/ready` বসাও। `autocannon` বা একটা loop দিয়ে load দিতে দিতে `kill -TERM <pid>` করো। কয়টা request ব্যর্থ? এবার handler সরিয়ে আবার করো। তারপর `drainMs` শূন্য করো। শুধু `close()` এর সারির মতো ফল আসে?
+2. **নিজের graceful shutdown:** একটা ছোট Express app এ ১.২ এর `shutdownOnSigterm` আর `/ready` বসান। `autocannon` বা একটা loop দিয়ে load দিতে দিতে `kill -TERM <pid>` করুন। কয়টা request ব্যর্থ? এবার handler সরিয়ে আবার করুন। তারপর `drainMs` শূন্য করুন। শুধু `close()` এর সারির মতো ফল আসে?
 
-3. **Lock queue নিজের চোখে:** `LONG_QUERY_MS=20000 npm run locks`। Lock queue এর সারিতে app এর সর্বোচ্চ latency কত হলো? চলার সময় আরেকটা terminal এ `psql` দিয়ে `SELECT pid, wait_event_type, state, left(query, 50) FROM pg_stat_activity WHERE datname = 'taskflow'` চালাও। কে কার জন্য অপেক্ষা করছে, দেখতে পাচ্ছ? (`pg_blocking_pids(pid)` ও দেখো।)
+3. **Lock queue নিজের চোখে:** `LONG_QUERY_MS=20000 npm run locks`। Lock queue এর সারিতে app এর সর্বোচ্চ latency কত হলো? চলার সময় আরেকটা terminal এ `psql` দিয়ে `SELECT pid, wait_event_type, state, left(query, 50) FROM pg_stat_activity WHERE datname = 'taskflow'` চালান। কে কার জন্য অপেক্ষা করছে, দেখতে পাচ্ছেন? (`pg_blocking_pids(pid)` ও দেখুন।)
 
-4. **Point of no return:** `src/rename.ts` এর অংশ খ এ ধাপ ৫ (`v2r → v2`) এর পরে একটা `v2 → v1.5` rollback ধাপ যোগ করো। Error এলো, নাকি ভুল পড়া? কেন ধাপ ৪ এর পরের rollback নিরাপদ ছিল, কিন্তু এটা না?
+4. **Point of no return:** `src/rename.ts` এর অংশ খ এ ধাপ ৫ (`v2r → v2`) এর পরে একটা `v2 → v1.5` rollback ধাপ যোগ করুন। Error এলো, নাকি ভুল পড়া? কেন ধাপ ৪ এর পরের rollback নিরাপদ ছিল, কিন্তু এটা না?
 
 5. **Design অংশ:** TaskFlow এর deploy pipeline এর এক পাতার নকশা। (ক) একটা PR merge থেকে ১০০% পর্যন্ত প্রতিটা ধাপ, কে বা কী প্রতিটা ধাপকে অনুমোদন দেয়। (খ) Canary এর gate এর তালিকা: কোন SLI, কোন segment, কোন সীমা, ন্যূনতম কত request। (গ) Migration এর pipeline কীভাবে deploy এর pipeline থেকে আলাদা, আর CI এর migration lint কী কী ধরে। (ঘ) শুক্রবার বিকেলে deploy: হ্যাঁ না না, আর কেন? (ঙ) একটা জরুরি security fix (10.5 এর মতো) এই pipeline এর কোন ধাপ এড়াতে পারে, আর কোনটা কখনো না?
 
@@ -682,7 +682,7 @@ Observability, Histogram, Label Cardinality, Structured Logging, Trace / Span, T
 Authentication / Authorization, JWT, BOLA, Refresh Token Rotation, OAuth 2.0 + PKCE / OIDC, Credential
 Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canary Release, Feature Flag,
 Version Skew, Lock Queue, Expand / Contract
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 10.7 — Cost & cloud economics: design এ cost একটা first-class constraint
 =======================
 ```
@@ -693,4 +693,4 @@ Next: 10.7 — Cost & cloud economics: design এ cost একটা first-class 
 
 আজকের সুতোটা: **প্রতিটা deploy একটা সেতু, আর সেতুর উপরে কিছুক্ষণ পুরনো আর নতুন একসাথে হাঁটে।** Instance বদলানোর সময় একটা ক্রম মানলে একটা request ও মরে না। কৌশল বাছাই আসলে দুটো প্রশ্নের উত্তর: খারাপ version কতজনকে ছোঁবে, আর কে ধরবে। Canary শুধু ততটা ভালো, যতটা তার gate যা দেখে। Flag deploy থেকে release আলাদা করে। আর database এ সবচেয়ে বিপজ্জনক ভুলগুলো কোনো error দেয় না। সেগুলো চুপচাপ data কে দুই ভাগ করে, আর একটা ১০ ms এর migration কে তিন মিনিটের বিরতি বানায়।
 
-আজ বেশ কয়েকবার একটা জিনিসের দাম বলে পাশ কাটিয়ে গেছি: blue-green এর দ্বিগুণ machine (+১২), canary এর বাড়তি pool আর baseline, প্রতিটা নতুন version এর প্রথম ঘণ্টার সব trace, dry run এ মাসের সব invoice দুবার হিসাব করা। 10.5 এ autoscaling এর বিল, 10.4 এ log এর আয়তন। প্রতিটা নিরাপত্তা আর প্রতিটা দৃশ্যমানতার একটা মাসিক দাম আছে, আর সেই দাম কেউ design এর সময় লেখে না। রেডি হলে `next` লিখো — **Lesson 10.7: Cost & Cloud Economics** এ যাব। সেখানে প্রশ্নটা: TaskFlow এর মাসের cloud বিল কোথা থেকে আসে, কোন design এর সিদ্ধান্ত কত টাকার, আর কেন "cost" কে latency আর availability এর মতোই একটা requirement হিসেবে ধরতে হয়।
+আজ বেশ কয়েকবার একটা জিনিসের দাম বলে পাশ কাটিয়ে গেছি: blue-green এর দ্বিগুণ machine (+১২), canary এর বাড়তি pool আর baseline, প্রতিটা নতুন version এর প্রথম ঘণ্টার সব trace, dry run এ মাসের সব invoice দুবার হিসাব করা। 10.5 এ autoscaling এর বিল, 10.4 এ log এর আয়তন। প্রতিটা নিরাপত্তা আর প্রতিটা দৃশ্যমানতার একটা মাসিক দাম আছে, আর সেই দাম কেউ design এর সময় লেখে না। রেডি হলে `next` লিখুন — **Lesson 10.7: Cost & Cloud Economics** এ যাব। সেখানে প্রশ্নটা: TaskFlow এর মাসের cloud বিল কোথা থেকে আসে, কোন design এর সিদ্ধান্ত কত টাকার, আর কেন "cost" কে latency আর availability এর মতোই একটা requirement হিসেবে ধরতে হয়।

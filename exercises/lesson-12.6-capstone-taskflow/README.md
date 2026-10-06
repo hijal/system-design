@@ -18,7 +18,7 @@ Capstone এর design doc এর একটা core piece, আসল code এ: T
 | `npm run concurrency` | ৫০ জন একই মুহূর্তে একই task assign করে: read-then-write বনাম optimistic lock                                | ১.৮      |
 | `npm run idempotency` | ১,০০০টা তৈরি, ১০% response হারায়, client আবার পাঠায়: key ছাড়া বনাম key সহ; একসাথে চলা জোড়া              | ১.৮      |
 | `npm run crash`       | ১,০০০টা assign, ২% ঝুঁকির মুহূর্তে crash: commit → queue, queue → commit, outbox                            | ১.৮      |
-| `npm run load`        | ২০টা client ১০ সেকেন্ড ধরে move: এই write path এর throughput আর latency, তোমার machine এ                    | ১.৫      |
+| `npm run load`        | ২০টা client ১০ সেকেন্ড ধরে move: এই write path এর throughput আর latency, আপনার machine এ                    | ১.৫      |
 
 **সৎ নোট:**
 
@@ -29,7 +29,7 @@ Capstone এর design doc এর একটা core piece, আসল code এ: T
   `idempotency`, `crash` দুবার চালালে output হুবহু এক।
 - **Email provider fake,** memory তে, provider এর দিকের idempotency key সহ (অনেক আসল provider এটা দেয়, 11.5)। Email আসলে কোথাও যায় না।
 - **`load` machine নির্ভর।** একটা laptop, Docker এ Postgres, client আর server একই Node process এ, Sequelize এর pool ১০টা connection।
-  সংখ্যাটা তোমার machine এ আলাদা হবে।
+  সংখ্যাটা আপনার machine এ আলাদা হবে।
 - **যাচাই করা হয়েছে** Node 26 আর Docker এ (`postgres:17-alpine`, `redis:8-alpine`): `tsc --noEmit`, ESLint আর Prettier clean;
   চারটা deterministic script দুবার করে, output byte ধরে হুবহু এক; `load` দুবার (৭১১ আর ৭৫৫ move/s)।
 
@@ -110,7 +110,7 @@ outbox in the same transaction       1,000   1,000         0               0    
 outbox, on top of the relay crashes: 15 worker crashes after sending the email; provider calls 1,015 for 1,000 emails — the provider's idempotency key absorbed the repeats
 ```
 
-`npm run load` (তোমার machine এ সংখ্যা আলাদা হবে; আকৃতিটা দেখো):
+`npm run load` (আপনার machine এ সংখ্যা আলাদা হবে; আকৃতিটা দেখুন):
 
 ```
 moves                 7,552  (0 conflicts)
@@ -133,7 +133,7 @@ against the design doc's estimated peak of ~90 writes/s: 8× headroom on this ma
 - **সংখ্যা থেকে সিদ্ধান্ত:** একটা laptop এই write path এ সেকেন্ডে ~৭০০ move নেয়; TaskFlow এর আজকের peak ~৯০। তাই write এর জন্য
   sharding এর প্রশ্ন নেই (design doc এর ১.৫)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Crash এর হার:** `CRASH=0.1 npm run crash`। প্রথম দুটো সারির ক্ষতি কীভাবে বাড়ে (মাপা: ১০৮টা email হারায়, আর অন্য ক্রমে ১০৮টা
    task ছাড়া email), আর outbox এর সারি কেন শূন্যেই থাকে? Provider call কত হলো (মাপা: ১,০৭৫)?
@@ -141,10 +141,10 @@ against the design doc's estimated peak of ~90 writes/s: 8× headroom on this ma
    (একই task এ একই মুহূর্তে দুজন বিরল) optimistic lock এর দাম কত?
 3. **Pool এর সীমা:** `src/db.ts` এ pool এর `max` ১০ থেকে ২ আর ২০ করে `npm run load`। Throughput আর p99 কীভাবে বদলায়? কোথায়
    গিয়ে বাড়ানো আর কাজে দেয় না (5.6)?
-4. **Code বদলানোর কাজ — client এর retry:** `src/concurrency.ts` এ একটা তৃতীয় সারি যোগ করো: optimistic lock, কিন্তু 409 পেলে client
+4. **Code বদলানোর কাজ — client এর retry:** `src/concurrency.ts` এ একটা তৃতীয় সারি যোগ করুন: optimistic lock, কিন্তু 409 পেলে client
    task আবার পড়ে আর নিজের assign আবার চেষ্টা করে (সর্বোচ্চ ৫ বার)। কয়টা শেষ পর্যন্ত সফল হয়, আর email কয়টা যায়? এই ক্ষেত্রে এটা কি
    ঠিক আচরণ — নাকি user কে জিজ্ঞেস করা উচিত?
-5. **Code বদলানোর কাজ — outbox এর পরিষ্কার:** published হওয়া outbox এর row ৭ দিন পরে মোছার একটা job লেখো (7.5), ছোট batch এ,
+5. **Code বদলানোর কাজ — outbox এর পরিষ্কার:** published হওয়া outbox এর row ৭ দিন পরে মোছার একটা job লিখুন (7.5), ছোট batch এ,
    যাতে বড় `DELETE` এর lock না ধরে। `load` এর পরে কতগুলো row মুছলে?
 
 ## Project Structure

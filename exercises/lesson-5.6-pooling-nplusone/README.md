@@ -18,7 +18,7 @@
 
 Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য)।
 
-Port **5437** — তোমার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433–5436) সাথে সংঘাত এড়াতে।
+Port **5437** — আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433–5436) সাথে সংঘাত এড়াতে।
 
 **গুরুত্বপূর্ণ:** `docker-compose.yml` এ Postgres container কে ইচ্ছা করে **২টা CPU core** এ সীমিত রাখা
 হয়েছে (`cpus: '2'`), যাতে pool size এর পরীক্ষা যেকোনো মেশিনে একই রকম ফল দেয়।
@@ -40,7 +40,7 @@ npm run hydration
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-সব সংখ্যা আমার মেশিনে মাপা (Node 26, Postgres 17, database container এ ২টা core)। তোমার
+সব সংখ্যা আমার মেশিনে মাপা (Node 26, Postgres 17, database container এ ২টা core)। আপনার
 সংখ্যা ভিন্ন হবে; **আকার আর অনুপাত** মেলার কথা।
 
 **১. `npm run pool`**
@@ -87,7 +87,7 @@ npm run hydration
    include, separate: true             3    1,550       8.7 ms        12 ms
 ```
 
-`query` আর `rows` কলাম deterministic — হুবহু মিলবে। শেষ কলামটা **হিসাব, মাপা না** (নিচে দেখো)।
+`query` আর `rows` কলাম deterministic — হুবহু মিলবে। শেষ কলামটা **হিসাব, মাপা না** (নিচে দেখুন)।
 
 **৩. `npm run hydration`**
 
@@ -114,23 +114,23 @@ Hydration: reading 100,000 tasks — the same query, returned in different shape
 **শেষ কলামের হিসাব (`+1ms RTT হলে`):** exercise এ app আর database একই মেশিনে, তাই round trip
 প্রায় শূন্য। Production এ তারা আলাদা machine এ, আর প্রতিটা query তে অন্তত একটা network round trip
 লাগে। কলামটা শুধু `মাপা সময় + query সংখ্যা × ১ ms` — একটা সরল অনুমান, মাপা ফল না। বাস্তব round
-trip তোমার infrastructure অনুযায়ী কম-বেশি হবে; নিজে মাপতে experiment ৩ দেখো।
+trip আপনার infrastructure অনুযায়ী কম-বেশি হবে; নিজে মাপতে experiment ৩ দেখুন।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Core বাড়াও।** `docker-compose.yml` এ `cpus: '2'` কে `'4'` করো, `docker compose up -d --wait`, তারপর
-   `npm run pool -- 2`। CPU কলামের চূড়া এখন কোথায়? Pool size এর নিয়মটা নিজের ভাষায় লেখো।
+1. **Core বাড়ান।** `docker-compose.yml` এ `cpus: '2'` কে `'4'` করুন, `docker compose up -d --wait`, তারপর
+   `npm run pool -- 2`। CPU কলামের চূড়া এখন কোথায়? Pool size এর নিয়মটা নিজের ভাষায় লিখুন।
 
-2. **Pool exhaustion এর সময় বাড়াও।** `src/pool.ts` এর শেষ অংশে `acquire: 1_000` কে `60_000` (Sequelize
-   এর default) করো। কতগুলো সফল হলো, আর শেষটা কতক্ষণ অপেক্ষা করল? একটা ব্যস্ত API তে ৬০ সেকেন্ড
+2. **Pool exhaustion এর সময় বাড়ান।** `src/pool.ts` এর শেষ অংশে `acquire: 1_000` কে `60_000` (Sequelize
+   এর default) করুন। কতগুলো সফল হলো, আর শেষটা কতক্ষণ অপেক্ষা করল? একটা ব্যস্ত API তে ৬০ সেকেন্ড
    অপেক্ষা করা request user এর চোখে কেমন দেখায় — আর দ্রুত ব্যর্থ হওয়া কেন কখনো কখনো ভালো?
 
-3. **Network latency নকল করো।** Linux এ: `docker compose exec postgres sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem delay 1ms"`
-   (container এ `NET_ADMIN` capability লাগতে পারে — না চললে এটা বাদ দাও)। তারপর `npm run nplusone` —
+3. **Network latency নকল করুন।** Linux এ: `docker compose exec postgres sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem delay 1ms"`
+   (container এ `NET_ADMIN` capability লাগতে পারে — না চললে এটা বাদ দিন)। তারপর `npm run nplusone` —
    শেষ কলামের হিসাব আর আসল মাপা সময় কতটা কাছাকাছি?
 
-4. **N+1 নিজে খুঁজে বের করো।** `src/nplusone.ts` এর `eager()` থেকে ভেতরের `include: [{ model: User, as: 'assignee' }]`
-   সরিয়ে দাও, আর `flatMap` এর ভেতরে `t.assignee?.name` এর বদলে `(await User.findByPk(t.assigneeId))?.name` লেখো
+4. **N+1 নিজে খুঁজে বের করুন।** `src/nplusone.ts` এর `eager()` থেকে ভেতরের `include: [{ model: User, as: 'assignee' }]`
+   সরিয়ে দিন, আর `flatMap` এর ভেতরে `t.assignee?.name` এর বদলে `(await User.findByPk(t.assigneeId))?.name` লিখুন
    (এর জন্য map টা async করতে হবে)। Query সংখ্যা কত হলো? Code review এ এটা ধরা কতটা সহজ?
 
 ## Teardown

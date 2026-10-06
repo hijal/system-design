@@ -2,15 +2,15 @@
 
 **Module 11 — Real System Design Case Studies**
 
-> **Spaced Repetition (Lesson 7.4):** Retry এর সময় exponential backoff এর সাথে **jitter** কেন লাগে? Jitter ছাড়া হাজারটা client একই সময়ে ব্যর্থ হলে তাদের পরের চেষ্টাগুলো কখন আসে? আজ একটা gateway মরবে আর পাঁচ লাখ ফোন একসাথে ফিরতে চাইবে, আর দেখবে jitter ছাড়া দশ মিনিটেও একজনও ফেরে না।
+> **Spaced Repetition (Lesson 7.4):** Retry এর সময় exponential backoff এর সাথে **jitter** কেন লাগে? Jitter ছাড়া হাজারটা client একই সময়ে ব্যর্থ হলে তাদের পরের চেষ্টাগুলো কখন আসে? আজ একটা gateway মরবে আর পাঁচ লাখ ফোন একসাথে ফিরতে চাইবে, আর দেখবেন jitter ছাড়া দশ মিনিটেও একজনও ফেরে না।
 
 **Prerequisite:** Lesson 1.3 (Estimation), Lesson 1.6 (Stateful), Lesson 2.4 (WebSocket), Lesson 2.5 (Idempotency key), Lesson 3.4 (Health check, draining), Lesson 6.4 (Clock skew, ordering), Lesson 7.2 (Pub/sub), Lesson 7.4 (Retry, backoff, jitter), Lesson 10.3 (Blast radius), Lesson 11.1, 11.2
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা chat system এর আসল খরচ কোথায় সেটা সংখ্যা দিয়ে বলতে পারবে: খোলা connection, heartbeat, fan-out আর receipt, আর "server এ history রাখব কিনা" এর মতো একটা product সিদ্ধান্ত storage কে কত গুণ বদলায়
-2. 2.4 এর খোলা প্রশ্নের পূর্ণ উত্তর দিতে পারবে: লাখ লাখ WebSocket কয়েকশো gateway তে থাকলে একটা message কীভাবে ঠিক gateway তে পৌঁছায় (broadcast, user channel, session registry), আর একটা gateway মরলে reconnect storm কে congestion collapse থেকে কীভাবে বাঁচাবে
-3. Delivery এর নিশ্চয়তা আর ক্রম নকশা করতে পারবে: "আগে store, তারপর push", ack আর retry, client_msg_id দিয়ে dedupe, conversation প্রতি seq দিয়ে ক্রম আর sync, আর sent/delivered/read এর টিক গুলো আসলে কী
+1. একটা chat system এর আসল খরচ কোথায় সেটা সংখ্যা দিয়ে বলতে পারবেন: খোলা connection, heartbeat, fan-out আর receipt, আর "server এ history রাখব কিনা" এর মতো একটা product সিদ্ধান্ত storage কে কত গুণ বদলায়
+2. 2.4 এর খোলা প্রশ্নের পূর্ণ উত্তর দিতে পারবেন: লাখ লাখ WebSocket কয়েকশো gateway তে থাকলে একটা message কীভাবে ঠিক gateway তে পৌঁছায় (broadcast, user channel, session registry), আর একটা gateway মরলে reconnect storm কে congestion collapse থেকে কীভাবে বাঁচাবেন
+3. Delivery এর নিশ্চয়তা আর ক্রম নকশা করতে পারবেন: "আগে store, তারপর push", ack আর retry, client_msg_id দিয়ে dedupe, conversation প্রতি seq দিয়ে ক্রম আর sync, আর sent/delivered/read এর টিক গুলো আসলে কী
 
 **Tier:** 1 — Runnable Code (তিনটা deterministic model আর `ws` দিয়ে একটা আসল দুই-gateway chat; Docker লাগে না)
 
@@ -20,15 +20,15 @@
 
 Interviewer:
 
-> "WhatsApp এর মতো একটা chat app design করো। একজনের সাথে একজন, আর group। Message পাঠানো, পৌঁছানো, পড়ার টিক। Offline থাকলে পরে পাবে।"
+> "WhatsApp এর মতো একটা chat app design করুন। একজনের সাথে একজন, আর group। Message পাঠানো, পৌঁছানো, পড়ার টিক। Offline থাকলে পরে পাবে।"
 
 আগের দুটো case study তে client জিজ্ঞেস করত, server উত্তর দিত। এবার প্রথমবার উল্টো: **server কে নিজে থেকে client কে খুঁজে বের করতে হয়।** Bob একটা message পাবে যখন সে কিছুই জিজ্ঞেস করেনি। তাই Bob এর ফোন থেকে একটা connection সবসময় খোলা থাকে (2.4 এর WebSocket), আর সেই connection একটা নির্দিষ্ট server এর সাথে বাঁধা (1.6 এর stateful)।
 
-2.4 এ একটা প্রশ্ন খোলা রেখেছিলাম: "WebSocket কে horizontal scale করবে কীভাবে?" তখন উত্তর ছিল এক লাইনের: "একটা shared pub/sub layer লাগে।" আজ সেই লাইনটা সংখ্যা দিয়ে পরীক্ষা করব, আর দেখব এটা কোন মাপে ভাঙে। Interviewer এর follow-up গুলো এরকম:
+2.4 এ একটা প্রশ্ন খোলা রেখেছিলাম: "WebSocket কে horizontal scale করবেন কীভাবে?" তখন উত্তর ছিল এক লাইনের: "একটা shared pub/sub layer লাগে।" আজ সেই লাইনটা সংখ্যা দিয়ে পরীক্ষা করব, আর দেখব এটা কোন মাপে ভাঙে। Interviewer এর follow-up গুলো এরকম:
 
 - "Alice একটা server এ, Bob আরেকটায়। Message টা Bob এর server কীভাবে খুঁজে পায়?"
 - "একটা server এ পাঁচ লাখ connection, server টা মরল। কী হয়?"
-- "Bob এর ফোন সাবওয়েতে, network আসছে যাচ্ছে। Message হারায় না, দুবার আসে না, কীভাবে নিশ্চিত করবে?"
+- "Bob এর ফোন সাবওয়েতে, network আসছে যাচ্ছে। Message হারায় না, দুবার আসে না, কীভাবে নিশ্চিত করবেন?"
 - "Group এ দুজন একসাথে লিখল। সবাই কি একই ক্রমে দেখবে?"
 - "দুটো নীল টিক মানে ঠিক কী, আর কতগুলো লেখা?"
 
@@ -45,9 +45,9 @@ Interviewer:
 কী পাঠানো যায়?                             text; ছবি আর video 8.2 এর presigned upload এর পথে, এখানে শুধু তার link
 Receipt?                                   sent ✓, delivered ✓✓, read (নীল ✓✓)
 Offline?                                   হ্যাঁ — ফোনে ফিরলে সব পাবে, push notification সহ
-History?                                   **প্রশ্নটা জিজ্ঞেস করো** (১.২ দেখো)
+History?                                   **প্রশ্নটা জিজ্ঞেস করুন** (১.২ দেখুন)
 Presence ("online", "last seen")?           হ্যাঁ, কিন্তু সস্তায়
-End-to-end encryption?                     scope এর বাইরে (একটা লাইনে বলো, নিচে)
+End-to-end encryption?                     scope এর বাইরে (একটা লাইনে বলুন, নিচে)
 ```
 
 **Non-functional:** message ক্রমে আসবে, হারাবে না, দুবার দেখাবে না; পাঠানো থেকে পৌঁছানো (দুজনই online) p99 কয়েকশো ms; একটা server মরলে কয়েক মিনিটে সবাই ফেরে; ফোনের battery আর data কম খরচ।
@@ -142,7 +142,7 @@ session registry (user → gateway) + direct send                               
 
 ### ১.৫ একটা gateway মরল: reconnect storm
 
-একটা gateway এ পাঁচ লাখ connection। Gateway টা crash করল (বা deploy এর জন্য বন্ধ হলো)। পাঁচ লাখ ফোন প্রায় একই মুহূর্তে জানতে পারে, আর সবাই ফিরতে চায়। প্রতিটা ফেরা মানে TCP, TLS, auth, registry লেখা, আর sync। বাকি fleet এর মোট ক্ষমতা ধরো সেকেন্ডে ২০,০০০ এমন handshake। আর একটা বাস্তব খুঁটিনাটি: **প্রত্যাখ্যাত চেষ্টাও বিনা মূল্যে না।** Server overload বলে না বলার আগে TCP আর TLS এর কিছু কাজ হয়ে যায়; ধরো একটা পূর্ণ handshake এর ০.২ ভাগ। `npm run gateway` অংশ খ:
+একটা gateway এ পাঁচ লাখ connection। Gateway টা crash করল (বা deploy এর জন্য বন্ধ হলো)। পাঁচ লাখ ফোন প্রায় একই মুহূর্তে জানতে পারে, আর সবাই ফিরতে চায়। প্রতিটা ফেরা মানে TCP, TLS, auth, registry লেখা, আর sync। বাকি fleet এর মোট ক্ষমতা ধরুন সেকেন্ডে ২০,০০০ এমন handshake। আর একটা বাস্তব খুঁটিনাটি: **প্রত্যাখ্যাত চেষ্টাও বিনা মূল্যে না।** Server overload বলে না বলার আগে TCP আর TLS এর কিছু কাজ হয়ে যায়; ধরুন একটা পূর্ণ handshake এর ০.২ ভাগ। `npm run gateway` অংশ খ:
 
 ```
 policy                                          attempts/s (peak)  total attempts  per client  50% back  99% back        all back
@@ -159,7 +159,7 @@ best possible: 500,000 ÷ 20,000/s = 25.00 s.
 
 চতুর্থ নীতিতে সবাই ৮৯ s এ, তাত্ত্বিক সেরা ২৫ s এর কাছাকাছি মাপে। আর experiment ২ একটা অপ্রত্যাশিত জিনিস দেখায়: প্রথম চেষ্টা ১০ s এর বদলে **৬০ s** এ ছড়ালে client প্রতি ঠিক একটা চেষ্টা, কোনো প্রত্যাখ্যান নেই, আর ৯৯% ফেরে **৫৯ s এ, ১০ s এ ছড়ানোর ৭৬ s এর আগে।** ধীরে শুরু করা দ্রুত শেষ করে, কারণ প্রত্যাখ্যানের অপচয় নেই।
 
-তাই gateway এর নকশায়: client এর reconnect এ প্রথম চেষ্টা থেকেই jitter (৩০-৬০ s এ ছড়ানো), exponential backoff এর সাথে full jitter, আর server এর দিক থেকে সস্তা প্রত্যাখ্যান (load balancer এ, TLS এর আগে, connection এর হার ধরে, 11.2 এর limiter)। আর পরিকল্পিত বন্ধে (deploy) ঝাঁপ না দিয়ে **draining** (3.4): gateway নতুন connection নেওয়া বন্ধ করে, আর পুরনোগুলোকে কয়েক মিনিট ধরে একটু একটু করে "অন্য জায়গায় যাও" বলে। Deploy এ কোনো storm হয় না, শুধু crash এ।
+তাই gateway এর নকশায়: client এর reconnect এ প্রথম চেষ্টা থেকেই jitter (৩০-৬০ s এ ছড়ানো), exponential backoff এর সাথে full jitter, আর server এর দিক থেকে সস্তা প্রত্যাখ্যান (load balancer এ, TLS এর আগে, connection এর হার ধরে, 11.2 এর limiter)। আর পরিকল্পিত বন্ধে (deploy) ঝাঁপ না দিয়ে **draining** (3.4): gateway নতুন connection নেওয়া বন্ধ করে, আর পুরনোগুলোকে কয়েক মিনিট ধরে একটু একটু করে "অন্য জায়গায় যান" বলে। Deploy এ কোনো storm হয় না, শুধু crash এ।
 
 **Registry পুরনো থাকার সময়টা।** অংশ গ: এই পাঁচ লাখ জনের কাছে সেকেন্ডে ~১৪,৮০০টা message আসছে, আর registry তখনও মরা gateway দেখায় যতক্ষণ না তারা অন্য জায়গায় ফেরে:
 
@@ -265,10 +265,10 @@ Seq এর আসল মূল্য শুধু ক্রম না: এটা
 
 ## ২. Interview Angle
 
-Chat system interview এর সবচেয়ে প্রচলিত "real-time" প্রশ্ন, আর এখানে interviewer দেখে তুমি stateful system বোঝো কিনা। ভালো উত্তরের আকৃতি:
+Chat system interview এর সবচেয়ে প্রচলিত "real-time" প্রশ্ন, আর এখানে interviewer দেখে আপনি stateful system বোঝেন কিনা। ভালো উত্তরের আকৃতি:
 
 1. **Requirement এ history এর প্রশ্ন।** Server এ চিরকাল (PB) নাকি পৌঁছানো পর্যন্ত (TB)। আর group এর আকারের সীমা।
-2. **সংখ্যা।** Connection আর তাদের memory, gateway এর সংখ্যা, heartbeat, fan-out আর receipt। দেখাও যে চাপ message এ না।
+2. **সংখ্যা।** Connection আর তাদের memory, gateway এর সংখ্যা, heartbeat, fan-out আর receipt। দেখান যে চাপ message এ না।
 3. **Gateway আর routing।** Logic ছাড়া gateway, session registry, আর broadcast কেন এই মাপে ভাঙে।
 4. **Delivery।** Store-then-push, ack, client_msg_id, seq, sync। তিনটা টিকের মানে।
 5. **ব্যর্থতা।** একটা gateway মরলে: registry পুরনো (store বাঁচায়), reconnect storm (jitter, draining, সস্তা প্রত্যাখ্যান)।
@@ -278,7 +278,7 @@ Chat system interview এর সবচেয়ে প্রচলিত "real-t
 - _"Redis pub/sub দিয়ে সব gateway কে জানালেই তো হয়?"_ — একটা channel এ সব কিছু: প্রতিটা gateway সব delivery পায়, ৩০০ gateway এ ০.৩% কাজের। User প্রতি channel ঠিক আছে, কিন্তু Redis Cluster এর পুরনো PUBLISH সব node এ ছড়ায়; sharded pub/sub বা registry।
 - _"Message এর ক্রম কীভাবে?"_ — Timestamp না (ফোনের ঘড়িতে ১০% উত্তর উপরে)। Conversation প্রতি seq, একজন sequencer। পুরো system এর ক্রম লাগে না।
 - _"Exactly-once?"_ — Network এ exactly-once delivery নেই। At-least-once + idempotent receive (client_msg_id, seq) = ব্যবহারকারীর চোখে একবার।
-- _"Gateway deploy করবে কীভাবে?"_ — Draining, ধীরে ধীরে, আর client এ jitter। আর gateway এ logic রেখো না, যাতে deploy কম লাগে।
+- _"Gateway deploy করবেন কীভাবে?"_ — Draining, ধীরে ধীরে, আর client এ jitter। আর gateway এ logic রাখবেন না, যাতে deploy কম লাগে।
 - _"Group এ ১ লাখ সদস্য?"_ — Fan-out on write এর বদলে fan-out on read (conversation এর log একবার, সদস্যরা নিজে টেনে নেয়), receipt আর presence বন্ধ বা জমানো। এটা আসলে একটা আলাদা product (channel)।
 - _"Offline user?"_ — Store এ থাকে; push notification (APNs/FCM) শুধু জাগায়, data বয় না (বা সামান্য); ফোন জেগে sync করে। পরের lesson (11.5) এর notification system।
 
@@ -314,11 +314,11 @@ Chat system interview এর সবচেয়ে প্রচলিত "real-t
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন। প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
 1. Product team চায় একজন user এর চারটা device (ফোন, tablet, দুটো laptop) একসাথে চলবে, প্রতিটায় পুরো history, আর এক device এ পড়লে বাকিগুলোতেও "পড়া" দেখাবে। (ক) Registry, cursor আর fan-out এ কী বদলায়? (খ) ১.২ এর কোন সংখ্যাগুলো কত গুণ হয়? (গ) নতুন একটা laptop এ login করলে তিন বছরের history কোথা থেকে আসবে, আর storage এর সিদ্ধান্তে (inbox বনাম চিরকালের log) এর প্রভাব কী?
 
-2. সোমবার সকালে একটা AZ এর network ৪ মিনিট খারাপ, তাতে ১০০টা gateway (পাঁচ কোটি connection) এর client রা একসাথে কেটে যায়। AZ ফিরে আসে। (ক) এই lesson এর reconnect এর সংখ্যা ধরে কী আশা করো, যদি client রা ৬০ s এ ছড়িয়ে ফেরে আর বাকি fleet এর ক্ষমতা ২০,০০০/s? (খ) Auth service আর message store এর sync এর চাপ কী হবে, আর কোনটা আগে ভাঙবে? (গ) এই ঘটনার জন্য তিনটা প্রস্তুতি, যা আজ করা যায়।
+2. সোমবার সকালে একটা AZ এর network ৪ মিনিট খারাপ, তাতে ১০০টা gateway (পাঁচ কোটি connection) এর client রা একসাথে কেটে যায়। AZ ফিরে আসে। (ক) এই lesson এর reconnect এর সংখ্যা ধরে কী আশা করেন, যদি client রা ৬০ s এ ছড়িয়ে ফেরে আর বাকি fleet এর ক্ষমতা ২০,০০০/s? (খ) Auth service আর message store এর sync এর চাপ কী হবে, আর কোনটা আগে ভাঙবে? (গ) এই ঘটনার জন্য তিনটা প্রস্তুতি, যা আজ করা যায়।
 
 3. একটা ১০,০০০ সদস্যের community group। প্রতিদিন ২,০০০টা message। (ক) প্রতিটা message এ fan-out on write (প্রতিটা সদস্যের inbox এ লেখা) এর খরচ কত, ১.২ এর মতো করে? (খ) কোন অংশগুলো (receipt, presence, push notification, typing indicator) এই group এ বন্ধ বা বদলাবে, আর কেন? (গ) এই group এর sequencer কি একটা সমস্যা হতে পারে?
 
@@ -329,7 +329,7 @@ Chat system interview এর সবচেয়ে প্রচলিত "real-t
 
 (ক) **Registry:** `user → gateway` থেকে `(user, device) → gateway`; একজন user এর চারটা entry। **Fan-out:** প্রতি delivery তে প্রাপকের প্রতিটা device এ একটা, **আর sender এর নিজের বাকি device গুলোতেও** (Alice ফোন থেকে পাঠালে তার laptop এও দেখাতে হবে)। **Cursor:** দুই স্তরে — device প্রতি `delivered_seq` (কোন device কতদূর পেয়েছে, sync এর জন্য), আর user প্রতি `read_seq` (পড়া মানুষের, device এর না)। এক device এ পড়লে user এর `read_seq` বাড়ে, আর সেটা বাকি device গুলোতে একটা event হিসেবে যায় ("conv X এ seq ৫০ পর্যন্ত পড়া হয়েছে", যাতে notification badge মুছে যায়)।
 
-(খ) Connection: চারটা device সবসময় online না, তবে ধরো online device গড়ে ১.৫ গুণ: ১৫ কোটি থেকে ~২২ কোটি, memory আর gateway ১.৫ গুণ। Delivery: প্রাপকের device সংখ্যা দিয়ে গুণ, আর sender এর নিজের device গুলো যোগ — ধরো ২-৩ গুণ। Receipt এর "delivered" device প্রতি, "read" user প্রতি। Heartbeat connection এর সাথে বাড়ে।
+(খ) Connection: চারটা device সবসময় online না, তবে ধরুন online device গড়ে ১.৫ গুণ: ১৫ কোটি থেকে ~২২ কোটি, memory আর gateway ১.৫ গুণ। Delivery: প্রাপকের device সংখ্যা দিয়ে গুণ, আর sender এর নিজের device গুলো যোগ — ধরুন ২-৩ গুণ। Receipt এর "delivered" device প্রতি, "read" user প্রতি। Heartbeat connection এর সাথে বাড়ে।
 
 (গ) "নতুন device এ পুরো history" মানে server এ history **রাখতেই হবে** — inbox এর মডেল (পৌঁছালে মুছে ফেলা) আর চলে না, কারণ পৌঁছানো এখন device প্রতি, আর নতুন device এর জন্য সব কিছুই "না-পৌঁছানো"। মানে ১.২ এর ৩ TB থেকে ১৪.৬ PB এর দিকে। বিকল্প: history এর মালিক পুরনো device (ফোন), আর নতুন device ফোনের কাছ থেকে history টেনে নেয় (ফোন online থাকতে হবে) বা user এর নিজের cloud backup থেকে। এটা product আর privacy এর সিদ্ধান্ত (end-to-end encryption থাকলে server এর কপি পড়তে পারে না, তাই প্রতিটা device এর জন্য আলাদা encrypt করা কপি বা device থেকে device এ হস্তান্তর)। যেকোনো পথে, multi-device আর "server এ history নেই" একসাথে থাকা কঠিন।
 
@@ -339,7 +339,7 @@ Chat system interview এর সবচেয়ে প্রচলিত "real-t
 
 (খ) প্রতিটা reconnect এ: TLS (gateway এর CPU), auth (token যাচাই — JWT হলে শুধু CPU, প্রতিবার auth service এ গেলে auth service), registry লেখা (Redis), আর sync (store এ প্রতিটা conversation এর range scan)। সবচেয়ে আগে ভাঙে সাধারণত **auth service** (যদি প্রতিটা reconnect তাকে ডাকে) আর **sync** (চার মিনিটের জমা message, প্রতিটা user এর কয়েক ডজন conversation, একসাথে)। Sync এর চাপ কমাতে: client শুধু সাম্প্রতিক conversation গুলো আগে sync করে, বাকিগুলো পরে বা chat খুললে।
 
-(গ) প্রস্তুতি: (১) client এর reconnect এর জানালা server থেকে নিয়ন্ত্রণযোগ্য (একটা config, বা gateway reconnect এর সময় "X s পরে আসো" বলে দেয়) — ঘটনার আকার অনুযায়ী বাড়ানো যায়; (২) auth এ resumption token: ছোট মেয়াদের একটা signed token যা gateway নিজে যাচাই করতে পারে, auth service ছাড়া (10.5 এর JWT এর মতো), আর TLS session resumption, যাতে handshake সস্তা হয়; (৩) একটা game day (10.3): একটা AZ এর gateway গুলোকে ইচ্ছা করে কেটে দেখা, আর মাপা কতক্ষণে সবাই ফেরে আর কোন service প্রথমে লাল হয়। সাথে প্রবেশের পথে admission control (11.2 এর limiter, connection এর হার ধরে) যাতে প্রত্যাখ্যান সস্তা হয়।
+(গ) প্রস্তুতি: (১) client এর reconnect এর জানালা server থেকে নিয়ন্ত্রণযোগ্য (একটা config, বা gateway reconnect এর সময় "X s পরে আসুন" বলে দেয়) — ঘটনার আকার অনুযায়ী বাড়ানো যায়; (২) auth এ resumption token: ছোট মেয়াদের একটা signed token যা gateway নিজে যাচাই করতে পারে, auth service ছাড়া (10.5 এর JWT এর মতো), আর TLS session resumption, যাতে handshake সস্তা হয়; (৩) একটা game day (10.3): একটা AZ এর gateway গুলোকে ইচ্ছা করে কেটে দেখা, আর মাপা কতক্ষণে সবাই ফেরে আর কোন service প্রথমে লাল হয়। সাথে প্রবেশের পথে admission control (11.2 এর limiter, connection এর হার ধরে) যাতে প্রত্যাখ্যান সস্তা হয়।
 
 **প্রশ্ন ৩:**
 
@@ -361,19 +361,19 @@ Chat system interview এর সবচেয়ে প্রচলিত "real-t
 
 `estimate` connection, memory, gateway, heartbeat, fan-out, receipt, storage আর presence হিসাব করে। `gateway` routing এর চারটা পথ তুলনা করে, একটা gateway এর crash এর পরে চারটা reconnect নীতি চালায় (প্রত্যাখ্যানের খরচ সহ), আর registry পুরনো থাকার সময় হারানো message গোনে। `delivery` ৩% packet হারানো network এ তিনটা delivery নীতি, আর group এ চারটা ক্রমের নিয়ম মাপে। `smoke` দুটো আসল WebSocket gateway, একটা `ChatCore` আর তিনজন user দিয়ে ১১টা ধাপ চালায়।
 
-**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; তিনটা model দুবার করে আর smoke তিনবার, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, তোমার। **Estimation এর input ধরে নেওয়া** (DAU, message, group, connection প্রতি ২০ KB, gateway প্রতি ৫ লাখ connection), মাপা না। Reconnect এর model এ fleet এর ক্ষমতা (২০,০০০/s) আর প্রত্যাখ্যানের খরচ (০.২) ধরে নেওয়া; collapse এর সীমা এই দুটোর উপর নির্ভর করে। Pub/sub এর অংশ হিসাব, simulation না; Redis Cluster এর `PUBLISH` আর `SPUBLISH` এর আচরণ documentation থেকে। Network আর ঘড়ির মডেল synthetic। `smoke` এর registry আর store in-memory, Redis বা database না; push notification শুধু গোনা। WhatsApp এর inbox এর নকশা, Messenger এর HBase আর Discord এর Cassandra/ScyllaDB এর কথা তাদের প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। **যা মাপা হয়নি:** আসল connection প্রতি memory, gateway এর আসল ক্ষমতা, mobile network, APNs/FCM, multi-device, encryption।
+**সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit`, ESLint আর Prettier clean; তিনটা model দুবার করে আর smoke তিনবার, output byte ধরে হুবহু এক। README এর experiment ১–৪ চালানো হয়েছে, সংখ্যা lesson এ; ৫ code বদলানোর কাজ, আপনার। **Estimation এর input ধরে নেওয়া** (DAU, message, group, connection প্রতি ২০ KB, gateway প্রতি ৫ লাখ connection), মাপা না। Reconnect এর model এ fleet এর ক্ষমতা (২০,০০০/s) আর প্রত্যাখ্যানের খরচ (০.২) ধরে নেওয়া; collapse এর সীমা এই দুটোর উপর নির্ভর করে। Pub/sub এর অংশ হিসাব, simulation না; Redis Cluster এর `PUBLISH` আর `SPUBLISH` এর আচরণ documentation থেকে। Network আর ঘড়ির মডেল synthetic। `smoke` এর registry আর store in-memory, Redis বা database না; push notification শুধু গোনা। WhatsApp এর inbox এর নকশা, Messenger এর HBase আর Discord এর Cassandra/ScyllaDB এর কথা তাদের প্রকাশিত লেখা থেকে, এখানে যাচাই করা না। **যা মাপা হয়নি:** আসল connection প্রতি memory, gateway এর আসল ক্ষমতা, mobile network, APNs/FCM, multi-device, encryption।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `gateway` চালানোর **আগে** লিখে ফেলো: পাঁচ লাখ client "সাথে সাথে, ব্যর্থ হলে ১ s পরে" নীতিতে, ক্ষমতা ২০,০০০/s — কতক্ষণে সবাই ফিরবে? তারপর চালিয়ে মেলাও। ভুলটা কোথায় ছিল?
+1. **আগে অনুমান:** `gateway` চালানোর **আগে** লিখে ফেলুন: পাঁচ লাখ client "সাথে সাথে, ব্যর্থ হলে ১ s পরে" নীতিতে, ক্ষমতা ২০,০০০/s — কতক্ষণে সবাই ফিরবে? তারপর চালিয়ে মেলান। ভুলটা কোথায় ছিল?
 
-2. **নিজের ক্ষমতা:** `CAPACITY=50000 npm run gateway` আর `CAPACITY=5000`। কোন নীতিগুলো collapse এর বাইরে আসে, আর কোথায় সীমাটা? প্রত্যাখ্যানের খরচ আর চাহিদা দিয়ে collapse এর শর্তটা একটা সূত্রে লেখো।
+2. **নিজের ক্ষমতা:** `CAPACITY=50000 npm run gateway` আর `CAPACITY=5000`। কোন নীতিগুলো collapse এর বাইরে আসে, আর কোথায় সীমাটা? প্রত্যাখ্যানের খরচ আর চাহিদা দিয়ে collapse এর শর্তটা একটা সূত্রে লিখুন।
 
-3. **Heartbeat এর দাম:** `HEARTBEAT_S=10 npm run estimate` আর `HEARTBEAT_S=120`। প্রতিটার জন্য একটা কারণ লেখো কেন সেটা ভুল হতে পারে (battery/CPU বনাম মরা connection ধরতে দেরি আর NAT)।
+3. **Heartbeat এর দাম:** `HEARTBEAT_S=10 npm run estimate` আর `HEARTBEAT_S=120`। প্রতিটার জন্য একটা কারণ লিখুন কেন সেটা ভুল হতে পারে (battery/CPU বনাম মরা connection ধরতে দেরি আর NAT)।
 
-4. **Code বদলানো:** README এর experiment ৫ (typing indicator)। তারপর `src/chat.ts` এ group এর জন্য "read" receipt কে জমানো করো: প্রতিটা read এ sender কে না পাঠিয়ে, sender যখন চাইবে তখন cursor থেকে "কতজন পড়েছে" গুনে দাও। `smoke` এ একটা ধাপ যোগ করো যা দেখায় কতগুলো frame বাঁচল।
+4. **Code বদলানো:** README এর experiment ৫ (typing indicator)। তারপর `src/chat.ts` এ group এর জন্য "read" receipt কে জমানো করুন: প্রতিটা read এ sender কে না পাঠিয়ে, sender যখন চাইবে তখন cursor থেকে "কতজন পড়েছে" গুনে দিন। `smoke` এ একটা ধাপ যোগ করুন যা দেখায় কতগুলো frame বাঁচল।
 
-5. **Design অংশ:** এই chat এর "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) requirement, history এর সিদ্ধান্ত সহ; (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত; (গ) gateway, registry, store, push এর ছবি; (ঘ) delivery আর ক্রমের নিয়ম, একটা message এর পুরো যাত্রা (পাঠানো থেকে নীল টিক) ধাপে ধাপে; (ঙ) একটা AZ এর বিভ্রাটের runbook: reconnect এর জানালা, admission control, আর কোন তিনটা metric দেখবে।
+5. **Design অংশ:** এই chat এর "এক পাতার design doc", Lesson 1.2 এর পাঁচ ধাপে: (ক) requirement, history এর সিদ্ধান্ত সহ; (খ) পাঁচটা সংখ্যা আর প্রতিটা থেকে একটা সিদ্ধান্ত; (গ) gateway, registry, store, push এর ছবি; (ঘ) delivery আর ক্রমের নিয়ম, একটা message এর পুরো যাত্রা (পাঠানো থেকে নীল টিক) ধাপে ধাপে; (ঙ) একটা AZ এর বিভ্রাটের runbook: reconnect এর জানালা, admission control, আর কোন তিনটা metric দেখবেন।
 
 ---
 
@@ -397,7 +397,7 @@ Format-Preserving Permutation, 301 / 302 Redirect, Link Enumeration, Quota (ব�
 Approximate Sync, Token Lease, Key Splitting, Degraded Mode (Local Fallback Limit), Connection Gateway,
 Session Registry, Congestion Collapse (Reconnect Storm), Store-then-Push (Inbox + Sync), Delivery Receipt,
 Per-Conversation Sequence (Sequencer), Presence
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 11.4 — Case Study: Design a News Feed (Facebook/Twitter-style)
 =======================
 ```
@@ -408,4 +408,4 @@ Next: 11.4 — Case Study: Design a News Feed (Facebook/Twitter-style)
 
 আজকের সুতোটা: **real-time system এর খরচ খোলা connection এ, আর তার নিশ্চয়তা আসে store আর sequence থেকে, push থেকে না।** Gateway শুধু connection ধরে, registry বলে কে কোথায়, আর message আগে টেকসই জায়গায় যায়, তারপর দ্রুত পথে। Push হারাতে পারে, দুবার যেতে পারে, ভুল জায়গায় যেতে পারে; seq আর sync সব ঠিক করে। আর একটা stateful fleet এর সবচেয়ে বিপজ্জনক মুহূর্ত কোনো একটা server এর মৃত্যু না, তার পরের পাঁচ মিনিট, যখন সবাই একসাথে ফিরতে চায়।
 
-রেডি হলে `next` লিখো — **Lesson 11.4: Design a News Feed (Facebook/Twitter-style)** এ যাব। আজকের প্রশ্ন ৩ এর বড় group সেখানে পুরো system হয়ে ফিরবে: একজন পোস্ট করলে তার এক কোটি follower এর feed এ কীভাবে পৌঁছাবে? প্রতিটা follower এর feed এ লেখা (fan-out on write), নাকি পড়ার সময় সবার পোস্ট জোড়া (fan-out on read)? একজন celebrity আর একজন সাধারণ user এর জন্য একই উত্তর কেন চলে না, আর ranking কোথায় বসে?
+রেডি হলে `next` লিখুন — **Lesson 11.4: Design a News Feed (Facebook/Twitter-style)** এ যাব। আজকের প্রশ্ন ৩ এর বড় group সেখানে পুরো system হয়ে ফিরবে: একজন পোস্ট করলে তার এক কোটি follower এর feed এ কীভাবে পৌঁছাবে? প্রতিটা follower এর feed এ লেখা (fan-out on write), নাকি পড়ার সময় সবার পোস্ট জোড়া (fan-out on read)? একজন celebrity আর একজন সাধারণ user এর জন্য একই উত্তর কেন চলে না, আর ranking কোথায় বসে?

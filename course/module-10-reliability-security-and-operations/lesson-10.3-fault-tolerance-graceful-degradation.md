@@ -2,15 +2,15 @@
 
 **Module 10 — Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 2.5):** একটা `POST` এর সাথে `Idempotency-Key` header পাঠানো হয় কেন — client কখন একই key দিয়ে request টা আবার পাঠায়, আর server সেটা চিনে কী করে? আজকের matrix এ একটা চিহ্ন দেখবে, `✗!` — "লেখা হয়ে গেছে, কিন্তু user error দেখেছে"। সেই মুহূর্তে user ঠিক কী করে, আর 2.5 এর key না থাকলে তার ফল কী, সেটা মাথায় রেখে পড়ো।
+> **Spaced Repetition (Lesson 2.5):** একটা `POST` এর সাথে `Idempotency-Key` header পাঠানো হয় কেন — client কখন একই key দিয়ে request টা আবার পাঠায়, আর server সেটা চিনে কী করে? আজকের matrix এ একটা চিহ্ন দেখবেন, `✗!` — "লেখা হয়ে গেছে, কিন্তু user error দেখেছে"। সেই মুহূর্তে user ঠিক কী করে, আর 2.5 এর key না থাকলে তার ফল কী, সেটা মাথায় রেখে পড়ুন।
 
 **Prerequisite:** Lesson 1.5 (Availability, error budget), Lesson 1.6 (SPOF), Lesson 4.4 (Fail-safe cache), Lesson 7.4 (Retry storm, load shedding), Lesson 7.5 (Outbox), Lesson 8.1 (Failure domain), Lesson 9.4 (Circuit breaker, bulkhead, fail fast), Lesson 10.2 (Fail open)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা system এর প্রতিটা user journey এর **hard আর soft dependency** আলাদা করতে পারবে, তাদের গুণফল থেকে journey এর availability হিসাব করতে পারবে — আর বলতে পারবে কেন redundancy এর সূত্র (`1 − (1 − a)^k`) বাস্তবে প্রায়ই হাজার গুণ ভুল
-2. Failure এর আগেই degraded অবস্থা নকশা করতে পারবে — কোন অংশ বাদ যাবে, কোনটা পুরনো data দেখাবে, কোনটা পরে হবে, কোনটা স্পষ্টভাবে "এখন না" বলবে; চাপের সময় **brownout** দিয়ে core কাজ বাঁচাতে পারবে; আর control plane মরলেও data plane কীভাবে **statically stable** থাকে সেটা নকশা করতে পারবে
-3. একটা chaos experiment পরিকল্পনা করতে পারবে — steady state, hypothesis, **blast radius**, abort এর শর্ত — আর সংখ্যা দিয়ে বলতে পারবে কেন ছোট blast radius এ একটা control group ছাড়া bug চোখেই পড়ে না
+1. একটা system এর প্রতিটা user journey এর **hard আর soft dependency** আলাদা করতে পারবেন, তাদের গুণফল থেকে journey এর availability হিসাব করতে পারবেন — আর বলতে পারবেন কেন redundancy এর সূত্র (`1 − (1 − a)^k`) বাস্তবে প্রায়ই হাজার গুণ ভুল
+2. Failure এর আগেই degraded অবস্থা নকশা করতে পারবেন — কোন অংশ বাদ যাবে, কোনটা পুরনো data দেখাবে, কোনটা পরে হবে, কোনটা স্পষ্টভাবে "এখন না" বলবে; চাপের সময় **brownout** দিয়ে core কাজ বাঁচাতে পারবেন; আর control plane মরলেও data plane কীভাবে **statically stable** থাকে সেটা নকশা করতে পারবেন
+3. একটা chaos experiment পরিকল্পনা করতে পারবেন — steady state, hypothesis, **blast radius**, abort এর শর্ত — আর সংখ্যা দিয়ে বলতে পারবেন কেন ছোট blast radius এ একটা control group ছাড়া bug চোখেই পড়ে না
 
 **Tier:** 1 — Runnable Code (পাঁচটা deterministic simulation — dependency matrix, redundancy, brownout, static stability, chaos experiment; Docker লাগে না)
 
@@ -52,9 +52,9 @@ flags এর disk ভরা   →    flag পড়তে গিয়ে except
 
 **Fault Tolerance** — system এর একটা অংশে ত্রুটি (**fault**) ঘটলেও সেটাকে user এর দেখা ব্যর্থতায় (**failure**) পৌঁছাতে না দেওয়ার ক্ষমতা; fault ঠেকানো যায় না, কিন্তু fault থেকে failure এর শিকলটা কোথাও ভাঙা যায়।
 
-শিকলটা ভাঙার জায়গা কয়েকটা, আর তুমি আগের lesson গুলোয় সেগুলোর কয়েকটা দেখেছ:
+শিকলটা ভাঙার জায়গা কয়েকটা, আর আপনি আগের lesson গুলোয় সেগুলোর কয়েকটা দেখেছেন:
 
-- **Fault টাকেই লুকানো** — একটা copy মরলে আরেকটা কাজ করে (1.6 এর SPOF সরানো, 5.7 এর replica, 3.4 এর failover)। এটাই redundancy, আর ১.৫ এ দেখবে তার সূত্র কতটা আশাবাদী।
+- **Fault টাকেই লুকানো** — একটা copy মরলে আরেকটা কাজ করে (1.6 এর SPOF সরানো, 5.7 এর replica, 3.4 এর failover)। এটাই redundancy, আর ১.৫ এ দেখবেন তার সূত্র কতটা আশাবাদী।
 - **Error টাকে আটকানো** — timeout, circuit breaker, bulkhead (9.4)। Error একটা জায়গায় থাকে, ছড়ায় না।
 - **Failure টাকে ছোট করা** — পুরো page এর বদলে একটা অংশ বাদ, ভুল উত্তরের বদলে পুরনো উত্তর। এটাই **graceful degradation** (১.৪)।
 
@@ -86,7 +86,7 @@ email                        ✓           ✓           ✓           ✓      
 
 1. **`flags` এর পুরো সারি ✗।** সবচেয়ে "অগুরুত্বপূর্ণ" service টা সাতটা journey এর প্রতিটার hard dependency। কারণ code টা এমন: `const enabled = await flags.get('activity-panel')` — কোনো default নেই, কোনো try নেই। Flag টা নিজে একটা soft জিনিস নিয়ন্ত্রণ করে (একটা panel দেখাবে কিনা), কিন্তু তাকে **পড়ার** পদ্ধতি পুরো page কে hard বানিয়েছে। শনিবার রাত।
 2. **`billing` board এর hard dependency।** Board খোলা billing এর সাথে কথা বলে plan এর badge দেখাতে ("Pro")। 9.4 এ "billing মরলেও board খুলবে" লক্ষ্য লেখা হয়েছিল, bulkhead বসানো হয়েছিল — কিন্তু পরে কেউ এই badge যোগ করেছে, আর সে লক্ষ্যটা জানত না। একটা নিয়ম যেটা কেউ পরীক্ষা করে না, সেটা কয়েক মাসে ক্ষয়ে যায়।
-3. **দুটো `✗!` — সবচেয়ে বিপজ্জনক ঘর।** Task তৈরির code: DB তে লেখো, commit, তারপর cache invalidate (`redis-cache`)। Cache মরা থাকলে invalidate exception ছোড়ে — **commit এর পরে**। User দেখে "কিছু ভুল হয়েছে", আবার চাপে, আর এখন দুটো একই task। Comment এর code একই ভাবে commit এর পরে সরাসরি queue তে job দেয়। 2.5 এর idempotency key এখানে user কে বাঁচাত (দ্বিতীয় চাপ চেনা যেত), কিন্তু আসল রোগ হলো commit এর পরের একটা অদরকারি কাজকে hard বানানো। 7.5 এর dual write এর এটা আরেক চেহারা।
+3. **দুটো `✗!` — সবচেয়ে বিপজ্জনক ঘর।** Task তৈরির code: DB তে লিখুন, commit, তারপর cache invalidate (`redis-cache`)। Cache মরা থাকলে invalidate exception ছোড়ে — **commit এর পরে**। User দেখে "কিছু ভুল হয়েছে", আবার চাপে, আর এখন দুটো একই task। Comment এর code একই ভাবে commit এর পরে সরাসরি queue তে job দেয়। 2.5 এর idempotency key এখানে user কে বাঁচাত (দ্বিতীয় চাপ চেনা যেত), কিন্তু আসল রোগ হলো commit এর পরের একটা অদরকারি কাজকে hard বানানো। 7.5 এর dual write এর এটা আরেক চেহারা।
 4. **`email` এর পুরো সারি ✓।** কোনো user-facing journey email এর জন্য অপেক্ষা করে না — 7.1 থেকে email একটা background job। Async মানে এখানে সরাসরি fault tolerance: provider মরলে email দেরিতে যায়, কেউ ব্যর্থ হয় না।
 5. **`redis-limiter` login এর ✗ ইচ্ছাকৃত।** 9.5 এর সিদ্ধান্ত: limiter মরলে login এ fail closed — brute force এর দরজা খুলে দেওয়ার চেয়ে কয়েক মিনিট login বন্ধ ভালো। একটা `✗` সবসময় bug না। Matrix এর কাজ হলো প্রতিটা `✗` কে একটা **সিদ্ধান্ত** বানানো, দুর্ঘটনা না।
 
@@ -119,7 +119,7 @@ share-link                  1   99.500%    99.507%  2,592 min                0  
 
 এখান থেকে সবচেয়ে ব্যবহারিক নিয়ম: **availability বাড়ানোর সবচেয়ে সস্তা পথ প্রায়ই dependency গুলোকে আরও নির্ভরযোগ্য করা না, journey থেকে hard dependency সরানো।** `flags` কে ৯৯.৫% থেকে ৯৯.৯৯% এ নিতে লাগবে replication, on-call, monitoring। তাকে soft বানাতে লাগে একটা default আর একটা try।
 
-(একটা সৎ সতর্কতা: এই simulation এ শুধু এই নয়টা dependency আছে। Gateway, network, DNS, app নিজে — বাদ। তাই "১০০.০০০%" মানে "এই নয়টার কোনো একক বা যৌথ outage এ board ভাঙেনি", পুরো TaskFlow এর availability না। আর dependency গুলো স্বাধীনভাবে মরছে ধরা হয়েছে — ১.৫ এ দেখবে সেই ধারণাটা কোথায় ভাঙে।)
+(একটা সৎ সতর্কতা: এই simulation এ শুধু এই নয়টা dependency আছে। Gateway, network, DNS, app নিজে — বাদ। তাই "১০০.০০০%" মানে "এই নয়টার কোনো একক বা যৌথ outage এ board ভাঙেনি", পুরো TaskFlow এর availability না। আর dependency গুলো স্বাধীনভাবে মরছে ধরা হয়েছে — ১.৫ এ দেখবেন সেই ধারণাটা কোথায় ভাঙে।)
 
 ### ১.৪ Graceful Degradation — ভাঙার আগে ঠিক করা "খারাপ কিন্তু চলছে"
 
@@ -147,7 +147,7 @@ flags                        ✓           ✓           ✓           ✓      
 | **পরে করা**             | Billing মরা → task তৈরি হয়, quota `quota_pending` (9.4); comment এর email outbox এ (7.5)                  | কিছুক্ষণ নিয়ম নরম, পরে মিলিয়ে নিতে হয় (reconcile job)                            |
 | **স্পষ্টভাবে "এখন না"** | Replica মরা → search এ "search এখন পাওয়া যাচ্ছে না", বাকি app চলে; plan upgrade এ কোনো fallback নেই (9.4) | User একটা কাজ করতে পারে না — কিন্তু সে জানে কেন, আর বাকি সব চলে                     |
 
-খেয়াল করো search এর `✗` নতুন code এ ও আছে। Replica মরলে search কে primary তে পাঠানো যেত — কিন্তু full-text search দামি query (8.3), আর primary তখন task লেখা সামলাচ্ছে। একটা ঐচ্ছিক feature কে বাঁচাতে গিয়ে core লেখার পথ ডুবিয়ে দেওয়া হলো fault কে ছড়িয়ে দেওয়া। **কোনটা degrade করবে, কোনটা স্পষ্টভাবে বন্ধ করবে — এটা product আর engineering এর যৌথ সিদ্ধান্ত**, আর এর উত্তর আসে "user এর কাছে কোন কাজটা আসল" থেকে।
+খেয়াল করুন search এর `✗` নতুন code এ ও আছে। Replica মরলে search কে primary তে পাঠানো যেত — কিন্তু full-text search দামি query (8.3), আর primary তখন task লেখা সামলাচ্ছে। একটা ঐচ্ছিক feature কে বাঁচাতে গিয়ে core লেখার পথ ডুবিয়ে দেওয়া হলো fault কে ছড়িয়ে দেওয়া। **কোনটা degrade করবেন, কোনটা স্পষ্টভাবে বন্ধ করবেন — এটা product আর engineering এর যৌথ সিদ্ধান্ত**, আর এর উত্তর আসে "user এর কাছে কোন কাজটা আসল" থেকে।
 
 **ধীর, মরার চেয়ে খারাপ।** Matrix এর অংশ গ একই টেবিল, কিন্তু dependency মরা না, ৩ সেকেন্ডে উত্তর দেয়:
 
@@ -229,8 +229,8 @@ Load shedding আর brownout একই সমস্যার দুটো উ�
 ```
 ক্ষমতা = request এর সংখ্যা × প্রতি request এর খরচ
 
-load shedding:  সংখ্যা কমাও  →  কেউ কেউ কিছুই পায় না, বাকিরা সব পায়
-brownout:       খরচ কমাও    →  সবাই কিছু পায়, কেউ সব পায় না
+load shedding:  সংখ্যা কমান  →  কেউ কেউ কিছুই পায় না, বাকিরা সব পায়
+brownout:       খরচ কমান    →  সবাই কিছু পায়, কেউ সব পায় না
 ```
 
 Brownout এর ধাপগুলো মিনিট ধরে (`npm run brownout`, অংশ খ) — ০ মানে পুরো page, ৩ মানে শুধু task তালিকা:
@@ -245,7 +245,7 @@ minute     req/s  avg level  brownout p99  nothing: p99  nothing: on time
 12           603      0.00         74 ms             —             0.0%
 ```
 
-Controller সরল: প্রতি সেকেন্ডে গড় queue এর অপেক্ষা ৫০ ms এর বেশি হলে এক ধাপ ওঠো, ১০ সেকেন্ড শান্ত থাকলে এক ধাপ নামো। ভিড়ের সময় গড় ধাপ ~১.৪৫ — "এরকম আরও board" প্রায় সবসময় বন্ধ, activity panel মাঝে মাঝে। আর ভিড় চলে গেলে নিজে থেকেই ধাপ ০, পুরো page ফেরে। কেউ রাত জাগেনি, কেউ flag খোঁজেনি।
+Controller সরল: প্রতি সেকেন্ডে গড় queue এর অপেক্ষা ৫০ ms এর বেশি হলে এক ধাপ উঠুন, ১০ সেকেন্ড শান্ত থাকলে এক ধাপ নামুন। ভিড়ের সময় গড় ধাপ ~১.৪৫ — "এরকম আরও board" প্রায় সবসময় বন্ধ, activity panel মাঝে মাঝে। আর ভিড় চলে গেলে নিজে থেকেই ধাপ ০, পুরো page ফেরে। কেউ রাত জাগেনি, কেউ flag খোঁজেনি।
 
 তিনটা সৎ সীমা:
 
@@ -283,12 +283,12 @@ last-known-good + snapshot              0.24%               20.0%             1 
 
 - **প্রতি request এ জিজ্ঞেস:** outage এর পুরো ৪৫ মিনিট সব ব্যর্থ।
 - **TTL cache (TaskFlow এর আসল নকশা):** মাত্র ৫ মিনিট কেনে, তারপর সবাই একসাথে মরে — ঠিক শনিবার ২:১৫। Cache এর মেয়াদ শেষ হলে "নতুন মান না পেলে error" — এই নিয়মটাই সমস্যা, TTL এর দৈর্ঘ্য না। Experiment ১: TTL ৩০ মিনিট করলে ক্ষতি ২২.৯৬% — কম, কিন্তু ৪৫ মিনিটের outage এ শেষ ১৫ মিনিট একই খাদ।
-- **Last-known-good:** মান না পেলে পুরনো মানই চালাও, যত পুরনোই হোক। চলমান instance গুলো বেঁচে গেল — কিন্তু তবু ১২%। কারণ শেষ কলামের আগেরটা: **৪৬৩টা ব্যর্থ boot।** Crash করা instance আর autoscaler এর নতুন instance এর কাছে কোনো "শেষ জানা মান" নেই — তারা জন্মই নিচ্ছে outage এর মধ্যে। Boot এ flag লাগে, পায় না, crash, ৩০ সেকেন্ড পরে আবার — শনিবার ২:৩০ এর crash loop। আর ঠিক ভিড়ের সময় (মিনিট ৫০) ক্ষমতা লাগছিল, কিন্তু নতুন instance উঠতে পারছিল না।
+- **Last-known-good:** মান না পেলে পুরনো মানই চালান, যত পুরনোই হোক। চলমান instance গুলো বেঁচে গেল — কিন্তু তবু ১২%। কারণ শেষ কলামের আগেরটা: **৪৬৩টা ব্যর্থ boot।** Crash করা instance আর autoscaler এর নতুন instance এর কাছে কোনো "শেষ জানা মান" নেই — তারা জন্মই নিচ্ছে outage এর মধ্যে। Boot এ flag লাগে, পায় না, crash, ৩০ সেকেন্ড পরে আবার — শনিবার ২:৩০ এর crash loop। আর ঠিক ভিড়ের সময় (মিনিট ৫০) ক্ষমতা লাগছিল, কিন্তু নতুন instance উঠতে পারছিল না।
 - **Last-known-good + snapshot:** প্রতিটা সফল fetch এর পরে মানগুলো disk এ (বা deploy এর সময় image এর ভেতরে) লিখে রাখা; boot এ control plane না পেলে snapshot থেকে শুরু। ব্যর্থ boot শূন্য, ব্যর্থ request ০.২৪% — আর সেই ০.২৪% এসেছে autoscaler এর এক মিনিটের boot সময় থেকে, যেটা চারটা নকশাতেই আছে।
 
-**দামটা সৎভাবে — শেষ কলাম:** last-known-good মানে outage এর পুরো সময় config **৪৫ মিনিট পুরনো**। সাধারণত এটা কোনো সমস্যা না — flag তিন দিনে একবার বদলায়। কিন্তু একটা জিনিস হারায়: **kill switch।** ধরো outage এর মধ্যে একটা নতুন feature bug করছে, আর তাকে flag দিয়ে বন্ধ করতে চাও — পারবে না, কারণ flag বদলানোর যন্ত্রটাই মরা। Static stability মানে "বদলাতে না পারলেও চলতে পারা" — দুটোর মধ্যে প্রথমটাই ছাড়তে হয়। তাই গুরুত্বপূর্ণ kill switch গুলোর জন্য একটা আলাদা, সরল পথ রাখা ভালো (ধরো একটা environment variable, যেটা deploy দিয়ে বদলানো যায়)।
+**দামটা সৎভাবে — শেষ কলাম:** last-known-good মানে outage এর পুরো সময় config **৪৫ মিনিট পুরনো**। সাধারণত এটা কোনো সমস্যা না — flag তিন দিনে একবার বদলায়। কিন্তু একটা জিনিস হারায়: **kill switch।** ধরুন outage এর মধ্যে একটা নতুন feature bug করছে, আর তাকে flag দিয়ে বন্ধ করতে চান — পারবেন না, কারণ flag বদলানোর যন্ত্রটাই মরা। Static stability মানে "বদলাতে না পারলেও চলতে পারা" — দুটোর মধ্যে প্রথমটাই ছাড়তে হয়। তাই গুরুত্বপূর্ণ kill switch গুলোর জন্য একটা আলাদা, সরল পথ রাখা ভালো (ধরুন একটা environment variable, যেটা deploy দিয়ে বদলানো যায়)।
 
-এই ধারণাটা TaskFlow এর আরও কয়েক জায়গায় লুকিয়ে আছে, আর সবচেয়ে বিপজ্জনকটা Module 5 থেকে: **Patroni + etcd।** Patroni primary কে primary রাখে etcd তে একটা lease ধরে (6.1, 6.2)। Patroni এর documentation অনুযায়ী, etcd তে পৌঁছাতে না পারলে Patroni ধরে নেয় সে হয়তো partition এর ভুল দিকে, আর **primary কে নিজেই read-only করে দেয়** — split brain এড়াতে। অর্থাৎ etcd (control plane) এর একটা outage পুরো database এর লেখা (data plane) বন্ধ করে দেয়, যদিও Postgres নিজে পুরো সুস্থ। নতুন version এ এর জন্য একটা `failsafe_mode` আছে — primary যদি বাকি সব Patroni সদস্যের সাথে সরাসরি কথা বলতে পারে, তাহলে etcd ছাড়াই primary থাকে (এখানে যাচাই করা না; version আর setting দেখে নিও)। 6.1 এর split brain এর ভয় আর আজকের static stability এর চাহিদা এখানে সরাসরি মুখোমুখি — আর এটা ঠিক সেই ধরনের trade-off যেটা আগে জানা থাকা দরকার, রাত ২টায় না।
+এই ধারণাটা TaskFlow এর আরও কয়েক জায়গায় লুকিয়ে আছে, আর সবচেয়ে বিপজ্জনকটা Module 5 থেকে: **Patroni + etcd।** Patroni primary কে primary রাখে etcd তে একটা lease ধরে (6.1, 6.2)। Patroni এর documentation অনুযায়ী, etcd তে পৌঁছাতে না পারলে Patroni ধরে নেয় সে হয়তো partition এর ভুল দিকে, আর **primary কে নিজেই read-only করে দেয়** — split brain এড়াতে। অর্থাৎ etcd (control plane) এর একটা outage পুরো database এর লেখা (data plane) বন্ধ করে দেয়, যদিও Postgres নিজে পুরো সুস্থ। নতুন version এ এর জন্য একটা `failsafe_mode` আছে — primary যদি বাকি সব Patroni সদস্যের সাথে সরাসরি কথা বলতে পারে, তাহলে etcd ছাড়াই primary থাকে (এখানে যাচাই করা না; version আর setting দেখে নেবেন)। 6.1 এর split brain এর ভয় আর আজকের static stability এর চাহিদা এখানে সরাসরি মুখোমুখি — আর এটা ঠিক সেই ধরনের trade-off যেটা আগে জানা থাকা দরকার, রাত ২টায় না।
 
 (Static stability শব্দটা Amazon এর Builders' Library এর একটা লেখা থেকে পরিচিত — "Static stability using Availability Zones"; সেখানে উদাহরণ EC2: control plane মরলে নতুন instance চালানো যায় না, কিন্তু চলমান instance চলতে থাকে। এখানে যাচাই করা না।)
 
@@ -298,29 +298,29 @@ last-known-good + snapshot              0.24%               20.0%             1 
 
 Matrix টা exercise এ code চালিয়ে বের হয়েছে। কিন্তু production এর code exercise এর code না। Production এ আছে আসল timeout (যেটা হয়তো কেউ ORM এর default এ রেখে দিয়েছে), আসল retry (library এর ভেতরে লুকানো), আসল config, আর এমন dependency যেটা কেউ তালিকায় লেখেনি — ঠিক `flags` এর মতো, বা board এর plan badge এর মতো। Code review এ এগুলো ধরা পড়ে না, কারণ প্রতিটা আলাদাভাবে নিরীহ দেখায়। ধরা পড়ে যখন dependency টা সত্যিই মরে।
 
-তাহলে দুটো পথ: অপেক্ষা করো কবে সে নিজে মরবে (শনিবার রাত ২টা, কেউ প্রস্তুত না), নাকি **নিজে মারো** — মঙ্গলবার দুপুর ২টায়, সবাই অফিসে, rollback প্রস্তুত, আর ছোট পরিসরে।
+তাহলে দুটো পথ: অপেক্ষা করুন কবে সে নিজে মরবে (শনিবার রাত ২টা, কেউ প্রস্তুত না), নাকি **নিজে মারুন** — মঙ্গলবার দুপুর ২টায়, সবাই অফিসে, rollback প্রস্তুত, আর ছোট পরিসরে।
 
 **Chaos Engineering** — production system এ ইচ্ছা করে, নিয়ন্ত্রিতভাবে fault ঢুকিয়ে (একটা dependency মারা, ধীর করা, network কাটা) পরীক্ষা করা যে system তার স্বাভাবিক আচরণ (**steady state**) ধরে রাখে কিনা; লক্ষ্য দুর্বলতা খুঁজে বের করা — user রা খোঁজার আগে।
 
 এটা "এলোমেলো জিনিস ভেঙে দেখা" না। এটা একটা experiment, বিজ্ঞানের অর্থে:
 
-1. **Steady state ঠিক করো** — একটা মাপা যায় এমন সংখ্যা যা "system ঠিক আছে" বোঝায়, ব্যবসার ভাষায়: board খোলার সফলতা ৯৯.৯৫%, p99 ৩০০ ms। CPU বা memory না — user কী পাচ্ছে।
-2. **Hypothesis লেখো** — "billing ২ সেকেন্ড ধীর হলে board খোলার সফলতা ৯৯.৯% এর উপরে থাকবে, p99 ৪০০ ms এর নিচে, আর শুধু plan badge লুকাবে।" এটা matrix এর একটা ঘর, এখন production এর জন্য দাবি হিসেবে।
-3. **Fault ঢোকাও, ছোট পরিসরে** — সব traffic এ না, একটা ভগ্নাংশে (১.৯)।
-4. **তুলনা করো, আর থামার নিয়ম আগে লেখো** — steady state ভাঙলে experiment সাথে সাথে বন্ধ, স্বয়ংক্রিয়ভাবে।
-5. **যা পেলে সেটা ঠিক করো, তারপর experiment টা নিয়মিত চালাও** — একবার পাস করা নকশা পরের মাসে কেউ একটা badge যোগ করলেই ভাঙে (১.২ এর পাঠ)।
+1. **Steady state ঠিক করুন** — একটা মাপা যায় এমন সংখ্যা যা "system ঠিক আছে" বোঝায়, ব্যবসার ভাষায়: board খোলার সফলতা ৯৯.৯৫%, p99 ৩০০ ms। CPU বা memory না — user কী পাচ্ছে।
+2. **Hypothesis লিখুন** — "billing ২ সেকেন্ড ধীর হলে board খোলার সফলতা ৯৯.৯% এর উপরে থাকবে, p99 ৪০০ ms এর নিচে, আর শুধু plan badge লুকাবে।" এটা matrix এর একটা ঘর, এখন production এর জন্য দাবি হিসেবে।
+3. **Fault ঢোকান, ছোট পরিসরে** — সব traffic এ না, একটা ভগ্নাংশে (১.৯)।
+4. **তুলনা করুন, আর থামার নিয়ম আগে লিখুন** — steady state ভাঙলে experiment সাথে সাথে বন্ধ, স্বয়ংক্রিয়ভাবে।
+5. **যা পেলে সেটা ঠিক করুন, তারপর experiment টা নিয়মিত চালান** — একবার পাস করা নকশা পরের মাসে কেউ একটা badge যোগ করলেই ভাঙে (১.২ এর পাঠ)।
 
 এই ধাপগুলো Netflix এর engineer দের লেখা "Principles of Chaos Engineering" (principlesofchaos.org) এর মূল কথা: steady state ঘিরে hypothesis, বাস্তব ঘটনার মতো fault, production এ চালানো, স্বয়ংক্রিয় ও নিয়মিত চালানো, আর **blast radius ছোট রাখা**। Netflix এর Chaos Monkey (২০১১ সালের দিকে তাদের blog এ প্রকাশ্যে আসে) production এ এলোমেলো instance মেরে দিত — যাতে প্রতিটা team এর code instance হারানো সহ্য করতে **বাধ্য** হয়। (Netflix এর নিজের প্রকাশিত লেখা থেকে; এখানে যাচাই করা না।)
 
-কেন production এ, staging এ না? Staging এ traffic নকল, data ছোট, config আলাদা, আর dependency গুলোর আচরণ আলাদা — `flags` এর মতো দুর্বলতা সেখানে থাকতেও পারে, না ও পারে। Staging এ শুরু করা যুক্তিসঙ্গত (বড় ভুলগুলো সেখানে সস্তায় ধরা পড়ে), কিন্তু production এর সত্যটা শুধু production জানে। আর যেহেতু production এ সত্যিকারের user আছে, তাই পরের অংশটা — কতজন user কে ঝুঁকিতে ফেলছ — পুরো পদ্ধতির কেন্দ্র।
+কেন production এ, staging এ না? Staging এ traffic নকল, data ছোট, config আলাদা, আর dependency গুলোর আচরণ আলাদা — `flags` এর মতো দুর্বলতা সেখানে থাকতেও পারে, না ও পারে। Staging এ শুরু করা যুক্তিসঙ্গত (বড় ভুলগুলো সেখানে সস্তায় ধরা পড়ে), কিন্তু production এর সত্যটা শুধু production জানে। আর যেহেতু production এ সত্যিকারের user আছে, তাই পরের অংশটা — কতজন user কে ঝুঁকিতে ফেলছেন — পুরো পদ্ধতির কেন্দ্র।
 
-একটা নিচু-প্রযুক্তির রূপ ও আছে: **game day** — একটা নির্ধারিত দিনে team মিলে একটা fault ঢোকায় (ধরো "আজ ২টায় replica বন্ধ করব"), আর সবাই দেখে system আর **মানুষ** কী করে — alert আসে কিনা, runbook কাজ করে কিনা, on-call engineer ঠিক জায়গায় খোঁজে কিনা। শনিবারের ঘটনায় code এর পাশাপাশি মানুষ ও ব্যর্থ হয়েছিল (restart, ২৫ মিনিট `flags` কে কেউ খোঁজেনি) — game day সেটাও পরীক্ষা করে।
+একটা নিচু-প্রযুক্তির রূপ ও আছে: **game day** — একটা নির্ধারিত দিনে team মিলে একটা fault ঢোকায় (ধরুন "আজ ২টায় replica বন্ধ করব"), আর সবাই দেখে system আর **মানুষ** কী করে — alert আসে কিনা, runbook কাজ করে কিনা, on-call engineer ঠিক জায়গায় খোঁজে কিনা। শনিবারের ঘটনায় code এর পাশাপাশি মানুষ ও ব্যর্থ হয়েছিল (restart, ২৫ মিনিট `flags` কে কেউ খোঁজেনি) — game day সেটাও পরীক্ষা করে।
 
-### ১.৯ Blast Radius — কতজনকে ঝুঁকিতে ফেলছ
+### ১.৯ Blast Radius — কতজনকে ঝুঁকিতে ফেলছেন
 
 **Blast Radius** — একটা fault (ইচ্ছাকৃত হোক বা দুর্ঘটনা) সর্বোচ্চ কতটা জুড়ে প্রভাব ফেলতে পারে — কত % traffic, কতজন user, কয়টা service বা region; chaos experiment এ এটাকে ইচ্ছা করে ছোট রাখা হয়, আর নকশায় (cell, AZ, bulkhead) এটাকে ছোট রাখাই fault tolerance এর একটা লক্ষ্য।
 
-ধরো board এর code এ এখনো একটা লুকানো hard dependency আছে (১.২ এর plan badge)। Billing এ ২ সেকেন্ড দেরি ঢোকানো হচ্ছে। Traffic এর কত % এ ঢোকাবে? `npm run chaos` — ৫০০ req/s, স্বাভাবিক ভুল ০.০৫%, দুটো উপায়ে থামানো: **global alarm** (শেষ ৬০ সেকেন্ডে পুরো site এর ভুল ০.২% পেরোলে থামাও — সাধারণ SLO alert), আর **control group** (experiment এর সমান আকারের একটা না-ছোঁয়া দল রাখো, দুই দলের ভুলের পার্থক্য পরিসংখ্যানগতভাবে স্পষ্ট হলে থামাও)। প্রতিটা অবস্থা ২০০ বার, median:
+ধরুন board এর code এ এখনো একটা লুকানো hard dependency আছে (১.২ এর plan badge)। Billing এ ২ সেকেন্ড দেরি ঢোকানো হচ্ছে। Traffic এর কত % এ ঢোকাবেন? `npm run chaos` — ৫০০ req/s, স্বাভাবিক ভুল ০.০৫%, দুটো উপায়ে থামানো: **global alarm** (শেষ ৬০ সেকেন্ডে পুরো site এর ভুল ০.২% পেরোলে থামান — সাধারণ SLO alert), আর **control group** (experiment এর সমান আকারের একটা না-ছোঁয়া দল রাখুন, দুই দলের ভুলের পার্থক্য পরিসংখ্যানগতভাবে স্পষ্ট হলে থামান)। প্রতিটা অবস্থা ২০০ বার, median:
 
 ```
 ── A. A loud bug — 60% of injected requests fail (plan badge on every paid board, no timeout) ──
@@ -345,7 +345,7 @@ blast radius     global: caught      when     harm  control: caught      when   
 - **কিন্তু ছোট blast radius এ global alarm অন্ধ।** সূক্ষ্ম bug, ০.১%: পুরো site এর ভুল ০.০৫% থেকে বেড়ে ~০.০৫৫% — কোনো alarm এর কাছে এটা শব্দ। ৩০ মিনিট চলল, কেউ জানল না, ৪৫ জন user ব্যর্থ। ১% এ ও ৯৮% run এ ধরা পড়েনি, ৪৪৭টা ব্যর্থতা।
 - **Control group ছোট blast radius কে দেখার যোগ্য বানায়।** ০.১% এর দলকে ০.১% এর আরেকটা দলের সাথে তুলনা করলে পার্থক্যটা আর শব্দে ডোবে না — সূক্ষ্ম bug ৬.২ মিনিটে ধরা পড়ে, ৯টা ক্ষতিতে। একই bug ১০০% এ সরাসরি চালালে ২৫০।
 
-তাই সিদ্ধান্তের আকৃতি: **ছোট শুরু করো, কিন্তু ছোট শুরু করলে তুলনা করার মতো একটা control group রাখো।** Netflix এর ChAP (Chaos Automation Platform) এর প্রকাশিত নকশা এই রকমই — experiment আর control, দুটো ছোট, সমান দল (এখানে যাচাই করা না)। আর traffic এর একটা নির্দিষ্ট অংশকে "experiment" এ পাঠানো মানে একটা routing এর যন্ত্র লাগে — 9.2 এর gateway এর canary routing ঠিক সেই জিনিস।
+তাই সিদ্ধান্তের আকৃতি: **ছোট শুরু করুন, কিন্তু ছোট শুরু করলে তুলনা করার মতো একটা control group রাখুন।** Netflix এর ChAP (Chaos Automation Platform) এর প্রকাশিত নকশা এই রকমই — experiment আর control, দুটো ছোট, সমান দল (এখানে যাচাই করা না)। আর traffic এর একটা নির্দিষ্ট অংশকে "experiment" এ পাঠানো মানে একটা routing এর যন্ত্র লাগে — 9.2 এর gateway এর canary routing ঠিক সেই জিনিস।
 
 **আর উল্টো ভুলটা — অকারণে থামানো।** একই experiment, কিন্তু code ঠিক আছে (fault নিরীহ):
 
@@ -395,7 +395,7 @@ Control group পদ্ধতি মাঝে মাঝে (০.৫–১.৫%) 
 
 ## ২. Interview Angle
 
-Fault tolerance প্রায় কখনো নিজে প্রশ্ন হয়ে আসে না — আসে প্রতিটা design এর শেষের দিকে, interviewer এর একটা ছোট প্রশ্নে: **"এখন যদি X মরে যায়?"** তোমার design এর প্রতিটা বাক্সের জন্য এই প্রশ্ন আসতে পারে, আর ভালো উত্তরের একটা আকৃতি আছে:
+Fault tolerance প্রায় কখনো নিজে প্রশ্ন হয়ে আসে না — আসে প্রতিটা design এর শেষের দিকে, interviewer এর একটা ছোট প্রশ্নে: **"এখন যদি X মরে যায়?"** আপনার design এর প্রতিটা বাক্সের জন্য এই প্রশ্ন আসতে পারে, আর ভালো উত্তরের একটা আকৃতি আছে:
 
 1. **কোন journey এর hard dependency এটা?** "Cache মরলে read DB তে যাবে — read এর soft dependency; কিন্তু DB এর ক্ষমতা কি cache ছাড়া পুরো traffic নিতে পারে? না পারলে cache আসলে hard।" (শেষ অংশটা 4.6 এর cache avalanche — অনেকে ভুলে যায়।)
 2. **Degraded অবস্থায় user কী দেখে?** "Recommendation service মরলে feed দেখাবে, recommendation এর জায়গায় জনপ্রিয় post এর একটা static তালিকা।" কিছু না দেখানো, পুরনো দেখানো, পরে করা — কোনটা।
@@ -404,10 +404,10 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"৯৯.৯৯% availability চাই — তোমার design এ কীভাবে আসবে?"_ — journey এর hard dependency গুলো গুনে গুণ করো: পাঁচটা ৯৯.৯% এর dependency মানে ৯৯.৫% — লক্ষ্য থেকে বহু দূরে। উত্তর বেশি nine এর dependency না, কম hard dependency। এই অঙ্কটা মুখে করে দেখাতে পারা একটা শক্তিশালী সংকেত।
+- _"৯৯.৯৯% availability চাই — আপনার design এ কীভাবে আসবে?"_ — journey এর hard dependency গুলো গুনে গুণ করুন: পাঁচটা ৯৯.৯% এর dependency মানে ৯৯.৫% — লক্ষ্য থেকে বহু দূরে। উত্তর বেশি nine এর dependency না, কম hard dependency। এই অঙ্কটা মুখে করে দেখাতে পারা একটা শক্তিশালী সংকেত।
 - _"Load shedding আর graceful degradation এর পার্থক্য?"_ — shedding request এর **সংখ্যা** কমায় (কেউ কিছু পায় না), degradation/brownout প্রতি request এর **খরচ** কমায় (সবাই কম পায়)। ভালো উত্তরে দুটো স্তর হিসেবে আসে।
 - _"Config service মরলে?"_ — static stability: last-known-good, disk এ snapshot, boot এ crash না; আর দামটা — outage এর সময় config বদলানো যায় না।
-- _"Chaos engineering কি production এ করা নিরাপদ?"_ — blast radius ছোট, control group, স্বয়ংক্রিয় abort, কাজের সময়ে; আর উল্টো প্রশ্ন: না করা কি নিরাপদ? দুর্বলতা তো আছেই — প্রশ্ন শুধু কে আগে খুঁজবে, তুমি না রাত ২টা।
+- _"Chaos engineering কি production এ করা নিরাপদ?"_ — blast radius ছোট, control group, স্বয়ংক্রিয় abort, কাজের সময়ে; আর উল্টো প্রশ্ন: না করা কি নিরাপদ? দুর্বলতা তো আছেই — প্রশ্ন শুধু কে আগে খুঁজবে, আপনি না রাত ২টা।
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ ভুলগুলো — "অগুরুত্বপূর্ণ" internal service (config, flags, auth key, metrics agent) কে hard dependency বানিয়ে ফেলা, কারণ তাকে পড়ার code এ কোনো default নেই; timeout ছাড়া fallback লেখা (যেটা ধীর dependency তে কখনো চলে না); commit এর পরে একটা hard কাজ, যার ব্যর্থতায় user আবার চাপে আর duplicate হয়; তিনটা replica একই AZ এ, একসাথে deploy; cache এর TTL শেষে "নতুন না পেলে error", যাতে control plane এর outage কয়েক মিনিট পরে পুরো fleet একসাথে মারে; আর একবার পরীক্ষা করা degradation কখনো আবার পরীক্ষা না করা, যতক্ষণ না কেউ একটা নতুন hard dependency যোগ করে।
 
@@ -419,7 +419,7 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 - **একটা journey এর availability তার hard dependency গুলোর গুণফল** — board এর তিনটা (৯৯.৫, ৯৯.৯, ৯৯.৯) মানে ৯৯.৩০১%, বছরে ৬১ ঘণ্টা; hard dependency সরানো (board: ৩ → ০) dependency কে বেশি nine দেওয়ার চেয়ে প্রায়ই সস্তা আর বেশি কার্যকর
 - **সবচেয়ে বিপজ্জনক dependency প্রায়ই সবচেয়ে "অগুরুত্বপূর্ণ" টা** — flags কে পড়ার একটা default-হীন line সাতটা journey এর প্রতিটাকে ভেঙেছে; আর commit এর পরের hard কাজ (`✗!`) user কে duplicate বানাতে ঠেলে দেয়
 - **ধীর, মরার চেয়ে খারাপ — আর timeout ছাড়া soft dependency আসলে hard।** মরা limiter fail open হয়, ধীর limiter পাঁচটা journey কে ৩ s আটকায়
-- **Redundancy এর সূত্র স্বাধীন failure ধরে** — ৩টা copy তে সূত্র বছরে ০.০১১ সেকেন্ড, মাপা ১৬০ মিনিট, কারণ AZ আর deploy তিনটাকে একসাথে মারে; failure domain এ ছড়াও, ধীরে deploy করো — আর ধীর deploy তখনই লাভ যখন ছড়ানোর আগে ধরা যায় (না হলে ৭২ → ১৪৭)
+- **Redundancy এর সূত্র স্বাধীন failure ধরে** — ৩টা copy তে সূত্র বছরে ০.০১১ সেকেন্ড, মাপা ১৬০ মিনিট, কারণ AZ আর deploy তিনটাকে একসাথে মারে; failure domain এ ছড়ান, ধীরে deploy করুন — আর ধীর deploy তখনই লাভ যখন ছড়ানোর আগে ধরা যায় (না হলে ৭২ → ১৪৭)
 - **চাপের সময় brownout সবাইকে core কাজ দেয় (০% → ১০০%), load shedding কাউকে কিছুই দেয় না (৩৬%), আর কিছু না করলে চাপ চলে যাওয়ার পরেও system মৃত** (১০০% নষ্ট কাজ); brownout প্রথম স্তর, shedding শেষ জাল, deadline check সবসময়
 - **Static stability: control plane মরলে data plane শেষ জানা অবস্থায় চলে, restart আর নতুন instance সহ** — last-known-good + snapshot এ ৪৪% → ০.২৪% ব্যর্থ; দাম, outage এর সময় কিছু বদলানো যায় না
 - **Chaos engineering = steady state ঘিরে hypothesis, ছোট blast radius, control group, স্বয়ংক্রিয় abort** — ০.১% এ global alarm সূক্ষ্ম bug কখনো দেখে না, control group দেখে ৯টা ক্ষতিতে; বড় blast radius দ্রুত ধরে না, শুধু বেশি মানুষকে আঘাত করে
@@ -442,13 +442,13 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এ নতুন একটা journey আসছে: **"board PDF এ export"।** প্রথম নকশায় user বোতাম চাপে, আর একই request এ: gateway (৯৯.৯৫%) → replica থেকে board পড়া (৯৯.৯%) → একটা নতুন PDF rendering service (৯৯.৫%, একটা instance) → PDF object storage এ রাখা (৯৯.৯৯%) → email provider দিয়ে link পাঠানো (৯৯.৫%) → user কে "পাঠানো হয়েছে"। (ক) সবগুলো hard ধরে journey এর availability কত, বছরে কত ঘণ্টা বন্ধ? (খ) কোন dependency গুলোকে journey থেকে সরানো যায় — কীভাবে, আর user এর অভিজ্ঞতা কীভাবে বদলায়? (গ) নতুন নকশায় user-facing অংশের availability কত? কোন জিনিসটা এখন "ব্যর্থতা" থেকে "দেরি" হয়ে গেল, আর তার জন্য কী মাপবে?
+1. TaskFlow এ নতুন একটা journey আসছে: **"board PDF এ export"।** প্রথম নকশায় user বোতাম চাপে, আর একই request এ: gateway (৯৯.৯৫%) → replica থেকে board পড়া (৯৯.৯%) → একটা নতুন PDF rendering service (৯৯.৫%, একটা instance) → PDF object storage এ রাখা (৯৯.৯৯%) → email provider দিয়ে link পাঠানো (৯৯.৫%) → user কে "পাঠানো হয়েছে"। (ক) সবগুলো hard ধরে journey এর availability কত, বছরে কত ঘণ্টা বন্ধ? (খ) কোন dependency গুলোকে journey থেকে সরানো যায় — কীভাবে, আর user এর অভিজ্ঞতা কীভাবে বদলায়? (গ) নতুন নকশায় user-facing অংশের availability কত? কোন জিনিসটা এখন "ব্যর্থতা" থেকে "দেরি" হয়ে গেল, আর তার জন্য কী মাপবেন?
 
-2. 9.2 থেকে gateway প্রতিটা request এ user এর JWT যাচাই করে, identity service এর public key দিয়ে — key গুলো gateway প্রতি ১০ মিনিটে identity থেকে টানে (JWKS)। (ক) Identity service দুই ঘণ্টা মরা থাকলে এখনকার নকশায় কী ঘটে, মিনিট ধরে? মাঝে gateway এর একটা instance restart নিলে? (খ) একটা statically stable নকশা দাও। Key rotation (পুরনো key বাদ দিয়ে নতুন key) এর সাথে এটা কীভাবে মেলাবে, যাতে পুরনো key set ও কাজ করে? (গ) কোন একটা জিনিস তুমি এই নকশায় হারাচ্ছ — আর সেটা কোন পরিস্থিতিতে সত্যিকারের নিরাপত্তা ঝুঁকি?
+2. 9.2 থেকে gateway প্রতিটা request এ user এর JWT যাচাই করে, identity service এর public key দিয়ে — key গুলো gateway প্রতি ১০ মিনিটে identity থেকে টানে (JWKS)। (ক) Identity service দুই ঘণ্টা মরা থাকলে এখনকার নকশায় কী ঘটে, মিনিট ধরে? মাঝে gateway এর একটা instance restart নিলে? (খ) একটা statically stable নকশা দিন। Key rotation (পুরনো key বাদ দিয়ে নতুন key) এর সাথে এটা কীভাবে মেলাবেন, যাতে পুরনো key set ও কাজ করে? (গ) কোন একটা জিনিস আপনি এই নকশায় হারাচ্ছেন — আর সেটা কোন পরিস্থিতিতে সত্যিকারের নিরাপত্তা ঝুঁকি?
 
-3. TaskFlow এর প্রথম production chaos experiment এর পরিকল্পনা লেখো: **"cache ring এর একটা Redis node মরা"** (10.1)। (ক) Steady state কোন সংখ্যা দিয়ে মাপবে — আর কোন সংখ্যা **না**? (খ) Hypothesis। (গ) Blast radius কীভাবে ছোট রাখবে — একটা cache node মারা কি "১% traffic" এর মতো ভাগ করা যায়? (ঘ) Abort এর শর্ত, আর কে বা কী abort করবে। (ঙ) 10.1 থেকে তুমি জানো এই experiment এ কী কী ভুল হতে পারে — অন্তত দুটো বলো, আর কোনটা experiment টাকেই একটা outage বানিয়ে ফেলতে পারে।
+3. TaskFlow এর প্রথম production chaos experiment এর পরিকল্পনা লিখুন: **"cache ring এর একটা Redis node মরা"** (10.1)। (ক) Steady state কোন সংখ্যা দিয়ে মাপবেন — আর কোন সংখ্যা **না**? (খ) Hypothesis। (গ) Blast radius কীভাবে ছোট রাখবেন — একটা cache node মারা কি "১% traffic" এর মতো ভাগ করা যায়? (ঘ) Abort এর শর্ত, আর কে বা কী abort করবে। (ঙ) 10.1 থেকে আপনি জানেন এই experiment এ কী কী ভুল হতে পারে — অন্তত দুটো বলুন, আর কোনটা experiment টাকেই একটা outage বানিয়ে ফেলতে পারে।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -472,7 +472,7 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 - একটা worker (7.3) event নিয়ে replica থেকে পড়ে, PDF service কে ডাকে, object storage এ রাখে, row `ready` করে, email এর job দেয়। প্রতিটা ধাপ retry সহ (backoff + jitter, 7.4), idempotent (export id ধরে)।
 - Page এ export এর তালিকা থাকে, যেখানে `ready` হলে download link — email না এলেও user পায়। Email এখন soft: শুধু একটা খবর পৌঁছানোর পথ।
 
-(গ) User-facing অংশ: gateway × primary (row আর outbox লেখা) = ০.৯৯৯৫ × ০.৯৯৯৫ ≈ **৯৯.৯০%**, বছরে ~৯ ঘণ্টা (আগে ১০১)। PDF service, replica, object storage, email — কোনোটার মৃত্যু এখন আর **ব্যর্থতা** না, **দেরি**: PDF service এক ঘণ্টা মরা থাকলে export এক ঘণ্টা দেরিতে আসে, কিন্তু কেউ error দেখে না। দেরির জন্য নতুন metric লাগে: `pending` থেকে `ready` এর সময় (p50, p99), সবচেয়ে পুরনো `pending` export এর বয়স (একটা stuck job এর সংকেত), DLQ তে কতগুলো (7.4)। আর একটা সীমা: ধরো ২৪ ঘণ্টায় `ready` না হলে `failed` আর user কে স্পষ্ট বার্তা — "দেরি" কে চিরকালের "দেরি" হতে না দেওয়া।
+(গ) User-facing অংশ: gateway × primary (row আর outbox লেখা) = ০.৯৯৯৫ × ০.৯৯৯৫ ≈ **৯৯.৯০%**, বছরে ~৯ ঘণ্টা (আগে ১০১)। PDF service, replica, object storage, email — কোনোটার মৃত্যু এখন আর **ব্যর্থতা** না, **দেরি**: PDF service এক ঘণ্টা মরা থাকলে export এক ঘণ্টা দেরিতে আসে, কিন্তু কেউ error দেখে না। দেরির জন্য নতুন metric লাগে: `pending` থেকে `ready` এর সময় (p50, p99), সবচেয়ে পুরনো `pending` export এর বয়স (একটা stuck job এর সংকেত), DLQ তে কতগুলো (7.4)। আর একটা সীমা: ধরুন ২৪ ঘণ্টায় `ready` না হলে `failed` আর user কে স্পষ্ট বার্তা — "দেরি" কে চিরকালের "দেরি" হতে না দেওয়া।
 
 **প্রশ্ন ২:**
 
@@ -482,10 +482,10 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 
 - Gateway শেষ জানা key set মনে রাখে, **মেয়াদ শেষ হলেও** — নতুন না পেলে পুরনোটাই চালায়, আর একটা metric (key set এর বয়স) alert দেয়।
 - প্রতিটা সফল fetch এর পরে key set disk এ snapshot, আর deploy এর সময় image এ; boot এ identity না পেলে snapshot।
-- **Key rotation কে এর সাথে মেলানো:** নতুন key **আগে প্রকাশ** করা (ধরো ব্যবহার শুরুর ২৪ ঘণ্টা আগে JWKS এ যোগ), আর পুরনো key বাদ দেওয়া **পরে** (শেষ token এর মেয়াদ শেষ হওয়ার পরে)। তাহলে যেকোনো মুহূর্তের key set এ সামনের আর পেছনের key দুটোই থাকে, আর কয়েক ঘণ্টা পুরনো snapshot ও নতুন token যাচাই করতে পারে। Rotation টা নিজেই একটা static stability এর নকশা।
+- **Key rotation কে এর সাথে মেলানো:** নতুন key **আগে প্রকাশ** করা (ধরুন ব্যবহার শুরুর ২৪ ঘণ্টা আগে JWKS এ যোগ), আর পুরনো key বাদ দেওয়া **পরে** (শেষ token এর মেয়াদ শেষ হওয়ার পরে)। তাহলে যেকোনো মুহূর্তের key set এ সামনের আর পেছনের key দুটোই থাকে, আর কয়েক ঘণ্টা পুরনো snapshot ও নতুন token যাচাই করতে পারে। Rotation টা নিজেই একটা static stability এর নকশা।
 - Outage এর সময় যা চলে: যাদের token আছে তারা কাজ চালিয়ে যায়। যা চলে না: নতুন login (identity তো লাগেই) — এটা স্পষ্টভাবে "এখন না", পুরো site না।
 
-(গ) হারাচ্ছ **জরুরি revoke।** ধরো একটা signing key ফাঁস হয়েছে, আর ঠিক সেই সময়ে identity মরা — তুমি JWKS থেকে key টা সরাতে পারবে না, কারণ gateway সেটা শুনবে না; সে শেষ জানা (ফাঁস হওয়া key সহ) set চালাবে। এই সময়ে আক্রমণকারী ফাঁস হওয়া key দিয়ে token বানাতে পারে। এর জন্য একটা আলাদা, সরল পথ রাখা উচিত — ধরো gateway এর config এ একটা "নিষিদ্ধ key id" এর তালিকা, যা deploy দিয়ে বদলানো যায়, identity ছাড়াই। (১.৭ এর kill switch এর যুক্তি, নিরাপত্তায়।) আর এটা একটা বিরল ঘটনার যোগফল (key ফাঁস **এবং** identity outage একসাথে) — সেজন্য সবকিছু বিসর্জন দেওয়ার মানে নেই, কিন্তু runbook এ লেখা থাকা দরকার।
+(গ) হারাচ্ছেন **জরুরি revoke।** ধরুন একটা signing key ফাঁস হয়েছে, আর ঠিক সেই সময়ে identity মরা — আপনি JWKS থেকে key টা সরাতে পারবেন না, কারণ gateway সেটা শুনবে না; সে শেষ জানা (ফাঁস হওয়া key সহ) set চালাবে। এই সময়ে আক্রমণকারী ফাঁস হওয়া key দিয়ে token বানাতে পারে। এর জন্য একটা আলাদা, সরল পথ রাখা উচিত — ধরুন gateway এর config এ একটা "নিষিদ্ধ key id" এর তালিকা, যা deploy দিয়ে বদলানো যায়, identity ছাড়াই। (১.৭ এর kill switch এর যুক্তি, নিরাপত্তায়।) আর এটা একটা বিরল ঘটনার যোগফল (key ফাঁস **এবং** identity outage একসাথে) — সেজন্য সবকিছু বিসর্জন দেওয়ার মানে নেই, কিন্তু runbook এ লেখা থাকা দরকার।
 
 **প্রশ্ন ৩:**
 
@@ -493,9 +493,9 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 
 (খ) **Hypothesis:** "Ring এর একটা node (১৬০ vnode এর একটা) মরলে ৩০ সেকেন্ডে সে ring থেকে বাদ যাবে (10.1 এর নিয়ম); তার key গুলো বাকি node এ ছড়াবে, single-flight এর কারণে DB এর query/s এর বৃদ্ধি স্বাভাবিকের দ্বিগুণের নিচে থাকবে, board এর সফলতা ৯৯.৯% এর উপরে, p99 ৫০০ ms এর নিচে — আর node ফেরার সময় FLUSHALL এর পরে ফিরবে, পুরনো data দেখাবে না।"
 
-(গ) **Blast radius:** একটা cache node মারা traffic এর % দিয়ে ভাগ করা কঠিন — একটা node মরলে তার key গুলোর সব request প্রভাবিত, আর ring এ সব instance একই ring দেখে। ছোট রাখার পথ: (১) সবচেয়ে কম ব্যস্ত সময়ে; (২) সবচেয়ে ছোট weight এর node (যদি আছে), বা আগে একটা node কে weight কমিয়ে "নরম" বাদ দেওয়া — তারপর পুরো মারা; (৩) প্রথমে একটা মাত্র app instance এর জন্য ring থেকে node টা বাদ দেওয়া (সেই instance এর client এর ভেতরে fault ঢোকানো) — তাহলে blast radius = সেই instance এর traffic, ধরো ১/৬, আর বাকি ৫টা control group। এটাই "১% traffic" এর cache এর রূপ: fault ঢোকাও client এ, server এ না।
+(গ) **Blast radius:** একটা cache node মারা traffic এর % দিয়ে ভাগ করা কঠিন — একটা node মরলে তার key গুলোর সব request প্রভাবিত, আর ring এ সব instance একই ring দেখে। ছোট রাখার পথ: (১) সবচেয়ে কম ব্যস্ত সময়ে; (২) সবচেয়ে ছোট weight এর node (যদি আছে), বা আগে একটা node কে weight কমিয়ে "নরম" বাদ দেওয়া — তারপর পুরো মারা; (৩) প্রথমে একটা মাত্র app instance এর জন্য ring থেকে node টা বাদ দেওয়া (সেই instance এর client এর ভেতরে fault ঢোকানো) — তাহলে blast radius = সেই instance এর traffic, ধরুন ১/৬, আর বাকি ৫টা control group। এটাই "১% traffic" এর cache এর রূপ: fault ঢোকান client এ, server এ না।
 
-(ঘ) **Abort এর শর্ত:** board এর সফলতা ৯৯.৮% এর নিচে, বা p99 ৮০০ ms এর উপরে, বা primary এর CPU ৭০% এর উপরে, যেকোনো একটা ৩০ সেকেন্ড ধরে → **স্বয়ংক্রিয়ভাবে** node ফেরানো বা client এর fault সরানো। মানুষের হাতে ছাড়া হবে না — 10.1 এ দেখেছ membership বদলের প্রথম সেকেন্ডেই DB এর চাপ বাড়ে; মানুষ এত দ্রুত না। আর experiment চলাকালীন অন্য কোনো deploy বা incident থাকলে শুরুই হবে না।
+(ঘ) **Abort এর শর্ত:** board এর সফলতা ৯৯.৮% এর নিচে, বা p99 ৮০০ ms এর উপরে, বা primary এর CPU ৭০% এর উপরে, যেকোনো একটা ৩০ সেকেন্ড ধরে → **স্বয়ংক্রিয়ভাবে** node ফেরানো বা client এর fault সরানো। মানুষের হাতে ছাড়া হবে না — 10.1 এ দেখেছেন membership বদলের প্রথম সেকেন্ডেই DB এর চাপ বাড়ে; মানুষ এত দ্রুত না। আর experiment চলাকালীন অন্য কোনো deploy বা incident থাকলে শুরুই হবে না।
 
 (ঙ) **কী ভুল হতে পারে (10.1 থেকে):**
 
@@ -518,17 +518,17 @@ Fault tolerance প্রায় কখনো নিজে প্রশ্ন 
 
 **সৎ নোট:** Sandbox এ Node 26 এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` আর ESLint clean; পাঁচটা script দুবার করে, প্রতিবার output হুবহু এক (byte ধরে মেলানো)। **কোনো script এ network, DB, Redis বা আসল সময় নেই** — dependency মানে একটা নাম আর একটা latency সংখ্যা, সব latency **হিসাব করা**, মাপা না। Journey গুলো আসল TypeScript function, আর matrix সেগুলো চালিয়ে বের হয় — কিন্তু সেগুলো TaskFlow এর **নকশার** প্রতিনিধি, কোনো আসল codebase না। সব সংখ্যা ধরে নেওয়া parameter থেকে (instance ৩০ দিনে একবার মরে, AZ বছরে আধাবার, ৩% deploy খারাপ, board এর অংশের worker সময়) — এগুলো বিশ্বাসযোগ্য আন্দাজ, কোনো আসল system এর মাপা না; script গুলো দেখায় **সম্পর্ক**, আর প্রতিটা parameter environment variable দিয়ে বদলানো যায়। `matrix` এর availability শুধু নয়টা dependency ধরে, স্বাধীন failure ধরে নিয়ে। `brownout` একটা M/G/c FIFO queue, controller সরল। `chaos` এর control group একটা সরলীকৃত z-test। **যা মাপা হয়নি:** কোনো আসল chaos tool (Chaos Monkey, Gremlin, Litmus বা অন্য), আসল Patroni এর `failsafe_mode`, gRPC এর deadline propagation, LIFO queue, sequential testing। ১.৫ এর Google SRE বই এর ৭০%, ১.৬ এর brownout এর গবেষণা আর Facebook এর লেখা, ১.৭ এর Amazon এর লেখা আর Patroni এর আচরণ, ১.৮–১.৯ এর Netflix এর Chaos Monkey আর ChAP — তাদের প্রকাশিত লেখা আর documentation থেকে, এখানে যাচাই করা না। ১.১০ এর TaskFlow এর সিদ্ধান্ত একটা নকশা, চালানো না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `matrix` চালানোর **আগে** `src/journeys.ts` এর `asWritten` পড়ো, আর নিজে matrix এর অংশ ক আর গ ভরো — প্রতিটা ঘরে ✓, ~, ✗ না ✗!। তারপর চালিয়ে মেলাও। কোন ঘরগুলো ভুল হলো? সেগুলোই code review এ ধরা পড়ে না — আর সেজন্যই chaos experiment লাগে।
+1. **আগে অনুমান:** `matrix` চালানোর **আগে** `src/journeys.ts` এর `asWritten` পড়ুন, আর নিজে matrix এর অংশ ক আর গ ভরুন — প্রতিটা ঘরে ✓, ~, ✗ না ✗!। তারপর চালিয়ে মেলান। কোন ঘরগুলো ভুল হলো? সেগুলোই code review এ ধরা পড়ে না — আর সেজন্যই chaos experiment লাগে।
 
-2. **নিজের journey:** `journeys.ts` এ একটা নতুন journey যোগ করো — "board PDF export" (প্রশ্ন ১ এর প্রথম নকশা) — আর `deps.ts` এ একটা `pdf` dependency। `asWritten` এ সব synchronous, `designed` এ প্রশ্ন ১ এর async নকশা। `matrix` এ দুটোর availability মেলাও উত্তরের অঙ্কের সাথে।
+2. **নিজের journey:** `journeys.ts` এ একটা নতুন journey যোগ করুন — "board PDF export" (প্রশ্ন ১ এর প্রথম নকশা) — আর `deps.ts` এ একটা `pdf` dependency। `asWritten` এ সব synchronous, `designed` এ প্রশ্ন ১ এর async নকশা। `matrix` এ দুটোর availability মেলান উত্তরের অঙ্কের সাথে।
 
-3. **Brownout এর সীমা:** `PEAK=12 npm run brownout`, তারপর `BROWNOUT_WAIT=200 npm run brownout`। প্রথমটায় কোন নীতি সবচেয়ে বেশি user কে board দেয়, আর কেন brownout একা যথেষ্ট না? দ্বিতীয়টায় "পুরো page" আর p99 এর মধ্যে কী বিনিময় হলো? TaskFlow এর জন্য কোন threshold বাছবে, আর সেটা কার সিদ্ধান্ত?
+3. **Brownout এর সীমা:** `PEAK=12 npm run brownout`, তারপর `BROWNOUT_WAIT=200 npm run brownout`। প্রথমটায় কোন নীতি সবচেয়ে বেশি user কে board দেয়, আর কেন brownout একা যথেষ্ট না? দ্বিতীয়টায় "পুরো page" আর p99 এর মধ্যে কী বিনিময় হলো? TaskFlow এর জন্য কোন threshold বাছবেন, আর সেটা কার সিদ্ধান্ত?
 
 4. **Static stability আর TTL:** `TTL=1800 npm run static`। TTL ৩০ মিনিট হলে কী বাঁচল, কী বাঁচল না? এবার `OUTAGE_TO=50 TTL=1800 npm run static` — ২০ মিনিটের outage এ ৩০ মিনিটের TTL ই কি যথেষ্ট? তাহলে last-known-good এর পক্ষে আসল যুক্তি কী — outage কতক্ষণ চলবে, সেটা কি আগে থেকে জানা যায়?
 
-5. **Design অংশ:** TaskFlow এর মোবাইল app এ একটা "offline mode" এর প্রস্তাব এসেছে — network না থাকলে user শেষ দেখা board দেখবে, task তৈরি করতে পারবে, আর network ফিরলে sync হবে। এক পাতার plan: (ক) এটা কোন fallback এর ধরন (১.৪ এর টেবিল) — নাকি একাধিক? (খ) মোবাইল app এর কাছে "control plane" কী, আর static stability এর প্রশ্নটা এখানে কেমন দেখায়? (গ) Offline এ তৈরি task sync এর সময় কী কী conflict হতে পারে (6.4 এর vector clock, sibling মনে করো), আর কোনগুলো তুমি স্বয়ংক্রিয়ভাবে মেলাবে? (ঘ) কোন কাজ offline এ ইচ্ছা করে **বন্ধ** রাখবে, আর কেন? (ঙ) এই feature এর জন্য একটা chaos experiment কেমন হবে?
+5. **Design অংশ:** TaskFlow এর মোবাইল app এ একটা "offline mode" এর প্রস্তাব এসেছে — network না থাকলে user শেষ দেখা board দেখবে, task তৈরি করতে পারবে, আর network ফিরলে sync হবে। এক পাতার plan: (ক) এটা কোন fallback এর ধরন (১.৪ এর টেবিল) — নাকি একাধিক? (খ) মোবাইল app এর কাছে "control plane" কী, আর static stability এর প্রশ্নটা এখানে কেমন দেখায়? (গ) Offline এ তৈরি task sync এর সময় কী কী conflict হতে পারে (6.4 এর vector clock, sibling মনে করুন), আর কোনগুলো আপনি স্বয়ংক্রিয়ভাবে মেলাবেন? (ঘ) কোন কাজ offline এ ইচ্ছা করে **বন্ধ** রাখবেন, আর কেন? (ঙ) এই feature এর জন্য একটা chaos experiment কেমন হবে?
 
 ---
 
@@ -555,7 +555,7 @@ Terms learned (Module 10): Hash Ring, Virtual Node, Preference List, Rendezvous 
 Consistent Hash, Bounded-Load Consistent Hashing, Hash Slot, Probabilistic Data Structure, Bloom Filter,
 False Positive Rate, Counting Bloom Filter, Cardinality, HyperLogLog, Count-Min Sketch, Fault Tolerance,
 Hard / Soft Dependency, Graceful Degradation, Brownout, Static Stability, Chaos Engineering, Blast Radius
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 10.4 — Observability: logging, metrics, tracing
 =======================
 ```
@@ -566,4 +566,4 @@ Next: 10.4 — Observability: logging, metrics, tracing
 
 আজকের সুতোটা: **fault আসবেই — প্রশ্ন শুধু কোনটা failure হবে, আর সেটা কে ঠিক করে: নকশা, নাকি দুর্ঘটনা।** একটা journey এর availability তার hard dependency গুলোর গুণফল, তাই সবচেয়ে বড় লাভ আসে hard dependency কে soft বানিয়ে — একটা default, একটা timeout, একটা আগে থেকে ঠিক করা "খারাপ কিন্তু চলছে"। Copy রাখা শুধু স্বাধীন failure এর ওষুধ; চাপের সময় কম কাজ করা কাউকে ফিরিয়ে দেওয়ার চেয়ে ভালো; আর control plane এর উপর data plane এর নির্ভরতা এমন একটা ফাঁদ যেটা শুধু outage এর মধ্যে restart এর সময় দেখা যায়। আর এই সবকিছু যে কাজ করে, জানার একমাত্র উপায় ইচ্ছা করে ভাঙা — ছোট পরিসরে, তুলনা করে।
 
-কিন্তু আজকের প্রতিটা অংশে একটা জিনিস চুপচাপ ধরে নেওয়া হয়েছে: যে আমরা **দেখতে পাই** কী ঘটছে। Brownout এর controller queue এর অপেক্ষা মাপে; chaos experiment এর abort error rate মাপে; static stability এর alert config এর বয়স মাপে; আর শনিবার রাতে on-call engineer ২৫ মিনিট `flags` কে খুঁজে পায়নি, কারণ কোনো graph তাকে সেদিকে দেখায়নি। রেডি হলে `next` লিখো — **Lesson 10.4: Observability — Logging, Metrics, Tracing** এ যাব। সেখানে প্রশ্নটা: একটা request যখন gateway, BFF, monolith, billing, cache আর database ছুঁয়ে আসে, তখন "কেন ধীর" এর উত্তর কোথায় খুঁজবে — আর log, metric আর trace এর প্রতিটা কোন প্রশ্নের উত্তর দেয়, কোনটার দেয় না।
+কিন্তু আজকের প্রতিটা অংশে একটা জিনিস চুপচাপ ধরে নেওয়া হয়েছে: যে আমরা **দেখতে পাই** কী ঘটছে। Brownout এর controller queue এর অপেক্ষা মাপে; chaos experiment এর abort error rate মাপে; static stability এর alert config এর বয়স মাপে; আর শনিবার রাতে on-call engineer ২৫ মিনিট `flags` কে খুঁজে পায়নি, কারণ কোনো graph তাকে সেদিকে দেখায়নি। রেডি হলে `next` লিখুন — **Lesson 10.4: Observability — Logging, Metrics, Tracing** এ যাব। সেখানে প্রশ্নটা: একটা request যখন gateway, BFF, monolith, billing, cache আর database ছুঁয়ে আসে, তখন "কেন ধীর" এর উত্তর কোথায় খুঁজবেন — আর log, metric আর trace এর প্রতিটা কোন প্রশ্নের উত্তর দেয়, কোনটার দেয় না।

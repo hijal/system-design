@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.1 (SQL vs NoSQL), Lesson 4.3 (Invalidation, TTL)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা খারাপ schema দেখে তার update, insert আর delete anomaly ধরতে পারবে, আর 1NF, 2NF, 3NF এর নিয়ম দিয়ে সেটা ঠিক করতে পারবে
-2. Sequelize এ 1:N আর M:N সম্পর্ক (junction table সহ) typed ভাবে model করতে পারবে
-3. কখন ইচ্ছা করে denormalize করা উচিত সেটা **মেপে** ঠিক করবে, আর denormalized data কে ঠিক রাখার দাম (atomic update, reconciliation) বুঝবে
+1. একটা খারাপ schema দেখে তার update, insert আর delete anomaly ধরতে পারবেন, আর 1NF, 2NF, 3NF এর নিয়ম দিয়ে সেটা ঠিক করতে পারবেন
+2. Sequelize এ 1:N আর M:N সম্পর্ক (junction table সহ) typed ভাবে model করতে পারবেন
+3. কখন ইচ্ছা করে denormalize করা উচিত সেটা **মেপে** ঠিক করবেন, আর denormalized data কে ঠিক রাখার দাম (atomic update, reconciliation) বুঝবেন
 
 **Tier:** 1 — Runnable Code
 
@@ -46,7 +46,7 @@ Data modeling মানে ঠিক করা: system এ কোন কোন "
 M : N     Task >──────< Tag            একটা task এ অনেক tag, একটা tag অনেক task এ
 ```
 
-তুমি Sequelize এ প্রতিদিন এগুলো লেখো, হয়তো এই নামে ভাবোনি:
+আপনি Sequelize এ প্রতিদিন এগুলো লিখুন, হয়তো এই নামে ভাবোনি:
 
 | Cardinality | Sequelize                                 | Database এ আসলে কী থাকে                           |
 | ----------- | ----------------------------------------- | ------------------------------------------------- |
@@ -79,7 +79,7 @@ bad_tasks
 
 - **Update anomaly:** একটা তথ্য বদলাতে গিয়ে সব কপি বদলানো হলো না। রহিমের নাম বদলানোর code শুধু যে task এ edit হচ্ছিল সেটা update করেছে — এখন একই email এর **দুটো নাম**।
 - **Delete anomaly:** একটা জিনিস মুছতে গিয়ে অন্য একটা জিনিসের তথ্য হারিয়ে গেল। Marketing এর শেষ task মুছলে Marketing project টাই হারিয়ে যায়, কারণ project এর আলাদা কোনো row নেই।
-- **Insert anomaly:** একটা জিনিস রাখতে গেলে অন্য একটা জিনিস লাগে যেটা এখনো নেই। নতুন project বানাতে চাও, কিন্তু task ছাড়া project রাখার জায়গাই নেই — একটা নকল task বানাতে হবে।
+- **Insert anomaly:** একটা জিনিস রাখতে গেলে অন্য একটা জিনিস লাগে যেটা এখনো নেই। নতুন project বানাতে চান, কিন্তু task ছাড়া project রাখার জায়গাই নেই — একটা নকল task বানাতে হবে।
 
 আর `tags` column এর "bug,urgent" — এটা একটা আলাদা রোগ, পরের section এ।
 
@@ -121,9 +121,9 @@ tasks                task_tags               tags
                      primary key = (taskId, tagId)
 ```
 
-**2NF — composite key এর পুরোটার উপর নির্ভর করো, অংশের উপর না।** ধরো কেউ `task_tags` এ সুবিধার জন্য `tagName` column যোগ করল: `(taskId, tagId, tagName)`। এখন `tagName` নির্ভর করে শুধু `tagId` এর উপর — key এর **অর্ধেকের** উপর। ফল? "urgent" tag ১০০০টা task এ থাকলে নামটা ১০০০ বার কপি — সেই পুরনো update anomaly ফিরে এলো।
+**2NF — composite key এর পুরোটার উপর নির্ভর করুন, অংশের উপর না।** ধরুন কেউ `task_tags` এ সুবিধার জন্য `tagName` column যোগ করল: `(taskId, tagId, tagName)`। এখন `tagName` নির্ভর করে শুধু `tagId` এর উপর — key এর **অর্ধেকের** উপর। ফল? "urgent" tag ১০০০টা task এ থাকলে নামটা ১০০০ বার কপি — সেই পুরনো update anomaly ফিরে এলো।
 
-**3NF — key ছাড়া অন্য কিছুর উপর নির্ভর কোরো না।** `tasks` এ `assigneeId` আর `assigneeEmail` দুটোই রাখলে, `assigneeEmail` আসলে task এর তথ্য না — এটা **user** এর তথ্য, যেটা `assigneeId` এর মাধ্যমে task এর সাথে যুক্ত। একে বলে transitive dependency (task → user → email)। সমাধান: email থাকবে শুধু `users` table এ।
+**3NF — key ছাড়া অন্য কিছুর উপর নির্ভর করবেন না।** `tasks` এ `assigneeId` আর `assigneeEmail` দুটোই রাখলে, `assigneeEmail` আসলে task এর তথ্য না — এটা **user** এর তথ্য, যেটা `assigneeId` এর মাধ্যমে task এর সাথে যুক্ত। একে বলে transitive dependency (task → user → email)। সমাধান: email থাকবে শুধু `users` table এ।
 
 মনে রাখার একটা পুরনো লাইন আছে — প্রতিটা column নির্ভর করবে:
 
@@ -146,13 +146,13 @@ Tag.belongsToMany(Task, { through: TaskTag, foreignKey: 'tagId', otherKey: 'task
 
 `onDelete` দুটো আলাদা কেন, এক লাইনে: project মুছলে তার task গুলোর থাকার কোনো মানে নেই (`CASCADE`), কিন্তু user চলে গেলে task গুলো থাকবে, শুধু unassigned হয়ে (`SET NULL`)। এটা **business সিদ্ধান্ত**, database সিদ্ধান্ত না।
 
-**কিন্তু প্রতিটা কপি কি ভুল?** না — এই জায়গায় অনেকে গুলিয়ে ফেলে। একটা e-commerce order এ product এর দাম কপি করে রাখা normalization ভাঙা না। Order এর দাম হলো **কেনার মুহূর্তের দাম** — একটা ঐতিহাসিক সত্য। পরে product এর দাম বদলালে পুরনো order এর দাম বদলানো উচিতই না। এটাকে বলা হয় **snapshot**। প্রশ্নটা সবসময়: "এই কপি টা কি মূল তথ্যের সাথে **তাল মিলিয়ে বদলানোর কথা**?" হ্যাঁ হলে সেটা denormalization (আর sync রাখার দায়িত্ব তোমার)। না হলে সেটা snapshot, আর কপি করাটাই সঠিক।
+**কিন্তু প্রতিটা কপি কি ভুল?** না — এই জায়গায় অনেকে গুলিয়ে ফেলে। একটা e-commerce order এ product এর দাম কপি করে রাখা normalization ভাঙা না। Order এর দাম হলো **কেনার মুহূর্তের দাম** — একটা ঐতিহাসিক সত্য। পরে product এর দাম বদলালে পুরনো order এর দাম বদলানো উচিতই না। এটাকে বলা হয় **snapshot**। প্রশ্নটা সবসময়: "এই কপি টা কি মূল তথ্যের সাথে **তাল মিলিয়ে বদলানোর কথা**?" হ্যাঁ হলে সেটা denormalization (আর sync রাখার দায়িত্ব আপনার)। না হলে সেটা snapshot, আর কপি করাটাই সঠিক।
 
 ### ১.৪ Denormalization — ইচ্ছা করে নিয়ম ভাঙা
 
 Normalized schema তে প্রতিটা তথ্য এক জায়গায় — লেখা সহজ আর নিরাপদ। কিন্তু **পড়া** দামি হতে পারে, কারণ উত্তর বানাতে JOIN আর গোনা লাগে।
 
-**Denormalization** — পড়া দ্রুত করার জন্য ইচ্ছা করে data কপি করা বা আগে থেকে হিসাব করে রাখা, জেনেশুনে যে সেটা sync রাখার দায়িত্ব এখন তোমার।
+**Denormalization** — পড়া দ্রুত করার জন্য ইচ্ছা করে data কপি করা বা আগে থেকে হিসাব করে রাখা, জেনেশুনে যে সেটা sync রাখার দায়িত্ব এখন আপনার।
 
 তিনটা সাধারণ রূপ:
 
@@ -168,9 +168,9 @@ page of 20 projects                  39.18 ms             1.78 ms        0.42 ms
 10 busiest projects                  39.34 ms                —           0.31 ms
 ```
 
-প্রথম লাইনটা মনোযোগ দিয়ে দেখো — এখানে এই lesson এর সবচেয়ে গুরুত্বপূর্ণ শিক্ষাটা লুকিয়ে আছে।
+প্রথম লাইনটা মনোযোগ দিয়ে দেখুন — এখানে এই lesson এর সবচেয়ে গুরুত্বপূর্ণ শিক্ষাটা লুকিয়ে আছে।
 
-সরল query টা (`LEFT JOIN ... GROUP BY p.id ORDER BY p.name LIMIT 20`) ৩৯ ms নেয়। কারণ `EXPLAIN ANALYZE` দেখায়: `LIMIT 20` থাকলেও Postgres আগে **সব ৫০০ project** এর count বানায় (৪ লাখ task এর উপর Seq Scan + HashAggregate), তারপর ২০টা রাখে। Query টা একটু অন্যভাবে লিখলে — আগে ২০টা project বাছো, তারপর **শুধু তাদের** task গোনো (`LATERAL`) — সময় নেমে আসে **১.৭৮ ms এ, কোনো schema না বদলে**।
+সরল query টা (`LEFT JOIN ... GROUP BY p.id ORDER BY p.name LIMIT 20`) ৩৯ ms নেয়। কারণ `EXPLAIN ANALYZE` দেখায়: `LIMIT 20` থাকলেও Postgres আগে **সব ৫০০ project** এর count বানায় (৪ লাখ task এর উপর Seq Scan + HashAggregate), তারপর ২০টা রাখে। Query টা একটু অন্যভাবে লিখলে — আগে ২০টা project বাছুন, তারপর **শুধু তাদের** task গুনুন (`LATERAL`) — সময় নেমে আসে **১.৭৮ ms এ, কোনো schema না বদলে**।
 
 ```sql
 SELECT p.id, p.name, c.open
@@ -182,13 +182,13 @@ CROSS JOIN LATERAL (
 ORDER BY p.name;
 ```
 
-(`LATERAL` মানে "বাম দিকের প্রতিটা row এর জন্য ডান দিকের subquery টা চালাও"। `(projectId, status)` index থাকায় প্রতিটা count শুধু index পড়েই হয়ে যায়।)
+(`LATERAL` মানে "বাম দিকের প্রতিটা row এর জন্য ডান দিকের subquery টা চালান"। `(projectId, status)` index থাকায় প্রতিটা count শুধু index পড়েই হয়ে যায়।)
 
 কিন্তু দ্বিতীয় লাইনে — "সবচেয়ে ব্যস্ত ১০টা" — এই কৌশল কাজ করে না। **কোন ১০টা সবচেয়ে ব্যস্ত, সেটা জানতে হলে আগে সবগুলো গুনতেই হবে।** কোনো query কৌশল দিয়ে এটা এড়ানো যায় না। এখানে `openTaskCount` column (তাতে index দিলে আরও ভালো) প্রায় ১০০ গুণ পার্থক্য আনে।
 
-> **নিয়মটা:** Denormalize করার আগে query ঠিক করো। Denormalization এর আসল জায়গা তখন, যখন তুমি একটা **derived মান দিয়ে sort বা filter** করতে চাও, অথবা একটা মাপা, গরম read path এ query ঠিক করার পরেও সময় বেশি লাগছে।
+> **নিয়মটা:** Denormalize করার আগে query ঠিক করুন। Denormalization এর আসল জায়গা তখন, যখন আপনি একটা **derived মান দিয়ে sort বা filter** করতে চান, অথবা একটা মাপা, গরম read path এ query ঠিক করার পরেও সময় বেশি লাগছে।
 
-**এটা আসলে কী, চিনতে পারছ?** `openTaskCount` হলো database এর **ভেতরে একটা cache** — source of truth (`tasks` table) এর একটা হিসাব করা কপি। আর Module 4 থেকে তুমি জানো cache এর সবচেয়ে কঠিন সমস্যা কী: **invalidation**। Denormalization এ ঠিক একই সমস্যা, শুধু নাম আলাদা।
+**এটা আসলে কী, চিনতে পারছেন?** `openTaskCount` হলো database এর **ভেতরে একটা cache** — source of truth (`tasks` table) এর একটা হিসাব করা কপি। আর Module 4 থেকে আপনি জানেন cache এর সবচেয়ে কঠিন সমস্যা কী: **invalidation**। Denormalization এ ঠিক একই সমস্যা, শুধু নাম আলাদা।
 
 ### ১.৫ দাম — Counter কে ঠিক রাখা
 
@@ -212,7 +212,7 @@ async function naive(projectId: number): Promise<void> {
 }
 ```
 
-সমস্যা: "পড়ো → JS এ +1 করো → লেখো" তিনটা আলাদা ধাপ। দুটো request একই সময়ে counter ৪১ পড়লে দুজনেই ৪২ লেখে — একটা বৃদ্ধি হারিয়ে গেল। একে বলে **lost update**। Exercise এ ১৯৯টা হারানো চরম শোনায় — কারণ pool এর লাইনে ২০০টা `INSERT` আগে বসে, তাই সব `SELECT` চলে যখন counter তখনো ০। বাস্তব traffic এ এত বেশি হারাবে না, কিন্তু দুটো request এর মধ্যে কয়েক millisecond এর ফাঁকই যথেষ্ট। আর local এ একা test করলে এই bug **কখনো ধরা পড়ে না**।
+সমস্যা: "পড়ুন → JS এ +1 করুন → লিখুন" তিনটা আলাদা ধাপ। দুটো request একই সময়ে counter ৪১ পড়লে দুজনেই ৪২ লেখে — একটা বৃদ্ধি হারিয়ে গেল। একে বলে **lost update**। Exercise এ ১৯৯টা হারানো চরম শোনায় — কারণ pool এর লাইনে ২০০টা `INSERT` আগে বসে, তাই সব `SELECT` চলে যখন counter তখনো ০। বাস্তব traffic এ এত বেশি হারাবে না, কিন্তু দুটো request এর মধ্যে কয়েক millisecond এর ফাঁকই যথেষ্ট। আর local এ একা test করলে এই bug **কখনো ধরা পড়ে না**।
 
 **(খ) — ঠিক করা version:**
 
@@ -230,11 +230,11 @@ async function atomic(projectId: number): Promise<void> {
 - `Project.increment` বানায় `UPDATE projects SET "openTaskCount" = "openTaskCount" + 1 WHERE id = ...` — হিসাবটা **database নিজে** করে, row টা lock রেখে। কেউ কারো লেখা মুছে দিতে পারে না।
 - `transaction` নিশ্চিত করে task তৈরি আর counter বাড়ানো — **হয় দুটোই হবে, নয়তো কোনোটাই না**। Task তৈরি হয়ে counter বাড়ার আগে server crash করলে দুটোই বাতিল।
 
-মনে রাখো — শুধু transaction দিলেই lost update আটকায় না। Transaction এর ভেতরে (ক) এর মতো read-modify-write লিখলে কী হয়, আর কেন — সেটা exercise এর experiment ৩, আর তার পূর্ণ ব্যাখ্যা Lesson 5.5 (isolation level) এ।
+মনে রাখুন — শুধু transaction দিলেই lost update আটকায় না। Transaction এর ভেতরে (ক) এর মতো read-modify-write লিখলে কী হয়, আর কেন — সেটা exercise এর experiment ৩, আর তার পূর্ণ ব্যাখ্যা Lesson 5.5 (isolation level) এ।
 
 **(গ) — সবচেয়ে সাধারণ বাস্তব ব্যর্থতা race না, ভুলে যাওয়া।** ছয় মাস পরে কেউ CSV import feature বানাল, `Task.bulkCreate` দিয়ে — counter এর কথা তার মাথাতেই আসেনি। কোনো error নেই, counter চুপচাপ ৫০ পিছিয়ে গেল।
 
-এর প্রতিকার Module 4 এর TTL এর মতোই একটা **safety net** — **reconciliation job**: নির্দিষ্ট সময় পরপর (যেমন প্রতি রাতে) derived data কে source of truth থেকে নতুন করে হিসাব করে, আর গরমিল পেলে ঠিক করে দেয় (এবং গরমিলের সংখ্যাটা log/alert করে — ওটাই তোমাকে বলবে কোথাও একটা write path counter ভুলে গেছে)। Exercise এ:
+এর প্রতিকার Module 4 এর TTL এর মতোই একটা **safety net** — **reconciliation job**: নির্দিষ্ট সময় পরপর (যেমন প্রতি রাতে) derived data কে source of truth থেকে নতুন করে হিসাব করে, আর গরমিল পেলে ঠিক করে দেয় (এবং গরমিলের সংখ্যাটা log/alert করে — ওটাই আপনাকে বলবে কোথাও একটা write path counter ভুলে গেছে)। Exercise এ:
 
 ```
 ran reconcile() — 2 projects had a wrong counter, fixed
@@ -248,7 +248,7 @@ ran reconcile() — 2 projects had a wrong counter, fixed
 | Database trigger                          | কোনো path ভুলে যাওয়া অসম্ভব, bulk import ও   | Logic লুকানো থাকে DB তে — app code পড়ে বোঝা যায় না; debug আর test কঠিন                          |
 | Async — queue দিয়ে পরে update (Module 7) | Write দ্রুত, counter এর চাপ মূল request এ নেই | Counter কিছুক্ষণ পিছিয়ে থাকে (eventual) — dashboard এর জন্য প্রায়ই চলে, টাকা-পয়সার জন্য চলে না |
 
-আর যেটাই বাছো — **reconciliation job রাখো**।
+আর যেটাই বাছুন — **reconciliation job রাখুন**।
 
 একটা লুকানো দামও আছে: প্রতিটা increment ওই project এর **একটাই row** lock করে। একটা বিশাল project এ ৩০ জন একসাথে task তৈরি করলে, সবাই ওই এক row এর জন্য লাইনে দাঁড়ায়। একে বলে hot row — Lesson 4.6 এর hot key এর database version। এর সমাধান (counter কে কয়েক টুকরোয় ভাগ করা, বা Redis এ গুনে পরে DB তে লেখা) পরের lesson গুলোর বিষয়।
 
@@ -258,33 +258,33 @@ ran reconcile() — 2 projects had a wrong counter, fixed
 | ------------------------- | -------------------------------------- | --------------------------------------------------- |
 | লেখা                      | সহজ, এক জায়গায়                       | প্রতিটা কপি/counter ও update করতে হয়               |
 | পড়া                      | JOIN/COUNT লাগে — সাধারণত যথেষ্ট দ্রুত | খুব দ্রুত, বিশেষ করে derived মান দিয়ে sort/filter  |
-| Correctness               | Schema নিজেই রক্ষা করে                 | তোমার code আর reconciliation job রক্ষা করে          |
+| Correctness               | Schema নিজেই রক্ষা করে                 | আপনার code আর reconciliation job রক্ষা করে          |
 | নতুন প্রশ্ন (flexibility) | যেকোনো JOIN লেখা যায়                  | নতুন প্রশ্নের জন্য হয়তো নতুন কপি লাগবে             |
 | ভুল হলে                   | Anomaly — schema ঠিক করলে বন্ধ         | Drift — চুপচাপ, reconciliation না থাকলে ধরা পড়ে না |
 
 ### ১.৬ সিদ্ধান্তের নিয়ম
 
 ```
-১. শুরু করো normalized (3NF) দিয়ে           ── এটাই default
-২. একটা read path ধীর?  → আগে মাপো          ── EXPLAIN ANALYZE, অনুমান না
+১. শুরু করুন normalized (3NF) দিয়ে           ── এটাই default
+২. একটা read path ধীর?  → আগে মাপুন          ── EXPLAIN ANALYZE, অনুমান না
 ৩. Query/index ঠিক করা যায়?  → সেটা আগে     ── LATERAL, index (Lesson 5.4)
 ৪. তারপরও ধীর, বা derived মান দিয়ে sort?   ── এবার denormalize — একটা নির্দিষ্ট জিনিস
-৫. Denormalize করলে সাথে লিখে রাখো:        ── কোন কোন write path এটা বদলায়,
+৫. Denormalize করলে সাথে লিখে রাখুন:        ── কোন কোন write path এটা বদলায়,
                                                কীভাবে sync থাকবে, reconciliation কোথায়
 ```
 
-আর বিকল্পটাও মাথায় রেখো: কখনো কখনো denormalization database এ না করে **cache এ** (Module 4) করাই ভালো — Redis এ counter বা হিসাব করা result, TTL সহ। তখন source of truth থাকে পরিষ্কার normalized, আর "গতি" থাকে cache layer এ, যেটা মুছে ফেললেও কিছু হারায় না।
+আর বিকল্পটাও মাথায় রাখবেন: কখনো কখনো denormalization database এ না করে **cache এ** (Module 4) করাই ভালো — Redis এ counter বা হিসাব করা result, TTL সহ। তখন source of truth থাকে পরিষ্কার normalized, আর "গতি" থাকে cache layer এ, যেটা মুছে ফেললেও কিছু হারায় না।
 
 ---
 
 ## ২. Interview Angle
 
-**"X এর জন্য একটা database schema design করো"** — system design interview এর খুব সাধারণ একটা অংশ। ভালো উত্তরের ধাপ:
+**"X এর জন্য একটা database schema design করুন"** — system design interview এর খুব সাধারণ একটা অংশ। ভালো উত্তরের ধাপ:
 
-1. **Entity আর সম্পর্ক আগে বলো:** "User, Project, Task, Tag — Project আর Task 1:N, Task আর Tag M:N, তাই একটা junction table"
-2. **Normalized দিয়ে শুরু করো** — table আর key এঁকে
-3. **তারপর গরম read path খোঁজো:** "Feed এ প্রতিবার like count দেখাতে হয়, read:write অনুপাত অনেক বেশি — তাই `likeCount` denormalize করব"
-4. **দামটা নিজে থেকে বলো:** "Like হলে atomic increment, একই transaction এ; আর একটা reconciliation job" — interviewer এটা জিজ্ঞেস করার আগেই বললে বোঝা যায় তুমি production এ এটা দেখেছ
+1. **Entity আর সম্পর্ক আগে বলুন:** "User, Project, Task, Tag — Project আর Task 1:N, Task আর Tag M:N, তাই একটা junction table"
+2. **Normalized দিয়ে শুরু করুন** — table আর key এঁকে
+3. **তারপর গরম read path খুঁজুন:** "Feed এ প্রতিবার like count দেখাতে হয়, read:write অনুপাত অনেক বেশি — তাই `likeCount` denormalize করব"
+4. **দামটা নিজে থেকে বলুন:** "Like হলে atomic increment, একই transaction এ; আর একটা reconciliation job" — interviewer এটা জিজ্ঞেস করার আগেই বললে বোঝা যায় আপনি production এ এটা দেখেছেন
 
 **Common follow-up গুলো:**
 
@@ -302,7 +302,7 @@ ran reconcile() — 2 projects had a wrong counter, fixed
 - একই তথ্য একাধিক জায়গায় থাকলে update, insert আর delete anomaly জন্মায় — আর এগুলো কোনো error দেয় না, চুপচাপ data নষ্ট করে
 - 1NF (এক cell এ এক মান), 2NF (পুরো key), 3NF (key ছাড়া কিছু না) — "the key, the whole key, and nothing but the key"
 - প্রতিটা কপি denormalization না — কেনার মুহূর্তের দাম একটা **snapshot**, সেটা কপি করাই সঠিক
-- **Denormalize করার আগে query ঠিক করো** — exercise এ শুধু LATERAL দিয়ে ৩৯ ms থেকে ১.৭৮ ms; denormalization এর আসল জায়গা derived মান দিয়ে sort/filter
+- **Denormalize করার আগে query ঠিক করুন** — exercise এ শুধু LATERAL দিয়ে ৩৯ ms থেকে ১.৭৮ ms; denormalization এর আসল জায়গা derived মান দিয়ে sort/filter
 - Denormalized data আসলে database এর ভেতরে একটা cache — তাই একই invalidation সমস্যা
 - Counter ঠিক রাখতে: atomic update একই transaction এ, আর সবসময় একটা **reconciliation job** — কারণ কেউ না কেউ একদিন একটা write path এ counter ভুলবেই
 
@@ -317,18 +317,18 @@ ran reconcile() — 2 projects had a wrong counter, fixed
 | **Data Anomaly**       | Schema এর গঠনের কারণে insert, update বা delete এ ভুল/অসামঞ্জস্যপূর্ণ data তৈরি হওয়া            |
 | **Normalization**      | Table ভাগ করে প্রতিটা তথ্য ঠিক এক জায়গায় রাখা, যাতে anomaly এর সুযোগ না থাকে                  |
 | **Normal Form**        | Normalization এর ধাপ (1NF, 2NF, 3NF…) — প্রতিটা একটা নির্দিষ্ট ধরনের redundancy সরায়           |
-| **Denormalization**    | পড়া দ্রুত করতে ইচ্ছা করে data কপি বা আগে থেকে হিসাব করে রাখা — sync রাখার দায়িত্ব তোমার       |
+| **Denormalization**    | পড়া দ্রুত করতে ইচ্ছা করে data কপি বা আগে থেকে হিসাব করে রাখা — sync রাখার দায়িত্ব আপনার       |
 | **Reconciliation Job** | নির্দিষ্ট সময় পরপর derived data কে source of truth থেকে নতুন করে হিসাব করে গরমিল ধরা ও ঠিক করা |
 
 ---
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এ একটা activity log আছে: "রহিম task #42 কে Done এ সরিয়েছে"। প্রতিটা log row এ কি `actorId` (user এর id) রাখবে, নাকি `actorName` (নামটা কপি করে)? রহিম পরে নাম বদলালে দুই ক্ষেত্রে কী দেখাবে? কোনটা "সঠিক" — আর এটা কি technical প্রশ্ন, নাকি অন্য কিছু?
-2. `openTaskCount` sync রাখতে একজন senior বলল: "App code এ না, database trigger দিয়ে করো — তাহলে কেউ কখনো ভুলতে পারবে না।" এই যুক্তির শক্তি কী, আর এতে কী হারাচ্ছ? Trigger থাকলেও কি reconciliation job লাগবে?
-3. ধরো একটা বিশাল enterprise project এ ৫০,০০০ task, আর সকাল ৯টায় ৪০ জন একসাথে task তৈরি করছে। (খ) এর atomic increment ঠিকঠাক কাজ করছে, counter ভুল হচ্ছে না — তবু একটা নতুন সমস্যা দেখা দিতে পারে। সেটা কী, আর কেন?
+1. TaskFlow এ একটা activity log আছে: "রহিম task #42 কে Done এ সরিয়েছে"। প্রতিটা log row এ কি `actorId` (user এর id) রাখবেন, নাকি `actorName` (নামটা কপি করে)? রহিম পরে নাম বদলালে দুই ক্ষেত্রে কী দেখাবে? কোনটা "সঠিক" — আর এটা কি technical প্রশ্ন, নাকি অন্য কিছু?
+2. `openTaskCount` sync রাখতে একজন senior বলল: "App code এ না, database trigger দিয়ে করুন — তাহলে কেউ কখনো ভুলতে পারবে না।" এই যুক্তির শক্তি কী, আর এতে কী হারাচ্ছেন? Trigger থাকলেও কি reconciliation job লাগবে?
+3. ধরুন একটা বিশাল enterprise project এ ৫০,০০০ task, আর সকাল ৯টায় ৪০ জন একসাথে task তৈরি করছে। (খ) এর atomic increment ঠিকঠাক কাজ করছে, counter ভুল হচ্ছে না — তবু একটা নতুন সমস্যা দেখা দিতে পারে। সেটা কী, আর কেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -340,7 +340,7 @@ ran reconcile() — 2 projects had a wrong counter, fixed
 
 বাস্তবে অনেক system দুটোই রাখে: `actorId` (সম্পর্ক আর filter এর জন্য) + `actorName` snapshot (audit এর জন্য)। Audit/compliance log এ সাধারণত snapshot জরুরি — ইতিহাস পরে বদলে যাওয়া উচিত না। মূল শিক্ষা: "কপি করা ভুল কিনা" এর উত্তর আসে **তথ্যটা বদলানোর কথা কিনা** থেকে।
 
-**প্রশ্ন ২:** শক্তি: trigger database এর ভেতরে, তাই যেকোনো পথে task ঢুকুক — app code, bulk import, এমনকি কেউ হাতে `psql` এ `INSERT` চালালেও — counter বদলাবে। (গ) এর ধরনের ব্যর্থতা প্রায় অসম্ভব। হারাচ্ছ: logic টা app code পড়ে দেখা যায় না — নতুন developer বুঝবে না কেন একটা `INSERT` ধীর বা কেন একটা row lock হচ্ছে; test আর debug কঠিন; migration এ trigger এর code version করতে হয়। আর hot row সমস্যা (প্রশ্ন ৩) trigger এও একই থাকে। Reconciliation job তবু রাখা উচিত — কেউ trigger সাময়িক বন্ধ করে bulk load করতে পারে, trigger এর নিজের logic এ bug থাকতে পারে (যেমন `status` বদলানোর case ভুলে যাওয়া), বা restore এর পরে data গরমিল হতে পারে। Safety net সস্তা, তার অভাব দামি।
+**প্রশ্ন ২:** শক্তি: trigger database এর ভেতরে, তাই যেকোনো পথে task ঢুকুক — app code, bulk import, এমনকি কেউ হাতে `psql` এ `INSERT` চালালেও — counter বদলাবে। (গ) এর ধরনের ব্যর্থতা প্রায় অসম্ভব। হারাচ্ছেন: logic টা app code পড়ে দেখা যায় না — নতুন developer বুঝবে না কেন একটা `INSERT` ধীর বা কেন একটা row lock হচ্ছে; test আর debug কঠিন; migration এ trigger এর code version করতে হয়। আর hot row সমস্যা (প্রশ্ন ৩) trigger এও একই থাকে। Reconciliation job তবু রাখা উচিত — কেউ trigger সাময়িক বন্ধ করে bulk load করতে পারে, trigger এর নিজের logic এ bug থাকতে পারে (যেমন `status` বদলানোর case ভুলে যাওয়া), বা restore এর পরে data গরমিল হতে পারে। Safety net সস্তা, তার অভাব দামি।
 
 **প্রশ্ন ৩:** **Hot row lock contention।** প্রতিটা atomic increment ওই project এর row টা transaction শেষ হওয়া পর্যন্ত lock রাখে। ৪০ জন একসাথে লিখলে তারা ওই একটা row এর জন্য লাইনে দাঁড়ায় — প্রতিটা task তৈরি এখন আগের জনের transaction শেষ হওয়ার অপেক্ষা করে। Counter সঠিক, কিন্তু write latency বাড়ে, আর transaction লম্বা হলে (যেমন ভেতরে ধীর কোনো কাজ থাকলে) সমস্যা আরও বড় হয়। এটা Lesson 4.6 এর hot key এর database version। প্রতিকার: transaction ছোট রাখা (increment একদম শেষে), counter কে কয়েক টুকরোয় ভাগ করা (পড়ার সময় যোগফল), অথবা counter টা async করে দেওয়া (Module 7) — যেটায় counter কয়েক সেকেন্ড পিছিয়ে থাকবে, যেটা dashboard এর জন্য সাধারণত গ্রহণযোগ্য।
 
@@ -356,21 +356,21 @@ ran reconcile() — 2 projects had a wrong counter, fixed
 
 এই exercise এ একই TaskFlow data দুটো schema তে — hackathon এর "সব এক table এ" version, আর normalized (3NF) version, `openTaskCount` counter সহ। Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean, তিনটা script এর output README তে যা আছে তাই, আর query plan `EXPLAIN ANALYZE` দিয়ে মিলিয়ে দেখা।
 
-**সেটআপ যাচাই হলে, এই চারটা করো:**
+**সেটআপ যাচাই হলে, এই চারটা করুন:**
 
-1. `npm run dashboard` চালাও। তোমার মেশিনে তিনটা কলামের সংখ্যা কত? সরল query আর LATERAL এর অনুপাত আমার পাওয়া ~২২ গুণ এর কাছাকাছি? তারপর `src/models/good.ts` থেকে `{ fields: ['projectId', 'status'] }` index টা সরিয়ে আবার চালাও — **কোন কলামটা** সবচেয়ে বেশি বদলাল, আর কেন?
+1. `npm run dashboard` চালান। আপনার মেশিনে তিনটা কলামের সংখ্যা কত? সরল query আর LATERAL এর অনুপাত আমার পাওয়া ~২২ গুণ এর কাছাকাছি? তারপর `src/models/good.ts` থেকে `{ fields: ['projectId', 'status'] }` index টা সরিয়ে আবার চালান — **কোন কলামটা** সবচেয়ে বেশি বদলাল, আর কেন?
 
-2. `src/counter.ts` এর `naive()` এর শুরুতে একটা random delay যোগ করো:
+2. `src/counter.ts` এর `naive()` এর শুরুতে একটা random delay যোগ করুন:
 
    ```typescript
    await new Promise((resolve) => setTimeout(resolve, Math.random() * 50));
    ```
 
-   কয়েকবার চালাও — এখন কতগুলো হারায়? Delay ৫০০ ms করলে? সংখ্যাটা কি কখনো নিশ্চিতভাবে শূন্য হয়? "কম হারায়" আর "হারায় না" এর পার্থক্যটা এক অনুচ্ছেদে লেখো।
+   কয়েকবার চালান — এখন কতগুলো হারায়? Delay ৫০০ ms করলে? সংখ্যাটা কি কখনো নিশ্চিতভাবে শূন্য হয়? "কম হারায়" আর "হারায় না" এর পার্থক্যটা এক অনুচ্ছেদে লিখুন।
 
-3. `atomic()` এর ভেতরে `Project.increment` এর বদলে `naive()` এর মতো `findByPk` → `+1` → `save()` লেখো, কিন্তু সবকিছু transaction এর ভেতরে রেখে (`{ transaction }` দিয়ে)। এখন কি ২০০ আসে? ফলাফলটা লিখে রাখো — কেন এমন হলো, সেটা Lesson 5.5 এ আমরা খুলে দেখব।
+3. `atomic()` এর ভেতরে `Project.increment` এর বদলে `naive()` এর মতো `findByPk` → `+1` → `save()` লিখুন, কিন্তু সবকিছু transaction এর ভেতরে রেখে (`{ transaction }` দিয়ে)। এখন কি ২০০ আসে? ফলাফলটা লিখে রাখুন — কেন এমন হলো, সেটা Lesson 5.5 এ আমরা খুলে দেখব।
 
-4. **Design অংশ (Tier 3 ধরনের):** `openTaskCount` কে ঠিক রাখতে task এর জীবনে **আর কোন কোন ঘটনায়** এটা বদলানো দরকার? (Task তৈরি ছাড়াও — অন্তত চারটা খুঁজে বের করো।) প্রতিটার জন্য: +1, −1, নাকি দুটো project এ দুটো আলাদা বদল?
+4. **Design অংশ (Tier 3 ধরনের):** `openTaskCount` কে ঠিক রাখতে task এর জীবনে **আর কোন কোন ঘটনায়** এটা বদলানো দরকার? (Task তৈরি ছাড়াও — অন্তত চারটা খুঁজে বের করুন।) প্রতিটার জন্য: +1, −1, নাকি দুটো project এ দুটো আলাদা বদল?
 
 ---
 
@@ -387,7 +387,7 @@ Terms learned (Module 5 so far): Relational Model, Schema-on-write,
 Schema-on-read, Access Pattern, Document Store, Wide-column Store,
 Polyglot Persistence, Cardinality, Junction Table, Data Anomaly,
 Normalization, Normal Form, Denormalization, Reconciliation Job
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 5.3 — Storage Engine Internals (B-tree vs LSM-tree, WAL)
 =======================
 ```
@@ -396,4 +396,4 @@ Next: 5.3 — Storage Engine Internals (B-tree vs LSM-tree, WAL)
 
 ## ৮. পরের Lesson
 
-Exercise টা চালিয়ে তোমার সংখ্যাগুলো পাঠাও — বিশেষ করে ১ নম্বরে index সরানোর পরে কোন কলাম বদলাল, আর ৪ নম্বরের তালিকা। রেডি হলে `next` লিখো — Lesson 5.3 এ যাব: **Storage Engine Internals** — database আসলে disk এ data কীভাবে রাখে, B-tree আর LSM-tree এর পার্থক্য কী, WAL কেন crash এর পরেও data বাঁচায়, আর কেন Postgres আর Cassandra একই কাজ এত আলাদা ভাবে করে।
+Exercise টা চালিয়ে আপনার সংখ্যাগুলো পাঠান — বিশেষ করে ১ নম্বরে index সরানোর পরে কোন কলাম বদলাল, আর ৪ নম্বরের তালিকা। রেডি হলে `next` লিখুন — Lesson 5.3 এ যাব: **Storage Engine Internals** — database আসলে disk এ data কীভাবে রাখে, B-tree আর LSM-tree এর পার্থক্য কী, WAL কেন crash এর পরেও data বাঁচায়, আর কেন Postgres আর Cassandra একই কাজ এত আলাদা ভাবে করে।

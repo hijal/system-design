@@ -112,7 +112,7 @@ over 30 hours a month                  2,235,202            $268,224         $23
 - **টুকরো immutable, playlist না।** নাম কখনো বদলায় না এমন জিনিস চিরকাল cache; বদলাতে পারে এমন জিনিস (processing এর সময়
   master) ছোট TTL।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **কম worker:** `WORKERS=20 npm run transcode`। টুকরোর publish কত (মাপা: ১২.৭ মিনিট), আর "360p আগে" এখন কতটা কাজে লাগে (১.৭
    থেকে ১.৩ মিনিট)? ১০০ worker এ কেন প্রায় লাগেনি?
@@ -121,8 +121,8 @@ over 30 hours a month                  2,235,202            $268,224         $23
 3. **লোভী player:** `SAFETY=1 npm run abr`। Throughput নীতির rebuffer কত হলো (মাপা: ০.২২% থেকে ০.৬০%), আর bitrate কতটা বাড়ল? ২০%
    এর ফাঁক কেন?
 4. **দামি codec:** `AV1_COST_X=30 npm run cdn`। সব video তে AV1 এখন কী (মাপা: নিট −$১.৪৪ কোটি), আর শুধু জনপ্রিয়তে (+$২.৩ কোটি)?
-5. **Code বদলানোর কাজ:** `src/vod.ts` এ "অজনপ্রিয় video" এর জন্য শুধু 240p, 360p আর 720p বানাও; প্রথম দিনে ১,০০০ view পার হলে
-   বাকি দুটো queue তে যোগ করো। Master playlist আর তার Cache-Control এ কী বদলাতে হবে?
+5. **Code বদলানোর কাজ:** `src/vod.ts` এ "অজনপ্রিয় video" এর জন্য শুধু 240p, 360p আর 720p বানান; প্রথম দিনে ১,০০০ view পার হলে
+   বাকি দুটো queue তে যোগ করুন। Master playlist আর তার Cache-Control এ কী বদলাতে হবে?
 
 ## Project Structure
 

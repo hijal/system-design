@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 5.7 (Replication lag, read-your-writes, LSN), Lesson 5.8 (Partition, shard key), Lesson 5.9 (Quorum, `R + W > N`), Lesson 6.2 (Linearizable read)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Replica থেকে পড়ার সময় user এর চোখে কী কী অদ্ভুত জিনিস ঘটে — নিজের লেখা না দেখা, সময় পেছনে যাওয়া, উত্তর আগে প্রশ্ন পরে — তিনটা আলাদা **session guarantee** হিসেবে চিনতে পারবে, আর কোনটা কোন সমাধান ঠিক করে আর কোনটা করে না, মেপে জানবে
-2. Version token দিয়ে read-your-writes আর monotonic read একসাথে দিতে পারবে — আর token টা কোথায় রাখলে একাধিক device এও কাজ করে, সেটা জানবে
-3. `R + W > N` বাস্তবে কেন যথেষ্ট না (ব্যর্থ লেখা, sloppy quorum) ব্যাখ্যা করতে পারবে, আর read repair, hinted handoff, anti-entropy কী মেরামত করে জানবে
+1. Replica থেকে পড়ার সময় user এর চোখে কী কী অদ্ভুত জিনিস ঘটে — নিজের লেখা না দেখা, সময় পেছনে যাওয়া, উত্তর আগে প্রশ্ন পরে — তিনটা আলাদা **session guarantee** হিসেবে চিনতে পারবেন, আর কোনটা কোন সমাধান ঠিক করে আর কোনটা করে না, মেপে জানবেন
+2. Version token দিয়ে read-your-writes আর monotonic read একসাথে দিতে পারবেন — আর token টা কোথায় রাখলে একাধিক device এও কাজ করে, সেটা জানবেন
+3. `R + W > N` বাস্তবে কেন যথেষ্ট না (ব্যর্থ লেখা, sloppy quorum) ব্যাখ্যা করতে পারবেন, আর read repair, hinted handoff, anti-entropy কী মেরামত করে জানবেন
 
 **Tier:** 1 — Runnable Code (তিনটা seed দেওয়া simulation)
 
@@ -28,7 +28,7 @@ Lesson 5.7 এর পরে TaskFlow এর read এর চাপ আরও ব�
 
 আর আরেক জায়গায় একটা অদ্ভুত bug: notification এর unread count (5.9 এ এটাকে AP ধরে একটা leaderless quorum store এ রাখা হয়েছিল, `N = 3, W = 2, R = 2`) — একজন user বলছে count ৫ দেখাচ্ছে, তারপর ৪, তারপর আবার ৫। অথচ `R + W > N`!
 
-6.2 তে দেখেছ, সবকিছু consensus দিয়ে পড়লে (linearizable read) এসব সমস্যা থাকে না — কিন্তু প্রতিটা read এ majority এর round trip, যেটা TaskFlow এর লাখ লাখ read এ দেওয়া যায় না। আজকের প্রশ্ন: replica থেকে পড়ব, সস্তায় — কিন্তু user কে **ঠিক কোন নিশ্চয়তা** দেব, আর সেটার দাম কত?
+6.2 তে দেখেছেন, সবকিছু consensus দিয়ে পড়লে (linearizable read) এসব সমস্যা থাকে না — কিন্তু প্রতিটা read এ majority এর round trip, যেটা TaskFlow এর লাখ লাখ read এ দেওয়া যায় না। আজকের প্রশ্ন: replica থেকে পড়ব, সস্তায় — কিন্তু user কে **ঠিক কোন নিশ্চয়তা** দেব, আর সেটার দাম কত?
 
 ---
 
@@ -40,7 +40,7 @@ Replica থেকে পড়া মানে **eventual consistency** (5.9): �
 
 1994 সালে Xerox PARC এর Bayou project এর গবেষকরা (Douglas Terry ও সহকর্মীরা) এই "মাঝামাঝি" নিশ্চয়তাগুলোর নাম দেন:
 
-**Session guarantee** — পুরো system strongly consistent না হলেও, **একজন user এর নিজের** পড়া-লেখার ক্রম নিয়ে একটা সীমিত নিশ্চয়তা — "অন্তত তোমার নিজের চোখে জিনিসগুলো যুক্তিসঙ্গত দেখাবে।"
+**Session guarantee** — পুরো system strongly consistent না হলেও, **একজন user এর নিজের** পড়া-লেখার ক্রম নিয়ে একটা সীমিত নিশ্চয়তা — "অন্তত আপনার নিজের চোখে জিনিসগুলো যুক্তিসঙ্গত দেখাবে।"
 
 মূল কৌশল: বিশ্বকে সামঞ্জস্যপূর্ণ করার বদলে **একজন user এর দেখা** সামঞ্জস্যপূর্ণ রাখা। এটা অনেক সস্তা, কারণ একজন user এর ইতিহাস ছোট।
 
@@ -56,13 +56,13 @@ Replica থেকে পড়া মানে **eventual consistency** (5.9): �
 
 ### ১.২ Replication Lag বাস্তবে — গড় না, লেজ
 
-5.7 এ দেখেছ: একই machine এ, load ছাড়া lag ~২ ms। তাহলে তিনটা replica তে সমস্যা এত বেশি কেন?
+5.7 এ দেখেছেন: একই machine এ, load ছাড়া lag ~২ ms। তাহলে তিনটা replica তে সমস্যা এত বেশি কেন?
 
 কারণ সমস্যা তৈরি করে **গড় lag না — লেজ।** Replica বেশিরভাগ সময় কয়েক ms পিছিয়ে, কিন্তু মাঝে মাঝে কয়েক **সেকেন্ড** আটকে যায়। আর replica লেখা ক্রমানুসারে প্রয়োগ করে — একটা আটকালে তার পেছনের সব লেখা আটকায়।
 
-Postgres এর replica কেন আটকায়, তার একটা কম পরিচিত কিন্তু খুব সাধারণ কারণ: **replica তে চলা একটা লম্বা query।** ধরো analytics এর একটা report replica তে ৪০ সেকেন্ড ধরে চলছে, আর primary থেকে আসা WAL এ এমন একটা পরিবর্তন আছে (যেমন vacuum এর মুছে ফেলা row) যেটা প্রয়োগ করলে ওই query এর দেখা data নষ্ট হবে। Postgres তখন একটা বাছাই করে: query টা cancel করবে, নাকি WAL প্রয়োগ **থামিয়ে** অপেক্ষা করবে? এর সীমা ঠিক করে `max_standby_streaming_delay` — default **৩০ সেকেন্ড**। মানে default setting এ, একটা লম্বা report এর জন্য replica পুরো ৩০ সেকেন্ড পিছিয়ে থাকতে পারে, আর সেই সময়ে ওই replica থেকে পড়া প্রতিটা user ৩০ সেকেন্ড পুরনো জগৎ দেখে।
+Postgres এর replica কেন আটকায়, তার একটা কম পরিচিত কিন্তু খুব সাধারণ কারণ: **replica তে চলা একটা লম্বা query।** ধরুন analytics এর একটা report replica তে ৪০ সেকেন্ড ধরে চলছে, আর primary থেকে আসা WAL এ এমন একটা পরিবর্তন আছে (যেমন vacuum এর মুছে ফেলা row) যেটা প্রয়োগ করলে ওই query এর দেখা data নষ্ট হবে। Postgres তখন একটা বাছাই করে: query টা cancel করবে, নাকি WAL প্রয়োগ **থামিয়ে** অপেক্ষা করবে? এর সীমা ঠিক করে `max_standby_streaming_delay` — default **৩০ সেকেন্ড**। মানে default setting এ, একটা লম্বা report এর জন্য replica পুরো ৩০ সেকেন্ড পিছিয়ে থাকতে পারে, আর সেই সময়ে ওই replica থেকে পড়া প্রতিটা user ৩০ সেকেন্ড পুরনো জগৎ দেখে।
 
-(বাকি কারণগুলো চেনা: বড় migration এর WAL এর ঢেউ, replica এর ধীর disk, network। আর নজর রাখার জায়গা: primary তে `pg_stat_replication` এর `replay_lag`, replica তে `now() - pg_last_xact_replay_timestamp()` — 5.7 এর exercise এ দেখেছ।)
+(বাকি কারণগুলো চেনা: বড় migration এর WAL এর ঢেউ, replica এর ধীর disk, network। আর নজর রাখার জায়গা: primary তে `pg_stat_replication` এর `replay_lag`, replica তে `now() - pg_last_xact_replay_timestamp()` — 5.7 এর exercise এ দেখেছেন।)
 
 Exercise এর simulation এ তিনটা replica এর মডেল ঠিক এমন: r1 সবসময় দ্রুত (গড় ~৩ ms), r2 একটু ধীর আর কদাচিৎ ১.৫ s আটকায়, r3 ধীর (গড় ~২৫ ms) আর মাঝে মাঝে ৩ s আটকায়। (সংখ্যাগুলো ধরে নেওয়া — আকৃতিটা আসল।)
 
@@ -81,7 +81,7 @@ Ticket ১ কীভাবে হয়:
 
 সবচেয়ে সহজ সমাধান: **একজন user এর সব পড়া সবসময় একই replica তে** (userId বা session এর hash দিয়ে replica বাছা)। একটা replica নিজে কখনো পেছনে যায় না — তাই তার থেকে পরপর পড়া monotonic।
 
-Exercise এর `npm run session` — ২০০০ বার "একটা task বানাও, তারপর পাঁচবার পড়ো" (redirect এ +5 ms, তারপর +30 ms, +300 ms, +1 s, +3 s; প্রথম দুটো একই device এ, বাকিগুলোর অর্ধেক অন্য device এ):
+Exercise এর `npm run session` — ২০০০ বার "একটা task বানান, তারপর পাঁচবার পড়ুন" (redirect এ +5 ms, তারপর +30 ms, +300 ms, +1 s, +3 s; প্রথম দুটো একই device এ, বাকিগুলোর অর্ধেক অন্য device এ):
 
 ```
                                                   didn't see own write          time went     reads on primary
@@ -97,7 +97,7 @@ Sticky replica "সময় পেছনে" ৪% থেকে ০.৬% এ ন
 
 ### ১.৪ Read-Your-Writes, এবার একাধিক Device এ — Version Token
 
-5.7 এ read-your-writes এর তিনটা সমাধান দেখেছিলে। TaskFlow বেছেছিল সবচেয়ে ব্যবহারিকটা: সদ্য লিখেছে এমন device এর read primary তে। এর দাম আর সীমা মাপো:
+5.7 এ read-your-writes এর তিনটা সমাধান দেখেছিলেন। TaskFlow বেছেছিল সবচেয়ে ব্যবহারিকটা: সদ্য লিখেছে এমন device এর read primary তে। এর দাম আর সীমা মাপুন:
 
 ```
    C. cookie: primary if written within 5 s        0.0%         0.9%         0.3%        73.4%
@@ -110,9 +110,9 @@ Sticky replica "সময় পেছনে" ৪% থেকে ০.৬% এ ন
 **Version token** — client যে সবচেয়ে নতুন version (Postgres এ LSN) লিখেছে বা দেখেছে, তার একটা চিহ্ন; প্রতিটা পড়ার সাথে পাঠানো হয়, আর শুধু সেই replica উত্তর দেয় যে অন্তত ততদূর পৌঁছেছে।
 
 ```
-   লেখা      → primary বলে "তোমার লেখা LSN 812 এ"          → token = 812
+   লেখা      → primary বলে "আপনার লেখা LSN 812 এ"          → token = 812
    পড়া      → r3: "আমি 790 পর্যন্ত"  ✗ যথেষ্ট না
-             → r1: "আমি 815 পর্যন্ত"  ✓ উত্তর দাও            → token = max(812, 815) = 815
+             → r1: "আমি 815 পর্যন্ত"  ✓ উত্তর দিন            → token = max(812, 815) = 815
    পরের পড়া → token 815 — এর চেয়ে পুরনো replica কখনো উত্তর দেবে না
 ```
 
@@ -153,7 +153,7 @@ Exercise এর `npm run prefix` — ৫০০০টা প্রশ্ন-উ�
    taskId               66059               0
 ```
 
-২৫০ বার অদ্ভুত thread — ০.৪%, কিন্তু প্রতিটা একটা ticket। আর `taskId` এ **শূন্য**, আর এটা ভাগ্য না: একই task এর সব comment একই partition এ, মানে একটা replica, মানে ক্রমানুসারে। Lesson 5.8 এর shard key এর নিয়মের নতুন একটা কারণ: **যে data গুলোর মধ্যে কার্যকারণ সম্পর্ক আছে (প্রশ্ন → উত্তর, task → তার comment), সেগুলো একই partition এ রাখো।** TaskFlow এর `workspaceId` shard key (5.8) এই কারণেও ভালো।
+২৫০ বার অদ্ভুত thread — ০.৪%, কিন্তু প্রতিটা একটা ticket। আর `taskId` এ **শূন্য**, আর এটা ভাগ্য না: একই task এর সব comment একই partition এ, মানে একটা replica, মানে ক্রমানুসারে। Lesson 5.8 এর shard key এর নিয়মের নতুন একটা কারণ: **যে data গুলোর মধ্যে কার্যকারণ সম্পর্ক আছে (প্রশ্ন → উত্তর, task → তার comment), সেগুলো একই partition এ রাখুন।** TaskFlow এর `workspaceId` shard key (5.8) এই কারণেও ভালো।
 
 যেখানে সেটা সম্ভব না (যেমন একটা activity feed যেটা অনেক partition থেকে আসে), সেখানে লেখার সাথে তার "নির্ভরতা" রাখতে হয় — "এই উত্তর ওই প্রশ্নের পরে" — আর পাঠক নির্ভরতা না দেখা পর্যন্ত উত্তর লুকিয়ে রাখে। এটাই **causal consistency** এর ধারণা, আর নির্ভরতা কীভাবে track করতে হয় (ঘড়ি দিয়ে না) — সেটা Lesson 6.4 এর vector clock।
 
@@ -161,7 +161,7 @@ Exercise এর `npm run prefix` — ৫০০০টা প্রশ্ন-উ�
 
 এবার unread count এর bug। Lesson 5.9 এর যুক্তি: `R + W > N` হলে পড়ার quorum আর লেখার quorum অন্তত একটা replica তে মেলে, তাই পড়া সর্বশেষ লেখা দেখে। যুক্তিটা ঠিক — **যদি লেখা সফল হয়**। কিন্তু লেখা ব্যর্থ হলে?
 
-Leaderless store এ একটা লেখা ব্যর্থ হওয়ার মানে: `W` টা replica নিশ্চিত করেনি। কিন্তু যে কয়টা লেখাটা পেয়েছে, তাদের থেকে লেখাটা **মুছে ফেলা হয় না** — কোনো rollback নেই। (5.7 এর sync commit এর timeout মনে করো: "timeout মানে rollback না"। একই শিক্ষা, অন্য জায়গায়।)
+Leaderless store এ একটা লেখা ব্যর্থ হওয়ার মানে: `W` টা replica নিশ্চিত করেনি। কিন্তু যে কয়টা লেখাটা পেয়েছে, তাদের থেকে লেখাটা **মুছে ফেলা হয় না** — কোনো rollback নেই। (5.7 এর sync commit এর timeout মনে করুন: "timeout মানে rollback না"। একই শিক্ষা, অন্য জায়গায়।)
 
 Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শুধু A তে পৌঁছেছে, B আর C timeout — client কে বলা হয়েছে "ব্যর্থ"। তারপর ১০০ জন user × ৫ বার পড়া, প্রতিটা পড়া random দুটো replica থেকে:
 
@@ -175,7 +175,7 @@ Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শ�
 
 **Read repair** — পড়ার সময় কয়েকটা replica থেকে উত্তর এলে, যে replica পুরনো মান দিল তাকে নতুনটা লিখে দেওয়া।
 
-দ্বিতীয় সারিতে read repair চালু: ওঠানামা শূন্য। কিন্তু **শেষ অবস্থাটা দেখো**: A=v1 B=v1 C=v1। Client কে যে লেখাকে "ব্যর্থ" বলা হয়েছিল, read repair সেটাকেই সব replica তে ছড়িয়ে স্থায়ী করে দিয়েছে। সিস্টেম এখন সামঞ্জস্যপূর্ণ — কিন্তু client এর বিশ্বাসের সাথে না। তাই leaderless store এ "লেখা ব্যর্থ" এর আসল মানে: **"জানি না — হয়তো হয়েছে।"** ঠিক উত্তর আবার সেই পুরনো দুটো: retry করো (একই মান লেখা idempotent), অথবা পড়ে দেখো।
+দ্বিতীয় সারিতে read repair চালু: ওঠানামা শূন্য। কিন্তু **শেষ অবস্থাটা দেখুন**: A=v1 B=v1 C=v1। Client কে যে লেখাকে "ব্যর্থ" বলা হয়েছিল, read repair সেটাকেই সব replica তে ছড়িয়ে স্থায়ী করে দিয়েছে। সিস্টেম এখন সামঞ্জস্যপূর্ণ — কিন্তু client এর বিশ্বাসের সাথে না। তাই leaderless store এ "লেখা ব্যর্থ" এর আসল মানে: **"জানি না — হয়তো হয়েছে।"** ঠিক উত্তর আবার সেই পুরনো দুটো: retry করুন (একই মান লেখা idempotent), অথবা পড়ে দেখুন।
 
 `R + W > N` এর আরও কয়েকটা বাস্তব ফাঁক:
 
@@ -183,7 +183,7 @@ Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শ�
 - **Last-write-wins আর ঘড়ি:** দুটো লেখার কোনটা "নতুন", প্রায়ই timestamp দিয়ে ঠিক হয় — আর 6.1 এ বলেছি ঘড়ি বিশ্বাস করা যায় না। (5.9 এর partition exercise এ n4 এর ৩০০ ms পিছিয়ে থাকা ঘড়ি একটা লেখা হারিয়েছিল — পুরো গল্প 6.4 এ।)
 - **Sloppy quorum:** নিচে।
 
-**Hinted handoff আর sloppy quorum।** Amazon এর Dynamo (2007 সালের paper, আজকের Cassandra আর DynamoDB এর পূর্বপুরুষ) একটা availability এর কৌশল নিয়েছিল: একটা key এর তিনটা "নিজের" replica এর একটা মৃত হলে, লেখাটা অন্য কোনো জীবিত node নিয়ে রাখে, একটা "hint" সহ — "এটা আসলে C এর; C ফিরলে দিয়ে দিও।"
+**Hinted handoff আর sloppy quorum।** Amazon এর Dynamo (2007 সালের paper, আজকের Cassandra আর DynamoDB এর পূর্বপুরুষ) একটা availability এর কৌশল নিয়েছিল: একটা key এর তিনটা "নিজের" replica এর একটা মৃত হলে, লেখাটা অন্য কোনো জীবিত node নিয়ে রাখে, একটা "hint" সহ — "এটা আসলে C এর; C ফিরলে দিয়ে দেবেন।"
 
 **Hinted handoff** — কোনো replica সাময়িকভাবে না থাকলে তার ভাগের লেখা অন্য node এ রাখা, আর সে ফিরলে পৌঁছে দেওয়া।
 
@@ -214,11 +214,11 @@ Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শ�
 
 ## ২. Interview Angle
 
-**"Read replica যোগ করলে কী সমস্যা হয়?"** — 5.7 এ শিখেছ "read-your-writes" বলতে। এখন পুরো পরিবার বলো: "তিনটা session guarantee ভাঙে — নিজের লেখা না দেখা, refresh এ সময় পেছনে যাওয়া, আর partition করা data এ কারণের আগে ফল দেখা।" তারপর সমাধান: version token (user এর নামে, server এ) — "LSN token দিয়ে read-your-writes আর monotonic read দুটোই পাই, আর primary তে যায় শুধু যখন সত্যিই কোনো replica এগিয়ে নেই।" এই বাক্যটা senior উত্তর।
+**"Read replica যোগ করলে কী সমস্যা হয়?"** — 5.7 এ শিখেছেন "read-your-writes" বলতে। এখন পুরো পরিবার বলুন: "তিনটা session guarantee ভাঙে — নিজের লেখা না দেখা, refresh এ সময় পেছনে যাওয়া, আর partition করা data এ কারণের আগে ফল দেখা।" তারপর সমাধান: version token (user এর নামে, server এ) — "LSN token দিয়ে read-your-writes আর monotonic read দুটোই পাই, আর primary তে যায় শুধু যখন সত্যিই কোনো replica এগিয়ে নেই।" এই বাক্যটা senior উত্তর।
 
 **"Timeline/feed এ কেউ কেউ উত্তর আগে দেখছে — কেন?"** — consistent prefix; data কয়েকটা partition এ, প্রতিটার আলাদা lag। সমাধান: সম্পর্কিত data এক partition এ (thread/task/conversation দিয়ে shard); না পারলে causal dependency track করা।
 
-**"Cassandra তে QUORUM দিয়ে পড়ি আর লিখি — তাহলে তো strongly consistent?"** — না, আর কারণ বলো: ব্যর্থ লেখা কিছু replica তে থেকে যায় আর read repair এ ছড়ায়; sloppy quorum এ quorum না-ও মিলতে পারে; আর concurrent লেখায় LWW ঘড়ির উপর নির্ভর করে। "Strong" লাগলে consensus-ভিত্তিক store (6.2), বা Cassandra এর lightweight transaction (যেটা ভেতরে Paxos চালায় — আর দামি)।
+**"Cassandra তে QUORUM দিয়ে পড়ি আর লিখি — তাহলে তো strongly consistent?"** — না, আর কারণ বলুন: ব্যর্থ লেখা কিছু replica তে থেকে যায় আর read repair এ ছড়ায়; sloppy quorum এ quorum না-ও মিলতে পারে; আর concurrent লেখায় LWW ঘড়ির উপর নির্ভর করে। "Strong" লাগলে consensus-ভিত্তিক store (6.2), বা Cassandra এর lightweight transaction (যেটা ভেতরে Paxos চালায় — আর দামি)।
 
 **Production এ বাস্তবে:** বেশিরভাগ team "সদ্য লিখেছে → primary" দিয়ে শুরু করে আর সেখানেই থাকে — আর সেটা প্রায়ই যথেষ্ট। Traffic বাড়লে বা mobile + web দুই client হলে version token এ যায়। দুটোর আগে যা করতে হয়: **replica lag এ alert** (`replay_lag` বা replica তে `now() - pg_last_xact_replay_timestamp()`), আর replica তে লম্বা analytics query আলাদা replica তে পাঠানো — যাতে `max_standby_streaming_delay` এর ৩০ সেকেন্ড user এর replica তে না পড়ে।
 
@@ -231,7 +231,7 @@ Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শ�
 - **Monotonic reads:** sticky replica "সময় পেছনে" কমায় (৪% → ০.৬%), কিন্তু একাধিক device, replica বদল, আর নিজের লেখা দেখানো — কোনোটাই ঠিক করে না
 - "সদ্য লিখেছে → primary" (cookie) নিজের device এ কাজ করে, কিন্তু অন্য device এ না, আর exercise এ ৭৩% read primary তে ঠেলে দিয়েছে
 - **Version token** (LSN) দুটো নিশ্চয়তা একসাথে দেয়, primary তে যায় শুধু সত্যিকারের দরকারে (৩.৪%); token **user এর নামে server এ** রাখলে সব device এ কাজ করে
-- **Consistent prefix:** কার্যকারণ-সম্পর্কিত data এক partition এ রাখো (`taskId` দিয়ে shard এ শূন্য অদ্ভুত thread); না পারলে নির্ভরতা track করো (6.4)
+- **Consistent prefix:** কার্যকারণ-সম্পর্কিত data এক partition এ রাখুন (`taskId` দিয়ে shard এ শূন্য অদ্ভুত thread); না পারলে নির্ভরতা track করুন (6.4)
 - `R + W > N` ব্যর্থ লেখায় ভাঙে — "ব্যর্থ" লেখা কিছু replica তে থাকে, পাঠকেরা মান ওঠানামা করতে দেখে; **read repair** সেটা থামায় কিন্তু লেখাটাকে স্থায়ী করে। Hinted handoff/sloppy quorum availability এর জন্য নিশ্চয়তা ছাড়ে; anti-entropy ভুলে যাওয়া অমিল ঠিক করে
 
 ---
@@ -252,11 +252,11 @@ Exercise এর `npm run quorum`: `N = 3, W = 2, R = 2`। লেখা v1 শ�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর একজন engineer বলল: "Version token এর ঝামেলা কেন? সব user কে একটা নির্দিষ্ট replica তে sticky করে দিই (userId এর hash), তাতেই তো monotonic read হয়ে যায়, আর read-your-writes এর জন্য cookie তো আছেই।" Exercise এর table দিয়ে এই প্রস্তাবের তিনটা দুর্বলতা বলো।
-2. Version token (user এর নামে) Redis এ রাখা হলো: `rw-token:{userId}`। Redis এর সেই key হারিয়ে গেলে (Redis restart, eviction) কী হয়? Data নষ্ট হয়, নাকি শুধু নিশ্চয়তা কমে? Token এর TTL কত রাখবে, আর কেন?
-3. TaskFlow এর notification count এর bug (৫, ৪, ৫) এর জন্য তিনটা প্রস্তাব এসেছে: (ক) read repair চালু করা, (খ) `W = 3` করা, (গ) count টাকে Postgres এ সরিয়ে নেওয়া। প্রতিটার দাম আর কী ঠিক করে, কী করে না — বলো। তুমি কোনটা নেবে?
+1. TaskFlow এর একজন engineer বলল: "Version token এর ঝামেলা কেন? সব user কে একটা নির্দিষ্ট replica তে sticky করে দিই (userId এর hash), তাতেই তো monotonic read হয়ে যায়, আর read-your-writes এর জন্য cookie তো আছেই।" Exercise এর table দিয়ে এই প্রস্তাবের তিনটা দুর্বলতা বলুন।
+2. Version token (user এর নামে) Redis এ রাখা হলো: `rw-token:{userId}`। Redis এর সেই key হারিয়ে গেলে (Redis restart, eviction) কী হয়? Data নষ্ট হয়, নাকি শুধু নিশ্চয়তা কমে? Token এর TTL কত রাখবেন, আর কেন?
+3. TaskFlow এর notification count এর bug (৫, ৪, ৫) এর জন্য তিনটা প্রস্তাব এসেছে: (ক) read repair চালু করা, (খ) `W = 3` করা, (গ) count টাকে Postgres এ সরিয়ে নেওয়া। প্রতিটার দাম আর কী ঠিক করে, কী করে না — বলুন। আপনি কোনটা নেবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -277,7 +277,7 @@ Version token এই তিনটাই একসাথে ঠিক করে, 
 - **(খ) `W = 3`:** প্রতিটা লেখা তিনটা replica কে নিশ্চিত করতে হবে — একটা replica ধীর বা মৃত হলেই **সব** লেখা ব্যর্থ (5.9 এর availability table)। আর মূল সমস্যা যায় না: `W = 3` এও লেখা A তে পৌঁছে বাকিদের timeout হতে পারে, আর A থেকে সেটা মুছে না — ব্যর্থ লেখার ভূত আবার ফেরে, শুধু আরও ঘন ঘন (কারণ ব্যর্থ হওয়া এখন সহজ)।
 - **(গ) Postgres এ সরানো:** একটা primary, atomic `UPDATE ... SET count = count + 1`, ওঠানামা নেই (পড়া primary থেকে বা version token সহ)। দাম: 5.9 এ count কে AP রাখার কারণ ছিল partition এ availability আর লেখার ভারী চাপ — সেটা যায়; আর count এর প্রতিটা লেখা primary এর উপর।
 
-বাছাই: unread count এর জন্য (ক) — ভুলটা নিরীহ, খরচ কম, আর AP বাছাইয়ের কারণগুলো থাকে। কিন্তু একই সমস্যা যদি টাকা বা permission এ হতো, তাহলে (গ), বা consensus। আর প্রশ্নটা নিজেই একটা শিক্ষা: "count ৫, ৪, ৫" এর মতো bug এর উত্তর প্রায়ই "quorum এর সংখ্যা বাড়াও" না — কোন ধরনের নিশ্চয়তা এই data এর **আসলে** দরকার, সেটা ঠিক করা।
+বাছাই: unread count এর জন্য (ক) — ভুলটা নিরীহ, খরচ কম, আর AP বাছাইয়ের কারণগুলো থাকে। কিন্তু একই সমস্যা যদি টাকা বা permission এ হতো, তাহলে (গ), বা consensus। আর প্রশ্নটা নিজেই একটা শিক্ষা: "count ৫, ৪, ৫" এর মতো bug এর উত্তর প্রায়ই "quorum এর সংখ্যা বাড়ান" না — কোন ধরনের নিশ্চয়তা এই data এর **আসলে** দরকার, সেটা ঠিক করা।
 
 </details>
 
@@ -291,19 +291,19 @@ Version token এই তিনটাই একসাথে ঠিক করে, 
 
 `src/replica.ts` এ async replica এর একটা মডেল — lag, মাঝে মাঝে আটকে যাওয়া, ক্রমানুসারে প্রয়োগ, আর `replayedAt()` (Postgres এর `pg_last_wal_replay_lsn()` এর মতো)। বাকি তিনটা file সেই মডেলের উপর তিনটা প্রশ্ন।
 
-**সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; তিনটা script দুবার করে চালিয়ে হুবহু একই output। Replica এর lag এর সংখ্যা ধরে নেওয়া মডেল — শতাংশগুলো না, কোন কৌশল কী ঠিক করে সেটা আসল। README এর experiment গুলো তোমার code বদলানোর কাজ।
+**সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; তিনটা script দুবার করে চালিয়ে হুবহু একই output। Replica এর lag এর সংখ্যা ধরে নেওয়া মডেল — শতাংশগুলো না, কোন কৌশল কী ঠিক করে সেটা আসল। README এর experiment গুলো আপনার code বদলানোর কাজ।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. তিনটা script চালাও। `session` এর table এর প্রতিটা **শূন্য না** এমন ঘর এর জন্য এক লাইনে লেখো কেন শূন্য না — বিশেষ করে (খ) এর "সময় পেছনে" ০.৬% আর (ঘ) এর "অন্য device" ০.৮%।
+1. তিনটা script চালান। `session` এর table এর প্রতিটা **শূন্য না** এমন ঘর এর জন্য এক লাইনে লিখুন কেন শূন্য না — বিশেষ করে (খ) এর "সময় পেছনে" ০.৬% আর (ঘ) এর "অন্য device" ০.৮%।
 
-2. **লেজ বনাম গড়** (experiment ১): সব `stallPerWrite` ০ করে আবার চালাও। কোন কলাম প্রায় শূন্যে নামে? এর থেকে TaskFlow এর replica monitoring এর জন্য কী শিক্ষা — কোন সংখ্যায় alert দেবে, গড় lag নাকি অন্য কিছু?
+2. **লেজ বনাম গড়** (experiment ১): সব `stallPerWrite` ০ করে আবার চালান। কোন কলাম প্রায় শূন্যে নামে? এর থেকে TaskFlow এর replica monitoring এর জন্য কী শিক্ষা — কোন সংখ্যায় alert দেবেন, গড় lag নাকি অন্য কিছু?
 
 3. **Token এর অপেক্ষা** (experiment ২): replica এগিয়ে না থাকলে primary তে যাওয়ার বদলে ৫০ ms অপেক্ষা। Primary এর শতাংশ কত নামে? TaskFlow এর কোন page এ এই অপেক্ষা ঠিক আছে, আর কোথায় না?
 
-4. **Quorum এ W = 3** (experiment ৪): আগে code না চালিয়ে উত্তর লেখো, তারপর চালিয়ে মেলাও।
+4. **Quorum এ W = 3** (experiment ৪): আগে code না চালিয়ে উত্তর লিখুন, তারপর চালিয়ে মেলান।
 
-5. **Design অংশ:** TaskFlow এর read path এর জন্য একটা পরিকল্পনা লেখো: (ক) version token কোথায় তৈরি হবে (কোন Express middleware, লেখার পরে কোন query), কোথায় থাকবে (Redis key, TTL), আর Sequelize এর read কীভাবে replica বাছবে (5.7 এর `useMaster` এর সাথে মিলিয়ে); (খ) comment table এর shard key কী হবে, আর activity feed (যেটা অনেক task জুড়ে) এ consistent prefix কীভাবে সামলাবে; (গ) replica lag এর কোন সংখ্যায় alert, আর analytics query কোথায় চলবে। ০ নম্বর section এর চারটা ticket — প্রতিটা তোমার পরিকল্পনায় কোথায় বন্ধ হয়, দেখাও।
+5. **Design অংশ:** TaskFlow এর read path এর জন্য একটা পরিকল্পনা লিখুন: (ক) version token কোথায় তৈরি হবে (কোন Express middleware, লেখার পরে কোন query), কোথায় থাকবে (Redis key, TTL), আর Sequelize এর read কীভাবে replica বাছবে (5.7 এর `useMaster` এর সাথে মিলিয়ে); (খ) comment table এর shard key কী হবে, আর activity feed (যেটা অনেক task জুড়ে) এ consistent prefix কীভাবে সামলাবেন; (গ) replica lag এর কোন সংখ্যায় alert, আর analytics query কোথায় চলবে। ০ নম্বর section এর চারটা ticket — প্রতিটা আপনার পরিকল্পনায় কোথায় বন্ধ হয়, দেখান।
 
 ---
 
@@ -322,7 +322,7 @@ Process Pause, Split Brain, Lease, Fencing Token, Consensus, FLP Impossibility,
 Replicated State Machine, Term, Randomized Election Timeout, Committed Entry,
 Election Restriction, Session Guarantee, Monotonic Reads, Consistent Prefix Read,
 Version Token, Read Repair, Hinted Handoff, Anti-Entropy
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 6.4 — Distributed lock, logical clock: Lamport, vector clock
 =======================
 ```
@@ -333,4 +333,4 @@ Next: 6.4 — Distributed lock, logical clock: Lamport, vector clock
 
 তিনটা lesson হয়ে গেল Module 6 এর — তাই `main.md` এর নিয়ম মেনে এক প্যারায় একটা ছোট recap: **6.1** দেখিয়েছে distributed system এ "অন্যটা মৃত কিনা" জানা যায় না, আর পুরনো leader জানে না যে সে পুরনো — তাই fencing token। **6.2** দেখিয়েছে consensus কীভাবে এর মধ্যেও নিরাপদ সিদ্ধান্ত নেয় — majority, term, election restriction — আর তার দাম। **6.3** দেখিয়েছে বেশিরভাগ read সেই দাম দেয় না, replica থেকে পড়ে, আর তখন user কে সীমিত কিন্তু নির্দিষ্ট নিশ্চয়তা (session guarantee) কীভাবে দেওয়া যায়। তিনটার মধ্যে একটা সুতো বারবার এসেছে কিন্তু খোলা হয়নি: **সময়।** "কোন লেখা নতুন?", "কোনটা আগে ঘটেছে?", "lease এর মেয়াদ কি শেষ?" — প্রতিবার আমরা বলেছি "ঘড়ি বিশ্বাস করা যায় না, 6.4 এ।"
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ১ নম্বরের ব্যাখ্যা আর ৫ নম্বরের পরিকল্পনা। রেডি হলে `next` লিখো — Lesson 6.4 এ যাব: **Distributed lock আর logical clock — Lamport আর vector clock।** কেন দুটো machine এর ঘড়ি কখনো মেলে না, NTP কেন সময়কে পেছনে ঠেলতে পারে, last-write-wins কীভাবে নীরবে লেখা হারায় — আর ঘড়ি ছাড়া "কোনটা আগে ঘটেছে" জানার উপায়: Lamport clock আর vector clock।
+Exercise চালিয়ে পাঠান — বিশেষ করে ১ নম্বরের ব্যাখ্যা আর ৫ নম্বরের পরিকল্পনা। রেডি হলে `next` লিখুন — Lesson 6.4 এ যাব: **Distributed lock আর logical clock — Lamport আর vector clock।** কেন দুটো machine এর ঘড়ি কখনো মেলে না, NTP কেন সময়কে পেছনে ঠেলতে পারে, last-write-wins কীভাবে নীরবে লেখা হারায় — আর ঘড়ি ছাড়া "কোনটা আগে ঘটেছে" জানার উপায়: Lamport clock আর vector clock।

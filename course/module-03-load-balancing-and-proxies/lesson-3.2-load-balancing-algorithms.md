@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 3.1 (Load Balancer, L4/L7)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Round Robin, Weighted Round Robin, এবং Least Connections algorithm কীভাবে কাজ করে এবং কখন কোনটা উপযুক্ত — বুঝবে
-2. IP Hash / Consistent Hashing এর মূল ধারণা (session affinity এর প্রেক্ষিতে) — প্রাথমিকভাবে বুঝবে (full depth Module 10.1 এ)
-3. TaskFlow এর নির্দিষ্ট traffic pattern দেখে সঠিক algorithm বেছে নিতে পারবে
+1. Round Robin, Weighted Round Robin, এবং Least Connections algorithm কীভাবে কাজ করে এবং কখন কোনটা উপযুক্ত — বুঝবেন
+2. IP Hash / Consistent Hashing এর মূল ধারণা (session affinity এর প্রেক্ষিতে) — প্রাথমিকভাবে বুঝবেন (full depth Module 10.1 এ)
+3. TaskFlow এর নির্দিষ্ট traffic pattern দেখে সঠিক algorithm বেছে নিতে পারবেন
 
 **Tier:** 3 — Design Exercise
 
@@ -39,7 +39,7 @@ Request 5 -> Server B
 
 **সুবিধা:** implement করা সবচেয়ে সহজ, কোনো extra state track করার দরকার নেই (শুধু "পরেরটা কে" এই একটা counter যথেষ্ট)।
 
-**সমস্যা:** এটা ধরে নেয় **প্রতিটা server এর ক্ষমতা সমান, এবং প্রতিটা request এর processing cost প্রায় সমান।** যদি এই দুটো assumption সত্যি না হয়, সমস্যা হয়। যেমন, ধরো Server A এর hardware Server B আর C এর চেয়ে দুর্বল — কিন্তু Round Robin সবাইকে সমান request দিচ্ছে, ফলে Server A দ্রুত overload হয়ে যাবে।
+**সমস্যা:** এটা ধরে নেয় **প্রতিটা server এর ক্ষমতা সমান, এবং প্রতিটা request এর processing cost প্রায় সমান।** যদি এই দুটো assumption সত্যি না হয়, সমস্যা হয়। যেমন, ধরুন Server A এর hardware Server B আর C এর চেয়ে দুর্বল — কিন্তু Round Robin সবাইকে সমান request দিচ্ছে, ফলে Server A দ্রুত overload হয়ে যাবে।
 
 **Weighted Round Robin** এই সমস্যার একটা সমাধান — প্রতিটা server কে একটা "weight" দেওয়া হয় তার capacity অনুযায়ী:
 
@@ -54,7 +54,7 @@ Distribution: A, B, C, B, C, A, B, C, B, C ...
 
 ### ১.২ Least Connections — কে সবচেয়ে কম ব্যস্ত সেটা দেখে পাঠানো
 
-Round Robin এর একটা গভীরতর সমস্যা আছে — এটা শুধু "কে পরেরবার পাবে" সেটা জানে, কিন্তু **কোন server এই মুহূর্তে কতটা busy** সেটা জানে না। ধরো, TaskFlow এর "Export to PDF" feature (Module 1 Exit Challenge মনে আছে?) — এই request গুলো process হতে কয়েক সেকেন্ড লাগতে পারে, যেখানে সাধারণ `GET /api/tasks` মাত্র কয়েক millisecond এ শেষ হয়ে যায়। যদি Round Robin এ Server A বারবার এই "ভারী" PDF export request গুলো পেতে থাকে, সেটা কাজে ব্যস্ত থাকা সত্ত্বেও Round Robin তাকে আরও নতুন request পাঠাতেই থাকবে, কারণ তার "পালা" এসে গেছে — এটা fair না, বাস্তবে unequal load তৈরি করে।
+Round Robin এর একটা গভীরতর সমস্যা আছে — এটা শুধু "কে পরেরবার পাবে" সেটা জানে, কিন্তু **কোন server এই মুহূর্তে কতটা busy** সেটা জানে না। ধরুন, TaskFlow এর "Export to PDF" feature (Module 1 Exit Challenge মনে আছে?) — এই request গুলো process হতে কয়েক সেকেন্ড লাগতে পারে, যেখানে সাধারণ `GET /api/tasks` মাত্র কয়েক millisecond এ শেষ হয়ে যায়। যদি Round Robin এ Server A বারবার এই "ভারী" PDF export request গুলো পেতে থাকে, সেটা কাজে ব্যস্ত থাকা সত্ত্বেও Round Robin তাকে আরও নতুন request পাঠাতেই থাকবে, কারণ তার "পালা" এসে গেছে — এটা fair না, বাস্তবে unequal load তৈরি করে।
 
 **Least Connections** algorithm এই সমস্যা সমাধান করে — এটা প্রতিটা server এর **এই মুহূর্তে কতগুলো active connection/request চলছে** সেটা track করে, এবং নতুন request সবসময় **সবচেয়ে কম ব্যস্ত** server এ পাঠায়:
 
@@ -71,13 +71,13 @@ Server C — 5টা active connection
 
 ### ১.৩ IP Hash / Session Affinity — একই Client, একই Server (ভূমিকা)
 
-কখনো কখনো তুমি চাও **একই client বারবার একই server এ যাক** (একে বলে **session affinity** বা **sticky session**)। এর একটা সহজ implementation হলো client এর IP address কে hash করে, সেই hash অনুযায়ী একটা নির্দিষ্ট server বেছে নেওয়া:
+কখনো কখনো আপনি চান **একই client বারবার একই server এ যাক** (একে বলে **session affinity** বা **sticky session**)। এর একটা সহজ implementation হলো client এর IP address কে hash করে, সেই hash অনুযায়ী একটা নির্দিষ্ট server বেছে নেওয়া:
 
 ```
 hash(client_IP) % সার্ভার_সংখ্যা = কোন সার্ভার
 ```
 
-**এটা কেন দরকার হতে পারে:** মনে করো, Lesson 1.6 এর stateful vs stateless আলোচনা — ধরো TaskFlow তাড়াহুড়ো করে একটা feature বানিয়েছে যেখানে session data এখনও local server memory তে আছে (Redis এ migrate করা হয়নি, ideal না, কিন্তু বাস্তবে অনেক সময় এমন "technical debt" থেকে যায়)। এমন অবস্থায়, একই user কে প্রতিবার একই server এ পাঠানো (IP hash দিয়ে) একটা **সাময়িক সমাধান** হতে পারে, যতক্ষণ না properly stateless বানানো হচ্ছে।
+**এটা কেন দরকার হতে পারে:** মনে করুন, Lesson 1.6 এর stateful vs stateless আলোচনা — ধরুন TaskFlow তাড়াহুড়ো করে একটা feature বানিয়েছে যেখানে session data এখনও local server memory তে আছে (Redis এ migrate করা হয়নি, ideal না, কিন্তু বাস্তবে অনেক সময় এমন "technical debt" থেকে যায়)। এমন অবস্থায়, একই user কে প্রতিবার একই server এ পাঠানো (IP hash দিয়ে) একটা **সাময়িক সমাধান** হতে পারে, যতক্ষণ না properly stateless বানানো হচ্ছে।
 
 **কিন্তু একটা বড় সমস্যা আছে — Server যোগ/বাদ দিলে সব হিসাব ওলটপালট হয়ে যায়:**
 
@@ -89,7 +89,7 @@ Server যোগ করে ৪টা করলে: hash(IP) % 4
 মানে প্রায় সব client ই হঠাৎ ভিন্ন server এ চলে যাবে!
 ```
 
-এটাই সেই সমস্যা যেটার সমাধান করে **Consistent Hashing** — একটা বেশি sophisticated hashing technique যেখানে server যোগ/বাদ দিলে শুধু **সামান্য অংশ** client re-map হয়, প্রায় সবাই না। এটা এতটাই গুরুত্বপূর্ণ এবং গভীর একটা topic (শুধু load balancing না, distributed database sharding, CDN routing — অনেক জায়গায় ব্যবহৃত হয়) যে আমরা এটার জন্য **সম্পূর্ণ আলাদা একটা lesson রেখেছি — Module 10.1**। আজকে শুধু এইটুকু জানো — এই সমস্যাটা (server সংখ্যা বদলালে সব hash ভেঙে পড়া) exists করে, এবং এর একটা elegant সমাধান আছে, যেটা আমরা পরে গভীরে যাব।
+এটাই সেই সমস্যা যেটার সমাধান করে **Consistent Hashing** — একটা বেশি sophisticated hashing technique যেখানে server যোগ/বাদ দিলে শুধু **সামান্য অংশ** client re-map হয়, প্রায় সবাই না। এটা এতটাই গুরুত্বপূর্ণ এবং গভীর একটা topic (শুধু load balancing না, distributed database sharding, CDN routing — অনেক জায়গায় ব্যবহৃত হয়) যে আমরা এটার জন্য **সম্পূর্ণ আলাদা একটা lesson রেখেছি — Module 10.1**। আজকে শুধু এইটুকু জানেন — এই সমস্যাটা (server সংখ্যা বদলালে সব hash ভেঙে পড়া) exists করে, এবং এর একটা elegant সমাধান আছে, যেটা আমরা পরে গভীরে যাব।
 
 > **Trade-off Table — LB Algorithms**
 
@@ -104,7 +104,7 @@ Server যোগ করে ৪টা করলে: hash(IP) % 4
 
 ## ২. Interview Angle
 
-একটা common প্রশ্ন — "তোমার backend এর কিছু endpoint দ্রুত (কয়েক ms), কিছু ধীর (কয়েক সেকেন্ড) — কোন LB algorithm বেছে নেবে?" সঠিক উত্তর **Least Connections**, কারণ Round Robin এ ধীর request গুলো একটা server কে "আটকে" রাখতে পারে, অথচ তার পরের "turn" এ আরও নতুন request চলে আসবে, ন্যায্য load distribution ভেঙে যাবে।
+একটা common প্রশ্ন — "আপনার backend এর কিছু endpoint দ্রুত (কয়েক ms), কিছু ধীর (কয়েক সেকেন্ড) — কোন LB algorithm বেছে নেবেন?" সঠিক উত্তর **Least Connections**, কারণ Round Robin এ ধীর request গুলো একটা server কে "আটকে" রাখতে পারে, অথচ তার পরের "turn" এ আরও নতুন request চলে আসবে, ন্যায্য load distribution ভেঙে যাবে।
 
 আরেকটা প্রশ্ন যেটা Lesson 1.6 এর সাথে সরাসরি সংযুক্ত — "Session affinity (sticky session) কি ভালো practice?" এখানে ভালো উত্তরে বলা উচিত — **এটা একটা workaround, ideal সমাধান না।** সঠিক approach হলো application কে stateless বানানো (Lesson 1.6, external session store), যাতে **কোনো session affinity ছাড়াই যেকোনো request যেকোনো server এ যেতে পারে** — এটাই horizontal scaling কে সবচেয়ে flexible এবং resilient করে তোলে (একটা server down হলেও, session affinity না থাকায় কোনো user block হয় না)।
 
@@ -136,7 +136,7 @@ Server যোগ করে ৪টা করলে: hash(IP) % 4
 
 ## ৫. Reflection Questions
 
-1. TaskFlow এর বেশিরভাগ endpoint (task CRUD) দ্রুত এবং প্রায় সমান cost এর, কিন্তু "Export to PDF" (Exit Challenge মনে আছে?) মাঝে মাঝে আসে এবং সময় নেয়। এই মিশ্র traffic pattern এর জন্য কোন algorithm প্রস্তাব করবে, কেন?
+1. TaskFlow এর বেশিরভাগ endpoint (task CRUD) দ্রুত এবং প্রায় সমান cost এর, কিন্তু "Export to PDF" (Exit Challenge মনে আছে?) মাঝে মাঝে আসে এবং সময় নেয়। এই মিশ্র traffic pattern এর জন্য কোন algorithm প্রস্তাব করবেন, কেন?
 2. যদি TaskFlow এর সব server সঠিকভাবে stateless হয় (Lesson 1.6 অনুযায়ী), তাহলে IP Hash/Session Affinity ব্যবহার করার কোনো প্রয়োজন আছে কি? কেন বা কেন না?
 
 <details>
@@ -154,7 +154,7 @@ Server যোগ করে ৪টা করলে: hash(IP) % 4
 
 **Tier 3 — Design Exercise**
 
-> **Scenario:** TaskFlow এর ৪টা server instance আছে। নিচের তিনটা পরিস্থিতির জন্য কোন LB algorithm প্রস্তাব করবে, আর কেন:
+> **Scenario:** TaskFlow এর ৪টা server instance আছে। নিচের তিনটা পরিস্থিতির জন্য কোন LB algorithm প্রস্তাব করবেন, আর কেন:
 >
 > 1. চারটা server ই একদম identical hardware এবং TaskFlow এর সব endpoint প্রায় সমান দ্রুত (সাধারণ CRUD app)
 > 2. একটা server সম্প্রতি upgrade করা হয়েছে (ডাবল CPU/RAM), বাকি তিনটা পুরনো hardware এই আছে
@@ -184,4 +184,4 @@ Next: 3.3 — Reverse Proxy vs Forward Proxy, Nginx Hands-on
 
 ## ৮. পরের Lesson
 
-Exercise টা করে পাঠাও। রেডি হলে `next` লিখো — Lesson 3.3 এ যাব: Reverse Proxy vs Forward Proxy, এবং এখানে আমরা প্রথমবারের মতো **Nginx hands-on** করব (Tier 2 — Docker/config-based exercise)।
+Exercise টা করে পাঠান। রেডি হলে `next` লিখুন — Lesson 3.3 এ যাব: Reverse Proxy vs Forward Proxy, এবং এখানে আমরা প্রথমবারের মতো **Nginx hands-on** করব (Tier 2 — Docker/config-based exercise)।

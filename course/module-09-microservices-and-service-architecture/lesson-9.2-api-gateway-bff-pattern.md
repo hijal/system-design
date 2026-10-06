@@ -2,15 +2,15 @@
 
 **Module 9 — Microservices & Service Architecture**
 
-> **Spaced Repetition (Lesson 3.1):** L4 আর L7 load balancer এর পার্থক্য কী — কোনটা URL এর path বা একটা header দেখে ঠিক করতে পারে request কোথায় যাবে, আর কোনটা শুধু IP আর port দেখে? আজকের API gateway এই দুটোর কোনটা, এক লাইনে বলতে পারবে।
+> **Spaced Repetition (Lesson 3.1):** L4 আর L7 load balancer এর পার্থক্য কী — কোনটা URL এর path বা একটা header দেখে ঠিক করতে পারে request কোথায় যাবে, আর কোনটা শুধু IP আর port দেখে? আজকের API gateway এই দুটোর কোনটা, এক লাইনে বলতে পারবেন।
 
 **Prerequisite:** Lesson 1.3 (Latency এর সংখ্যা), Lesson 2.3 (REST vs GraphQL vs gRPC), Lesson 2.5 (API versioning), Lesson 3.1 (L4 vs L7), Lesson 3.3 (Reverse proxy), Lesson 7.1 (Temporal coupling), Lesson 7.5 (Event), Lesson 9.1 (Strangler fig, database per service)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. দুটো service এর মধ্যে কোন কথা synchronous (request/response) আর কোনটা event হবে, একটা নিয়ম দিয়ে ঠিক করতে পারবে — আর ভেতরের call এর protocol (REST বনাম gRPC) বাছতে পারবে
-2. কেন browser বা mobile app কে ভেতরের service গুলো সরাসরি ডাকতে দেওয়া উচিত না — round trip এর ধাপ আর byte এর মাপা সংখ্যা দিয়ে বলতে পারবে; আর একটা **BFF** design করতে পারবে (TaskFlow এর SvelteKit এর server route সহ)
-3. একটা **API gateway** এর দায়িত্ব কী আর কী না, বলতে পারবে — বিশেষ করে পরিচয় (token) কোথায় যাচাই হয় আর gateway এর পেছনে সেটা কীভাবে নিরাপদে যায়; আর gateway দিয়ে canary routing
+1. দুটো service এর মধ্যে কোন কথা synchronous (request/response) আর কোনটা event হবে, একটা নিয়ম দিয়ে ঠিক করতে পারবেন — আর ভেতরের call এর protocol (REST বনাম gRPC) বাছতে পারবেন
+2. কেন browser বা mobile app কে ভেতরের service গুলো সরাসরি ডাকতে দেওয়া উচিত না — round trip এর ধাপ আর byte এর মাপা সংখ্যা দিয়ে বলতে পারবেন; আর একটা **BFF** design করতে পারবেন (TaskFlow এর SvelteKit এর server route সহ)
+3. একটা **API gateway** এর দায়িত্ব কী আর কী না, বলতে পারবেন — বিশেষ করে পরিচয় (token) কোথায় যাচাই হয় আর gateway এর পেছনে সেটা কীভাবে নিরাপদে যায়; আর gateway দিয়ে canary routing
 
 **Tier:** 1 — Runnable Code (আলাদা Node process গুলো আলাদা service, browser এর network এর একটা model, একটা খেলনা gateway; Docker লাগে না)
 
@@ -34,7 +34,7 @@ Lesson 9.1 এ সিদ্ধান্ত: TaskFlow একটা modular monoli
 
 দুটো service এর কথা বলার দুটো মৌলিক ধরন, আর দুটোই আমরা আগে দেখেছি:
 
-- **Request/response (synchronous):** "আমাকে এখন এটা দাও" — HTTP বা gRPC, উত্তরের অপেক্ষা। Lesson 9.1 এর board: tasks service users কে ডাকে, উত্তর না আসা পর্যন্ত board আটকে থাকে।
+- **Request/response (synchronous):** "আমাকে এখন এটা দিন" — HTTP বা gRPC, উত্তরের অপেক্ষা। Lesson 9.1 এর board: tasks service users কে ডাকে, উত্তর না আসা পর্যন্ত board আটকে থাকে।
 - **Event/message (asynchronous):** "এটা ঘটেছে" — outbox → stream (Lesson 7.5), যার দরকার সে শোনে, কেউ অপেক্ষা করে না।
 
 কোনটা কখন? একটা সরল প্রশ্ন: **user কি এই উত্তরের জন্য এখন অপেক্ষা করছে?**
@@ -71,7 +71,7 @@ Exercise এর `npm run bff`: TaskFlow এর "task detail" page — task, assi
 
 **Request Waterfall** — এমন একটা ক্রম যেখানে পরের request টা আগেরটার উত্তর না আসা পর্যন্ত পাঠানো যায় না (কারণ উত্তরে পরের request এর তথ্য থাকে), তাই মোট সময় প্রায় ধাপের সংখ্যা × round trip।
 
-এখানে ৪টা request কিন্তু ৩টা **ধাপ**: task না এলে জানা যায় না assignee কে; comment না এলে জানা যায় না author কারা। দ্বিতীয় ধাপের দুটো request একসাথে যায়, তবু তিনটা ধাপ। Mobile এ ৩ × ১০০ ms = ৩০০ ms শুধু অপেক্ষা — server এর কাজের চেয়ে একশো গুণ। আর মনে রেখো (Lesson 1.3): RTT আলোর গতি আর দূরত্বের ব্যাপার, bandwidth কিনে কমানো যায় না।
+এখানে ৪টা request কিন্তু ৩টা **ধাপ**: task না এলে জানা যায় না assignee কে; comment না এলে জানা যায় না author কারা। দ্বিতীয় ধাপের দুটো request একসাথে যায়, তবু তিনটা ধাপ। Mobile এ ৩ × ১০০ ms = ৩০০ ms শুধু অপেক্ষা — server এর কাজের চেয়ে একশো গুণ। আর মনে রাখবেন (Lesson 1.3): RTT আলোর গতি আর দূরত্বের ব্যাপার, bandwidth কিনে কমানো যায় না।
 
 **Over-fetching** — client এর যা দরকার তার চেয়ে অনেক বেশি data নামানো, কারণ API টা অনেক caller এর জন্য বানানো আর পুরো object দেয়।
 
@@ -86,7 +86,7 @@ Exercise এর `npm run bff`: TaskFlow এর "task detail" page — task, assi
 
 **Backend for Frontend (BFF)** — একটা নির্দিষ্ট frontend (web, mobile app, একটা partner এর integration) এর জন্য বানানো একটা পাতলা server-side layer, যেটা সেই frontend এর একেকটা screen এর জন্য ভেতরের service গুলো ডাকে, data জোড়া দেয়, আর ঠিক সেই screen এর আকৃতিতে ফেরত দেয় — সাধারণত সেই frontend এর team এর মালিকানায়।
 
-নামটা এসেছে SoundCloud এর অভিজ্ঞতা থেকে, Sam Newman এর 2015 এর লেখায়। Table এ ফিরে দেখো:
+নামটা এসেছে SoundCloud এর অভিজ্ঞতা থেকে, Sam Newman এর 2015 এর লেখায়। Table এ ফিরে দেখুন:
 
 - **ধাপ ৩ থেকে ১।** BFF একই তিন ধাপ চালায় — কিন্তু data center এর ভেতরে, যেখানে প্রতিটা ধাপ ~১ ms। Browser এর দিকে একটা round trip। Mobile এ ৩৪৯ থেকে ১২৪ ms। Experiment ১ এ ভেতরের প্রতিটা call ৫ ms করলেও BFF ১৩৭ ms — ভেতরের ধাপ বাইরের ধাপের চেয়ে সবসময় সস্তা।
 - **Byte ২৫ থেকে ১০ KB** — BFF শুধু page এর দরকারি field পাঠায়।
@@ -168,7 +168,7 @@ Spaced repetition এর উত্তর: gateway L7 — path (`/api/files/*`) �
    client → gateway → tasks                 0.4 ms               6312     2.4 ms     3.9 ms   0.2 ms
 ```
 
-একজন user এর চোখে +০.২ ms — প্রায় কিছুই না। কিন্তু দেখো ডান দিকে: প্রতিটা request এ gateway এর CPU ০.২ ms — একটা gateway process সরাসরির অর্ধেক request দিতে পারে। মানে gateway এর নিজের capacity plan লাগে (অনেক instance, horizontal — Lesson 1.6), আর সে **সবার** পথে: gateway বসে গেলে পুরো TaskFlow বসে যায়। তাই gateway stateless, অনেক instance, আর সরল রাখা হয়। (Exercise এর gateway একটা Express এর খেলনা — Envoy, NGINX, Kong এর মতো আসল gateway প্রতি request এ অনেক কম CPU নেয়। আকৃতিটা একই: একটা বাড়তি hop, সবার পথে।)
+একজন user এর চোখে +০.২ ms — প্রায় কিছুই না। কিন্তু দেখুন ডান দিকে: প্রতিটা request এ gateway এর CPU ০.২ ms — একটা gateway process সরাসরির অর্ধেক request দিতে পারে। মানে gateway এর নিজের capacity plan লাগে (অনেক instance, horizontal — Lesson 1.6), আর সে **সবার** পথে: gateway বসে গেলে পুরো TaskFlow বসে যায়। তাই gateway stateless, অনেক instance, আর সরল রাখা হয়। (Exercise এর gateway একটা Express এর খেলনা — Envoy, NGINX, Kong এর মতো আসল gateway প্রতি request এ অনেক কম CPU নেয়। আকৃতিটা একই: একটা বাড়তি hop, সবার পথে।)
 
 **Gateway দিয়ে routing — 9.1 এর strangler fig।** Thumbnail এর route টা পুরনো পথ (monolith) থেকে নতুন files service এ সরানো হচ্ছে — একবারে না, একটা ভাগ করে:
 
@@ -185,7 +185,7 @@ Spaced repetition এর উত্তর: gateway L7 — path (`/api/files/*`) �
 
 User id এর hash ধরে ভাগ — ১০% মানে ১০৪ জন (hash এর স্বাভাবিক ওঠানামা), আর প্রত্যেকে দুবারই একই দিকে। Client কিছুই জানে না — URL একই, শুধু gateway এর একটা সংখ্যা বদলায়। (Deploy এর canary — একই service এর নতুন version — Lesson 10.6।)
 
-**Gateway এ কী রাখবে না।** Gateway সবার পথে, তাই লোভ হয় সেখানে সব রাখার: "free plan এর user দের preview লুকাও", "এই response এ এই field জুড়ে দাও"। না। ব্যবসার নিয়ম gateway এ ঢুকলে gateway হয়ে যায় একটা দ্বিতীয় monolith — সবার change একটা team এর (platform) লাইনে, আর সবচেয়ে ঝুঁকির জায়গায়। ২০০০ এর দশকের "Enterprise Service Bus" এর ঠিক এই পরিণতি হয়েছিল — আর তার উত্তরেই microservices এর পরিচিত নীতি: "smart endpoints, dumb pipes" (Martin Fowler ও James Lewis, 2014) — বুদ্ধি service এ, পাইপ বোকা। নিয়ম: **সবার জন্য একই** কাজ (TLS, token যাচাই, rate limit, route, log) gateway এ; **একটা frontend এর** কাজ (জোড়া, আকৃতি) BFF এ; **ব্যবসার** নিয়ম service এ।
+**Gateway এ কী রাখবেন না।** Gateway সবার পথে, তাই লোভ হয় সেখানে সব রাখার: "free plan এর user দের preview লুকান", "এই response এ এই field জুড়ে দিন"। না। ব্যবসার নিয়ম gateway এ ঢুকলে gateway হয়ে যায় একটা দ্বিতীয় monolith — সবার change একটা team এর (platform) লাইনে, আর সবচেয়ে ঝুঁকির জায়গায়। ২০০০ এর দশকের "Enterprise Service Bus" এর ঠিক এই পরিণতি হয়েছিল — আর তার উত্তরেই microservices এর পরিচিত নীতি: "smart endpoints, dumb pipes" (Martin Fowler ও James Lewis, 2014) — বুদ্ধি service এ, পাইপ বোকা। নিয়ম: **সবার জন্য একই** কাজ (TLS, token যাচাই, rate limit, route, log) gateway এ; **একটা frontend এর** কাজ (জোড়া, আকৃতি) BFF এ; **ব্যবসার** নিয়ম service এ।
 
 ### ১.৫ "এটা কে পাঠাল?" — gateway এর পেছনে পরিচয়
 
@@ -207,7 +207,7 @@ User id এর hash ধরে ভাগ — ১০% মানে ১০৪ জ�
 
 - **Gateway এর ভেতর দিয়ে সব ঠিক** — দুই mode এ। তৃতীয় সারিটা জরুরি: client নিজে `x-user-id: 1` পাঠাল, gateway সেটা **ফেলে দিয়ে** নিজে বসাল (৪২)। এটা না করলে gateway নিজেই ফাঁক।
 - **Trust mode, gateway এড়িয়ে: user 1 হয়ে যাওয়া গেল।** Service শুধু একটা header বিশ্বাস করে — যে কেউ সেটা লিখতে পারে। ঘটনা ৩।
-- **Signed mode:** gateway `x-internal-auth` এ user id আর সময় বসিয়ে নিজের secret দিয়ে sign করে (HMAC); service যাচাই করে। সরাসরি এলে sign নেই — 401। আর পুরনো একটা আসল header (৭০ s আগের — কোনো log থেকে চুরি হলো ধরো) ও 401: sign এ সময় আছে, আর service ৬০ s এর বেশি পুরনো মানে না।
+- **Signed mode:** gateway `x-internal-auth` এ user id আর সময় বসিয়ে নিজের secret দিয়ে sign করে (HMAC); service যাচাই করে। সরাসরি এলে sign নেই — 401। আর পুরনো একটা আসল header (৭০ s আগের — কোনো log থেকে চুরি হলো ধরুন) ও 401: sign এ সময় আছে, আর service ৬০ s এর বেশি পুরনো মানে না।
 
 তাই স্তরে স্তরে:
 
@@ -277,10 +277,10 @@ User id এর hash ধরে ভাগ — ১০% মানে ১০৪ জ�
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
 1. TaskFlow এর mobile app এর version 1.2 সরাসরি `comments` এর endpoint ডাকে (BFF আসার আগের)। ৩০% user তিন মাস ধরে update করেনি। এখন work team comments এর response এর আকৃতি বদলাতে চায় (`author` একটা nested object হবে, `authorId` না)। (ক) BFF না থাকলে কী কী উপায়, আর প্রতিটার দাম? (খ) Mobile BFF থাকলে একই বদলের পথ কী? (গ) BFF এর নিজের endpoint এর version কেন তবু লাগে?
-2. Platform team বলছে: "Gateway সব request দেখে — তাই 'free plan এর workspace এ attachment এর preview লুকাও' এর নিয়মটা gateway এ বসাই, এক জায়গায়।" তিনটা যুক্তি দাও কেন এটা ভুল জায়গা। নিয়মটা কোথায় যাবে? আর gateway এ কোন ধরনের নিয়ম ঠিক আছে — একটা উদাহরণ যেটা শুনতে ব্যবসার মতো কিন্তু আসলে gateway এর কাজ।
+2. Platform team বলছে: "Gateway সব request দেখে — তাই 'free plan এর workspace এ attachment এর preview লুকান' এর নিয়মটা gateway এ বসাই, এক জায়গায়।" তিনটা যুক্তি দিন কেন এটা ভুল জায়গা। নিয়মটা কোথায় যাবে? আর gateway এ কোন ধরনের নিয়ম ঠিক আছে — একটা উদাহরণ যেটা শুনতে ব্যবসার মতো কিন্তু আসলে gateway এর কাজ।
 3. একটা request এর পুরো পথ: browser → gateway → web BFF (SvelteKit) → work module (monolith) → outbox event → notifications worker (email পাঠায়)। প্রতিটা ধাপে "কে" (user 42) কীভাবে যায় আর কে যাচাই করে? Worker টা event পায় কয়েক সেকেন্ড পরে — internal token এর ৬০ s মেয়াদ তখন কি সমস্যা? Event এ user এর JWT টাই রেখে দিলে কী ভুল?
 
 <details>
@@ -314,9 +314,9 @@ Gateway এ ঠিক আছে এমন "ব্যবসার মতো শ�
 2. **Gateway → web BFF:** signed internal token (user 42, এখনকার সময়, ৬০ s)। BFF যাচাই করে (shared middleware) — `locals.user` বসায়।
 3. **BFF → work module:** BFF একই internal token এগিয়ে দেয় (বা নিজের একটা নতুন বানায়, যদি BFF এর নিজের signing এর অনুমতি থাকে)। Work module যাচাই করে, তারপর **authorization**: user 42 কি এই workspace এর member?
 4. **Work module → outbox event:** event এ থাকে `actorId: 42` — একটা সাধারণ data field, token না। Event টা trust করা হয় কারণ সেটা এসেছে আমাদের নিজের outbox থেকে, stream এ যেখানে শুধু আমাদের service লিখতে পারে (stream এর নিজের access control)।
-5. **Notifications worker:** event পড়ে, `actorId` দেখে ("Karim তোমাকে একটা task দিয়েছে")। Token যাচাইয়ের কিছু নেই — worker user এর **হয়ে** কিছু করছে না; সে system এর হয়ে কাজ করছে, একটা ঘটে যাওয়া ঘটনার ভিত্তিতে।
+5. **Notifications worker:** event পড়ে, `actorId` দেখে ("Karim আপনাকে একটা task দিয়েছে")। Token যাচাইয়ের কিছু নেই — worker user এর **হয়ে** কিছু করছে না; সে system এর হয়ে কাজ করছে, একটা ঘটে যাওয়া ঘটনার ভিত্তিতে।
 
-৬০ s এর মেয়াদ: worker এর জন্য সমস্যা না, কারণ worker token ব্যবহার করে না। কিন্তু যদি worker কে user 42 এর হয়ে অন্য service ডাকতে হতো (ধরো user এর private data আনতে), তখন: হয় worker এর নিজের service identity (mTLS বা service token) আর service টা "system এর হয়ে, user 42 এর ঘটনার জন্য" বিশ্বাস করে, নয়তো সেই মুহূর্তে একটা নতুন ছোট token — পুরনোটা বাঁচিয়ে রাখা না।
+৬০ s এর মেয়াদ: worker এর জন্য সমস্যা না, কারণ worker token ব্যবহার করে না। কিন্তু যদি worker কে user 42 এর হয়ে অন্য service ডাকতে হতো (ধরুন user এর private data আনতে), তখন: হয় worker এর নিজের service identity (mTLS বা service token) আর service টা "system এর হয়ে, user 42 এর ঘটনার জন্য" বিশ্বাস করে, নয়তো সেই মুহূর্তে একটা নতুন ছোট token — পুরনোটা বাঁচিয়ে রাখা না।
 
 Event এ user এর JWT রাখলে ভুল: (ক) token টা একটা bearer অনুমতি (8.2 এর presigned URL এর মতো) — stream এ, log এ, DLQ তে (7.4) দিনের পর দিন পড়ে থাকে, যে পড়তে পারে সে user 42 হতে পারে; (খ) event এর replay (7.2) হয় কয়েক ঘণ্টা বা দিন পরে — token এর মেয়াদ ততক্ষণে শেষ, তাই হয় কাজ ব্যর্থ, নয়তো কেউ মেয়াদ লম্বা করে (আরও খারাপ); (গ) user logout বা ban হলেও token টা event এ থেকে যায়। Event এ **কী ঘটেছে আর কে ঘটিয়েছে** — অনুমতি না।
 
@@ -332,19 +332,19 @@ Event এ user এর JWT রাখলে ভুল: (ক) token টা এক�
 
 `bff` একটা "task detail" page তিনভাবে খোলে — browser নিজে তিনটা service ডেকে, web BFF দিয়ে, আর mobile BFF দিয়ে — desktop আর mobile এর network এর model এ, আর মাপে request, ধাপ, byte আর সময়; web BFF এর page আর browser এর নিজের জোড়া দেওয়া page হুবহু একই কিনা যাচাই করে। `gateway` একটা খেলনা gateway চালায়: বাড়তি hop এর দাম, token যাচাই আর gateway এড়িয়ে সরাসরি service এ পৌঁছানো (trust আর signed দুই mode এ), আর user ধরে canary routing।
 
-**সৎ নোট:** Sandbox এ Node 26 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` আর ESLint clean; `bff` তিনবার — request, ধাপ আর byte হুবহু একই, সময় ১–২% এর মধ্যে; `gateway` চারবার — অংশ খ আর গ হুবহু একই, অংশ ক এর req/s কয়েক শতাংশ ওঠানামা করে। README এর experiment ১ আর ৪ চালানো হয়েছে, সংখ্যা README তে; ২, ৩, ৫ code বদলানোর কাজ — তোমার। Browser এর network একটা model — RTT আর ভাগ করা bandwidth; TCP slow start, TLS, packet loss নেই; দুটো profile বাছাই করা, মাপা না। Exercise এর HTTP client `node:http` — Node 26 এর built-in `fetch` এ এই machine এ অল্প বিরতির পরে ~৫০০ ms এর একটা অদ্ভুত দেরি পাওয়া গেছে (localhost এও), কারণটা খোঁজা হয়নি, শুধু মেপে এড়ানো হয়েছে। Gateway একটা Express এর খেলনা — আসল gateway এর CPU এর সংখ্যা আলাদা হবে। JWT HS256, secret code এ নির্দিষ্ট — শুধু exercise এর জন্য। ১.৩ এর SvelteKit এর code আর ১.৬ এর gateway এর পছন্দ একটা নকশা, চালানো না।
+**সৎ নোট:** Sandbox এ Node 26 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` আর ESLint clean; `bff` তিনবার — request, ধাপ আর byte হুবহু একই, সময় ১–২% এর মধ্যে; `gateway` চারবার — অংশ খ আর গ হুবহু একই, অংশ ক এর req/s কয়েক শতাংশ ওঠানামা করে। README এর experiment ১ আর ৪ চালানো হয়েছে, সংখ্যা README তে; ২, ৩, ৫ code বদলানোর কাজ — আপনার। Browser এর network একটা model — RTT আর ভাগ করা bandwidth; TCP slow start, TLS, packet loss নেই; দুটো profile বাছাই করা, মাপা না। Exercise এর HTTP client `node:http` — Node 26 এর built-in `fetch` এ এই machine এ অল্প বিরতির পরে ~৫০০ ms এর একটা অদ্ভুত দেরি পাওয়া গেছে (localhost এও), কারণটা খোঁজা হয়নি, শুধু মেপে এড়ানো হয়েছে। Gateway একটা Express এর খেলনা — আসল gateway এর CPU এর সংখ্যা আলাদা হবে। JWT HS256, secret code এ নির্দিষ্ট — শুধু exercise এর জন্য। ১.৩ এর SvelteKit এর code আর ১.৬ এর gateway এর পছন্দ একটা নকশা, চালানো না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে হিসাব:** `bff` চালানোর **আগে** প্রতিটা সারির p50 হিসাব করো — ধাপ × RTT + byte ÷ bandwidth + ভেতরের কাজ (ধরো কয়েক ms)। তারপর চালিয়ে মেলাও। কোন সারিতে তোমার হিসাব সবচেয়ে বেশি মিলল, কোনটায় কম — কেন?
+1. **আগে হিসাব:** `bff` চালানোর **আগে** প্রতিটা সারির p50 হিসাব করুন — ধাপ × RTT + byte ÷ bandwidth + ভেতরের কাজ (ধরুন কয়েক ms)। তারপর চালিয়ে মেলান। কোন সারিতে আপনার হিসাব সবচেয়ে বেশি মিলল, কোনটায় কম — কেন?
 
-2. **Waterfall লম্বা হলে:** experiment ২ — `directPage` এ ধাপ ২ কে একটা একটা করে। Mobile এ কত ms হলো? তারপর ভাবো: BFF এর ভেতরে একই ভুল করলে ক্ষতি কত (NET_MS=1)? এই সংখ্যা দিয়ে বলো, একটা BFF এর code review এ কোন ভুল সবচেয়ে কম ক্ষতির আর browser এর code এ কোনটা সবচেয়ে বেশি।
+2. **Waterfall লম্বা হলে:** experiment ২ — `directPage` এ ধাপ ২ কে একটা একটা করে। Mobile এ কত ms হলো? তারপর ভাবুন: BFF এর ভেতরে একই ভুল করলে ক্ষতি কত (NET_MS=1)? এই সংখ্যা দিয়ে বলুন, একটা BFF এর code review এ কোন ভুল সবচেয়ে কম ক্ষতির আর browser এর code এ কোনটা সবচেয়ে বেশি।
 
-3. **পরিচয়ের ফাঁক:** `gateway` এর অংশ খ এর সাতটা সারির প্রতিটার জন্য এক লাইনে লেখো — বাস্তবে কোন ঘটনায় এটা ঘটে (যেমন "মেয়াদ পেরোনো token: user এর tab সারারাত খোলা ছিল")। তারপর `service.ts` এর gateway থেকে "client এর x-user-id ফেলে দেওয়া" অংশটা সরিয়ে দেখো (header গুলো client থেকে এগিয়ে দাও) — কোন সারি ভাঙে?
+3. **পরিচয়ের ফাঁক:** `gateway` এর অংশ খ এর সাতটা সারির প্রতিটার জন্য এক লাইনে লিখুন — বাস্তবে কোন ঘটনায় এটা ঘটে (যেমন "মেয়াদ পেরোনো token: user এর tab সারারাত খোলা ছিল")। তারপর `service.ts` এর gateway থেকে "client এর x-user-id ফেলে দেওয়া" অংশটা সরিয়ে দেখুন (header গুলো client থেকে এগিয়ে দিন) — কোন সারি ভাঙে?
 
-4. **Canary এর একক:** experiment ৪ (`USERS=100`) চালাও। TaskFlow এ একটা workspace এর ১০ জন user — user ধরে ১০% canary মানে একই team এর একজন নতুন thumbnail দেখে, বাকিরা পুরনো। Workspace ধরে ভাগ করলে কী ভালো হয়, আর কী খারাপ (একটা বড় workspace এ bug)? `gateway` এর `bucket` কে workspace ধরে বদলানোর জন্য gateway কে কী জানতে হবে, আর সেটা সে কোথা থেকে পাবে?
+4. **Canary এর একক:** experiment ৪ (`USERS=100`) চালান। TaskFlow এ একটা workspace এর ১০ জন user — user ধরে ১০% canary মানে একই team এর একজন নতুন thumbnail দেখে, বাকিরা পুরনো। Workspace ধরে ভাগ করলে কী ভালো হয়, আর কী খারাপ (একটা বড় workspace এ bug)? `gateway` এর `bucket` কে workspace ধরে বদলানোর জন্য gateway কে কী জানতে হবে, আর সেটা সে কোথা থেকে পাবে?
 
-5. **Design অংশ:** TaskFlow এর বাইরের দরজার এক পাতার design: (ক) gateway এর route এর তালিকা, প্রতিটা কোথায় যায়, কোনটায় canary; (খ) gateway এর কাজের তালিকা আর "কী কখনো gateway এ যাবে না" এর তিনটা উদাহরণ; (গ) পরিচয়ের পথ — কোন header, কে বসায়, কে যাচাই করে, মেয়াদ কত, আর event এ কী যায়; (ঘ) mobile BFF এর তিনটা endpoint (screen ধরে) আর তাদের version এর নিয়ম; (ঙ) কোন metric দেখে বলবে gateway সুস্থ (latency এর যোগ, error, instance এর CPU)।
+5. **Design অংশ:** TaskFlow এর বাইরের দরজার এক পাতার design: (ক) gateway এর route এর তালিকা, প্রতিটা কোথায় যায়, কোনটায় canary; (খ) gateway এর কাজের তালিকা আর "কী কখনো gateway এ যাবে না" এর তিনটা উদাহরণ; (গ) পরিচয়ের পথ — কোন header, কে বসায়, কে যাচাই করে, মেয়াদ কত, আর event এ কী যায়; (ঘ) mobile BFF এর তিনটা endpoint (screen ধরে) আর তাদের version এর নিয়ম; (ঙ) কোন metric দেখে বলবেন gateway সুস্থ (latency এর যোগ, error, instance এর CPU)।
 
 ---
 
@@ -365,7 +365,7 @@ Terms learned (Module 9 so far): Monolith / Microservices, Database per Service,
 Modular Monolith, Bounded Context, Distributed Monolith, Strangler Fig, Request Waterfall,
 Over-fetching, Backend for Frontend (BFF), API Gateway, Canary Routing, Edge Authentication,
 Service Mesh (mTLS)
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 9.3 — Distributed transactions: Saga pattern, 2PC
 =======================
 ```
@@ -374,4 +374,4 @@ Next: 9.3 — Distributed transactions: Saga pattern, 2PC
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ১ নম্বরের হিসাব আর ৫ নম্বরের design। রেডি হলে `next` লিখো — Lesson 9.3 এ যাব: **Distributed transactions — Saga pattern আর 2PC।** Lesson 9.1 এ দেখেছি একটা transaction দুটো database এ ভাগ হলে কী হয়: ৮৩টা অমিল, আর "আবার চেষ্টা" এ duplicate। TaskFlow এর billing কে কখনো আলাদা করতে হলে "task তৈরি + usage বাড়ানো + সীমা পেরোলে থামানো" একসাথে ঠিক রাখতে হবে — কোনো ভাগ করা `BEGIN … COMMIT` ছাড়া। দুটো পুরনো উত্তর: two-phase commit (সবাই একসাথে "হ্যাঁ" বলে তবেই commit — আর coordinator মরলে কী হয়), আর saga (ধাপে ধাপে, প্রতিটা ধাপের একটা উল্টো কাজ — আর মাঝপথে অন্যরা কী দেখে)। দুটোই মেপে দেখব।
+Exercise চালিয়ে পাঠান — বিশেষ করে ১ নম্বরের হিসাব আর ৫ নম্বরের design। রেডি হলে `next` লিখুন — Lesson 9.3 এ যাব: **Distributed transactions — Saga pattern আর 2PC।** Lesson 9.1 এ দেখেছি একটা transaction দুটো database এ ভাগ হলে কী হয়: ৮৩টা অমিল, আর "আবার চেষ্টা" এ duplicate। TaskFlow এর billing কে কখনো আলাদা করতে হলে "task তৈরি + usage বাড়ানো + সীমা পেরোলে থামানো" একসাথে ঠিক রাখতে হবে — কোনো ভাগ করা `BEGIN … COMMIT` ছাড়া। দুটো পুরনো উত্তর: two-phase commit (সবাই একসাথে "হ্যাঁ" বলে তবেই commit — আর coordinator মরলে কী হয়), আর saga (ধাপে ধাপে, প্রতিটা ধাপের একটা উল্টো কাজ — আর মাঝপথে অন্যরা কী দেখে)। দুটোই মেপে দেখব।

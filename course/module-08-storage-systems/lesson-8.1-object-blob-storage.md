@@ -2,15 +2,15 @@
 
 **Module 8 — Storage Systems**
 
-> **Spaced Repetition (Lesson 1.6):** একটা Express instance কে "stateless" বলি কখন — আর কেন horizontal scaling এর জন্য সেটা শর্ত? এখন ধরো user এর upload করা file সেই instance এর নিজের `/uploads` folder এ রাখছ। সেটা কি এখনো stateless? আজ মেপে দেখবে।
+> **Spaced Repetition (Lesson 1.6):** একটা Express instance কে "stateless" বলি কখন — আর কেন horizontal scaling এর জন্য সেটা শর্ত? এখন ধরুন user এর upload করা file সেই instance এর নিজের `/uploads` folder এ রাখছেন। সেটা কি এখনো stateless? আজ মেপে দেখবেন।
 
 **Prerequisite:** Lesson 1.3 (Estimation), Lesson 1.6 (Stateless), Lesson 3.4 (Sticky session), Lesson 5.3 (WAL), Lesson 5.5 (Lost update), Lesson 5.7 (Replication), Lesson 7.1 (Cascading failure), Lesson 7.5 (Dual write)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. File কোথায় রাখবে — database, app server এর disk, নাকি object storage — মাপা সংখ্যা দিয়ে বলতে পারবে, আর প্রতিটার দাম কোথায় গিয়ে পড়ে (WAL, backup, replica, stateless, app এর event loop) দেখাতে পারবে
-2. একটা object store ভেতরে কীভাবে কাজ করে — metadata আর bytes আলাদা, replication বনাম erasure coding, failure domain — whiteboard এ আঁকতে আর "১১ nines" দাবির মানে আর সীমা ব্যাখ্যা করতে পারবে
-3. Object storage এর API এর নিয়মগুলো (পুরো object লেখা, flat namespace, consistency, conditional write, versioning, storage class) মেনে TaskFlow এর attachment এর design করতে পারবে — key, metadata table, দুই জায়গায় লেখার ক্রম আর খরচ সহ
+1. File কোথায় রাখবেন — database, app server এর disk, নাকি object storage — মাপা সংখ্যা দিয়ে বলতে পারবেন, আর প্রতিটার দাম কোথায় গিয়ে পড়ে (WAL, backup, replica, stateless, app এর event loop) দেখাতে পারবেন
+2. একটা object store ভেতরে কীভাবে কাজ করে — metadata আর bytes আলাদা, replication বনাম erasure coding, failure domain — whiteboard এ আঁকতে আর "১১ nines" দাবির মানে আর সীমা ব্যাখ্যা করতে পারবেন
+3. Object storage এর API এর নিয়মগুলো (পুরো object লেখা, flat namespace, consistency, conditional write, versioning, storage class) মেনে TaskFlow এর attachment এর design করতে পারবেন — key, metadata table, দুই জায়গায় লেখার ক্রম আর খরচ সহ
 
 **Tier:** 1 — Runnable Code (Docker এ Postgres আর SeaweedFS — একটা S3-compatible object store; আর একটা seed দেওয়া durability simulation)
 
@@ -38,7 +38,7 @@ class Attachment extends Model<InferAttributes<Attachment>, InferCreationAttribu
 
 একজন team lead প্রস্তাব দিল: "file database থেকে বের করে প্রতিটা instance এর disk এ রাখি, `/var/taskflow/uploads` এ।" Staging এ চেষ্টা করা হলো। প্রথম দিনেই bug report: "upload করলাম, খুললে অর্ধেক সময় 'file not found'।" আর রাতে staging এর autoscaling একটা instance সরাল — সকালে সেই instance এর সব file নেই।
 
-CTO এর উত্তর এক লাইনের: "S3 এ রাখো।" কিন্তু S3 আসলে কী জিনিস, file system থেকে কীভাবে আলাদা, কী প্রতিশ্রুতি দেয় আর কী দেয় **না** — আজ সেটা, সংখ্যা সহ।
+CTO এর উত্তর এক লাইনের: "S3 এ রাখুন।" কিন্তু S3 আসলে কী জিনিস, file system থেকে কীভাবে আলাদা, কী প্রতিশ্রুতি দেয় আর কী দেয় **না** — আজ সেটা, সংখ্যা সহ।
 
 ---
 
@@ -58,7 +58,7 @@ CTO এর উত্তর এক লাইনের: "S3 এ রাখো।" �
    block storage                  file storage                     object storage
    ─────────────                  ────────────                     ──────────────
    [blk 0][blk 1][blk 2] …        /uploads/                         bucket: taskflow-attachments
-   যেকোনো block পড়ো/লেখো          ├── ws-12/                          key: ws/12/att/7f3a…   → bytes + metadata
+   যেকোনো block পড়ুন/লিখুন          ├── ws-12/                          key: ws/12/att/7f3a…   → bytes + metadata
    এক machine এ attach            │   └── spec.pdf  (মাঝখানে লেখা ✓)  key: ws/12/att/91bc…   → bytes + metadata
    উপরে file system/database      └── ws-40/ …      (rename ✓)       HTTP: PUT / GET / DELETE / LIST
                                                                     পুরো object, কোনো rename নেই
@@ -99,7 +99,7 @@ CTO এর উত্তর এক লাইনের: "S3 এ রাখো।" �
    + files, object storage → direct               14968     0.4 ms     0.7 ms      348      516   17.5 ms / 91.6 ms
 ```
 
-তৃতীয় সারিটা প্রথমে দেখো, কারণ এটা একটা সৎ অবাক করা ফল: Postgres নিজে file ভালোই দেয়। আলাদা একটা process থেকে প্রতি সেকেন্ডে ২৯০ MB নামালেও board এর p99 একই — ০.৮ ms। তাহলে দ্বিতীয় সারিতে board প্রতি সেকেন্ডে ১৪ হাজার থেকে **৩৫০** এ নামল কেন?
+তৃতীয় সারিটা প্রথমে দেখুন, কারণ এটা একটা সৎ অবাক করা ফল: Postgres নিজে file ভালোই দেয়। আলাদা একটা process থেকে প্রতি সেকেন্ডে ২৯০ MB নামালেও board এর p99 একই — ০.৮ ms। তাহলে দ্বিতীয় সারিতে board প্রতি সেকেন্ডে ১৪ হাজার থেকে **৩৫০** এ নামল কেন?
 
 কারণ database HTTP বলে না। File database এ থাকলে user এর কাছে পৌঁছানোর একমাত্র পথ **app এর ভেতর দিয়ে**: app database থেকে পড়ে, তারপর user কে পাঠায়। আর তখন:
 
@@ -124,7 +124,7 @@ Team lead এর প্রস্তাব: file প্রতিটা Express in
 ```
 
 - **Round robin:** অর্ধেক সময় request অন্য instance এ যায়, যার disk এ file টা নেই — staging এর "অর্ধেক সময় file not found"।
-- **Sticky session (Lesson 3.4):** একই user সবসময় একই instance এ — uploader আর 404 পায় না। কিন্তু teammate এর কলাম দেখো: **৪৭%**। Sticky session একজন **user** কে একটা instance এ বাঁধে, কিন্তু attachment একজনের না — একটা team এর। Teammate এর নিজের sticky instance আলাদা হতেই পারে।
+- **Sticky session (Lesson 3.4):** একই user সবসময় একই instance এ — uploader আর 404 পায় না। কিন্তু teammate এর কলাম দেখুন: **৪৭%**। Sticky session একজন **user** কে একটা instance এ বাঁধে, কিন্তু attachment একজনের না — একটা team এর। Teammate এর নিজের sticky instance আলাদা হতেই পারে।
 - **Instance বদলানোর পরে:** local disk এ instance এর সাথে তার disk ও গেছে — ১০০টা file চিরকালের জন্য নেই, আর round robin এ বাকি ১০০টাও অর্ধেক সময় ভুল instance এ পৌঁছায় (তাই ১৪৮)। Sticky তে ঠিক সেই ১০০টা, যাদের uploader এর instance ছিল A।
 
 Lesson 1.6 এর ভাষায়: file রাখা মাত্রই instance টা **stateful** হয়ে গেল — আর তার সাথে horizontal scaling এর প্রতিটা সুবিধা (যেকোনো instance যেকোনো request নেয়, instance আসে-যায়) ভাঙল। Object storage এর সারিতে দুটো instance একই bucket এ কথা বলে; instance গুলো আবার stateless, আর file এর জীবন instance এর জীবন থেকে আলাদা।
@@ -133,7 +133,7 @@ Lesson 1.6 এর ভাষায়: file রাখা মাত্রই insta
 
 ### ১.৪ Object store এর ভেতরে — metadata আর bytes আলাদা
 
-একটা object store বাইরে থেকে সরল: key দাও, bytes পাও। ভেতরে কী আছে যাতে কোটি কোটি object আর পেটাবাইট data সামলানো যায়?
+একটা object store বাইরে থেকে সরল: key দিন, bytes পান। ভেতরে কী আছে যাতে কোটি কোটি object আর পেটাবাইট data সামলানো যায়?
 
 মূল নকশা প্রায় সবখানে একই: **কোথায় আছে** (metadata) আর **আসল bytes** আলাদা system এ।
 
@@ -152,13 +152,13 @@ Lesson 1.6 এর ভাষায়: file রাখা মাত্রই insta
                   └──────────────────────────────────┘     └─────────────────────────────────────────────────┘
 ```
 
-এর পেছনের একটা বিখ্যাত কারণ আছে। Facebook এর 2010 এর paper "Finding a needle in Haystack: Facebook's photo storage" দেখায়: প্রতিটা ছবি একটা আলাদা file হলে, একটা ছবি পড়তে file system কে আগে তার metadata (directory, inode) খুঁজতে কয়েকবার disk এ যেতে হতো — আর কোটি কোটি ছোট file এ সেই metadata আর memory তে ধরে না। সমাধান: অনেক ছবি একটা বিশাল file এ পাশাপাশি জুড়ে দাও, আর "কোন ছবি কোন file এর কোন offset এ" এর ছোট একটা index memory তে রাখো — তাহলে একটা ছবি = একবার disk এ যাওয়া। Exercise এর SeaweedFS ঠিক এই ধারণা থেকে বানানো: তার **master** জানে কোন volume কোথায়, **volume server** গুলো বড় বড় volume file এ অনেক object এর bytes রাখে।
+এর পেছনের একটা বিখ্যাত কারণ আছে। Facebook এর 2010 এর paper "Finding a needle in Haystack: Facebook's photo storage" দেখায়: প্রতিটা ছবি একটা আলাদা file হলে, একটা ছবি পড়তে file system কে আগে তার metadata (directory, inode) খুঁজতে কয়েকবার disk এ যেতে হতো — আর কোটি কোটি ছোট file এ সেই metadata আর memory তে ধরে না। সমাধান: অনেক ছবি একটা বিশাল file এ পাশাপাশি জুড়ে দিন, আর "কোন ছবি কোন file এর কোন offset এ" এর ছোট একটা index memory তে রাখুন — তাহলে একটা ছবি = একবার disk এ যাওয়া। Exercise এর SeaweedFS ঠিক এই ধারণা থেকে বানানো: তার **master** জানে কোন volume কোথায়, **volume server** গুলো বড় বড় volume file এ অনেক object এর bytes রাখে।
 
 এই ভাগ থেকে তিনটা জিনিস বোঝা যায় যেগুলো API তে দেখা যায়:
 
 - **Metadata index টা একটা বিশাল key-value database** — key এর range ধরে shard করা (Lesson 5.8), প্রতিটা shard replicated আর consensus দিয়ে সমন্বিত (Lesson 6.2)। "LIST এই prefix এর সব object" হলো এই index এ একটা range scan — তাই LIST সস্তা, কিন্তু "সব object এর মোট আকার" এর মতো প্রশ্ন আসলে সব গুনে দেখা।
 - **"Folder" বলে কিছু নেই।** Index এ শুধু পূর্ণ key: `ws/12/att/7f3a…`। `/` একটা সাধারণ অক্ষর। (১.৬)
-- **Bytes বদলানো যায় না, শুধু নতুন করে লেখা যায়।** Object এর bytes একটা বড় file এর মাঝখানে বা কয়েকটা disk এ ভাগ হয়ে বসানো — "এই offset এ ৩ byte লেখো" মানে সবকিছু আবার বানানো। তাই নিয়মটাই: PUT মানে পুরো object, নতুন করে। (১.৬)
+- **Bytes বদলানো যায় না, শুধু নতুন করে লেখা যায়।** Object এর bytes একটা বড় file এর মাঝখানে বা কয়েকটা disk এ ভাগ হয়ে বসানো — "এই offset এ ৩ byte লিখুন" মানে সবকিছু আবার বানানো। তাই নিয়মটাই: PUT মানে পুরো object, নতুন করে। (১.৬)
 
 **Bucket আর key** — bucket হলো object রাখার একটা নামযুক্ত পাত্র (যার উপর permission, versioning, lifecycle এর নিয়ম বসে); তার ভেতরে প্রতিটা object এর একটা অনন্য **key** — একটা string, যেটা path এর মতো দেখতে হলেও আসলে শুধু একটা নাম; key এর শুরুর অংশকে **prefix** বলে।
 
@@ -172,7 +172,7 @@ Lesson 1.5 এ availability শিখেছিলাম: এই মুহূর�
 
 AWS বলে S3 Standard এর durability এর design লক্ষ্য **99.999999999%** — "১১ nines"। মানে ১০০০ কোটি object রাখলে গড়ে বছরে একটা হারানোর আশা। তুলনায় তার availability এর লক্ষ্য 99.99% (আর SLA 99.9%) — অনেক কম nines। দুটো আলাদা প্রশ্ন, আলাদা উত্তর।
 
-এত nines কোথা থেকে? একটা disk বছরে কয়েক শতাংশ সম্ভাবনায় মরে (Backblaze এর মতো কোম্পানির প্রকাশ করা disk এর পরিসংখ্যানে বছরে ১–২% এর আশেপাশে সাধারণ)। প্রথম উত্তর — কপি রাখো। দ্বিতীয় উত্তর, আরও চতুর:
+এত nines কোথা থেকে? একটা disk বছরে কয়েক শতাংশ সম্ভাবনায় মরে (Backblaze এর মতো কোম্পানির প্রকাশ করা disk এর পরিসংখ্যানে বছরে ১–২% এর আশেপাশে সাধারণ)। প্রথম উত্তর — কপি রাখুন। দ্বিতীয় উত্তর, আরও চতুর:
 
 **Erasure coding** — একটা object কে k টা data fragment এ ভাগ করে তা থেকে m টা বাড়তি parity fragment গণনা করা, আর k + m টা fragment আলাদা আলাদা disk এ রাখা; যেকোনো k টা fragment থেকে পুরো object আবার বানানো যায় — তাই m টা disk মরা সহ্য করে, মাত্র (k + m) ÷ k গুণ জায়গায়।
 
@@ -219,7 +219,7 @@ Exercise এর `npm run durability`, অংশ ক — একটা সরল m
 **"১১ nines" দাবির সৎ পাঠ:**
 
 1. এটা একটা **design লক্ষ্য**, মাপা নিশ্চয়তা না — এত ছোট সম্ভাবনা মাপার মতো ঘটনা ঘটেই না। Model এর অনুমানগুলো (স্বাধীন ব্যর্থতা, মেরামতের সময়) যত বাস্তব, সংখ্যা তত অর্থপূর্ণ।
-2. এটা **hardware** থেকে রক্ষা করে — তোমার নিজের ভুল থেকে না। তোমার code এর একটা bug বা একজন engineer এর একটা ভুল command যদি `DELETE` পাঠায়, object store খুব durably সেটা মুছে দেবে। বাস্তবে data হারানোর সবচেয়ে বড় কারণ এটাই — আর তার উত্তর versioning (১.৬), object lock, আর আলাদা account বা region এ কপি।
+2. এটা **hardware** থেকে রক্ষা করে — আপনার নিজের ভুল থেকে না। আপনার code এর একটা bug বা একজন engineer এর একটা ভুল command যদি `DELETE` পাঠায়, object store খুব durably সেটা মুছে দেবে। বাস্তবে data হারানোর সবচেয়ে বড় কারণ এটাই — আর তার উত্তর versioning (১.৬), object lock, আর আলাদা account বা region এ কপি।
 
 ### ১.৬ API এর নিয়ম — এটা file system না
 
@@ -242,7 +242,7 @@ AWS S3 ডিসেম্বর 2020 থেকে সব PUT, DELETE আর LIST
    workspaces/12/ → workspaces/99/ "rename": 9 requests (1 LIST + COPY + DELETE per object)
 ```
 
-`Delimiter` দিয়ে LIST করলে API নিজেই key গুলো `/` এ ভাগ করে "folder" এর মতো দেখায় (`CommonPrefixes`) — কিন্তু index এ কোনো folder নেই। তাই "folder এর নাম বদলাও" একটা operation না — প্রতিটা object আলাদা করে copy আর delete: এখানে ৪টা object এ ৯টা request, দশ লাখ object এ বিশ লাখ। Design এর শিক্ষা: **এমন কিছু key এ রেখো না যেটা বদলাতে পারে** (user এর দেওয়া file এর নাম, task এর title) — ১.৮ এ।
+`Delimiter` দিয়ে LIST করলে API নিজেই key গুলো `/` এ ভাগ করে "folder" এর মতো দেখায় (`CommonPrefixes`) — কিন্তু index এ কোনো folder নেই। তাই "folder এর নাম বদলান" একটা operation না — প্রতিটা object আলাদা করে copy আর delete: এখানে ৪টা object এ ৯টা request, দশ লাখ object এ বিশ লাখ। Design এর শিক্ষা: **এমন কিছু key এ রাখবেন না যেটা বদলাতে পারে** (user এর দেওয়া file এর নাম, task এর title) — ১.৮ এ।
 
 **৩. লেখা পুরো object, পড়া আংশিক হতে পারে।**
 
@@ -251,7 +251,7 @@ AWS S3 ডিসেম্বর 2020 থেকে সব PUT, DELETE আর LIST
    reading 1 KB from the middle returned: 1024 bytes · bytes 4194304-4195327/8388608 · matches: yes
 ```
 
-Append নেই, "এই offset এ লেখো" নেই — ১.৪ এর ভেতরের গঠনের সরাসরি ফল। তাই object storage log file বা database এর data file রাখার জায়গা না (বারবার শেষে যোগ হয় এমন কিছু)। কিন্তু `Range` দিয়ে পড়া আংশিক হতে পারে — video এর মাঝখান থেকে চালানো, বড় file এর একটা অংশ, একটা download মাঝপথে থেমে গেলে বাকিটা। (বড় file লেখাকে টুকরো করার উপায় — multipart upload — Lesson 8.2।)
+Append নেই, "এই offset এ লিখুন" নেই — ১.৪ এর ভেতরের গঠনের সরাসরি ফল। তাই object storage log file বা database এর data file রাখার জায়গা না (বারবার শেষে যোগ হয় এমন কিছু)। কিন্তু `Range` দিয়ে পড়া আংশিক হতে পারে — video এর মাঝখান থেকে চালানো, বড় file এর একটা অংশ, একটা download মাঝপথে থেমে গেলে বাকিটা। (বড় file লেখাকে টুকরো করার উপায় — multipart upload — Lesson 8.2।)
 
 **৪ আর ৫. Metadata আর ETag।** `HEAD` দিয়ে আকার, `Content-Type`, `Content-Disposition` আর নিজের metadata — bytes ছাড়া। আর একবারে PUT করা object এ ETag = content এর MD5 — upload এর পরে client নিজের হিসাবের সাথে মিলিয়ে দেখতে পারে যে পুরোটা ঠিকঠাক পৌঁছেছে।
 
@@ -264,9 +264,9 @@ Append নেই, "এই offset এ লেখো" নেই — ১.৪ এর 
    If-None-Match: * (on a key that already exists): rejected (412 PreconditionFailed)
 ```
 
-Lesson 5.5 এর lost update, object storage এ। কোনো lock নেই — শেষ PUT জেতে। সমাধানও 5.5 এর optimistic concurrency এর মতো: **conditional write**। `If-Match: <পড়ার সময়ের ETag>` — "যা পড়েছিলাম সেটাই যদি এখনো থাকে, তবেই লেখো" (compare-and-swap); না মিললে `412`, আবার পড়ে চেষ্টা। `If-None-Match: *` — "শুধু না থাকলে তৈরি করো" — একই key তে দুটো upload এর দ্বিতীয়টা আটকায়। (AWS S3 এ এ দুটো এসেছে 2024 এ — তার আগে এই ধরনের সমন্বয়ের জন্য বাইরে একটা database বা lock লাগত। আবারও: তোমার system এ আছে কিনা যাচাই করো।)
+Lesson 5.5 এর lost update, object storage এ। কোনো lock নেই — শেষ PUT জেতে। সমাধানও 5.5 এর optimistic concurrency এর মতো: **conditional write**। `If-Match: <পড়ার সময়ের ETag>` — "যা পড়েছিলাম সেটাই যদি এখনো থাকে, তবেই লিখুন" (compare-and-swap); না মিললে `412`, আবার পড়ে চেষ্টা। `If-None-Match: *` — "শুধু না থাকলে তৈরি করুন" — একই key তে দুটো upload এর দ্বিতীয়টা আটকায়। (AWS S3 এ এ দুটো এসেছে 2024 এ — তার আগে এই ধরনের সমন্বয়ের জন্য বাইরে একটা database বা lock লাগত। আবারও: আপনার system এ আছে কিনা যাচাই করুন।)
 
-তবে বাস্তবে এর সবচেয়ে ভালো উত্তর প্রায়ই অন্য: যে data একসাথে বদলায় (checklist), সেটা object storage এ না — database এ রাখো। Object storage ভালো **একবার লেখা, অনেকবার পড়া** জিনিসের জন্য।
+তবে বাস্তবে এর সবচেয়ে ভালো উত্তর প্রায়ই অন্য: যে data একসাথে বদলায় (checklist), সেটা object storage এ না — database এ রাখুন। Object storage ভালো **একবার লেখা, অনেকবার পড়া** জিনিসের জন্য।
 
 **৭. Versioning।**
 
@@ -280,7 +280,7 @@ Bucket এ versioning চালু থাকলে overwrite পুরনো ver
 
 ### ১.৭ দাম, storage class আর lifecycle
 
-Object storage এর বিল কয়েকটা আলাদা অংশে আসে, আর design এ প্রতিটার আলাদা প্রভাব। (নিচের সংখ্যা AWS us-east-1 এর লেখার সময়ের আনুমানিক তালিকা মূল্য — region আর সময় ভেদে বদলায়; হিসাবের আগে pricing page দেখো। আকৃতিটা আসল, দশমিক না।)
+Object storage এর বিল কয়েকটা আলাদা অংশে আসে, আর design এ প্রতিটার আলাদা প্রভাব। (নিচের সংখ্যা AWS us-east-1 এর লেখার সময়ের আনুমানিক তালিকা মূল্য — region আর সময় ভেদে বদলায়; হিসাবের আগে pricing page দেখুন। আকৃতিটা আসল, দশমিক না।)
 
 - **জায়গা:** S3 Standard ~$0.023 প্রতি GB-মাস। তুলনায় database এর SSD (EBS gp3) ~$0.08 প্রতি GB-মাস — আর সেটা primary আর প্রতিটা replica তে আলাদা করে।
 - **Request:** PUT ~$0.005 আর GET ~$0.0004, প্রতি হাজারে। ছোট ছোট অনেক object এ এটাই বড় অংশ হতে পারে।
@@ -322,16 +322,16 @@ class Attachment extends Model<InferAttributes<Attachment>, InferCreationAttribu
 }
 ```
 
-**Key এর নিয়ম:** `ws/{workspaceId}/att/{uuid}`। User এর দেওয়া file এর নাম key এ না — দুটো `spec.pdf` এর সংঘাত, UI তে নাম বদলালে object সরানো (১.৬ এর copy + delete), আর user এর লেখা key এ বসানো মানে অদ্ভুত অক্ষর আর path এর কৌশল। আসল নাম থাকে database এ আর `Content-Disposition` এ। Workspace এর prefix আছে যাতে একটা workspace মুছে ফেলা (বা তার সব file export) একটা prefix এর LIST দিয়ে শুরু করা যায়। (অনেক পুরনো লেখায় S3 এর key এর শুরুতে এলোমেলো hash বসানোর পরামর্শ পাবে — load ভাগ করতে। AWS 2018 এ জানিয়েছে যে S3 এখন prefix প্রতি অনেক বেশি request নিজে থেকেই সামলায় — প্রতি prefix এ সেকেন্ডে অন্তত ৩,৫০০ লেখা আর ৫,৫০০ পড়া — তাই সেই পরামর্শ আর দরকার নেই।)
+**Key এর নিয়ম:** `ws/{workspaceId}/att/{uuid}`। User এর দেওয়া file এর নাম key এ না — দুটো `spec.pdf` এর সংঘাত, UI তে নাম বদলালে object সরানো (১.৬ এর copy + delete), আর user এর লেখা key এ বসানো মানে অদ্ভুত অক্ষর আর path এর কৌশল। আসল নাম থাকে database এ আর `Content-Disposition` এ। Workspace এর prefix আছে যাতে একটা workspace মুছে ফেলা (বা তার সব file export) একটা prefix এর LIST দিয়ে শুরু করা যায়। (অনেক পুরনো লেখায় S3 এর key এর শুরুতে এলোমেলো hash বসানোর পরামর্শ পাবেন — load ভাগ করতে। AWS 2018 এ জানিয়েছে যে S3 এখন prefix প্রতি অনেক বেশি request নিজে থেকেই সামলায় — প্রতি prefix এ সেকেন্ডে অন্তত ৩,৫০০ লেখা আর ৫,৫০০ পড়া — তাই সেই পরামর্শ আর দরকার নেই।)
 
-**আবার dual write — এবার কোন দিকে ভুল হবে, বেছে নাও।** একটা attachment মানে দুটো লেখা: object storage এ object, database এ row — Lesson 7.5 এর dual write, আর কোনো ভাগ করা transaction নেই। দুটো ক্রম:
+**আবার dual write — এবার কোন দিকে ভুল হবে, বেছে নিন।** একটা attachment মানে দুটো লেখা: object storage এ object, database এ row — Lesson 7.5 এর dual write, আর কোনো ভাগ করা transaction নেই। দুটো ক্রম:
 
 ```
   row আগে, তারপর object:   মাঝে crash → row আছে, object নেই → user তালিকায় file দেখে, খুললে 404   ✗ user এর চোখে
   object আগে, তারপর row:   মাঝে crash → object আছে, row নেই → কেউ দেখে না, শুধু জায়গার খরচ     ✓ চুপচাপ, সারানো যায়
 ```
 
-দ্বিতীয়টা বাছো, আর "orphan" object এর জন্য একটা রাতের job: bucket এর LIST আর database এর row মেলাও, ২৪ ঘণ্টার বেশি পুরনো row-ছাড়া object মুছে দাও। (Lesson 7.4 এর মতোই — ফাঁক বন্ধ করা যায় না, শুধু ঠিক করা যায় কোন দিকে পড়বে আর কে সেটা পরিষ্কার করবে।)
+দ্বিতীয়টা বাছুন, আর "orphan" object এর জন্য একটা রাতের job: bucket এর LIST আর database এর row মেলান, ২৪ ঘণ্টার বেশি পুরনো row-ছাড়া object মুছে দিন। (Lesson 7.4 এর মতোই — ফাঁক বন্ধ করা যায় না, শুধু ঠিক করা যায় কোন দিকে পড়বে আর কে সেটা পরিষ্কার করবে।)
 
 ```typescript
 type NewAttachment = Pick<
@@ -379,13 +379,13 @@ async function saveAttachment(input: NewAttachment, body: Buffer): Promise<Attac
 
 ## ২. Interview Angle
 
-**"Instagram/Dropbox design করো — ছবি/file কোথায় রাখবে?"** — প্রায় প্রতিটা design প্রশ্নে এই মুহূর্তটা আসে। দুর্বল উত্তর: "database এ" বা শুধু "S3 এ" (কেন না বলে)। ভালো উত্তর ভাগ করে বলে: **metadata** (কে, কবে, কোন album, file এর key) database এ, **bytes** object storage এ; download সরাসরি object storage/CDN থেকে, app এর ভেতর দিয়ে না; key এর নিয়ম (অপরিবর্তনীয়, user এর নাম না); আর দুই লেখার ক্রম (object আগে, orphan পরিষ্কার)। বোনাস: estimation — প্রতিদিন কত TB, বছরে কত, দাম কত (১.৭ এর মতো এক লাইনে)।
+**"Instagram/Dropbox design করুন — ছবি/file কোথায় রাখবেন?"** — প্রায় প্রতিটা design প্রশ্নে এই মুহূর্তটা আসে। দুর্বল উত্তর: "database এ" বা শুধু "S3 এ" (কেন না বলে)। ভালো উত্তর ভাগ করে বলে: **metadata** (কে, কবে, কোন album, file এর key) database এ, **bytes** object storage এ; download সরাসরি object storage/CDN থেকে, app এর ভেতর দিয়ে না; key এর নিয়ম (অপরিবর্তনীয়, user এর নাম না); আর দুই লেখার ক্রম (object আগে, orphan পরিষ্কার)। বোনাস: estimation — প্রতিদিন কত TB, বছরে কত, দাম কত (১.৭ এর মতো এক লাইনে)।
 
-**"File database এ রাখলে সমস্যা কী?"** — তিনটা নির্দিষ্ট দাম বলো, সাধারণ "ধীর" না: WAL আর replica (প্রতিটা byte প্রতিটা replica তে), backup/restore এর আকার আর সময় (RTO), আর দেওয়ার সময় app এর ভেতর দিয়ে যাওয়া (pool, event loop)। আর সৎ ব্যতিক্রম: ছোট আর অল্প হলে চলে।
+**"File database এ রাখলে সমস্যা কী?"** — তিনটা নির্দিষ্ট দাম বলুন, সাধারণ "ধীর" না: WAL আর replica (প্রতিটা byte প্রতিটা replica তে), backup/restore এর আকার আর সময় (RTO), আর দেওয়ার সময় app এর ভেতর দিয়ে যাওয়া (pool, event loop)। আর সৎ ব্যতিক্রম: ছোট আর অল্প হলে চলে।
 
 **"S3 এত durable কীভাবে?"** — Erasure coding (k + m, যেকোনো k যথেষ্ট, কম জায়গায় বেশি সহ্য), failure domain জুড়ে ছড়ানো (AZ), দ্রুত মেরামত, আর checksum দিয়ে নিয়মিত যাচাই। তারপর নিজে থেকে সীমাটা: durability hardware থেকে বাঁচায়, ভুল করে মোছা থেকে না — versioning, object lock, আলাদা account এ কপি।
 
-**"S3 এর consistency কেমন?"** — 2020 থেকে strong read-after-write (PUT, DELETE, LIST); তার আগে overwrite/delete এ eventual — পুরনো উৎস এখনো সেটা বলে, তাই তারিখ সহ উত্তর দাও। Concurrent write এ last writer wins, আর তার উত্তর conditional write (`If-Match`)।
+**"S3 এর consistency কেমন?"** — 2020 থেকে strong read-after-write (PUT, DELETE, LIST); তার আগে overwrite/delete এ eventual — পুরনো উৎস এখনো সেটা বলে, তাই তারিখ সহ উত্তর দিন। Concurrent write এ last writer wins, আর তার উত্তর conditional write (`If-Match`)।
 
 **Production এ বাস্তবে:** সবচেয়ে পরিচিত ঘটনাগুলো: ভুল করে public bucket (data ফাঁস); lifecycle rule ছাড়া versioning (বিল নীরবে বাড়ে); egress এর বিল যেটা কেউ হিসাব করেনি (CDN ছাড়া বড় file দেওয়া); লাখ লাখ খুব ছোট object (জায়গার চেয়ে request এর বিল বেশি — ছোট জিনিস জুড়ে বড় object বানানো, Haystack এর ধারণা); আর একটা script যেটা ভুল prefix এ `DeleteObjects` চালায় — versioning না থাকলে ফেরানোর উপায় নেই।
 
@@ -398,8 +398,8 @@ async function saveAttachment(input: NewAttachment, body: Buffer): Promise<Attac
 - File **app server এর disk এ**: stateless ভাঙে — round robin এ ৫০% 404, sticky session এ uploader বাঁচে কিন্তু teammate এর ৪৭% 404, আর instance বদলালে file শেষ
 - ভেতরে **metadata index** (key → কোথায়, sharded + replicated) আর **bytes** (অনেক object বড় file এ জোড়া — Haystack) আলাদা; তাই "folder" নেই, rename মানে copy + delete, আর bytes শুধু পুরো নতুন করে লেখা যায়
 - **Durability** ≠ availability। **Erasure coding** (EC 6+3: ১.৫ গুণ জায়গায় ১১.৮ nines, ৩ কপির ৩ গুণে ৯.৭) — কিন্তু শুধু **failure domain** জুড়ে ছড়ালে: এলোমেলো বসালে একটা rack এ ৬১১টা পড়া যায় না, আলাদা rack এ ০
-- API এর নিয়ম: strong read-after-write (S3, 2020 থেকে — অন্য system এ যাচাই করো), last writer wins → **conditional write** (`If-Match`, `If-None-Match`), range read, ETag, **versioning** (ভুল করে মোছা থেকে রক্ষা)
-- Database এ metadata, object storage এ bytes; key অপরিবর্তনীয় আর user এর নাম ছাড়া; **object আগে, row পরে**, orphan এর জন্য পরিষ্কারের job; private bucket, versioning + **lifecycle**; আর বিলে egress আর request কে ভুলো না
+- API এর নিয়ম: strong read-after-write (S3, 2020 থেকে — অন্য system এ যাচাই করুন), last writer wins → **conditional write** (`If-Match`, `If-None-Match`), range read, ETag, **versioning** (ভুল করে মোছা থেকে রক্ষা)
+- Database এ metadata, object storage এ bytes; key অপরিবর্তনীয় আর user এর নাম ছাড়া; **object আগে, row পরে**, orphan এর জন্য পরিষ্কারের job; private bucket, versioning + **lifecycle**; আর বিলে egress আর request কে ভুলবেন না
 
 ---
 
@@ -419,19 +419,19 @@ async function saveAttachment(input: NewAttachment, body: Buffer): Promise<Attac
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এ আরও দুটো জিনিস আসছে: (ক) user এর avatar — প্রতি user এর একটা, ~৩০ KB, প্রায় প্রতিটা page এ দেখায় (comment, board, member list); (খ) প্রতি মাসে প্রতিটা workspace এর একটা invoice PDF, ~১০০ KB, যেটা billing এর transaction এর সাথে একসাথে তৈরি হয় আর আইনত ৭ বছর রাখতে হয়। প্রতিটা কোথায় রাখবে — database নাকি object storage — আর কেন? ৫০ হাজার user আর ৫ হাজার workspace ধরে প্রতিটার মোট আকার হিসাব করো। কোনটার জন্য storage class বা lifecycle এর কথা ভাববে?
-2. TaskFlow এর attachment এর key এর জন্য দুটো প্রস্তাব: (ক) `ws/{workspaceId}/att/{uuid}`, (খ) `att/{uuid}` (workspace শুধু database এর row এ)। তিনটা ঘটনার জন্য তুলনা করো: একটা task এক workspace থেকে আরেকটায় সরানো; একটা customer চলে গেলে তার workspace এর সব file মুছে ফেলা (আইনি বাধ্যবাধকতা, ৩০ দিনের মধ্যে); আর রাতের orphan পরিষ্কারের job। কোনটা বাছবে?
-3. একজন manager বলল: "S3 এর durability ১১ nines — তাহলে attachment এর আলাদা backup এর কোনো দরকার নেই।" কোন অংশ ঠিক, কোন অংশ ভুল? অন্তত তিনটা পরিস্থিতি বলো যেখানে ১১ nines থাকা সত্ত্বেও TaskFlow এর file হারাবে — আর প্রতিটার বিরুদ্ধে কী বসাবে।
+1. TaskFlow এ আরও দুটো জিনিস আসছে: (ক) user এর avatar — প্রতি user এর একটা, ~৩০ KB, প্রায় প্রতিটা page এ দেখায় (comment, board, member list); (খ) প্রতি মাসে প্রতিটা workspace এর একটা invoice PDF, ~১০০ KB, যেটা billing এর transaction এর সাথে একসাথে তৈরি হয় আর আইনত ৭ বছর রাখতে হয়। প্রতিটা কোথায় রাখবেন — database নাকি object storage — আর কেন? ৫০ হাজার user আর ৫ হাজার workspace ধরে প্রতিটার মোট আকার হিসাব করুন। কোনটার জন্য storage class বা lifecycle এর কথা ভাববেন?
+2. TaskFlow এর attachment এর key এর জন্য দুটো প্রস্তাব: (ক) `ws/{workspaceId}/att/{uuid}`, (খ) `att/{uuid}` (workspace শুধু database এর row এ)। তিনটা ঘটনার জন্য তুলনা করুন: একটা task এক workspace থেকে আরেকটায় সরানো; একটা customer চলে গেলে তার workspace এর সব file মুছে ফেলা (আইনি বাধ্যবাধকতা, ৩০ দিনের মধ্যে); আর রাতের orphan পরিষ্কারের job। কোনটা বাছবেন?
+3. একজন manager বলল: "S3 এর durability ১১ nines — তাহলে attachment এর আলাদা backup এর কোনো দরকার নেই।" কোন অংশ ঠিক, কোন অংশ ভুল? অন্তত তিনটা পরিস্থিতি বলুন যেখানে ১১ nines থাকা সত্ত্বেও TaskFlow এর file হারাবে — আর প্রতিটার বিরুদ্ধে কী বসাবেন।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:**
 
-- **(ক) Avatar → object storage, আর সামনে CDN।** আকার: ৫০,০০০ × ৩০ KB ≈ ১.৫ GB — ছোট, database এও ধরত। কিন্তু প্রশ্নটা আকার না, **দেওয়া**: প্রায় প্রতিটা page এ কয়েকটা avatar, মানে দিনে লাখ লাখ read। Database এ থাকলে প্রতিটা app এর ভেতর দিয়ে (১.২ এর board এর ক্ষতি), আর cache করা কঠিন। Object storage এ রাখলে একটা স্থির URL, CDN এ cache (Lesson 4.5), browser এ cache — app আর database কেউ ছোঁয় না। একটা সূক্ষ্মতা: avatar বদলালে key বদলাও (`avatars/{userId}/{version}.webp`) — পুরনো URL CDN এ cache থাকে, নতুন key মানে invalidation এর ঝামেলা নেই (Lesson 4.3)।
-- **(খ) Invoice PDF → object storage, কিন্তু সাবধানে।** আকার: ৫,০০০ × ১২ মাস × ১০০ KB ≈ ৬ GB প্রতি বছর, ৭ বছরে ~৪২ GB — database এ রাখলেও বিশাল না, আর "billing এর transaction এর সাথে একসাথে" শুনে database এ রাখার লোভ হয়। তবু object storage ভালো: কখনো বদলায় না, খুব কম পড়া হয়, আর ৭ বছর ধরে প্রতি রাতের backup এ বয়ে বেড়ানোর কোনো মানে নেই। Transaction এর প্রশ্নটা ১.৮ এর মতো সামলাও — invoice এর row database এ (টাকার সংখ্যা, status), PDF টা পরে তৈরি হয়ে object storage এ (একটা BullMQ job, 7.3 — idempotent, key = `invoices/{workspaceId}/{yyyy-mm}.pdf`)। এখানে storage class আর lifecycle স্পষ্ট: ৯০ দিন পরে Infrequent Access, এক বছর পরে archive, ৭ বছর পরে মোছা। আর আইনি রাখার জন্য object lock (নির্দিষ্ট সময় পর্যন্ত কেউ মুছতে পারবে না) — ভুল বা ক্ষতিকর delete এর বিরুদ্ধে।
+- **(ক) Avatar → object storage, আর সামনে CDN।** আকার: ৫০,০০০ × ৩০ KB ≈ ১.৫ GB — ছোট, database এও ধরত। কিন্তু প্রশ্নটা আকার না, **দেওয়া**: প্রায় প্রতিটা page এ কয়েকটা avatar, মানে দিনে লাখ লাখ read। Database এ থাকলে প্রতিটা app এর ভেতর দিয়ে (১.২ এর board এর ক্ষতি), আর cache করা কঠিন। Object storage এ রাখলে একটা স্থির URL, CDN এ cache (Lesson 4.5), browser এ cache — app আর database কেউ ছোঁয় না। একটা সূক্ষ্মতা: avatar বদলালে key বদলান (`avatars/{userId}/{version}.webp`) — পুরনো URL CDN এ cache থাকে, নতুন key মানে invalidation এর ঝামেলা নেই (Lesson 4.3)।
+- **(খ) Invoice PDF → object storage, কিন্তু সাবধানে।** আকার: ৫,০০০ × ১২ মাস × ১০০ KB ≈ ৬ GB প্রতি বছর, ৭ বছরে ~৪২ GB — database এ রাখলেও বিশাল না, আর "billing এর transaction এর সাথে একসাথে" শুনে database এ রাখার লোভ হয়। তবু object storage ভালো: কখনো বদলায় না, খুব কম পড়া হয়, আর ৭ বছর ধরে প্রতি রাতের backup এ বয়ে বেড়ানোর কোনো মানে নেই। Transaction এর প্রশ্নটা ১.৮ এর মতো সামলান — invoice এর row database এ (টাকার সংখ্যা, status), PDF টা পরে তৈরি হয়ে object storage এ (একটা BullMQ job, 7.3 — idempotent, key = `invoices/{workspaceId}/{yyyy-mm}.pdf`)। এখানে storage class আর lifecycle স্পষ্ট: ৯০ দিন পরে Infrequent Access, এক বছর পরে archive, ৭ বছর পরে মোছা। আর আইনি রাখার জন্য object lock (নির্দিষ্ট সময় পর্যন্ত কেউ মুছতে পারবে না) — ভুল বা ক্ষতিকর delete এর বিরুদ্ধে।
 
 **প্রশ্ন ২:**
 
@@ -445,7 +445,7 @@ async function saveAttachment(input: NewAttachment, body: Buffer): Promise<Attac
 
 **প্রশ্ন ৩:** ঠিক অংশ: hardware এর ব্যর্থতায় (disk, server, এমনকি একটা data center) file হারানোর জন্য আলাদা backup এর দরকার প্রায় নেই — সেটাই ১১ nines এর মানে। ভুল অংশ: durability শুধু hardware থেকে রক্ষা করে। File হারানোর পরিস্থিতি:
 
-- **Code এর bug বা ভুল script:** orphan পরিষ্কারের job এ ভুল শর্ত (ধরো database এর replica থেকে পড়ল, যেটা পিছিয়ে ছিল — Lesson 5.7 — তাই নতুন file গুলোকে orphan ভাবল) আর সত্যিকারের file মুছে দিল। Object store খুব durably মুছে দেবে। → **Versioning** (delete মানে delete marker, ৩০ দিন ফেরানো যায়), আর পরিষ্কারের job এ নিরাপত্তা: শুধু ২৪ ঘণ্টার পুরনো, primary থেকে পড়া, আর প্রথমে "মুছব" এর তালিকা log করা।
+- **Code এর bug বা ভুল script:** orphan পরিষ্কারের job এ ভুল শর্ত (ধরুন database এর replica থেকে পড়ল, যেটা পিছিয়ে ছিল — Lesson 5.7 — তাই নতুন file গুলোকে orphan ভাবল) আর সত্যিকারের file মুছে দিল। Object store খুব durably মুছে দেবে। → **Versioning** (delete মানে delete marker, ৩০ দিন ফেরানো যায়), আর পরিষ্কারের job এ নিরাপত্তা: শুধু ২৪ ঘণ্টার পুরনো, primary থেকে পড়া, আর প্রথমে "মুছব" এর তালিকা log করা।
 - **Credential চুরি বা ক্ষতিকর মানুষ (ransomware):** কেউ access key পেয়ে সব মুছে দিল, versioning সহ (যার permission আছে সে পুরনো version ও মুছতে পারে)। → **Object lock** (নির্দিষ্ট সময় পর্যন্ত কেউ মুছতে পারবে না), আর একটা **আলাদা account** এ কপি (replication), যেখানে production এর credential পৌঁছায় না।
 - **Region এর বড় ঘটনা বা ভুল configuration:** পুরো region কিছুক্ষণের জন্য unavailable (durability ঠিক, availability না), বা কেউ bucket এর lifecycle rule ভুল লিখল ("১ দিন পরে expire")। → গুরুত্বপূর্ণ data এর জন্য অন্য region এ replication (Lesson 10.8), আর lifecycle rule কে code এর মতো review আর test করা।
 
@@ -463,19 +463,19 @@ async function saveAttachment(input: NewAttachment, body: Buffer): Promise<Attac
 
 `where` একই file গুলো Postgres এর `bytea` আর object storage এ রাখে — WAL, আকার, `pg_dump` মাপে — তারপর board এর query চলার সময় file দেয় তিনভাবে (app এর ভেতর দিয়ে, আলাদা process থেকে database, আর সরাসরি object storage)। `stateless` দুটো Express instance চালায়, local disk বনাম bucket, round robin আর sticky। `durability` একটা হিসাব আর একটা seed দেওয়া rack এর simulation। `inspect` S3 API এর সাতটা নিয়ম সরাসরি দেখায়।
 
-**সৎ নোট:** Sandbox এ Docker এর Postgres 17 আর SeaweedFS 4.47 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `where` কয়েকবার — প্রতিবার `bytea` এর WAL ≈ ৩৩৭ MB, backup ৩৬১ MB, আর "app এর ভেতর দিয়ে" সারিতে board ২৬৯–৩৬৯ q/s (বাকি দুই সারিতে প্রায় অপরিবর্তিত); `stateless` আর `durability` দুবার করে চালিয়ে হুবহু একই output; `inspect` এর সাতটা অংশই প্রত্যাশিত ফল দিয়েছে। README এর experiment ১–৩ চালানো হয়েছে, সংখ্যা README তে; ৪ আর ৫ code বদলানোর কাজ — তোমার। Object store টা SeaweedFS, AWS S3 না — S3 এর consistency, conditional write আর versioning এর কথা AWS এর documentation থেকে, আর এখানে SeaweedFS একই আচরণ করেছে; অন্য S3-compatible system এ যাচাই করে নিও। (MinIO এর community Docker image আর Docker Hub এ পাওয়া যায় না — তাই SeaweedFS।) Durability এর অংশ ক একটা সরল model — সংখ্যা design এর লক্ষ্যের আকৃতি দেখায়, কোনো আসল system এর মাপা হার না। ১.৭ এর দাম লেখার সময়ের আনুমানিক, যাচাই করা বিল না।
+**সৎ নোট:** Sandbox এ Docker এর Postgres 17 আর SeaweedFS 4.47 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `where` কয়েকবার — প্রতিবার `bytea` এর WAL ≈ ৩৩৭ MB, backup ৩৬১ MB, আর "app এর ভেতর দিয়ে" সারিতে board ২৬৯–৩৬৯ q/s (বাকি দুই সারিতে প্রায় অপরিবর্তিত); `stateless` আর `durability` দুবার করে চালিয়ে হুবহু একই output; `inspect` এর সাতটা অংশই প্রত্যাশিত ফল দিয়েছে। README এর experiment ১–৩ চালানো হয়েছে, সংখ্যা README তে; ৪ আর ৫ code বদলানোর কাজ — আপনার। Object store টা SeaweedFS, AWS S3 না — S3 এর consistency, conditional write আর versioning এর কথা AWS এর documentation থেকে, আর এখানে SeaweedFS একই আচরণ করেছে; অন্য S3-compatible system এ যাচাই করে নেবেন। (MinIO এর community Docker image আর Docker Hub এ পাওয়া যায় না — তাই SeaweedFS।) Durability এর অংশ ক একটা সরল model — সংখ্যা design এর লক্ষ্যের আকৃতি দেখায়, কোনো আসল system এর মাপা হার না। ১.৭ এর দাম লেখার সময়ের আনুমানিক, যাচাই করা বিল না।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান:** `npm run where` চালানোর **আগে** লিখে ফেলো — `bytea` তে WAL কত হবে (file এর আকারের চেয়ে কম, সমান, না বেশি — কেন?), আর ধাপ ৩ এর চারটা সারির কোনটায় board সবচেয়ে ধীর হবে। তারপর চালিয়ে মেলাও। তোমার ৩টা replica থাকলে এই upload এ network এ মোট কত byte যেত?
+1. **আগে অনুমান:** `npm run where` চালানোর **আগে** লিখে ফেলুন — `bytea` তে WAL কত হবে (file এর আকারের চেয়ে কম, সমান, না বেশি — কেন?), আর ধাপ ৩ এর চারটা সারির কোনটায় board সবচেয়ে ধীর হবে। তারপর চালিয়ে মেলান। আপনার ৩টা replica থাকলে এই upload এ network এ মোট কত byte যেত?
 
-2. **দোষটা কার?** Experiment ১ (`POOL_MAX=20`) আর ২ (`PROXY_S3=1`) চালাও। দুটো সংখ্যা পাশাপাশি রেখে এক প্যারাগ্রাফে লেখো — board এর ক্ষতি কতটা pool থেকে, কতটা app এর event loop থেকে, আর কতটা database থেকে। এই ফল থেকে TaskFlow এর download route এর জন্য একটা নিয়ম লেখো।
+2. **দোষটা কার?** Experiment ১ (`POOL_MAX=20`) আর ২ (`PROXY_S3=1`) চালান। দুটো সংখ্যা পাশাপাশি রেখে এক প্যারাগ্রাফে লিখুন — board এর ক্ষতি কতটা pool থেকে, কতটা app এর event loop থেকে, আর কতটা database থেকে। এই ফল থেকে TaskFlow এর download route এর জন্য একটা নিয়ম লিখুন।
 
-3. **১৪৮ এর হিসাব:** `stateless` এর "local disk, round robin" সারিতে instance বদলানোর পরে ১৪৮ কেন — ১০০ না, ২০০ না? হাতে ব্যাখ্যা করো। তারপর experiment ৪ (sticky by workspace) — teammate এর কলাম সারায়, কিন্তু কোন কলাম কখনো সারায় না, আর কেন?
+3. **১৪৮ এর হিসাব:** `stateless` এর "local disk, round robin" সারিতে instance বদলানোর পরে ১৪৮ কেন — ১০০ না, ২০০ না? হাতে ব্যাখ্যা করুন। তারপর experiment ৪ (sticky by workspace) — teammate এর কলাম সারায়, কিন্তু কোন কলাম কখনো সারায় না, আর কেন?
 
-4. **Nines হাতে:** ৩ কপির "৯.৭ nines" হাতে হিসাব করো — q = AFR × মেরামতের সময় ÷ এক বছর, তারপর ৩ × AFR × q²। তারপর `REPAIR_HOURS=168` আর `RACKS=4` (experiment ৩)। TaskFlow যদি নিজের data center এ object store চালাত (ধরো ৪টা rack), কোন পদ্ধতি বাছত আর কেন?
+4. **Nines হাতে:** ৩ কপির "৯.৭ nines" হাতে হিসাব করুন — q = AFR × মেরামতের সময় ÷ এক বছর, তারপর ৩ × AFR × q²। তারপর `REPAIR_HOURS=168` আর `RACKS=4` (experiment ৩)। TaskFlow যদি নিজের data center এ object store চালাত (ধরুন ৪টা rack), কোন পদ্ধতি বাছত আর কেন?
 
-5. **Design অংশ:** TaskFlow এর attachment এর এক পাতার design: (ক) `attachments` table এর schema (Sequelize model সহ); (খ) key এর নিয়ম আর কারণ (প্রশ্ন ২ মাথায় রেখে); (গ) upload এর ধাপ আর crash হলে কী হয়, orphan পরিষ্কারের job এর শর্ত (কোথা থেকে পড়বে, কত পুরনো, কীভাবে নিরাপদ); (ঘ) bucket এর নিয়ম — private, versioning, lifecycle (কত দিনে কী), object lock কোথায়; (ঙ) ১.৭ এর মতো একটা হিসাব — তোমার নিজের ধরে নেওয়া সংখ্যায়, এক বছর পরে জায়গা, request আর egress এর মাসিক বিল।
+5. **Design অংশ:** TaskFlow এর attachment এর এক পাতার design: (ক) `attachments` table এর schema (Sequelize model সহ); (খ) key এর নিয়ম আর কারণ (প্রশ্ন ২ মাথায় রেখে); (গ) upload এর ধাপ আর crash হলে কী হয়, orphan পরিষ্কারের job এর শর্ত (কোথা থেকে পড়বে, কত পুরনো, কীভাবে নিরাপদ); (ঘ) bucket এর নিয়ম — private, versioning, lifecycle (কত দিনে কী), object lock কোথায়; (ঙ) ১.৭ এর মতো একটা হিসাব — আপনার নিজের ধরে নেওয়া সংখ্যায়, এক বছর পরে জায়গা, request আর egress এর মাসিক বিল।
 
 ---
 
@@ -493,7 +493,7 @@ row, রাতে orphan পরিষ্কার, versioning + lifecycle (৩�
 Infrequent Access); upload এখনো app এর ভেতর দিয়ে (8.2 এ বদলাবে)
 Terms learned (Module 8 so far): Object Storage, Bucket / Key (Prefix), Object Metadata,
 Durability, Erasure Coding, Failure Domain, Storage Class / Lifecycle
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 8.2 — File upload at scale: presigned URL, multipart, CDN delivery (SvelteKit frontend সহ)
 =======================
 ```
@@ -502,4 +502,4 @@ Next: 8.2 — File upload at scale: presigned URL, multipart, CDN delivery (Svel
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের "দোষটা কার" এর প্যারাগ্রাফ আর ৫ নম্বরের design। রেডি হলে `next` লিখো — Lesson 8.2 এ যাব: **File upload at scale — presigned URL, multipart, CDN delivery (SvelteKit frontend সহ)।** আজ দেখেছি file **download** app এর ভেতর দিয়ে গেলে board কীভাবে ধীর হয়। কিন্তু আমাদের **upload** এখনো app এর ভেতর দিয়েই যাচ্ছে — `saveAttachment(input, body: Buffer)`। একজন user ২ GB এর একটা screen recording upload করলে কী হয়: Express এর memory, Nginx এর body size আর timeout, আর ৯০% এ গিয়ে network কাটলে পুরোটা আবার শুরু থেকে। 8.2 এ browser সরাসরি object storage এ পাঠাবে — app শুধু একটা সীমিত সময়ের অনুমতি দেবে — বড় file টুকরো টুকরো, থেমে গেলে যেখানে থেমেছিল সেখান থেকে, আর তারপর সেই file সারা পৃথিবীতে দ্রুত পৌঁছাবে CDN দিয়ে।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের "দোষটা কার" এর প্যারাগ্রাফ আর ৫ নম্বরের design। রেডি হলে `next` লিখুন — Lesson 8.2 এ যাব: **File upload at scale — presigned URL, multipart, CDN delivery (SvelteKit frontend সহ)।** আজ দেখেছি file **download** app এর ভেতর দিয়ে গেলে board কীভাবে ধীর হয়। কিন্তু আমাদের **upload** এখনো app এর ভেতর দিয়েই যাচ্ছে — `saveAttachment(input, body: Buffer)`। একজন user ২ GB এর একটা screen recording upload করলে কী হয়: Express এর memory, Nginx এর body size আর timeout, আর ৯০% এ গিয়ে network কাটলে পুরোটা আবার শুরু থেকে। 8.2 এ browser সরাসরি object storage এ পাঠাবে — app শুধু একটা সীমিত সময়ের অনুমতি দেবে — বড় file টুকরো টুকরো, থেমে গেলে যেখানে থেমেছিল সেখান থেকে, আর তারপর সেই file সারা পৃথিবীতে দ্রুত পৌঁছাবে CDN দিয়ে।

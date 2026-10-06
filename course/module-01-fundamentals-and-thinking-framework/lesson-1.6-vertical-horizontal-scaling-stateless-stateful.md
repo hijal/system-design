@@ -2,17 +2,17 @@
 
 **Module 1 — Foundations of Scalability and System Design Principles**
 
-> **Spaced Repetition (Lesson 1.4):** Keep-Alive (persistent connection) আসলে কী সমস্যার সমাধান করে, আর এই একই "reuse" নীতি system design এর আর কোথায় কোথায় দেখা যায় (তোমার নিজের Sequelize অভিজ্ঞতা থেকে একটা উদাহরণ দাও)?
+> **Spaced Repetition (Lesson 1.4):** Keep-Alive (persistent connection) আসলে কী সমস্যার সমাধান করে, আর এই একই "reuse" নীতি system design এর আর কোথায় কোথায় দেখা যায় (আপনার নিজের Sequelize অভিজ্ঞতা থেকে একটা উদাহরণ দিন)?
 
 ---
 
 **Prerequisite:** Lesson 1.1 – 1.5
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Vertical আর Horizontal scaling এর মধ্যে পার্থক্য বলতে পারবে, এবং প্রতিটার সীমাবদ্ধতা ও trade-off ব্যাখ্যা করতে পারবে।
-2. একটা server "Stateless" নাকি "Stateful" সেটা চিনতে পারবে, এবং কেন Horizontal scaling এর জন্য Stateless architecture প্রায় বাধ্যতামূলক পূর্বশর্ত — বুঝবে।
-3. TaskFlow এর নিজের Express server টাকে "session" এর প্রেক্ষিতে বিশ্লেষণ করে বলতে পারবে সেটা এখন stateful আছে নাকি stateless, আর horizontal scale করতে হলে কী পরিবর্তন লাগবে।
+1. Vertical আর Horizontal scaling এর মধ্যে পার্থক্য বলতে পারবেন, এবং প্রতিটার সীমাবদ্ধতা ও trade-off ব্যাখ্যা করতে পারবেন।
+2. একটা server "Stateless" নাকি "Stateful" সেটা চিনতে পারবেন, এবং কেন Horizontal scaling এর জন্য Stateless architecture প্রায় বাধ্যতামূলক পূর্বশর্ত — বুঝবেন।
+3. TaskFlow এর নিজের Express server টাকে "session" এর প্রেক্ষিতে বিশ্লেষণ করে বলতে পারবেন সেটা এখন stateful আছে নাকি stateless, আর horizontal scale করতে হলে কী পরিবর্তন লাগবে।
 
 **Tier:** 3 — Design Exercise (এটা Module 1 এর শেষ lesson; কোনো code আজকে না, কিন্তু এই lesson এর concept টাই Module 3 থেকে শুরু হওয়া সব hands-on exercise এর ভিত্তি)
 
@@ -22,7 +22,7 @@
 
 এতদিন আমরা TaskFlow কে "একটা Express server, একটা Postgres" হিসেবে ধরে এসেছি। Estimation (1.3) থেকে আমরা দেখেছি — user বাড়লে QPS বাড়ে। Connection lifecycle (1.4) থেকে জেনেছি — প্রতিটা connection এর একটা cost আছে। Latency/Availability (1.5) থেকে জেনেছি — কিছু feature এর জন্য কড়া target দরকার।
 
-এখন স্বাভাবিক প্রশ্ন — **যখন একটা মাত্র Express server আর সেটার capacity যথেষ্ট হয় না, তখন কী করব?** উত্তরটা সহজ মনে হতে পারে — "আরেকটা server লাগাও" — কিন্তু এটা বলার মধ্যেই একটা গুরুত্বপূর্ণ প্রশ্ন লুকিয়ে আছে: **কীভাবে?** একটা _বড়_ server লাগাবে, নাকি _একাধিক_ server লাগাবে? আর যদি একাধিক server লাগাও, তোমার আজকের কোড কি আদৌ সেটার জন্য প্রস্তুত? আজকের lesson এই প্রশ্ন দুটোর উত্তর দেবে, আর Module 3 (Load Balancing) এর জন্য মাটি তৈরি করবে।
+এখন স্বাভাবিক প্রশ্ন — **যখন একটা মাত্র Express server আর সেটার capacity যথেষ্ট হয় না, তখন কী করব?** উত্তরটা সহজ মনে হতে পারে — "আরেকটা server লাগান" — কিন্তু এটা বলার মধ্যেই একটা গুরুত্বপূর্ণ প্রশ্ন লুকিয়ে আছে: **কীভাবে?** একটা _বড়_ server লাগাবেন, নাকি _একাধিক_ server লাগাবেন? আর যদি একাধিক server লাগান, আপনার আজকের কোড কি আদৌ সেটার জন্য প্রস্তুত? আজকের lesson এই প্রশ্ন দুটোর উত্তর দেবে, আর Module 3 (Load Balancing) এর জন্য মাটি তৈরি করবে।
 
 ---
 
@@ -30,7 +30,7 @@
 
 ### ১.১ Vertical Scaling — একই Server কে বড় করা
 
-**Vertical Scaling (Scale Up)** মানে — তোমার existing server এর **hardware resource বাড়ানো** — বেশি CPU, বেশি RAM, দ্রুত disk। তোমার architecture একই থাকে (এখনও একটা মাত্র server), শুধু সেটা আরও শক্তিশালী হয়।
+**Vertical Scaling (Scale Up)** মানে — আপনার existing server এর **hardware resource বাড়ানো** — বেশি CPU, বেশি RAM, দ্রুত disk। আপনার architecture একই থাকে (এখনও একটা মাত্র server), শুধু সেটা আরও শক্তিশালী হয়।
 
 ```
 আগে:  [Server: 2 CPU, 4GB RAM] ──> সব request handle করে
@@ -73,7 +73,7 @@
 
 **সীমাবদ্ধতা:**
 
-- **Implementation জটিল** — Load balancer লাগে, আর সবচেয়ে গুরুত্বপূর্ণ কথা — **তোমার application code কে এই মাল্টি-সার্ভার reality এর জন্য প্রস্তুত থাকতে হয়** (এটাই পরের section এর বিষয়)
+- **Implementation জটিল** — Load balancer লাগে, আর সবচেয়ে গুরুত্বপূর্ণ কথা — **আপনার application code কে এই মাল্টি-সার্ভার reality এর জন্য প্রস্তুত থাকতে হয়** (এটাই পরের section এর বিষয়)
 - Data consistency এর নতুন challenge আসে — যদি একাধিক server থাকে, তাদের মধ্যে কীভাবে data sync থাকবে (এটা Module 5 এ replication/sharding এর সাথে গভীরে যাব)
 
 > **Trade-off Table — Vertical vs Horizontal**
@@ -98,7 +98,7 @@
 
 **একটা ক্লাসিক উদাহরণ — Session Management:**
 
-ধরো, TaskFlow এ ইউজার login করলে, server তাকে একটা session তৈরি করে দেয়, আর সেই session data (কে login করেছে, কী permission আছে) server এর **নিজের memory তে** রেখে দেয়:
+ধরুন, TaskFlow এ ইউজার login করলে, server তাকে একটা session তৈরি করে দেয়, আর সেই session data (কে login করেছে, কী permission আছে) server এর **নিজের memory তে** রেখে দেয়:
 
 ```
 Stateful approach:
@@ -140,24 +140,24 @@ Stateless approach:
 
 এখন যেকোনো request যেকোনো server এ গেলেও, session data সবসময় accessible — কারণ সেটা কোনো নির্দিষ্ট server এর memory তে না, একটা shared জায়গায় আছে। এটাই Module 4.4 এ আমরা hands-on করব (Redis দিয়ে session store)।
 
-> **তোমার stack এর প্রেক্ষিতে:** যদি তোমার Express app এ `express-session` মিডলওয়্যার default memory store দিয়ে ব্যবহার করা হয় (যেটা প্রায়ই tutorial এ default থাকে), সেটা **stateful** — শুধুমাত্র single-server deployment এই কাজ করবে। Horizontal scale করার জন্য সেটাকে Redis store এ পরিবর্তন করতে হবে (`connect-redis` এর মতো একটা adapter দিয়ে) — এটাই stateless বানানোর practical পদক্ষেপ।
+> **আপনার stack এর প্রেক্ষিতে:** যদি আপনার Express app এ `express-session` মিডলওয়্যার default memory store দিয়ে ব্যবহার করা হয় (যেটা প্রায়ই tutorial এ default থাকে), সেটা **stateful** — শুধুমাত্র single-server deployment এই কাজ করবে। Horizontal scale করার জন্য সেটাকে Redis store এ পরিবর্তন করতে হবে (`connect-redis` এর মতো একটা adapter দিয়ে) — এটাই stateless বানানোর practical পদক্ষেপ।
 
 **Stateless শুধু session এর জন্য না — আরও উদাহরণ:**
 
 - **File upload (Lesson 1.1 এর exercise মনে আছে?):** যদি uploaded file server এর local disk এ save হয়, সেটাও stateful (শুধু সেই server ই জানে ফাইলটা কোথায় আছে) — এই কারণেই আমরা 1.1 এর Deep Dive এ "S3-তে store হবে" কে "Solution" হিসেবে চিহ্নিত করেছিলাম, এটাই সেই কারণ যেটা তখন explain করিনি, আজকে করলাম।
 - **In-memory rate limiting counter:** যদি "এই user কতবার request পাঠিয়েছে" এই count টা server এর memory তে রাখা হয়, প্রতিটা server এর নিজের আলাদা count থাকবে, যেটা ভুল রেজাল্ট দেবে (Module 9.5 তে এটা বিস্তারিত দেখব)।
 
-> **Interview এ common question:** "তোমার API stateless কিনা কীভাবে বুঝবে?" — সহজ test: **যদি তুমি server টা যেকোনো মুহূর্তে বন্ধ করে নতুন একটা server দিয়ে replace করো (কোনো data loss ছাড়া), আর ইউজার কিছুই টের না পায় — তাহলে সেটা stateless।** যদি server বন্ধ করলে কিছু হারিয়ে যায় (session, uploaded file, in-progress data), সেটা stateful।
+> **Interview এ common question:** "আপনার API stateless কিনা কীভাবে বুঝবেন?" — সহজ test: **যদি আপনি server টা যেকোনো মুহূর্তে বন্ধ করে নতুন একটা server দিয়ে replace করেন (কোনো data loss ছাড়া), আর ইউজার কিছুই টের না পায় — তাহলে সেটা stateless।** যদি server বন্ধ করলে কিছু হারিয়ে যায় (session, uploaded file, in-progress data), সেটা stateful।
 
 ---
 
 ## ২. Interview Angle
 
-Stateless vs Stateful এই concept টা প্রায় **প্রতিটা** system design interview এ কোনো না কোনো ভাবে ফিরে আসে, কারণ এটাই নির্ধারণ করে দেয় তুমি সহজে horizontal scale করতে পারবে কিনা। একটা খুবই common প্রশ্ন:
+Stateless vs Stateful এই concept টা প্রায় **প্রতিটা** system design interview এ কোনো না কোনো ভাবে ফিরে আসে, কারণ এটাই নির্ধারণ করে দেয় আপনি সহজে horizontal scale করতে পারবেন কিনা। একটা খুবই common প্রশ্ন:
 
-> "তোমার এই API server কে তুমি কীভাবে scale করবে, ইউজার বাড়লে?"
+> "আপনার এই API server কে আপনি কীভাবে scale করবেন, ইউজার বাড়লে?"
 
-এখানে ভালো উত্তরের প্রথম ধাপই হওয়া উচিত — "প্রথমে দেখব আমার server stateless কিনা। যদি না হয়, প্রথমে সেটাকে stateless বানাব (session/file/local state সরিয়ে shared store এ নেব), তারপর horizontal scaling করব লোড ব্যালান্সারের পেছনে multiple instance দিয়ে।" এই উত্তরটা দেখায় তুমি জানো horizontal scaling "শুধু আরেকটা সার্ভার লাগানো" না — এর একটা **prerequisite** আছে।
+এখানে ভালো উত্তরের প্রথম ধাপই হওয়া উচিত — "প্রথমে দেখব আমার server stateless কিনা। যদি না হয়, প্রথমে সেটাকে stateless বানাব (session/file/local state সরিয়ে shared store এ নেব), তারপর horizontal scaling করব লোড ব্যালান্সারের পেছনে multiple instance দিয়ে।" এই উত্তরটা দেখায় আপনি জানেন horizontal scaling "শুধু আরেকটা সার্ভার লাগানো" না — এর একটা **prerequisite** আছে।
 
 একটা সাধারণ ভুল যেটা junior candidate রা করে — সরাসরি "Load Balancer লাগাবো, ৩টা সার্ভার রাখবো" বলে ফেলা, স্টেট এর প্রশ্নটা একদমই না তুলে। Senior-level উত্তর সবসময় আগে জিজ্ঞেস করে বা মেনশন করে — "সার্ভারটা কি কোনো local state রাখে?"
 
@@ -189,17 +189,17 @@ Stateless vs Stateful এই concept টা প্রায় **প্রতি
 
 ## ৫. Reflection Questions
 
-আগে নিজে ভেবে উত্তর দাও, তারপর নিচের Answer Key দেখো।
+আগে নিজে ভেবে উত্তর দিন, তারপর নিচের Answer Key দেখুন।
 
-1. TaskFlow এর আজকের অবস্থা মনে করো — "single Express server + 1 Postgres"। এই architecture এ, session/user data **কোথায়** থাকা উচিত বলে তোমার মনে হয়, যাতে ভবিষ্যতে horizontal scaling করা সহজ হয় — শুরু থেকেই?
-2. একটা in-memory rate limiter (যেটা প্রতি user এর request count একটা plain JavaScript object এ রাখে, server এর memory তে) — এটা কি stateless না stateful? Horizontal scaling এ এটার সাথে কী সমস্যা হবে, নির্দিষ্ট করে বলো (Lesson 1.5 এর "vague না বলে concrete বলা" অভ্যাসটা এখানে প্রয়োগ করো)।
+1. TaskFlow এর আজকের অবস্থা মনে করুন — "single Express server + 1 Postgres"। এই architecture এ, session/user data **কোথায়** থাকা উচিত বলে আপনার মনে হয়, যাতে ভবিষ্যতে horizontal scaling করা সহজ হয় — শুরু থেকেই?
+2. একটা in-memory rate limiter (যেটা প্রতি user এর request count একটা plain JavaScript object এ রাখে, server এর memory তে) — এটা কি stateless না stateful? Horizontal scaling এ এটার সাথে কী সমস্যা হবে, নির্দিষ্ট করে বলুন (Lesson 1.5 এর "vague না বলে concrete বলা" অভ্যাসটা এখানে প্রয়োগ করুন)।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:** যদিও আজকে TaskFlow এ একটাই server আছে (তাই এখনই এটা technically সমস্যা তৈরি করছে না), ভবিষ্যতের জন্য সবচেয়ে ভালো practice হলো শুরু থেকেই session data কে **database এ** (বা future এ Redis এ) রাখা, server এর নিজের memory তে না। এতে করে যখন horizontal scaling দরকার হবে, তখন কোনো বড় refactor লাগবে না — architecture টা আগে থেকেই "scale-ready" থাকবে। এটাই ভালো engineering practice — যদিও আজকে দরকার নেই, ভবিষ্যতের migration cost কমানোর জন্য শুরু থেকেই sensible decision নেওয়া (তবে এটা Module 1.1 এর "over-engineering" এর বিরুদ্ধে না যায় — এখানে extra infrastructure লাগছে না, শুধু "কোথায় data রাখব" এই সিদ্ধান্তটা ভালোভাবে নেওয়া হচ্ছে, যেটা প্রায় বিনামূল্যে পাওয়া যায়)।
 
-**প্রশ্ন ২:** এটা **stateful**, কারণ rate limit count টা একটা নির্দিষ্ট server এর memory তে (plain object) রাখা হচ্ছে। Horizontal scaling এ সমস্যা: ধরো একটা user এর rate limit হলো "১ মিনিটে ১০টা request"। যদি ৩টা server এর মধ্যে Load Balancer request ভাগ করে দেয়, তাহলে প্রতিটা server আলাদাভাবে count করবে — Server 1 হয়তো দেখবে সেই user ৪টা request পাঠিয়েছে (তার limit এর মধ্যে), Server 2 আলাদাভাবে দেখবে ৪টা (তারও limit এর মধ্যে), Server 3 আরও ৪টা। বাস্তবে সেই user মোট ১২টা request পাঠিয়ে ফেলেছে (১০ এর বেশি!), কিন্তু কোনো একটা server এর কাছেই সম্পূর্ণ ছবি নেই, তাই limit ঠিকভাবে enforce হচ্ছে না। এই সমস্যার সমাধান Module 9.5 তে — rate limit counter কে Redis এর মতো একটা shared store এ রাখতে হয়, যাতে সব server একই count দেখে।
+**প্রশ্ন ২:** এটা **stateful**, কারণ rate limit count টা একটা নির্দিষ্ট server এর memory তে (plain object) রাখা হচ্ছে। Horizontal scaling এ সমস্যা: ধরুন একটা user এর rate limit হলো "১ মিনিটে ১০টা request"। যদি ৩টা server এর মধ্যে Load Balancer request ভাগ করে দেয়, তাহলে প্রতিটা server আলাদাভাবে count করবে — Server 1 হয়তো দেখবে সেই user ৪টা request পাঠিয়েছে (তার limit এর মধ্যে), Server 2 আলাদাভাবে দেখবে ৪টা (তারও limit এর মধ্যে), Server 3 আরও ৪টা। বাস্তবে সেই user মোট ১২টা request পাঠিয়ে ফেলেছে (১০ এর বেশি!), কিন্তু কোনো একটা server এর কাছেই সম্পূর্ণ ছবি নেই, তাই limit ঠিকভাবে enforce হচ্ছে না। এই সমস্যার সমাধান Module 9.5 তে — rate limit counter কে Redis এর মতো একটা shared store এ রাখতে হয়, যাতে সব server একই count দেখে।
 
 </details>
 
@@ -211,13 +211,13 @@ Stateless vs Stateful এই concept টা প্রায় **প্রতি
 
 এটা Module 1 এর শেষ lesson, তাই exercise টা আজকে একটু বেশি integrative — এখন পর্যন্ত শেখা সবকিছু একসাথে ব্যবহার করতে হবে।
 
-> **Scenario:** TaskFlow এখন "single Express server + 1 Postgres" অবস্থায় আছে (~১০০ ইউজার)। ধরো, ৬ মাস পর ইউজার সংখ্যা ৫০,০০০ এ পৌঁছাবে বলে আশা করা হচ্ছে।
+> **Scenario:** TaskFlow এখন "single Express server + 1 Postgres" অবস্থায় আছে (~১০০ ইউজার)। ধরুন, ৬ মাস পর ইউজার সংখ্যা ৫০,০০০ এ পৌঁছাবে বলে আশা করা হচ্ছে।
 >
-> নিচের প্রশ্নগুলোর উত্তর দাও:
+> নিচের প্রশ্নগুলোর উত্তর দিন:
 >
-> 1. তুমি কি প্রথমেই horizontal scaling এ যাবে, নাকি আগে vertical scaling try করবে? তোমার সিদ্ধান্তের এক লাইনে কারণ দাও (৫০,০০০ ইউজার — এটা কি সত্যিই "বিশাল" scale, নাকি এখনো মাঝারি? Lesson 1.3 এর estimation skill ব্যবহার করে একটা rough QPS হিসাব করে দেখাও কেন)
-> 2. তুমি যদি ভবিষ্যতে horizontal scaling করার পরিকল্পনা করো, TaskFlow এর current architecture এ **কোন কোন জায়গা** তোমার সন্দেহ হয় stateful হতে পারে (এখনো explicitly বলা হয়নি, কিন্তু একটা typical Express+Sequelize app এ common জায়গা)? কমপক্ষে ২টা জায়গা identify করো এবং প্রতিটা কীভাবে stateless বানানো যায় এক লাইনে বলো।
-> 3. একটা trade-off statement লেখো (Lesson 1.5 এর concrete-mechanism অভ্যাস প্রয়োগ করে) — horizontal scaling এ move করলে TaskFlow এর জন্য নতুন কোন খরচ/জটিলতা যোগ হবে যেটা আজকে নেই।
+> 1. আপনি কি প্রথমেই horizontal scaling এ যাবেন, নাকি আগে vertical scaling try করবেন? আপনার সিদ্ধান্তের এক লাইনে কারণ দিন (৫০,০০০ ইউজার — এটা কি সত্যিই "বিশাল" scale, নাকি এখনো মাঝারি? Lesson 1.3 এর estimation skill ব্যবহার করে একটা rough QPS হিসাব করে দেখান কেন)
+> 2. আপনি যদি ভবিষ্যতে horizontal scaling করার পরিকল্পনা করেন, TaskFlow এর current architecture এ **কোন কোন জায়গা** আপনার সন্দেহ হয় stateful হতে পারে (এখনো explicitly বলা হয়নি, কিন্তু একটা typical Express+Sequelize app এ common জায়গা)? কমপক্ষে ২টা জায়গা identify করুন এবং প্রতিটা কীভাবে stateless বানানো যায় এক লাইনে বলুন।
+> 3. একটা trade-off statement লিখুন (Lesson 1.5 এর concrete-mechanism অভ্যাস প্রয়োগ করে) — horizontal scaling এ move করলে TaskFlow এর জন্য নতুন কোন খরচ/জটিলতা যোগ হবে যেটা আজকে নেই।
 
 ---
 
@@ -247,4 +247,4 @@ Next: Module 1 Exit Challenge
 
 ## ৮. পরের ধাপ
 
-Exercise টা করে পাঠাও (এবং এবার সবগুলো sub-question কভার করার কথা মাথায় রেখো) — এটাই Module 1 এর শেষ lesson-level exercise। এরপর `next` লিখলে আমরা **Module 1 Exit Challenge** এ যাব — একটা mini design challenge (Tier 3), একটা "তুমি এগুলো পারার কথা" checklist, আর কিছু বই/ভিডিও/প্রজেক্ট recommendation, তারপর আমরা Module 2 (Networking & Communication) এ move করব।
+Exercise টা করে পাঠান (এবং এবার সবগুলো sub-question কভার করার কথা মাথায় রাখবেন) — এটাই Module 1 এর শেষ lesson-level exercise। এরপর `next` লিখলে আমরা **Module 1 Exit Challenge** এ যাব — একটা mini design challenge (Tier 3), একটা "আপনি এগুলো পারার কথা" checklist, আর কিছু বই/ভিডিও/প্রজেক্ট recommendation, তারপর আমরা Module 2 (Networking & Communication) এ move করব।

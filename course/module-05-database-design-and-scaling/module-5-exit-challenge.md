@@ -24,42 +24,42 @@ Module 5 এর ৯টা lesson শেষ — SQL বনাম NoSQL এর আ
 > 3. Support এ দুই ধরনের ticket: (ক) "নতুন task তৈরি করলাম, 'Saved' দেখাল, কিন্তু list এ নেই"; (খ) "একই task এ আমাদের দুজনকে একসাথে assign করা দেখাচ্ছিল, তারপর একজনের নাম উধাও"।
 > 4. "Overdue tasks" report — `WHERE date("dueAt") < current_date AND status <> 'done'` — প্রতিবার ৩০+ সেকেন্ড, আর চলার সময় বাকি query গুলোও ধীর হয়ে যায়।
 > 5. রাতের cleanup job এখন ৫ ঘণ্টা চলে। সেই সময় replica এর lag ৪০ মিনিটে পৌঁছায়, আর table এর আকার কমছে না।
-> 6. Team এর একজন প্রস্তাব দিল: "Write বাড়ছে, চলো এখনই `hash(taskId)` দিয়ে ৮টা shard এ ভাগ করি — ভাগ একদম সমান হবে।" আরেকজন বলল: "এসব ঝামেলা বাদ, পুরোটা MongoDB তে নিয়ে যাই — schemaless, আর NoSQL তো scale করে।"
+> 6. Team এর একজন প্রস্তাব দিল: "Write বাড়ছে, চলুন এখনই `hash(taskId)` দিয়ে ৮টা shard এ ভাগ করি — ভাগ একদম সমান হবে।" আরেকজন বলল: "এসব ঝামেলা বাদ, পুরোটা MongoDB তে নিয়ে যাই — schemaless, আর NoSQL তো scale করে।"
 > 7. Board সিঙ্গাপুরে দ্বিতীয় region অনুমোদন করেছে। CTO জানতে চান: দুই region এর link কাটলে কী হবে?
 
-তোমার কাজ — নিচের প্রতিটা প্রশ্নে Module 5 (এবং প্রাসঙ্গিক জায়গায় আগের module) এর concept প্রয়োগ করে সিদ্ধান্ত নাও, reasoning সহ। যেখানে সম্ভব, **সংখ্যা** দিয়ে বলো।
+আপনার কাজ — নিচের প্রতিটা প্রশ্নে Module 5 (এবং প্রাসঙ্গিক জায়গায় আগের module) এর concept প্রয়োগ করে সিদ্ধান্ত নিন, reasoning সহ। যেখানে সম্ভব, **সংখ্যা** দিয়ে বলুন।
 
 **১. `too many clients` (Lesson 5.6)**
-হিসাবটা দেখাও — কেন ১২টা instance এ এটা ঘটল? আর "সফল request ও ধীর" — এটা কি একই কারণে, নাকি আলাদা? তোমার সমাধানে প্রতি instance এর pool max কত, আর কেন সংখ্যাটা বাড়ানো না কমানো — database এর core সংখ্যার সাথে মিলিয়ে বলো। কোন অবস্থায় PgBouncer লাগবে, আর তার কোন সীমাবদ্ধতা মাথায় রাখবে?
+হিসাবটা দেখান — কেন ১২টা instance এ এটা ঘটল? আর "সফল request ও ধীর" — এটা কি একই কারণে, নাকি আলাদা? আপনার সমাধানে প্রতি instance এর pool max কত, আর কেন সংখ্যাটা বাড়ানো না কমানো — database এর core সংখ্যার সাথে মিলিয়ে বলুন। কোন অবস্থায় PgBouncer লাগবে, আর তার কোন সীমাবদ্ধতা মাথায় রাখবেন?
 
 **২. ১,৪০০ query এর dashboard (Lesson 5.6)**
-কী ধরনের সমস্যা, আর কেন developer এর মেশিনে এটা লুকিয়ে ছিল — সংখ্যা দিয়ে ব্যাখ্যা করো (প্রতি round trip ১ ms ধরে)। ঠিক করার সময় কোন ফাঁদে পড়তে পারো যদি সব কিছু একটা বড় `include` এ ঢুকিয়ে দাও? আর ভবিষ্যতে এটা যেন আবার না ঢোকে — কী প্রক্রিয়া বসাবে?
+কী ধরনের সমস্যা, আর কেন developer এর মেশিনে এটা লুকিয়ে ছিল — সংখ্যা দিয়ে ব্যাখ্যা করুন (প্রতি round trip ১ ms ধরে)। ঠিক করার সময় কোন ফাঁদে পড়তে পারেন যদি সব কিছু একটা বড় `include` এ ঢুকিয়ে দেন? আর ভবিষ্যতে এটা যেন আবার না ঢোকে — কী প্রক্রিয়া বসাবেন?
 
 **৩. দুই ধরনের ticket (Lesson 5.7 + 5.5)**
-(ক) আর (খ) — দুটো আলাদা bug, আলাদা কারণ। প্রতিটার নাম বলো (কোন anomaly বা consistency guarantee ভাঙছে), ঠিক কীভাবে ঘটছে, আর সমাধান। (খ) এর জন্য অন্তত দুটো সমাধান দাও, আর বলো কোনটা বাছবে। মনে রাখো: task assign এর code **transaction এর ভেতরেই** আছে — তবু কেন কাজ করছে না?
+(ক) আর (খ) — দুটো আলাদা bug, আলাদা কারণ। প্রতিটার নাম বলুন (কোন anomaly বা consistency guarantee ভাঙছে), ঠিক কীভাবে ঘটছে, আর সমাধান। (খ) এর জন্য অন্তত দুটো সমাধান দিন, আর বলুন কোনটা বাছবেন। মনে রাখুন: task assign এর code **transaction এর ভেতরেই** আছে — তবু কেন কাজ করছে না?
 
 **৪. ৩০ সেকেন্ডের report (Lesson 5.4 + 5.7)**
-Index থাকা সত্ত্বেও কেন এত ধীর — অন্তত দুটো কারণ খোঁজো (query টা আর index টা দুটোই ভালো করে দেখো)। Query কীভাবে আবার লিখবে, আর কোন index দেবে? আর "চলার সময় বাকিরাও ধীর" — এই report আদৌ primary তে চলা উচিত কিনা?
+Index থাকা সত্ত্বেও কেন এত ধীর — অন্তত দুটো কারণ খুঁজুন (query টা আর index টা দুটোই ভালো করে দেখুন)। Query কীভাবে আবার লিখবেন, আর কোন index দেবেন? আর "চলার সময় বাকিরাও ধীর" — এই report আদৌ primary তে চলা উচিত কিনা?
 
 **৫. রাতের cleanup আর replica lag (Lesson 5.8 + 5.3 + 5.7)**
-তিনটা লক্ষণ — ৫ ঘণ্টা, ৪০ মিনিটের lag, আকার না কমা — প্রতিটা কেন হচ্ছে, WAL আর MVCC দিয়ে ব্যাখ্যা করো। তোমার সমাধান কী, আর ২.৩ TB এর একটা **চালু** table কে সেই সমাধানে নিয়ে যাওয়ার পথ কী? আর replica এর ৪০ মিনিটের lag এর সময় সমস্যা ৩ (ক) এর কী হয়?
+তিনটা লক্ষণ — ৫ ঘণ্টা, ৪০ মিনিটের lag, আকার না কমা — প্রতিটা কেন হচ্ছে, WAL আর MVCC দিয়ে ব্যাখ্যা করুন। আপনার সমাধান কী, আর ২.৩ TB এর একটা **চালু** table কে সেই সমাধানে নিয়ে যাওয়ার পথ কী? আর replica এর ৪০ মিনিটের lag এর সময় সমস্যা ৩ (ক) এর কী হয়?
 
 **৬. Sharding আর MongoDB এর প্রস্তাব (Lesson 5.8 + 5.1)**
-দুটো প্রস্তাবের জবাব দাও, সংখ্যা দিয়ে। `hash(taskId)` এর সমস্যা কী — কোন কোন query আর transaction ভাঙবে? যদি সত্যিই shard করতে হয়, কোন key দেবে, আর ৪৫% এর customer কে কীভাবে সামলাবে? আর shard করার আগে কী কী করবে? MongoDB এর প্রস্তাবের তিনটা দাবি ("schemaless", "migration লাগবে না", "scale করে") আলাদা করে যাচাই করো।
+দুটো প্রস্তাবের জবাব দিন, সংখ্যা দিয়ে। `hash(taskId)` এর সমস্যা কী — কোন কোন query আর transaction ভাঙবে? যদি সত্যিই shard করতে হয়, কোন key দেবেন, আর ৪৫% এর customer কে কীভাবে সামলাবেন? আর shard করার আগে কী কী করবেন? MongoDB এর প্রস্তাবের তিনটা দাবি ("schemaless", "migration লাগবে না", "scale করে") আলাদা করে যাচাই করুন।
 
 **৭. সিঙ্গাপুর আর CAP (Lesson 5.9)**
-TaskFlow এর কমপক্ষে পাঁচ ধরনের data এর জন্য বলো: link কাটলে CP নাকি AP, আর স্বাভাবিক দিনে latency নাকি consistency (PACELC)। তারপর CTO কে তিন লাইনে উত্তর দাও। আর multi-leader করলে (দুই region এই task লেখা যায়) কোন conflict হবে, আর কেন last-write-wins এর উপর ভরসা করবে না?
+TaskFlow এর কমপক্ষে পাঁচ ধরনের data এর জন্য বলুন: link কাটলে CP নাকি AP, আর স্বাভাবিক দিনে latency নাকি consistency (PACELC)। তারপর CTO কে তিন লাইনে উত্তর দিন। আর multi-leader করলে (দুই region এই task লেখা যায়) কোন conflict হবে, আর কেন last-write-wins এর উপর ভরসা করবেন না?
 
 **৮. পুরো পরিকল্পনা এক পাতায় (Lesson 5.1–5.9)**
-উপরের সব মিলিয়ে একটা **অগ্রাধিকার তালিকা** বানাও: launch এর দিন আজই কী করবে (ঘণ্টার মধ্যে), এই সপ্তাহে কী, আর এই quarter এ কী। প্রতিটার পাশে এক লাইনে: কোন lesson, আর সাফল্য কীভাবে মাপবে (কোন metric)।
+উপরের সব মিলিয়ে একটা **অগ্রাধিকার তালিকা** বানান: launch এর দিন আজই কী করবেন (ঘণ্টার মধ্যে), এই সপ্তাহে কী, আর এই quarter এ কী। প্রতিটার পাশে এক লাইনে: কোন lesson, আর সাফল্য কীভাবে মাপবেন (কোন metric)।
 
-**মনে রাখার কথা:** এই module এর তিনটা জায়গায় সবচেয়ে সহজে ভুল হয় — (ক) "transaction দিলেই নিরাপদ" ভাবা, (খ) "বড় pool = দ্রুত" ভাবা, (গ) সংখ্যা ছাড়া sharding বা database বদলের সিদ্ধান্ত নেওয়া। আজকের scenario তে তিনটাই লুকিয়ে আছে। আর সবচেয়ে গুরুত্বপূর্ণ অভ্যাস, Module 4 থেকে বয়ে আনা: **প্রতিকার বসানোর আগে রোগনির্ণয়** — প্রতিটা লক্ষণের জন্য আগে বলো কীভাবে নিশ্চিত হবে কারণটা আসলে কী (কোন metric, কোন `EXPLAIN`, কোন log)।
+**মনে রাখার কথা:** এই module এর তিনটা জায়গায় সবচেয়ে সহজে ভুল হয় — (ক) "transaction দিলেই নিরাপদ" ভাবা, (খ) "বড় pool = দ্রুত" ভাবা, (গ) সংখ্যা ছাড়া sharding বা database বদলের সিদ্ধান্ত নেওয়া। আজকের scenario তে তিনটাই লুকিয়ে আছে। আর সবচেয়ে গুরুত্বপূর্ণ অভ্যাস, Module 4 থেকে বয়ে আনা: **প্রতিকার বসানোর আগে রোগনির্ণয়** — প্রতিটা লক্ষণের জন্য আগে বলুন কীভাবে নিশ্চিত হবে কারণটা আসলে কী (কোন metric, কোন `EXPLAIN`, কোন log)।
 
 আমি এটা প্রতিটা ধাপ ধরে ধরে critique করব।
 
 ---
 
-## ২. Self-Check — এই Module শেষে তুমি এগুলো পারার কথা
+## ২. Self-Check — এই Module শেষে আপনি এগুলো পারার কথা
 
 - [ ] "SQL vs NoSQL" এর আসল চারটা অক্ষ (data model, schema কোথায়, query flexibility, guarantee) বলতে পারি, আর "NoSQL scale করে" দাবিটা সংখ্যা দিয়ে যাচাই করতে পারি
 - [ ] Schema-on-write আর schema-on-read এর পার্থক্য জানি — আর কেন "schemaless" মানে migration উধাও না, জায়গা বদল
@@ -88,23 +88,23 @@ TaskFlow এর কমপক্ষে পাঁচ ধরনের data এর �
 
 **পড়ার জন্য:**
 
-- **Martin Kleppmann — _Designing Data-Intensive Applications_ (O'Reilly)।** এই module এর সবচেয়ে কাছের বই — প্রায় প্রতিটা lesson এর গভীর রূপ এখানে আছে। শুরু করো chapter 3 (storage আর retrieval — Lesson 5.3), chapter 5 (replication — 5.7), chapter 6 (partitioning — 5.8) আর chapter 7 (transactions — 5.5) দিয়ে। Chapter 9 (consistency আর consensus) Module 6 এর আগে পড়লে সবচেয়ে কাজে লাগবে।
+- **Martin Kleppmann — _Designing Data-Intensive Applications_ (O'Reilly)।** এই module এর সবচেয়ে কাছের বই — প্রায় প্রতিটা lesson এর গভীর রূপ এখানে আছে। শুরু করুন chapter 3 (storage আর retrieval — Lesson 5.3), chapter 5 (replication — 5.7), chapter 6 (partitioning — 5.8) আর chapter 7 (transactions — 5.5) দিয়ে। Chapter 9 (consistency আর consensus) Module 6 এর আগে পড়লে সবচেয়ে কাজে লাগবে।
 - **Markus Winand — _Use The Index, Luke!_ (use-the-index-luke.com, বিনামূল্যে)।** Lesson 5.4 এর পূর্ণ রূপ — composite index, function এর ফাঁদ, pagination — database নিরপেক্ষভাবে, খুব পরিষ্কার উদাহরণ সহ।
 - **PostgreSQL এর official documentation** — চারটা পাতা: "Transaction Isolation" (5.5 এর table এর উৎস), "Explicit Locking", "Using EXPLAIN" (5.4), আর "Table Partitioning" (5.8)। Postgres এর documentation অস্বাভাবিক রকম ভালো লেখা — নিজের database এর আচরণ নিয়ে কোনো সন্দেহ হলে প্রথম জায়গা এটাই।
 
 **দেখার জন্য:**
 
 - **Carnegie Mellon University Database Group এর lecture (YouTube)** — Andy Pavlo এর "Intro to Database Systems" course। Storage, index, concurrency control, আর recovery — আজকের lesson গুলোর ভেতরের যন্ত্রপাতি, একজন database researcher এর চোখে।
-- **Jepsen (jepsen.io) এর analysis গুলো** — বিভিন্ন distributed database এর consistency দাবি আসলে সত্যি কিনা, হাতে-কলমে পরীক্ষা। Lesson 5.9 এর পরে পড়লে দেখবে "CA", "strongly consistent" জাতীয় দাবি বাস্তবে কতবার ভাঙে — আর কীভাবে ধরা পড়ে।
+- **Jepsen (jepsen.io) এর analysis গুলো** — বিভিন্ন distributed database এর consistency দাবি আসলে সত্যি কিনা, হাতে-কলমে পরীক্ষা। Lesson 5.9 এর পরে পড়লে দেখবেন "CA", "strongly consistent" জাতীয় দাবি বাস্তবে কতবার ভাঙে — আর কীভাবে ধরা পড়ে।
 
 **Project এর জন্য:**
 
-- Lesson 5.5 এর exercise এ ফিরে গিয়ে TaskFlow এর **task assign** এর race টা নিজে বানাও: `assigneeId IS NULL` যাচাই করে assign করা, ২০ জন একসাথে। প্রথমে naive (দেখো কয়জন "সফল" হয়), তারপর শর্তসহ atomic update দিয়ে ঠিক করো (`UPDATE ... WHERE id = ? AND "assigneeId" IS NULL`, affected row গুনে) — ঠিক ১ জন সফল হওয়া পর্যন্ত।
-- Lesson 5.7 এর cluster এ Sequelize এর replication config রেখেই একটা ছোট Express middleware লেখো: যে user গত ১০ সেকেন্ডে কিছু লিখেছে (একটা cookie তে সময় রেখে), তার read গুলো `useMaster: true` দিয়ে যাক। তারপর `npm run lag` এর মতো মেপে দেখাও — stale read শূন্য, অথচ বেশিরভাগ read এখনো replica তে।
-- আরও এক ধাপ এগোতে চাইলে: Lesson 5.8 এর `activity` partitioned table এ একটা **চালু** table কে partitioned এ নিয়ে যাওয়ার পথ চেষ্টা করো — নতুন partitioned table বানিয়ে, পুরনো table কে একটা partition হিসেবে `ATTACH` করে। এটা challenge এর প্রশ্ন ৫ এর সরাসরি অনুশীলন।
+- Lesson 5.5 এর exercise এ ফিরে গিয়ে TaskFlow এর **task assign** এর race টা নিজে বানান: `assigneeId IS NULL` যাচাই করে assign করা, ২০ জন একসাথে। প্রথমে naive (দেখুন কয়জন "সফল" হয়), তারপর শর্তসহ atomic update দিয়ে ঠিক করুন (`UPDATE ... WHERE id = ? AND "assigneeId" IS NULL`, affected row গুনে) — ঠিক ১ জন সফল হওয়া পর্যন্ত।
+- Lesson 5.7 এর cluster এ Sequelize এর replication config রেখেই একটা ছোট Express middleware লিখুন: যে user গত ১০ সেকেন্ডে কিছু লিখেছে (একটা cookie তে সময় রেখে), তার read গুলো `useMaster: true` দিয়ে যাক। তারপর `npm run lag` এর মতো মেপে দেখান — stale read শূন্য, অথচ বেশিরভাগ read এখনো replica তে।
+- আরও এক ধাপ এগোতে চাইলে: Lesson 5.8 এর `activity` partitioned table এ একটা **চালু** table কে partitioned এ নিয়ে যাওয়ার পথ চেষ্টা করুন — নতুন partitioned table বানিয়ে, পুরনো table কে একটা partition হিসেবে `ATTACH` করে। এটা challenge এর প্রশ্ন ৫ এর সরাসরি অনুশীলন।
 
 ---
 
-Exit challenge টা করে পাঠাও। রেডি হলে `next` লিখলে আমরা **Module 6: Distributed Systems Core** এ যাব — Lesson 6.1 দিয়ে শুরু: distributed system এ কী কী ভাঙে, network partition আর split brain।
+Exit challenge টা করে পাঠান। রেডি হলে `next` লিখলে আমরা **Module 6: Distributed Systems Core** এ যাব — Lesson 6.1 দিয়ে শুরু: distributed system এ কী কী ভাঙে, network partition আর split brain।
 
 Module 5 জুড়ে আমরা database কে কয়েকটা machine এ ছড়িয়ে দিয়েছি — replica, shard, দ্বিতীয় region। আর প্রতিবার একটা প্রশ্ন সামনে এসে থেমে গেছে: "অন্য machine টা মৃত, নাকি শুধু ধীর?", "কে leader হবে?", "দুটো ঘটনার কোনটা আগে?"। Module 6 এ ঠিক সেই প্রশ্নগুলোর মুখোমুখি হব — কেন এগুলো এত কঠিন, আর distributed system গুলো তবু কীভাবে কাজ করে।

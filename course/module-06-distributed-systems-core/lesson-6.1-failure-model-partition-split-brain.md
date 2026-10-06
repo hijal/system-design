@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 1.6 (SPOF), Lesson 2.5 (Idempotency), Lesson 3.4 (Health check, failover), Lesson 5.7 (Failover, RPO/RTO), Lesson 5.9 (Network partition, quorum)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Distributed system এর ভাঙনগুলোকে একটা **failure model** এ সাজাতে পারবে — node কীভাবে ভাঙে, network কীভাবে ভাঙে — আর বলতে পারবে কেন "অন্যটা মৃত" আর "অন্যটা ধীর" আলাদা করে জানা অসম্ভব
-2. Failure detection এর timeout বাছাইয়ের trade-off সংখ্যা দিয়ে বলতে পারবে, আর দেখাতে পারবে কীভাবে একটা **process pause** একদম সঠিক code লেখা leader কে একটা "zombie" বানিয়ে ফেলে
-3. **Split brain** কেন হয় ব্যাখ্যা করতে পারবে, আর চারটা প্রতিরক্ষা — majority, lease, fencing token, idempotency — কোনটা কী আটকায় আর কী আটকায় **না**, সেটা জানবে
+1. Distributed system এর ভাঙনগুলোকে একটা **failure model** এ সাজাতে পারবেন — node কীভাবে ভাঙে, network কীভাবে ভাঙে — আর বলতে পারবেন কেন "অন্যটা মৃত" আর "অন্যটা ধীর" আলাদা করে জানা অসম্ভব
+2. Failure detection এর timeout বাছাইয়ের trade-off সংখ্যা দিয়ে বলতে পারবেন, আর দেখাতে পারবেন কীভাবে একটা **process pause** একদম সঠিক code লেখা leader কে একটা "zombie" বানিয়ে ফেলে
+3. **Split brain** কেন হয় ব্যাখ্যা করতে পারবেন, আর চারটা প্রতিরক্ষা — majority, lease, fencing token, idempotency — কোনটা কী আটকায় আর কী আটকায় **না**, সেটা জানবেন
 
 **Tier:** 1 — Runnable Code (একটা seed দেওয়া simulation, আর দুটো আসল Node process যারা leader হওয়ার জন্য লড়ে)
 
@@ -37,13 +37,13 @@ Post-mortem meeting এ একজন engineer বলল, "আমি reminder এ
 
 ### ১.১ Partial Failure — এক machine আর অনেক machine এর মূল পার্থক্য
 
-তোমার laptop এ একটা program হয় চলে, নয় crash করে। মাঝামাঝি অবস্থা প্রায় নেই — RAM এর একটা অংশ কাজ করছে আর বাকিটা করছে না, এমন হয় না; হলে পুরো machine ই পড়ে যায়। এটা ইচ্ছাকৃত design: hardware এ কিছু ভুল হলে পুরোটা থামিয়ে দেওয়া ভালো, ভুল উত্তর দেওয়ার চেয়ে।
+আপনার laptop এ একটা program হয় চলে, নয় crash করে। মাঝামাঝি অবস্থা প্রায় নেই — RAM এর একটা অংশ কাজ করছে আর বাকিটা করছে না, এমন হয় না; হলে পুরো machine ই পড়ে যায়। এটা ইচ্ছাকৃত design: hardware এ কিছু ভুল হলে পুরোটা থামিয়ে দেওয়া ভালো, ভুল উত্তর দেওয়ার চেয়ে।
 
 Distributed system এ এই আরাম নেই।
 
 **Partial failure** — system এর কিছু অংশ ভেঙেছে আর বাকিটা চলছে, আর প্রায়ই কোন অংশ ভেঙেছে সেটা নিশ্চিত করে জানা যায় না।
 
-সবচেয়ে সাধারণ মুহূর্তটা দেখো: app server database কে একটা request পাঠাল, আর উত্তর এলো না। কী হয়েছে হতে পারে?
+সবচেয়ে সাধারণ মুহূর্তটা দেখুন: app server database কে একটা request পাঠাল, আর উত্তর এলো না। কী হয়েছে হতে পারে?
 
 ```
   app server                    network                    database
@@ -60,7 +60,7 @@ Distributed system এ এই আরাম নেই।
 
 এর মধ্যে ④ আর ⑤ তে কাজটা **হয়ে গেছে**; ①, ③ তে হয়নি; ② আর ⑥ তে হয়তো এখনো হবে। App server জানে না কোনটা। এটাই Lesson 2.5 এর idempotency key এর আসল কারণ — timeout মানে "ব্যর্থ" না, timeout মানে **"জানি না"**। (আজকের spaced repetition প্রশ্নের উত্তরও এটাই।)
 
-আর লক্ষ করো: অন্য machine টা ভেতরে কী অবস্থায় আছে, সেটা জানার **একমাত্র** উপায় network এ message। Message না এলে তুমি কিছুই জানো না — শুধু অনুমান করতে পারো।
+আর লক্ষ করুন: অন্য machine টা ভেতরে কী অবস্থায় আছে, সেটা জানার **একমাত্র** উপায় network এ message। Message না এলে আপনি কিছুই জানেন না — শুধু অনুমান করতে পারেন।
 
 ### ১.২ Failure Model — কী কী ভাঙতে পারে, সেটা আগে ঠিক করা
 
@@ -80,7 +80,7 @@ Distributed system এ এই আরাম নেই।
 
 **Network কীভাবে ভাঙে:** message হারাতে পারে, দেরিতে পৌঁছাতে পারে, ক্রম বদলে যেতে পারে, দুবার পৌঁছাতে পারে (retry থেকে)। আর সবচেয়ে গুরুত্বপূর্ণ কথা: **দেরির কোনো ঊর্ধ্বসীমা নেই।** একটা message ১ ms এ পৌঁছায়, আরেকটা ৩০ সেকেন্ডে — আর দুটোই "স্বাভাবিক"। এই ধরনের network কে বলা হয় asynchronous — আর internet, data center এর network, সব এই ধরনের।
 
-**ঘড়ি কীভাবে ভাঙে:** প্রতিটা machine এর ঘড়ি একটু আলাদা গতিতে চলে, আর NTP সেটা ঠিক করতে গিয়ে ঘড়ি হঠাৎ সামনে বা পিছনে লাফ দিতে পারে। এটা এত বড় বিষয় যে পুরো একটা lesson (6.4) এর জন্য রেখে দিচ্ছি — আজ শুধু মনে রাখো: **অন্য machine এর ঘড়ি বিশ্বাস করা যায় না, আর নিজেরটাও পুরোপুরি না।**
+**ঘড়ি কীভাবে ভাঙে:** প্রতিটা machine এর ঘড়ি একটু আলাদা গতিতে চলে, আর NTP সেটা ঠিক করতে গিয়ে ঘড়ি হঠাৎ সামনে বা পিছনে লাফ দিতে পারে। এটা এত বড় বিষয় যে পুরো একটা lesson (6.4) এর জন্য রেখে দিচ্ছি — আজ শুধু মনে রাখুন: **অন্য machine এর ঘড়ি বিশ্বাস করা যায় না, আর নিজেরটাও পুরোপুরি না।**
 
 এই model টা মুখস্থ করার জিনিস না — এটা একটা প্রশ্ন যেটা প্রতিটা design এ জিজ্ঞেস করতে হয়: "এটা কোন ভাঙনে টিকে থাকে, আর কোনটায় থাকে না?" Lesson 6.2 এর Raft ঠিক এই model ধরে: crash-recovery node, asynchronous network, byzantine না।
 
@@ -109,20 +109,20 @@ Exercise এর `npm run detector` একটা primary কে ২৪ ঘণ্�
 
 (সৎ নোট: pause আর loss এর হার আমার ধরে নেওয়া একটা model, কোনো নির্দিষ্ট system থেকে মাপা না। সংখ্যাগুলো না, **আকৃতিটা** আসল — আর সেটা যেকোনো বাস্তব system এ একই।)
 
-Table টা দুই দিক থেকে পড়ো:
+Table টা দুই দিক থেকে পড়ুন:
 
 - **বাম দিক:** timeout ১ সেকেন্ড হলে একটা সম্পূর্ণ সুস্থ primary কে দিনে ৫৩ বার "মৃত" ঘোষণা করা হয়। প্রতিটা ঘোষণা মানে একটা failover — আর মঙ্গলবারের incident দেখিয়েছে, অকারণ failover নিজেই একটা দুর্ঘটনা।
 - **ডান দিক:** timeout ১০ সেকেন্ড হলে ভুল ঘোষণা শূন্য — কিন্তু primary সত্যিই মরলে ১০ সেকেন্ড কেউ টেরই পায় না। সেই ১০ সেকেন্ড TaskFlow এর কোনো write হয় না (5.7 এর RTO)।
 - আর ১০ সেকেন্ডের সারির "০" টাও একটা ফাঁদ। এই ২৪ ঘণ্টায় সবচেয়ে লম্বা নীরবতা ছিল ৭.৭৫ সেকেন্ড। পরের সপ্তাহে যদি একটা ১২ সেকেন্ডের pause আসে? **কোনো timeout ই নিরাপদ না** — শুধু কম বা বেশি ঝুঁকিপূর্ণ।
 
-**তাহলে timeout কীভাবে বাছবে?** ভুল ঘোষণার **দাম** দেখে:
+**তাহলে timeout কীভাবে বাছবেন?** ভুল ঘোষণার **দাম** দেখে:
 
 - Load balancer এর health check (3.4): ভুল করে একটা server কে rotation থেকে সরালে কী হয়? কয়েক সেকেন্ড বাকিরা বাড়তি traffic নেয়, তারপর server ফিরে আসে। সস্তা, ফেরানো যায় → **ছোট timeout** চলে।
 - Database failover: ভুল ঘোষণা মানে দুটো primary, হারানো write, ঘণ্টার পর ঘণ্টা মেলানো। ব্যয়বহুল, ফেরানো কঠিন → **সাবধানী timeout**, আর একাধিক পর্যবেক্ষকের একমত হওয়া।
 
 বাস্তবের default গুলো এই যুক্তিই মানে (version ভেদে বদলায়): Redis Sentinel এর `down-after-milliseconds` এর উদাহরণ মান ৩০ সেকেন্ড, আর একাধিক Sentinel একমত না হলে failover হয় না; Patroni এর leader lock এর default `ttl` ৩০ সেকেন্ড; Kubernetes এর liveness probe default এ ১০ সেকেন্ড পর পর, টানা ৩ বার ব্যর্থ হলে restart। কিছু system নির্দিষ্ট timeout এর বদলে heartbeat আসার ইতিহাস দেখে সন্দেহের মাত্রা হিসাব করে (Cassandra এর "phi accrual" failure detector) — কিন্তু সেটাও অনুমানই, শুধু বুদ্ধিমান অনুমান।
 
-সবচেয়ে গুরুত্বপূর্ণ শিক্ষা এখান থেকেই: **failure detector ভুল হবেই। তাই system এর সঠিকতা (correctness) এর উপর নির্ভর করতে পারে না।** Detector শুধু ঠিক করুক "কখন failover চেষ্টা করব"; failover নিজে এমনভাবে design করো যাতে detector ভুল হলেও data নষ্ট না হয়। বাকি lesson এটাই।
+সবচেয়ে গুরুত্বপূর্ণ শিক্ষা এখান থেকেই: **failure detector ভুল হবেই। তাই system এর সঠিকতা (correctness) এর উপর নির্ভর করতে পারে না।** Detector শুধু ঠিক করুক "কখন failover চেষ্টা করব"; failover নিজে এমনভাবে design করুন যাতে detector ভুল হলেও data নষ্ট না হয়। বাকি lesson এটাই।
 
 ### ১.৪ Process Pause — Node মরেনি, শুধু সময় হারিয়েছে
 
@@ -162,18 +162,18 @@ A leader হয়, batch 3 এ cursor পড়ার ঠিক পরে ২.�
    sent more than once: 6 batches  (3: B+A, 4: B+B, 5: B+B, 6: B+B, 7: B+B, 8: B+B)
 ```
 
-ধীরে পড়ো, কারণ এখানে পুরো lesson টা আছে:
+ধীরে পড়ুন, কারণ এখানে পুরো lesson টা আছে:
 
 1. **A এর code ভুল না।** সে lease যাচাই করেছিল, আর যাচাইয়ের মুহূর্তে lease সত্যিই valid ছিল। ভুলটা যাচাই আর ব্যবহারের **মাঝখানে** — ঠিক সেখানে pause এসেছে।
 2. **Lock service ও ভুল না।** A এর মেয়াদ শেষ, B চাইল, B পেল — নিয়ম মতোই।
 3. ৩.২ সেকেন্ডের মুহূর্তে দুটো process নিজেকে leader ভাবছে, দুটোই কাজ করছে। এটাই split brain (১.৬)।
-4. আর ক্ষতির আকারটা দেখো: A এর **একটা** মাত্র পুরনো লেখা (cursor 10 → 4) — আর তার ফলে **ছয়টা** batch দুবার গেছে। Stale write এর ক্ষতি প্রায়ই শুধু সেই এক লেখায় থামে না, পরের সবকিছুতে ছড়ায়।
+4. আর ক্ষতির আকারটা দেখুন: A এর **একটা** মাত্র পুরনো লেখা (cursor 10 → 4) — আর তার ফলে **ছয়টা** batch দুবার গেছে। Stale write এর ক্ষতি প্রায়ই শুধু সেই এক লেখায় থামে না, পরের সবকিছুতে ছড়ায়।
 
-"তাহলে email পাঠানোর ঠিক আগে lease আবার যাচাই করি?" — এই ক্ষেত্রে সেটা বাঁচাত। কিন্তু pause **যেকোনো** দুটো লাইনের মাঝে আসতে পারে — নতুন যাচাইয়ের ঠিক পরেও। যতবারই যাচাই করো, যাচাই আর কাজের মাঝে একটা ফাঁক থাকবেই। (Exercise এর experiment ৪ এ নিজে দেখবে।)
+"তাহলে email পাঠানোর ঠিক আগে lease আবার যাচাই করি?" — এই ক্ষেত্রে সেটা বাঁচাত। কিন্তু pause **যেকোনো** দুটো লাইনের মাঝে আসতে পারে — নতুন যাচাইয়ের ঠিক পরেও। যতবারই যাচাই করুন, যাচাই আর কাজের মাঝে একটা ফাঁক থাকবেই। (Exercise এর experiment ৪ এ নিজে দেখবেন।)
 
 ### ১.৫ Network Partition — আবার, এবার ভেতর থেকে
 
-Lesson 5.9 এ network partition এর সংজ্ঞা আর CAP এর বাছাই দেখেছ: link কাটলে দুই দিক জানে না অন্য দিক মৃত নাকি বিচ্ছিন্ন। আজ তার সাথে দুটো জিনিস যোগ করো।
+Lesson 5.9 এ network partition এর সংজ্ঞা আর CAP এর বাছাই দেখেছেন: link কাটলে দুই দিক জানে না অন্য দিক মৃত নাকি বিচ্ছিন্ন। আজ তার সাথে দুটো জিনিস যোগ করুন।
 
 **প্রথমত, partition সবসময় পরিষ্কার দুই ভাগ না।** মঙ্গলবারের incident এর আকৃতি:
 
@@ -191,7 +191,7 @@ Lesson 5.9 এ network partition এর সংজ্ঞা আর CAP এর ব
      └─────────────┘  └──────────────┘
 ```
 
-Monitor primary কে দেখে না, কিন্তু কিছু app দেখে। এটাকে বলে **partial** (বা asymmetric) partition — কে কাকে দেখে সেটা নির্ভর করে তুমি কোথায় দাঁড়িয়ে। Monitor এর সিদ্ধান্ত monitor এর চোখে একদম সঠিক ছিল। সমস্যা হলো, তার চোখটা পুরো ছবি না।
+Monitor primary কে দেখে না, কিন্তু কিছু app দেখে। এটাকে বলে **partial** (বা asymmetric) partition — কে কাকে দেখে সেটা নির্ভর করে আপনি কোথায় দাঁড়িয়ে। Monitor এর সিদ্ধান্ত monitor এর চোখে একদম সঠিক ছিল। সমস্যা হলো, তার চোখটা পুরো ছবি না।
 
 আরও একটা আকৃতি আছে, যেটা হয়তো সবচেয়ে কঠিন: **gray failure** — node মরেনি, partition ও না, শুধু অসম্ভব ধীর বা মাঝে মাঝে ব্যর্থ (disk মরতে বসেছে, network card অর্ধেক packet ফেলছে)। Health check pass করে, কিন্তু আসল request timeout হয়।
 
@@ -212,19 +212,19 @@ Monitor primary কে দেখে না, কিন্তু কিছু app 
 
 এই কারণে cluster এ node সাধারণত **বিজোড়** — ৩ বা ৫। দুই node এর cluster এ partition হলে প্রতিটা দিকে ১টা node, কারো majority নেই — হয় দুজনেই থামবে (availability শেষ), নয়তো দুজনেই এগোবে (split brain)। তাই দুই-server এর setup এ স্বয়ংক্রিয় failover নিরাপদ না; একটা তৃতীয় "witness" node লাগে, যেটা শুধু ভোট দেয়। (মঙ্গলবারের সমস্যার মূলে ছিল এটাই: একটা monitor, একা, সিদ্ধান্ত নিচ্ছিল।)
 
-কিন্তু লক্ষ করো majority কী আটকায় **না**: বৃহস্পতিবারের পুরনো leader এর কাজ। Majority নতুন leader বাছাই সঠিক করে; কিন্তু পুরনো leader থেমে ছিল, সে ভোটের খবর পায়নি — জেগে উঠে সে তার আগের বিশ্বাস নিয়েই কাজ করে।
+কিন্তু লক্ষ করুন majority কী আটকায় **না**: বৃহস্পতিবারের পুরনো leader এর কাজ। Majority নতুন leader বাছাই সঠিক করে; কিন্তু পুরনো leader থেমে ছিল, সে ভোটের খবর পায়নি — জেগে উঠে সে তার আগের বিশ্বাস নিয়েই কাজ করে।
 
 **প্রতিরক্ষা ২ — Lease।**
 
 **Lease** — একটা মেয়াদী lock: holder নির্দিষ্ট সময়ের জন্য অধিকার পায়, নিয়মিত renew না করলে অধিকার আপনা আপনি শেষ হয়ে যায়।
 
-Lease crash সামলায় সুন্দরভাবে — holder মরলে কাউকে কিছু করতে হয় না, মেয়াদ শেষ হলেই অন্য কেউ নিতে পারে (সাধারণ lock এ holder মরলে lock চিরকাল আটকে থাকত)। আর holder এর দিক থেকে নিয়ম: "আমার ঘড়িতে মেয়াদ শেষ হলে কাজ থামাও।"
+Lease crash সামলায় সুন্দরভাবে — holder মরলে কাউকে কিছু করতে হয় না, মেয়াদ শেষ হলেই অন্য কেউ নিতে পারে (সাধারণ lock এ holder মরলে lock চিরকাল আটকে থাকত)। আর holder এর দিক থেকে নিয়ম: "আমার ঘড়িতে মেয়াদ শেষ হলে কাজ থামান।"
 
 কিন্তু exercise ঠিক এটাই ভেঙেছে। Lease এর নিয়ম মানতে holder কে নিজের মেয়াদ **টের পেতে** হয় — আর থামা process কিছুই টের পায় না। Lease এর নিরাপত্তা নির্ভর করে একটা অনুমানের উপর: pause আর ঘড়ির ভুল, lease এর মেয়াদের চেয়ে অনেক ছোট। ১.৪ দেখিয়েছে এই অনুমান ভাঙে।
 
 (Lease লম্বা করলে? Exercise এর experiment ২ — `LEASE_MS=5000`: duplicate শূন্য, কিন্তু A থেমে থাকার পুরো সময় **কেউ** reminder পাঠায়নি, মোট batch ১৬ থেকে ৮ এ নেমেছে। Lease এর মেয়াদ আসলে ১.৩ এর timeout ই — একই trade-off, অন্য নামে।)
 
-**প্রতিরক্ষা ৩ — Fencing Token।** এটাই আসল সমাধান, আর ধারণাটা সরল: পুরনো leader কে থামানোর দায়িত্ব **যে resource এ সে লিখছে**, তাকে দাও।
+**প্রতিরক্ষা ৩ — Fencing Token।** এটাই আসল সমাধান, আর ধারণাটা সরল: পুরনো leader কে থামানোর দায়িত্ব **যে resource এ সে লিখছে**, তাকে দিন।
 
 **Fencing token** — প্রতিবার নতুন কাউকে lease দেওয়ার সময় একটা সংখ্যা, যেটা সবসময় বাড়ে; resource প্রতিটা লেখার সাথে token যাচাই করে, আর এ পর্যন্ত দেখা সবচেয়ে বড় token এর চেয়ে ছোট token এর লেখা প্রত্যাখ্যান করে।
 
@@ -232,12 +232,12 @@ Lease crash সামলায় সুন্দরভাবে — holder ম�
   lock service      A (token 1)               B (token 2)          storage (সর্বোচ্চ দেখা token)
   ────────────      ───────────               ───────────          ─────────────────────────────
   lease → A, 1
-                    লেখো (token 1) ─────────────────────────────►  1 ≥ 1 ✓  সর্বোচ্চ = 1
+                    লিখুন (token 1) ─────────────────────────────►  1 ≥ 1 ✓  সর্বোচ্চ = 1
                     ░░ থেমে আছে ░░
   মেয়াদ শেষ
-  lease → B, 2                                লেখো (token 2) ───►  2 ≥ 1 ✓  সর্বোচ্চ = 2
+  lease → B, 2                                লিখুন (token 2) ───►  2 ≥ 1 ✓  সর্বোচ্চ = 2
                     ░░ জাগল ░░
-                    লেখো (token 1) ─────────────────────────────►  1 < 2 ✗  প্রত্যাখ্যান!
+                    লিখুন (token 1) ─────────────────────────────►  1 < 2 ✗  প্রত্যাখ্যান!
 ```
 
 `npm run fenced` — একই গল্প, storage এবার token যাচাই করে:
@@ -270,7 +270,7 @@ if (affected === 0) {
 
 শর্ত একটাই: token এর উৎস নির্ভরযোগ্য হতে হবে — যে service lease দেয়, সে-ই token দেয়, আর তার নিজের split brain হলে চলবে না। এজন্য বাস্তবে এই কাজে etcd, ZooKeeper বা Consul এর মতো consensus-ভিত্তিক store ব্যবহার হয় (etcd এর revision বা ZooKeeper এর zxid আসলে ঠিক এই ধরনের সবসময়-বাড়া সংখ্যা)। কেন সেগুলোর নিজের split brain হয় না — সেটা পরের lesson এর Raft।
 
-**প্রতিরক্ষা ৪ — Idempotency, যেখানে fencing পৌঁছায় না।** Fenced run এর output এ আবার তাকাও: batch 3 **তবু** দুবার গেছে। কারণ email provider token দেখে না — আর বাস্তবেও দেখবে না; SendGrid কে তোমার fencing token শেখানো যায় না।
+**প্রতিরক্ষা ৪ — Idempotency, যেখানে fencing পৌঁছায় না।** Fenced run এর output এ আবার তাকান: batch 3 **তবু** দুবার গেছে। কারণ email provider token দেখে না — আর বাস্তবেও দেখবে না; SendGrid কে আপনার fencing token শেখানো যায় না।
 
 Fencing শুধু সেই resource কে রক্ষা করে যে token যাচাই করে। বাকি সব side effect — email, payment, অন্য কোম্পানির API — এর জন্য Lesson 2.5 এর idempotency: প্রতিটা কাজের একটা স্থির key (এখানে batch number), আর receiver একই key দ্বিতীয়বার এলে কাজটা আর করে না। Stripe এর `Idempotency-Key` header ঠিক এটা। নিজের email পাঠানোর জন্য: একটা `sent_reminders` table এ `(taskId, dueDate)` এর উপর unique constraint, আর insert সফল হলে তবেই পাঠানো।
 
@@ -299,21 +299,21 @@ TaskFlow এর reminder কোন ধরনের? এক-আধবার dupli
 
 ## ২. Interview Angle
 
-**"তোমার service এর ১০টা instance, কিন্তু একটা cron job শুধু একবার চলতে হবে — কীভাবে?"** — খুব common প্রশ্ন, আর সাধারণ উত্তর "Redis lock, TTL দিয়ে" এর পরেই আসল প্রশ্ন আসে: "lock holder যদি GC pause এ আটকে যায়?" ভালো উত্তরের ক্রম: lease (TTL) → process pause এ lease কেন যথেষ্ট না → fencing token (storage এ শর্তসহ লেখা) → বাইরের side effect এর জন্য idempotency key। বোনাস: efficiency বনাম correctness lock এর পার্থক্য, আর "leader election নিজে বানাব না — etcd/ZooKeeper/Kubernetes Lease ব্যবহার করব।"
+**"আপনার service এর ১০টা instance, কিন্তু একটা cron job শুধু একবার চলতে হবে — কীভাবে?"** — খুব common প্রশ্ন, আর সাধারণ উত্তর "Redis lock, TTL দিয়ে" এর পরেই আসল প্রশ্ন আসে: "lock holder যদি GC pause এ আটকে যায়?" ভালো উত্তরের ক্রম: lease (TTL) → process pause এ lease কেন যথেষ্ট না → fencing token (storage এ শর্তসহ লেখা) → বাইরের side effect এর জন্য idempotency key। বোনাস: efficiency বনাম correctness lock এর পার্থক্য, আর "leader election নিজে বানাব না — etcd/ZooKeeper/Kubernetes Lease ব্যবহার করব।"
 
-**"Database primary এর health check এর timeout কত রাখবে?"** — একটা সংখ্যা বলার আগে trade-off বলো: ছোট timeout = অকারণ failover (আর প্রতিটা failover এ split brain এর ঝুঁকি), বড় timeout = বেশি RTO। তারপর: "ভুল ঘোষণার দাম দেখে বাছব — LB health check আক্রমণাত্মক, DB failover সাবধানী আর majority এর একমত হওয়া দরকার। আর failover এমনভাবে design করব যাতে detector ভুল হলেও data নষ্ট না হয়।" এই শেষ বাক্যটাই senior উত্তরকে আলাদা করে।
+**"Database primary এর health check এর timeout কত রাখবেন?"** — একটা সংখ্যা বলার আগে trade-off বলুন: ছোট timeout = অকারণ failover (আর প্রতিটা failover এ split brain এর ঝুঁকি), বড় timeout = বেশি RTO। তারপর: "ভুল ঘোষণার দাম দেখে বাছব — LB health check আক্রমণাত্মক, DB failover সাবধানী আর majority এর একমত হওয়া দরকার। আর failover এমনভাবে design করব যাতে detector ভুল হলেও data নষ্ট না হয়।" এই শেষ বাক্যটাই senior উত্তরকে আলাদা করে।
 
-**"Network partition হলে তোমার system কী করবে?"** — 5.9 এর CAP এর সাথে এখন split brain যোগ করো: "Minority দিকের পুরনো primary কে কীভাবে থামাব" — majority ছাড়া সে write নেবে না (Patroni এর মতো: consensus store এর সাথে যোগাযোগ হারালে নিজেকে demote করে), আর fencing।
+**"Network partition হলে আপনার system কী করবে?"** — 5.9 এর CAP এর সাথে এখন split brain যোগ করুন: "Minority দিকের পুরনো primary কে কীভাবে থামাব" — majority ছাড়া সে write নেবে না (Patroni এর মতো: consensus store এর সাথে যোগাযোগ হারালে নিজেকে demote করে), আর fencing।
 
-**Production এ বাস্তবে:** leader election বা distributed lock কেউ নিজে লেখে না — etcd, ZooKeeper, Consul, Kubernetes এর Lease object, বা database এর নিজের failover tool (Patroni, managed database)। কিন্তু সেগুলো ব্যবহার করলেও **fencing আর idempotency তোমার app এর দায়িত্ব** — কোনো lock service তোমার storage এ token যাচাই করে দেবে না, বা তোমার email provider কে dedupe শেখাবে না।
+**Production এ বাস্তবে:** leader election বা distributed lock কেউ নিজে লেখে না — etcd, ZooKeeper, Consul, Kubernetes এর Lease object, বা database এর নিজের failover tool (Patroni, managed database)। কিন্তু সেগুলো ব্যবহার করলেও **fencing আর idempotency আপনার app এর দায়িত্ব** — কোনো lock service আপনার storage এ token যাচাই করে দেবে না, বা আপনার email provider কে dedupe শেখাবে না।
 
 ---
 
 ## ৩. Key Takeaway
 
 - Distributed system এর মূল কঠিনতা **partial failure**: কিছু অংশ ভাঙে, বাকিটা চলে, আর উত্তর না এলে জানা যায় না কী হয়েছে — timeout মানে "ব্যর্থ" না, "জানি না"
-- **Failure model** আগে ঠিক করো: সাধারণ backend ধরে নেয় crash-recovery node (মিথ্যা বলে না), asynchronous network (দেরির সীমা নেই), আর অবিশ্বস্ত ঘড়ি
-- **Failure detector** (heartbeat + timeout) একটা অনুমান — ছোট timeout এ অকারণ failover, বড় timeout এ ধীর recovery; exercise এ ১ s timeout এ সুস্থ primary দিনে ৫৩ বার "মৃত"। Timeout বাছো ভুল ঘোষণার দাম দেখে, আর correctness কে detector এর উপর নির্ভর করতে দিও না
+- **Failure model** আগে ঠিক করুন: সাধারণ backend ধরে নেয় crash-recovery node (মিথ্যা বলে না), asynchronous network (দেরির সীমা নেই), আর অবিশ্বস্ত ঘড়ি
+- **Failure detector** (heartbeat + timeout) একটা অনুমান — ছোট timeout এ অকারণ failover, বড় timeout এ ধীর recovery; exercise এ ১ s timeout এ সুস্থ primary দিনে ৫৩ বার "মৃত"। Timeout বাছুন ভুল ঘোষণার দাম দেখে, আর correctness কে detector এর উপর নির্ভর করতে দেবেন না
 - **Process pause** (GC, আটকানো event loop, VM) এ node মরে না, শুধু সময় হারায় — আর যাচাই আর ব্যবহারের মাঝের ফাঁকে পুরনো leader সঠিক code দিয়েই ভুল কাজ করে
 - **Split brain** এর মূল: পুরনো leader জানে না যে সে পুরনো; partial partition আর pause — দুটো পথেই আসে
 - Majority নতুন leader বাছাই সঠিক রাখে (তাই ৩/৫ node), lease crash সামলায় — কিন্তু দুটোর কেউই থেমে থাকা পুরনো leader কে থামায় না
@@ -337,11 +337,11 @@ TaskFlow এর reminder কোন ধরনের? এক-আধবার dupli
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. একটা ছোট কোম্পানির দুটো Postgres server: primary আর replica। Replica তে একটা script চলে: "primary ১০ সেকেন্ড ping এর উত্তর না দিলে নিজেকে promote করো।" এই setup এ কী কী ভুল হতে পারে — অন্তত দুটো আলাদা পরিস্থিতি বলো। তুমি কী বদলাবে?
+1. একটা ছোট কোম্পানির দুটো Postgres server: primary আর replica। Replica তে একটা script চলে: "primary ১০ সেকেন্ড ping এর উত্তর না দিলে নিজেকে promote করুন।" এই setup এ কী কী ভুল হতে পারে — অন্তত দুটো আলাদা পরিস্থিতি বলুন। আপনি কী বদলাবেন?
 2. TaskFlow এর billing job প্রতি মাসের ১ তারিখে চলে: invoice এর পরের নম্বর নেয়, database এ invoice লেখে, তারপর Stripe এ card charge করে। একটাই instance চালাতে Redis lock, TTL ৩০ সেকেন্ড। একদিন leader instance একটা ৪০ সেকেন্ডের pause এ আটকাল। কী কী ভুল হতে পারে? প্রতিটা side effect (invoice নম্বর, invoice row, Stripe charge) এর জন্য কোন প্রতিরক্ষা লাগবে?
-3. ১.৩ এর table দেখে manager বলল, "১ সেকেন্ডে ৫৩টা ভুল failover? তাহলে সব timeout ৩০ সেকেন্ড করে দাও, সমস্যা শেষ।" তুমি কীভাবে উত্তর দেবে? কোন timeout গুলো ছোটই থাকা উচিত, আর কোন গুলো বড় — আর বড় timeout এর পাশাপাশি আর কী লাগবে?
+3. ১.৩ এর table দেখে manager বলল, "১ সেকেন্ডে ৫৩টা ভুল failover? তাহলে সব timeout ৩০ সেকেন্ড করে দিন, সমস্যা শেষ।" আপনি কীভাবে উত্তর দেবেন? কোন timeout গুলো ছোটই থাকা উচিত, আর কোন গুলো বড় — আর বড় timeout এর পাশাপাশি আর কী লাগবে?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -351,9 +351,9 @@ TaskFlow এর reminder কোন ধরনের? এক-আধবার dupli
 - **Partition:** primary জীবিত, শুধু replica আর primary এর মধ্যের link কাটা। Replica নিজেকে promote করল, অথচ app গুলো তখনো primary তে লিখছে → split brain (মঙ্গলবারের incident)। দুই node এর setup এ এর কোনো নিরাপদ সমাধান নেই — একটা দিক আরেকটা দিককে "মৃত" না "বিচ্ছিন্ন" আলাদা করতে পারে না, আর majority বানানোর মতো তৃতীয় কেউ নেই।
 - **Process pause:** primary ১২ সেকেন্ডের একটা pause এ (বা ভারী load এ) → replica promote → primary জেগে উঠে এখনো primary হিসেবে write নিচ্ছে।
 - **Async lag:** promote এর মুহূর্তে যা replica পায়নি, সেটা হারায় (5.7 এর RPO)।
-- **পুরনোকে কেউ থামাচ্ছে না:** script এ শুধু "নিজেকে promote করো" আছে; "পুরনোকে থামাও" নেই, আর app কে নতুন ঠিকানায় সরানোও নেই।
+- **পুরনোকে কেউ থামাচ্ছে না:** script এ শুধু "নিজেকে promote করুন" আছে; "পুরনোকে থামান" নেই, আর app কে নতুন ঠিকানায় সরানোও নেই।
 
-কী বদলাবে: তৃতীয় একটা node (witness) যোগ করে majority তে সিদ্ধান্ত — বাস্তবে Patroni + etcd (৩ node), যেখানে leader হতে হলে consensus store এ lease ধরে রাখতে হয়, আর যে primary lease হারায় সে নিজেকে demote করে (watchdog সহ)। App connection একটা জায়গা দিয়ে (proxy বা DNS যেটা Patroni update করে)। Timeout ১০ সেকেন্ডের সংখ্যাটাও যাচাই করা দরকার — ১.৩ এর table মাথায় রেখে।
+কী বদলাবেন: তৃতীয় একটা node (witness) যোগ করে majority তে সিদ্ধান্ত — বাস্তবে Patroni + etcd (৩ node), যেখানে leader হতে হলে consensus store এ lease ধরে রাখতে হয়, আর যে primary lease হারায় সে নিজেকে demote করে (watchdog সহ)। App connection একটা জায়গা দিয়ে (proxy বা DNS যেটা Patroni update করে)। Timeout ১০ সেকেন্ডের সংখ্যাটাও যাচাই করা দরকার — ১.৩ এর table মাথায় রেখে।
 
 **প্রশ্ন ২:** ৪০ সেকেন্ডের pause, TTL ৩০ — pause এর মাঝেই lock এর মেয়াদ শেষ, আরেকটা instance leader হয়ে billing শুরু করে। পুরনো leader জেগে উঠে তার অর্ধেক-করা কাজ শেষ করে। ফলাফল: একই invoice নম্বর দুবার (বা নম্বর এর ধারায় ফাঁক/উল্টো), একই customer এর দুটো invoice row, আর সবচেয়ে খারাপ — **card দুবার charge**। প্রতিরক্ষা, side effect অনুযায়ী:
 
@@ -363,7 +363,7 @@ TaskFlow এর reminder কোন ধরনের? এক-আধবার dupli
 
 শিক্ষা: এখানে lock টা "efficiency lock" হিসেবে ঠিক আছে (দুজন একসাথে কাজ না করাটা ভালো), কিন্তু correctness আসছে unique constraint, fencing আর idempotency key থেকে — lock থেকে না।
 
-**প্রশ্ন ৩:** সব timeout ৩০ সেকেন্ড করলে ভুল failover কমে, কিন্তু প্রতিটা আসল failure এ ৩০+ সেকেন্ড কেউ টের পায় না — load balancer মৃত server এ ৩০ সেকেন্ড ধরে traffic পাঠাবে (হাজার হাজার failed request), database মরলে ৩০ সেকেন্ড কোনো write নেই। উত্তর: **timeout বাছো ভুল ঘোষণার দাম দেখে।**
+**প্রশ্ন ৩:** সব timeout ৩০ সেকেন্ড করলে ভুল failover কমে, কিন্তু প্রতিটা আসল failure এ ৩০+ সেকেন্ড কেউ টের পায় না — load balancer মৃত server এ ৩০ সেকেন্ড ধরে traffic পাঠাবে (হাজার হাজার failed request), database মরলে ৩০ সেকেন্ড কোনো write নেই। উত্তর: **timeout বাছুন ভুল ঘোষণার দাম দেখে।**
 
 - **ছোট থাকুক:** load balancer এর health check (3.4) — ভুল করে সরানো সস্তা আর ফেরানো যায়; client এর request timeout + retry (idempotent হলে)।
 - **বড়/সাবধানী হোক:** database failover, leader election — ভুল ঘোষণা ব্যয়বহুল আর ফেরানো কঠিন।
@@ -381,19 +381,19 @@ TaskFlow এর reminder কোন ধরনের? এক-আধবার dupli
 
 `detector` একটা seed দেওয়া simulation — প্রতিবার হুবহু একই সংখ্যা। `split-brain` আর `fenced` এ তিনটা ছোট service (lock, storage, email provider) একটা Express process এ চলে, আর A ও B আলাদা Node process — তাই A এর pause সত্যিকারের: তার event loop আটকে থাকে, বাকিরা চলে।
 
-**সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `detector` কয়েকবার চালিয়ে হুবহু একই output; `split-brain` আর `fenced` প্রতিটা তিনবার চালিয়ে একই ঘটনার ক্রম আর একই শেষ ফল (ms গুলো প্রতিবার সামান্য আলাদা — আসল timer)। README এর experiment ১ আর ২ ও চালিয়ে দেখা হয়েছে; ৩ আর ৪ তোমার code বদলানোর কাজ।
+**সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `detector` কয়েকবার চালিয়ে হুবহু একই output; `split-brain` আর `fenced` প্রতিটা তিনবার চালিয়ে একই ঘটনার ক্রম আর একই শেষ ফল (ms গুলো প্রতিবার সামান্য আলাদা — আসল timer)। README এর experiment ১ আর ২ ও চালিয়ে দেখা হয়েছে; ৩ আর ৪ আপনার code বদলানোর কাজ।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. তিনটা script চালাও। `split-brain` এর output থেকে এক লাইনে লেখো: A এর code এর কোন লাইনটা "ভুল"? (উত্তরটা একটা প্রশ্নের মতো শোনাবে — সেটাই ঠিক।)
+1. তিনটা script চালান। `split-brain` এর output থেকে এক লাইনে লিখুন: A এর code এর কোন লাইনটা "ভুল"? (উত্তরটা একটা প্রশ্নের মতো শোনাবে — সেটাই ঠিক।)
 
-2. **Timeout বাছাই:** `detector` এর table দেখে দুটো timeout বাছো — (ক) Nginx এর health check এর জন্য, (খ) TaskFlow এর Postgres failover এর জন্য। প্রতিটার জন্য এক লাইনে যুক্তি: ভুল ঘোষণার দাম কী, আর দেরিতে টের পাওয়ার দাম কী।
+2. **Timeout বাছাই:** `detector` এর table দেখে দুটো timeout বাছুন — (ক) Nginx এর health check এর জন্য, (খ) TaskFlow এর Postgres failover এর জন্য। প্রতিটার জন্য এক লাইনে যুক্তি: ভুল ঘোষণার দাম কী, আর দেরিতে টের পাওয়ার দাম কী।
 
-3. **Lease এর মেয়াদ = timeout** (experiment ২): `LEASE_MS=5000 npm run split-brain` আর default এর মোট batch সংখ্যা তুলনা করো। Duplicate শূন্য কেন, আর কী হারালে? এবার ভাবো — A সত্যিই crash করলে ৫ সেকেন্ডের lease এ reminder কতক্ষণ বন্ধ থাকত?
+3. **Lease এর মেয়াদ = timeout** (experiment ২): `LEASE_MS=5000 npm run split-brain` আর default এর মোট batch সংখ্যা তুলনা করুন। Duplicate শূন্য কেন, আর কী হারালে? এবার ভাবুন — A সত্যিই crash করলে ৫ সেকেন্ডের lease এ reminder কতক্ষণ বন্ধ থাকত?
 
-4. **Fencing যেখানে পৌঁছায় না** (experiment ৩): `/email` কে batch number দিয়ে idempotent বানাও, তারপর `npm run fenced`। Duplicate শূন্য হলো? এবার `split-brain` (fencing ছাড়া) এও চালাও — idempotent email একা কি যথেষ্ট ছিল? Cursor এর কী হলো?
+4. **Fencing যেখানে পৌঁছায় না** (experiment ৩): `/email` কে batch number দিয়ে idempotent বানান, তারপর `npm run fenced`। Duplicate শূন্য হলো? এবার `split-brain` (fencing ছাড়া) এও চালান — idempotent email একা কি যথেষ্ট ছিল? Cursor এর কী হলো?
 
-5. **Design অংশ:** TaskFlow এর জন্য একটা পরিকল্পনা লেখো, দুটো অংশে। (ক) Reminder job: leader কীভাবে বাছা হবে (কোন tool), lease এর মেয়াদ কত, cursor কীভাবে fence করবে (কোন table, কোন শর্ত), email এর duplicate কীভাবে আটকাবে। (খ) Postgres failover: কয়টা node এর ভোটে সিদ্ধান্ত, timeout কত (সংখ্যা সহ), পুরনো primary কে কীভাবে থামাবে, আর app কীভাবে নতুন primary খুঁজে পাবে। মঙ্গলবার আর বৃহস্পতিবারের দুটো incident — তোমার পরিকল্পনায় প্রতিটা ঠিক কোথায় আটকায়, দেখাও।
+5. **Design অংশ:** TaskFlow এর জন্য একটা পরিকল্পনা লিখুন, দুটো অংশে। (ক) Reminder job: leader কীভাবে বাছা হবে (কোন tool), lease এর মেয়াদ কত, cursor কীভাবে fence করবেন (কোন table, কোন শর্ত), email এর duplicate কীভাবে আটকাবেন। (খ) Postgres failover: কয়টা node এর ভোটে সিদ্ধান্ত, timeout কত (সংখ্যা সহ), পুরনো primary কে কীভাবে থামাবেন, আর app কীভাবে নতুন primary খুঁজে পাবে। মঙ্গলবার আর বৃহস্পতিবারের দুটো incident — আপনার পরিকল্পনায় প্রতিটা ঠিক কোথায় আটকায়, দেখান।
 
 ---
 
@@ -408,7 +408,7 @@ read replica, স্বয়ংক্রিয় failover (এখন: majority
 reminder job একটা leader এ — lease + fenced cursor (শর্তসহ update) + email এ idempotency key
 Terms learned (Module 6 so far): Partial Failure, Failure Model, Failure Detector,
 Process Pause, Split Brain, Lease, Fencing Token
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 6.2 — Consensus: leader election, Raft basics
 =======================
 ```
@@ -417,4 +417,4 @@ Next: 6.2 — Consensus: leader election, Raft basics
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের দুটো timeout এর যুক্তি আর ৫ নম্বরের পরিকল্পনা। রেডি হলে `next` লিখো — Lesson 6.2 এ যাব: **Consensus — Leader Election আর Raft basics।** আজ আমরা বারবার বলেছি "majority দিয়ে বাছো", "token দেবে একটা নির্ভরযোগ্য store" — কিন্তু সেই store নিজে কয়েকটা node এ চলে, আর তারও partition হয়, তারও pause হয়। তাহলে সে কীভাবে split brain এড়ায়? কয়েকটা node কীভাবে এমন একটা সিদ্ধান্তে একমত হয় যেটা আর কখনো বদলাবে না — এমনকি message হারালেও, node মরলেও? Raft এর term, vote, আর log দিয়ে সেই উত্তর।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের দুটো timeout এর যুক্তি আর ৫ নম্বরের পরিকল্পনা। রেডি হলে `next` লিখুন — Lesson 6.2 এ যাব: **Consensus — Leader Election আর Raft basics।** আজ আমরা বারবার বলেছি "majority দিয়ে বাছুন", "token দেবে একটা নির্ভরযোগ্য store" — কিন্তু সেই store নিজে কয়েকটা node এ চলে, আর তারও partition হয়, তারও pause হয়। তাহলে সে কীভাবে split brain এড়ায়? কয়েকটা node কীভাবে এমন একটা সিদ্ধান্তে একমত হয় যেটা আর কখনো বদলাবে না — এমনকি message হারালেও, node মরলেও? Raft এর term, vote, আর log দিয়ে সেই উত্তর।

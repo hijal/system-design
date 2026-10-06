@@ -97,7 +97,7 @@ pull: posts from all 200                               200     52 ms     54 ms  
 ## কী দেখার জন্য এটা বানানো
 
 - **Power law সব কিছু ঠিক করে।** মাঝের account এর ৬২ জন follower, উপরের ০.০১% account এর কাছে সব follow এর ১৮%। গড় দিয়ে নকশা
-  করলে celebrity কে ভুলে যাবে।
+  করলে celebrity কে ভুলে যাবেন।
 - **Push পড়াকে সস্তা করে, লেখাকে ব্যয়বহুল আর অসমান।** একটা post এ ৬ কোটি লেখা পর্যন্ত। Pull লেখাকে সস্তা, পড়াকে ২০০ গুণ।
 - **Hybrid এর লাভ গড়ে না, spike এ।** গড় লেখা ৪৬k থেকে ৪২k, কিন্তু সবচেয়ে বড় post ৬ কোটি থেকে ৪ লাখ, আর queue আর আটকায় না।
 - **একটা queue তে বড় আর ছোট কাজ মেশালে ছোটরা বড়র পেছনে মরে** (9.4 এর bulkhead, fan-out এর queue তে)।
@@ -105,7 +105,7 @@ pull: posts from all 200                               200     52 ms     54 ms  
 - **Feed এ offset pagination ভাঙে।** নতুন post এলে আগের post আবার, মুছলে একটা বাদ। Cursor এ দুটোই শূন্য।
 - **Unfollow আর delete পড়ার সময় ছাঁকা হয়**, timeline cache থেকে মুছতে হয় না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **কম তীক্ষ্ণ বণ্টন:** `ALPHA=1.5 npm run estimate`। উপরের ০.০১% এর ভাগ কত (মাপা: ৪.৫%), আর ১০ লাখের বেশি follower এর account
    কয়টা (২৭১)? Hybrid এ পড়ার খরচ কত হলো (১৯.২ থেকে ২.৪ fetch)?
@@ -115,8 +115,8 @@ pull: posts from all 200                               200     52 ms     54 ms  
    p99 এ কাজ করে কিন্তু p50 এ না?
 4. **ব্যস্ত feed:** `NEW_PER_MIN=10 npm run read`। Offset এ দ্বিতীয় page এ আগে দেখা post কত % session এ (মাপা: ৭৮%)?
 5. **Code বদলানোর কাজ:** `src/feed.ts` এ একজন user celebrity এর সীমা পার হলে (নতুন follower এর পরে) কী হবে? এখন তার পুরনো post
-   follower দের timeline এ আছে, নতুনগুলো pull এ। দুটো একসাথে দেখাতে কোনো সমস্যা হয় কিনা পরীক্ষা করো, আর উল্টোটা (follower
-   কমে সীমার নিচে নামা) কীভাবে সামলাবে।
+   follower দের timeline এ আছে, নতুনগুলো pull এ। দুটো একসাথে দেখাতে কোনো সমস্যা হয় কিনা পরীক্ষা করুন, আর উল্টোটা (follower
+   কমে সীমার নিচে নামা) কীভাবে সামলাবেন।
 
 ## Project Structure
 

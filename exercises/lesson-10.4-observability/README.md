@@ -6,8 +6,8 @@
 ## কী বানাচ্ছি
 
 TaskFlow এর বৃহস্পতিবারের রহস্য — "board মাঝে মাঝে ৪–৫ সেকেন্ড, অথচ dashboard সবুজ" — আর সেটা খুঁজতে গিয়ে যা যা
-ভাঙে, পাঁচটা script এ: গড় আর percentile কী লুকায়, একটা label কীভাবে metric system কে মারে, কোন trace রাখবে আর
-কোনটা ফেলবে, কখন কাউকে রাতে জাগাবে, আর একটা request চারটা service পেরোলে তাকে কীভাবে একসাথে দেখবে।
+ভাঙে, পাঁচটা script এ: গড় আর percentile কী লুকায়, একটা label কীভাবে metric system কে মারে, কোন trace রাখবেন আর
+কোনটা ফেলবেন, কখন কাউকে রাতে জাগাবেন, আর একটা request চারটা service পেরোলে তাকে কীভাবে একসাথে দেখবেন।
 
 | Script                | প্রশ্ন                                                                                                                         | Lesson §  |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------- |
@@ -25,7 +25,7 @@ TaskFlow এর বৃহস্পতিবারের রহস্য — "boa
   `AsyncLocalStorage`। Dependency (cache, replica, billing এর কাজ) `setTimeout` দিয়ে নকল করা। সময় আসল মাপা, তাই প্রতি
   run এ কয়েক ms আলাদা হয়; trace এর গঠন আর span ও trace এর সংখ্যা একই থাকে। দুটো request প্রায় সমান ধীর, তাই কোনটা
   "সবচেয়ে ধীর" হিসেবে দেখানো হয় — আর দেখানো trace id — run ভেদে বদলাতে পারে।
-  Tracing library টা নিজের হাতে লেখা (`src/tracing.ts`) — OpenTelemetry না; production এ OpenTelemetry ব্যবহার করো।
+  Tracing library টা নিজের হাতে লেখা (`src/tracing.ts`) — OpenTelemetry না; production এ OpenTelemetry ব্যবহার করুন।
 - **ধরে নেওয়া সংখ্যা:** প্রতি time series ~৩,০০০ byte memory, log লাইন ~৩৫০ byte, span ~৪০০ byte, প্রতি trace এ ২০টা
   span। এগুলো আন্দাজ — আসল সংখ্যা Prometheus এর version, log এর format আর tracing backend ভেদে আলাদা। Series এর
   **সংখ্যা** আন্দাজ না, গোনা।
@@ -107,7 +107,7 @@ nothing (only the deploy blip)                       7                   7      
 ```
 
 `npm run trace` — সবচেয়ে ধীর request এর ১.২ সেকেন্ডের পুরোটা একটা span এ (`db.query tasks r3`); header না পাঠালে ৩০টা
-request ৯০টা trace হয়ে যায় (ms এর মান তোমার machine এ সামান্য আলাদা হবে):
+request ৯০টা trace হয়ে যায় (ms এর মান আপনার machine এ সামান্য আলাদা হবে):
 
 ```
 gateway · GET /boards/:id                   1,203 ms   |████████████████████████████████████████|
@@ -128,7 +128,7 @@ bff without the header         270      90
 ## কী দেখার জন্য এটা বানানো
 
 - **গড় লেজ লুকায়, আর percentile যোগ বা গড় করা যায় না।** ঘণ্টার আসল p99 ৩.৭৯ s, কিন্তু মিনিটের p99 গুলোর গড় ৬১৭ ms
-  আর median ১৮৭ ms — dashboard এ rollup এর পদ্ধতিই বলে দেয় তুমি সমস্যা দেখবে কিনা। Histogram এর bucket যোগ করা যায়,
+  আর median ১৮৭ ms — dashboard এ rollup এর পদ্ধতিই বলে দেয় আপনি সমস্যা দেখবেন কিনা। Histogram এর bucket যোগ করা যায়,
   percentile না।
 - **সমস্যাটা দেখা যায় শুধু সঠিক মাত্রায় ভাগ করলে।** ছয়টা instance হুবহু এক রকম; তিনটা replica এর একটা আলাদা।
 - **Metric এর দাম series এর সংখ্যা, আর series = প্রতিটা label এর মানের গুণফল।** User বা আসল path এর মতো হাজার হাজার
@@ -140,12 +140,12 @@ bff without the header         270      90
 - **একটা request কে চারটা service জুড়ে দেখতে একটা id আর একটা header ই সব** — তার একটা hop এ ভুল হলে trace দুই টুকরো,
   আর ধীর query টা এমন trace এ যেখানে কোনো user এর request নেই।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Rollup উল্টো দিকেও ভুল করে:** `STALL_SECONDS=20 npm run percentiles`. আসল p99 আর মিনিটের p99 এর গড় — এবার কোনটা
    বড়? কেন? তাহলে "মিনিটের p99 এর গড়" কি একটা নিরাপদ, রক্ষণশীল অনুমান?
-2. **Bucket বাছাই:** `src/percentiles.ts` এ `DEFAULT_BUCKETS` এ `150` আর `200` যোগ করো। p90 এর ভুল কত হলো? Bucket কোথায়
-   রাখবে, সেটা কীসের উপর নির্ভর করে — আর একটা bucket যোগ করার দাম কী (`npm run cardinality` এর ×15 মনে করো)?
+2. **Bucket বাছাই:** `src/percentiles.ts` এ `DEFAULT_BUCKETS` এ `150` আর `200` যোগ করুন। p90 এর ভুল কত হলো? Bucket কোথায়
+   রাখবেন, সেটা কীসের উপর নির্ভর করে — আর একটা bucket যোগ করার দাম কী (`npm run cardinality` এর ×15 মনে করুন)?
 3. **কত user এ মরবে:** `USERS=1000000 npm run cardinality`. `user_id` এর সারি কত হলো? প্রথম সারি কি বদলেছে? কেন না?
 4. **কঠিন SLO:** `SLO=0.9999 npm run alerts`. কোনো ঘটনা ছাড়া (শেষ সারি) multi-window কী করল? স্বাভাবিক ০.০২% error
    আর deploy এর ঝাঁকুনি ৯৯.৯৯% এর budget এর কত খায়? এই SLO কি TaskFlow এর জন্য সৎ?

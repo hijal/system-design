@@ -2,13 +2,13 @@
 
 **Module 9 — Microservices & Service Architecture**
 
-Module 9 এর পাঁচটা lesson শেষ — কখন ভাঙবে আর কখন ভাঙবে না, ভাঙা service গুলোর সামনে কী বসে (gateway, BFF), সীমানা পার হওয়া transaction (saga, 2PC), একটা call এর চারপাশের তিনটা যন্ত্র (discovery, breaker, bulkhead), আর কে কতটা চাইতে পারে (rate limiting)। প্রতিটা lesson এ একটা করে প্রশ্ন আলাদা করে মেপেছি। বাস্তবে একটা "microservices migration" এর ছয় মাসে সব একসাথে আসে — আর Module 5–8 এর পুরনো প্রশ্নগুলো (dual write, replica lag, idempotency, eventual consistency) নতুন চেহারায় ফিরে আসে, কারণ service এর সীমানা পার হলে সেগুলো সহজ হয় না, কঠিন হয়। এই Exit Challenge এমন একটা ছয় মাস।
+Module 9 এর পাঁচটা lesson শেষ — কখন ভাঙবেন আর কখন ভাঙবেন না, ভাঙা service গুলোর সামনে কী বসে (gateway, BFF), সীমানা পার হওয়া transaction (saga, 2PC), একটা call এর চারপাশের তিনটা যন্ত্র (discovery, breaker, bulkhead), আর কে কতটা চাইতে পারে (rate limiting)। প্রতিটা lesson এ একটা করে প্রশ্ন আলাদা করে মেপেছি। বাস্তবে একটা "microservices migration" এর ছয় মাসে সব একসাথে আসে — আর Module 5–8 এর পুরনো প্রশ্নগুলো (dual write, replica lag, idempotency, eventual consistency) নতুন চেহারায় ফিরে আসে, কারণ service এর সীমানা পার হলে সেগুলো সহজ হয় না, কঠিন হয়। এই Exit Challenge এমন একটা ছয় মাস।
 
 ---
 
 ## ১. Mini Design Challenge (Tier 3)
 
-> **Scenario:** তোমার অনুপস্থিতিতে (তুমি তিন মাস অন্য একটা project এ ছিলে) TaskFlow এ একটা "microservices migration" হয়ে গেছে। এখন তুমি ফিরে এসেছ, আর তোমাকে ছয় মাসের incident review করতে বলা হয়েছে। এই মুহূর্তে এর অবস্থা (কিছু সিদ্ধান্ত এই module এর lesson মেনে, অনেকগুলো না):
+> **Scenario:** আপনার অনুপস্থিতিতে (আপনি তিন মাস অন্য একটা project এ ছিলেন) TaskFlow এ একটা "microservices migration" হয়ে গেছে। এখন আপনি ফিরে এসেছেন, আর আপনাকে ছয় মাসের incident review করতে বলা হয়েছে। এই মুহূর্তে এর অবস্থা (কিছু সিদ্ধান্ত এই module এর lesson মেনে, অনেকগুলো না):
 >
 > - **ভাঙা হয়েছে ১১টা service এ**, স্তর ধরে: `api-gateway`, `web-api`, `mobile-api`, `task-read`, `task-write`, `comment`, `user`, `billing`, `notification`, `search`, `file`। প্রতিটার নিজের repo, নিজের deploy pipeline।
 > - **Database:** `task-read`, `task-write` আর `comment` একই Postgres এর একই schema ব্যবহার করে ("যাতে join করা যায়")। `billing`, `user` আর `search` এর নিজের database। `notification` আর `file` এর কোনো database নেই।
@@ -37,47 +37,47 @@ Module 9 এর পাঁচটা lesson শেষ — কখন ভাঙব�
 > 11. **একজন researcher এর report।** একটা authenticated user নিজের browser থেকে `X-User-Id` header বদলে অন্য user এর task পড়তে পেরেছে — gateway এর মধ্য দিয়ে না, সরাসরি service এর port এ (সে VPN এ ছিল, একটা ভুল configure করা VPC peering এর কারণে)।
 > 12. **Manager এর প্রশ্ন:** "আমরা microservices এ গেলাম দ্রুত চলার জন্য। এখন ধীর, বেশি outage, আর তিনজন বেশি engineer লাগছে। কী ভুল হলো — আর service mesh কি এটা ঠিক করবে?"
 
-তোমার কাজ — নিচের প্রতিটা প্রশ্নে Module 9 (আর প্রাসঙ্গিক জায়গায় আগের module) এর concept প্রয়োগ করে সিদ্ধান্ত নাও, reasoning সহ। যেখানে সম্ভব, **সংখ্যা** দিয়ে বলো।
+আপনার কাজ — নিচের প্রতিটা প্রশ্নে Module 9 (আর প্রাসঙ্গিক জায়গায় আগের module) এর concept প্রয়োগ করে সিদ্ধান্ত নিন, reasoning সহ। যেখানে সম্ভব, **সংখ্যা** দিয়ে বলুন।
 
 **১. ভাঙার সীমানা (Lesson 9.1)**
-এই ১১টা service এর ভাগটা কোন নীতিতে করা হয়েছে, আর সমস্যাটা কী? `task-read` আর `task-write` আলাদা service হওয়া কেন একটা ভুল সীমানা — আর তারা একই schema ভাগ করা কোন নীতি ভাঙছে? ঘটনা ১ এর ১১ দিনের feature কে 9.1 এর কোন শব্দটা বর্ণনা করে, আর সেই রোগের আর কোন কোন লক্ষণ এই scenario তে আছে (অন্তত তিনটা)। তুমি ১১টাকে কতটাতে নামাবে — নাম ধরে তালিকা দাও, প্রতিটার সীমানার যুক্তি সহ, আর বলো কোনগুলো আবার এক deployment এ ফেরত যাবে।
+এই ১১টা service এর ভাগটা কোন নীতিতে করা হয়েছে, আর সমস্যাটা কী? `task-read` আর `task-write` আলাদা service হওয়া কেন একটা ভুল সীমানা — আর তারা একই schema ভাগ করা কোন নীতি ভাঙছে? ঘটনা ১ এর ১১ দিনের feature কে 9.1 এর কোন শব্দটা বর্ণনা করে, আর সেই রোগের আর কোন কোন লক্ষণ এই scenario তে আছে (অন্তত তিনটা)। আপনি ১১টাকে কতটাতে নামাবেন — নাম ধরে তালিকা দিন, প্রতিটার সীমানার যুক্তি সহ, আর বলুন কোনগুলো আবার এক deployment এ ফেরত যাবে।
 
 **২. Board এর p99 (Lesson 9.2 + 1.3)**
-প্রতিটা service এর p99 ১৫ ms এর নিচে, অথচ board এর p99 ৯৪০ ms (mobile এ ৪.২ s) — এই ফাঁকটা কোথা থেকে আসে, নাম ধরে বলো। ২৩টা request এর জন্য mobile এ (RTT ১০০ ms ধরো) শুধু round trip এ কত সময়, আর browser এর সমসাময়িক connection এর সীমা ধরলে কত ধাপ? একটা BFF দিয়ে design করো: web আর mobile এর জন্য আলাদা কেন, board এর page এ কতগুলো request এ নামবে, আর BFF নিজে ভেতরে কী করবে (ক্রম, সমসাময়িকতা, আংশিক ব্যর্থতায় কী ফেরাবে)।
+প্রতিটা service এর p99 ১৫ ms এর নিচে, অথচ board এর p99 ৯৪০ ms (mobile এ ৪.২ s) — এই ফাঁকটা কোথা থেকে আসে, নাম ধরে বলুন। ২৩টা request এর জন্য mobile এ (RTT ১০০ ms ধরুন) শুধু round trip এ কত সময়, আর browser এর সমসাময়িক connection এর সীমা ধরলে কত ধাপ? একটা BFF দিয়ে design করুন: web আর mobile এর জন্য আলাদা কেন, board এর page এ কতগুলো request এ নামবে, আর BFF নিজে ভেতরে কী করবে (ক্রম, সমসাময়িকতা, আংশিক ব্যর্থতায় কী ফেরাবে)।
 
 **৩. ১০:০৫ থেকে ১০:১১ (Lesson 9.4 + 7.1 + 5.6)**
-ছয় মিনিটের cascading failure টা সময়ের রেখায় লেখো — `billing` ধীর হওয়া থেকে login বন্ধ হওয়া পর্যন্ত, প্রতিটা ধাপে কোন সম্পদ শেষ হলো। চারটা সিদ্ধান্ত এই cascade কে সম্ভব করেছে (timeout, retry, breaker, pool) — প্রতিটার জন্য সঠিক মান বা নিয়ম দাও, সংখ্যা সহ। বিশেষ করে: timeout ৩০ s এর জায়গায় কত, আর সেই সংখ্যাটা তুমি **কোন মাপ** থেকে পাবে? `task-read` কেন থেমেছিল যদিও সে `billing` কে ডাকেই না — এটা আটকাতে ঠিক কী লাগত?
+ছয় মিনিটের cascading failure টা সময়ের রেখায় লিখুন — `billing` ধীর হওয়া থেকে login বন্ধ হওয়া পর্যন্ত, প্রতিটা ধাপে কোন সম্পদ শেষ হলো। চারটা সিদ্ধান্ত এই cascade কে সম্ভব করেছে (timeout, retry, breaker, pool) — প্রতিটার জন্য সঠিক মান বা নিয়ম দিন, সংখ্যা সহ। বিশেষ করে: timeout ৩০ s এর জায়গায় কত, আর সেই সংখ্যাটা আপনি **কোন মাপ** থেকে পাবেন? `task-read` কেন থেমেছিল যদিও সে `billing` কে ডাকেই না — এটা আটকাতে ঠিক কী লাগত?
 
 **৪. Health endpoint আর ঠিকানা (Lesson 9.4 + 3.4)**
-ঘটনা ৪ আর ৫ দুটো আলাদা সমস্যা — আলাদা করে বলো, আর প্রতিটার জন্য কী লাগত। `/health` এ `res.status(200).send('ok')` কোন প্রশ্নের উত্তর দেয় আর কোনটার না (3.4 এর কোন দুটো শব্দ)? Billing এর জন্য একটা সঠিক health endpoint লেখো (কী যাচাই করবে, কী **করবে না**, timeout কত)। আর ঘটনা ৪ এর ৯ দিন: registry বা platform এর discovery থাকলে কতক্ষণে সারত, আর alert টা কী দেখলে ধরা পড়ত?
+ঘটনা ৪ আর ৫ দুটো আলাদা সমস্যা — আলাদা করে বলুন, আর প্রতিটার জন্য কী লাগত। `/health` এ `res.status(200).send('ok')` কোন প্রশ্নের উত্তর দেয় আর কোনটার না (3.4 এর কোন দুটো শব্দ)? Billing এর জন্য একটা সঠিক health endpoint লিখুন (কী যাচাই করবে, কী **করবে না**, timeout কত)। আর ঘটনা ৪ এর ৯ দিন: registry বা platform এর discovery থাকলে কতক্ষণে সারত, আর alert টা কী দেখলে ধরা পড়ত?
 
 **৫. 2PC আর in-doubt (Lesson 9.3 + 5.5 + 5.3)**
-ঘটনা ৬ ব্যাখ্যা করো: PREPARE এর পরে coordinator মরলে ঠিক কী অবস্থায় জিনিসগুলো আটকে থাকে, আর কেন ওই ২টা workspace এ **অন্য কেউ** task বানাতে পারল না। `VACUUM` কেন আটকাল, আর সেটা দিনের পর দিন চললে কী হতো? Coordinator এর log তার নিজের disk এ রাখা কেন একটা মৌলিক ভুল — কোথায় রাখা উচিত ছিল? আর সবচেয়ে বড় প্রশ্ন: এখানে 2PC ব্যবহার করাই কি ঠিক ছিল? তোমার বিকল্প design দাও, আর বলো কোন সংখ্যাটা দেখে তুমি 2PC বাদ দিতে বলবে।
+ঘটনা ৬ ব্যাখ্যা করুন: PREPARE এর পরে coordinator মরলে ঠিক কী অবস্থায় জিনিসগুলো আটকে থাকে, আর কেন ওই ২টা workspace এ **অন্য কেউ** task বানাতে পারল না। `VACUUM` কেন আটকাল, আর সেটা দিনের পর দিন চললে কী হতো? Coordinator এর log তার নিজের disk এ রাখা কেন একটা মৌলিক ভুল — কোথায় রাখা উচিত ছিল? আর সবচেয়ে বড় প্রশ্ন: এখানে 2PC ব্যবহার করাই কি ঠিক ছিল? আপনার বিকল্প design দিন, আর বলুন কোন সংখ্যাটা দেখে আপনি 2PC বাদ দিতে বলবেন।
 
 **৬. ৪১ জন, আর ১৮টা double charge (Lesson 9.3 + 7.4 + 2.5)**
-ঘটনা ৭ এর দুটো কারণ আলাদা করে ব্যাখ্যা করো। এই saga টা আবার design করো: ধাপ গুলোর **ক্রম** (কেন এই ক্রম), কোনটা **pivot**, প্রতিটার compensation (বা "শুধু retry"), saga এর state কোথায় আর কোন transaction এ লেখা হবে, আর recovery job কী করবে। Double charge আটকাতে ঠিক কী লাগে — Stripe এর কোন সুবিধা, আর তার key টা কী হবে? "ব্যর্থ হলে alert পাই, হাতে ঠিক করি" — এই নীতিটা কোন আকারের ব্যর্থতায় চলে আর কোথায় চলে না?
+ঘটনা ৭ এর দুটো কারণ আলাদা করে ব্যাখ্যা করুন। এই saga টা আবার design করুন: ধাপ গুলোর **ক্রম** (কেন এই ক্রম), কোনটা **pivot**, প্রতিটার compensation (বা "শুধু retry"), saga এর state কোথায় আর কোন transaction এ লেখা হবে, আর recovery job কী করবে। Double charge আটকাতে ঠিক কী লাগে — Stripe এর কোন সুবিধা, আর তার key টা কী হবে? "ব্যর্থ হলে alert পাই, হাতে ঠিক করি" — এই নীতিটা কোন আকারের ব্যর্থতায় চলে আর কোথায় চলে না?
 
 **৭. Rate limit এর তিনটা ভুল (Lesson 9.5 + 4.3)**
-ঘটনা ৮ আর ৯ এ **অন্তত চারটা** আলাদা ভুল আছে — প্রতিটা আলাদা করে বলো, প্রতিটার লক্ষণ, আর প্রতিটার সমাধান। বিশেষ করে: (ক) ৮টা instance আর in-memory store মিলে "1000 per hour" আসলে কত? Autoscaling এ সংখ্যাটা কীভাবে বদলায়? (খ) `req.ip` আর `trust proxy` না থাকা মিলে কী হয়েছে, আর ঘটনা ৮(খ) এর ৮০০ জনের সমস্যা এর সাথে একই না আলাদা? (গ) ঘটনা ৯ এ rate limit "উঠে গেল" কীভাবে — Lesson 4.3 এর কোন সিদ্ধান্তের কারণে, আর প্রতিকার কী? (ঘ) Fixed window `1000/hour` এ একজন client সবচেয়ে বেশি কত পাঠাতে পারে, কত সময়ে — আর তুমি কোন algorithm আর কোন দুটো সংখ্যা দিয়ে এটা বদলাবে?
+ঘটনা ৮ আর ৯ এ **অন্তত চারটা** আলাদা ভুল আছে — প্রতিটা আলাদা করে বলুন, প্রতিটার লক্ষণ, আর প্রতিটার সমাধান। বিশেষ করে: (ক) ৮টা instance আর in-memory store মিলে "1000 per hour" আসলে কত? Autoscaling এ সংখ্যাটা কীভাবে বদলায়? (খ) `req.ip` আর `trust proxy` না থাকা মিলে কী হয়েছে, আর ঘটনা ৮(খ) এর ৮০০ জনের সমস্যা এর সাথে একই না আলাদা? (গ) ঘটনা ৯ এ rate limit "উঠে গেল" কীভাবে — Lesson 4.3 এর কোন সিদ্ধান্তের কারণে, আর প্রতিকার কী? (ঘ) Fixed window `1000/hour` এ একজন client সবচেয়ে বেশি কত পাঠাতে পারে, কত সময়ে — আর আপনি কোন algorithm আর কোন দুটো সংখ্যা দিয়ে এটা বদলাবেন?
 
 **৮. পরিচয় আর সীমানা (Lesson 9.2 + 10.5 এর পূর্বাভাস)**
-ঘটনা ১১ এর আক্রমণটা ধাপে ধাপে লেখো। "Gateway JWT যাচাই করে, তারপর header বসায়" — এই design এর অনুমানটা কী, আর সেটা কখন ভাঙে? অন্তত **তিনটা** স্তরে প্রতিরক্ষা দাও (network, token, service এর নিজের যাচাই), আর প্রতিটা একা কেন যথেষ্ট না। Service mesh (mTLS) এই সমস্যার কোন অংশটা সারায় আর কোনটা না?
+ঘটনা ১১ এর আক্রমণটা ধাপে ধাপে লিখুন। "Gateway JWT যাচাই করে, তারপর header বসায়" — এই design এর অনুমানটা কী, আর সেটা কখন ভাঙে? অন্তত **তিনটা** স্তরে প্রতিরক্ষা দিন (network, token, service এর নিজের যাচাই), আর প্রতিটা একা কেন যথেষ্ট না। Service mesh (mTLS) এই সমস্যার কোন অংশটা সারায় আর কোনটা না?
 
 **৯. নিজেদের batch job (Lesson 9.5 + 9.4 + 7.4)**
-ঘটনা ১০ এ reconcile script টা কী ভুল করেছে, আর কেন এটা ঘটনা ৩ এর চেয়ে বেশি লজ্জার? Script টার জন্য একটা নিয়ম দাও — কোন algorithm দিয়ে গতি বাঁধবে (আর কেন সেটা, token bucket না), কত হার, আর সেই হারটা তুমি কোথা থেকে ঠিক করবে। এর বাইরে আরও দুটো রক্ষাকবচ দাও যাতে ভবিষ্যতে কোনো internal script কোনো service ফেলতে না পারে।
+ঘটনা ১০ এ reconcile script টা কী ভুল করেছে, আর কেন এটা ঘটনা ৩ এর চেয়ে বেশি লজ্জার? Script টার জন্য একটা নিয়ম দিন — কোন algorithm দিয়ে গতি বাঁধবেন (আর কেন সেটা, token bucket না), কত হার, আর সেই হারটা আপনি কোথা থেকে ঠিক করবেন। এর বাইরে আরও দুটো রক্ষাকবচ দিন যাতে ভবিষ্যতে কোনো internal script কোনো service ফেলতে না পারে।
 
 **১০. Manager এর প্রশ্ন, আর অগ্রাধিকার (Lesson 9.1–9.5)**
-(ক) ঘটনা ১২ এর উত্তর — এক প্যারায়, দোষারোপ ছাড়া: microservices কোন সমস্যার সমাধান, TaskFlow এর আসল সমস্যাটা কি সেটা ছিল, আর "ধীর + বেশি outage + বেশি engineer" এর কারণ কোন সিদ্ধান্তগুলো। Service mesh কী ঠিক করবে (নির্দিষ্ট করে বলো) আর কী করবে না — আর এই মুহূর্তে সেটা কি অগ্রাধিকার?
-(খ) একটা **অগ্রাধিকার তালিকা**: এই সপ্তাহে কী (আবার ঘটার আগে), এই মাসে কী, এই quarter এ কী — প্রতিটার পাশে কোন lesson, কোন ঘটনা এটা আটকাত, আর সাফল্য কীভাবে মাপবে (কোন metric, কোন সংখ্যা)।
-(গ) ছয় মাস পরে TaskFlow এর architecture কেমন দেখতে চাও — কতগুলো service, কোন সীমানায়, সামনে কী, আর প্রতিটা service এর চারপাশে কোন যন্ত্রগুলো বাধ্যতামূলক (একটা checklist যা নতুন service বানানোর সময় মানতে হবে)।
+(ক) ঘটনা ১২ এর উত্তর — এক প্যারায়, দোষারোপ ছাড়া: microservices কোন সমস্যার সমাধান, TaskFlow এর আসল সমস্যাটা কি সেটা ছিল, আর "ধীর + বেশি outage + বেশি engineer" এর কারণ কোন সিদ্ধান্তগুলো। Service mesh কী ঠিক করবে (নির্দিষ্ট করে বলুন) আর কী করবে না — আর এই মুহূর্তে সেটা কি অগ্রাধিকার?
+(খ) একটা **অগ্রাধিকার তালিকা**: এই সপ্তাহে কী (আবার ঘটার আগে), এই মাসে কী, এই quarter এ কী — প্রতিটার পাশে কোন lesson, কোন ঘটনা এটা আটকাত, আর সাফল্য কীভাবে মাপবেন (কোন metric, কোন সংখ্যা)।
+(গ) ছয় মাস পরে TaskFlow এর architecture কেমন দেখতে চান — কতগুলো service, কোন সীমানায়, সামনে কী, আর প্রতিটা service এর চারপাশে কোন যন্ত্রগুলো বাধ্যতামূলক (একটা checklist যা নতুন service বানানোর সময় মানতে হবে)।
 
-**মনে রাখার কথা:** এই module এর চারটা জায়গায় সবচেয়ে সহজে ভুল হয় — (ক) **স্তর ধরে ভাঙা** (`task-read`/`task-write`) আর **ব্যবসার সীমানা ধরে ভাঙা** গুলিয়ে ফেলা; প্রথমটা distributed monolith বানায়, যেখানে microservices এর সব দাম আছে আর কোনো সুবিধা নেই; (খ) **network call কে function call এর মতো লেখা** — timeout, breaker, bulkhead ছাড়া, যেন ওপাশে কেউ সবসময় আছে; (গ) **"বেঁচে আছি" কে "কাজ করছি" ভাবা** — health endpoint, heartbeat, registry — তিনটাই liveness বলে, readiness না; (ঘ) **নিজের process এর স্মৃতিতে ভাগ করা অবস্থা রাখা** — rate limiter এর গোনা, saga এর state, breaker এর গোনা, 2PC এর log — প্রতিটাই একটা instance এর সাথে মরে যায়, আর instance সংখ্যার সাথে ভুলটা বড় হয়। আজকের scenario তে চারটাই আছে, কয়েকবার করে। আর Module 9 এর সবচেয়ে গুরুত্বপূর্ণ অভ্যাস: প্রতিটা service এর সীমানার জন্য জিজ্ঞেস করো — **"এই call টা ব্যর্থ হলে, ধীর হলে, বা দুবার হলে কী হয় — আর সেটা কে সামলাচ্ছে?"**
+**মনে রাখার কথা:** এই module এর চারটা জায়গায় সবচেয়ে সহজে ভুল হয় — (ক) **স্তর ধরে ভাঙা** (`task-read`/`task-write`) আর **ব্যবসার সীমানা ধরে ভাঙা** গুলিয়ে ফেলা; প্রথমটা distributed monolith বানায়, যেখানে microservices এর সব দাম আছে আর কোনো সুবিধা নেই; (খ) **network call কে function call এর মতো লেখা** — timeout, breaker, bulkhead ছাড়া, যেন ওপাশে কেউ সবসময় আছে; (গ) **"বেঁচে আছি" কে "কাজ করছি" ভাবা** — health endpoint, heartbeat, registry — তিনটাই liveness বলে, readiness না; (ঘ) **নিজের process এর স্মৃতিতে ভাগ করা অবস্থা রাখা** — rate limiter এর গোনা, saga এর state, breaker এর গোনা, 2PC এর log — প্রতিটাই একটা instance এর সাথে মরে যায়, আর instance সংখ্যার সাথে ভুলটা বড় হয়। আজকের scenario তে চারটাই আছে, কয়েকবার করে। আর Module 9 এর সবচেয়ে গুরুত্বপূর্ণ অভ্যাস: প্রতিটা service এর সীমানার জন্য জিজ্ঞেস করুন — **"এই call টা ব্যর্থ হলে, ধীর হলে, বা দুবার হলে কী হয় — আর সেটা কে সামলাচ্ছে?"**
 
 আমি এটা প্রতিটা ধাপ ধরে ধরে critique করব।
 
 ---
 
-## ২. Self-Check — এই Module শেষে তুমি এগুলো পারার কথা
+## ২. Self-Check — এই Module শেষে আপনি এগুলো পারার কথা
 
 - [ ] Monolith ভাঙার তিনটা দাম (function call → network call, ছড়ানো ব্যর্থতা, হারানো transaction) সংখ্যা দিয়ে বলতে পারি
 - [ ] Microservices কোন সমস্যার সমাধান (অনেক team, আলাদা deploy, আলাদা scale) আর কোনটার না ("app ধীর") — Conway's Law দিয়ে ব্যাখ্যা করতে পারি
@@ -103,9 +103,9 @@ Module 9 এর পাঁচটা lesson শেষ — কখন ভাঙব�
 
 **পড়ার জন্য:**
 
-- **Sam Newman — _Building Microservices_ (2nd edition)।** এই module এর প্রায় প্রতিটা সিদ্ধান্তের সবচেয়ে ভালো একক উৎস — বিশেষ করে সীমানা আঁকা, strangler fig, আর "কখন ভাঙবে না" এর অধ্যায়গুলো। তার ছোট বই **_Monolith to Microservices_** আরও সরাসরি: কীভাবে ধাপে ধাপে বের করা যায়, আর database ভাঙার প্যাটার্নগুলো।
+- **Sam Newman — _Building Microservices_ (2nd edition)।** এই module এর প্রায় প্রতিটা সিদ্ধান্তের সবচেয়ে ভালো একক উৎস — বিশেষ করে সীমানা আঁকা, strangler fig, আর "কখন ভাঙবেন না" এর অধ্যায়গুলো। তার ছোট বই **_Monolith to Microservices_** আরও সরাসরি: কীভাবে ধাপে ধাপে বের করা যায়, আর database ভাঙার প্যাটার্নগুলো।
 - **Chris Richardson — _Microservices Patterns_ আর তার `microservices.io` এর pattern গুলো।** Saga, transactional outbox, API composition, database per service, circuit breaker — 9.3 এর প্রায় পুরো কাঠামো এখান থেকে। Pattern গুলোর সাথে তাদের **দাম** ও লেখা আছে, সেটাই এর মূল্য।
-- **Michael Nygard — _Release It!_ (2nd edition)।** Circuit breaker, bulkhead, timeout, "stability patterns" আর "antipatterns" — 9.4 এর আসল উৎস, আর বইটা পুরোটাই production এ ভাঙার গল্প দিয়ে ভরা। যদি এই তালিকার একটা বই পড়ো, এটা পড়ো।
+- **Michael Nygard — _Release It!_ (2nd edition)।** Circuit breaker, bulkhead, timeout, "stability patterns" আর "antipatterns" — 9.4 এর আসল উৎস, আর বইটা পুরোটাই production এ ভাঙার গল্প দিয়ে ভরা। যদি এই তালিকার একটা বই পড়েন, এটা পড়ুন।
 - **Google SRE Book — "Handling Overload" আর "Addressing Cascading Failures" অধ্যায় দুটো।** বিনামূল্যে পড়া যায়। 9.4 এর cascade আর 9.5 এর load shedding/rate limiting এর সবচেয়ে বাস্তব আলোচনা, Google এর নিজের সংখ্যা সহ — বিশেষ করে "কেন retry ক্ষতি বাড়ায়" আর "adaptive throttling"।
 - **Cloudflare এর blog — "How we built rate limiting capable of scaling to millions of domains"।** 9.5 এর sliding window counter কেন আর কীভাবে, আর তার approximation টা তারা কীভাবে মেনে নিয়েছে — আমাদের মাপা ১.৯x এর বাস্তব প্রেক্ষাপট।
 - **Martin Kleppmann — _Designing Data-Intensive Applications_, chapter 9 এর "Distributed Transactions and Consensus" অংশ।** 2PC এর সমস্যাগুলোর সবচেয়ে পরিষ্কার ব্যাখ্যা, XA এর বাস্তব দুর্বলতা সহ — 9.3 এর ১.২–১.৩ এর গভীর রূপ।
@@ -118,12 +118,12 @@ Module 9 এর পাঁচটা lesson শেষ — কখন ভাঙব�
 
 **Project এর জন্য:**
 
-- **একটা service বের করো, পুরো যন্ত্রপাতি সহ:** তোমার নিজের কোনো monolith (বা TaskFlow এর মতো একটা খেলনা) থেকে একটাই bounded context বের করো — strangler fig দিয়ে, পুরনো path টা কিছুদিন রেখে। তারপর ওই একটা call এর চারপাশে সব বসাও: timeout, breaker (library দিয়ে), bulkhead, discovery (Kubernetes বা Consul), আর rate limit। তারপর **ভাঙো**: service কে ধীর করো, মেরে ফেলো, 500 দাও — আর প্রতিটাতে মেপে দেখো caller এর p99 আর ব্যর্থতার হার কী হয়। এই module এর প্রতিটা সংখ্যা তুমি নিজের হাতে আবার পাবে।
-- **একটা saga, recovery সহ:** দুটো service, দুটো database, একটা তিন-ধাপের saga (pivot সহ) — orchestrator এর `sagas` table, প্রতিটা ধাপ idempotent (idempotency key ধরে), আর একটা recovery job যা আটকে থাকা saga খুঁজে এগিয়ে নেয় বা compensate করে। তারপর orchestrator কে প্রতিটা ধাপের মাঝে মেরে দেখো (৫টা আলাদা জায়গায়) — প্রতিবার recovery কী করে? Compensation কে ইচ্ছে করে ব্যর্থ করাও, আর দেখো DLQ আর alert এ কী যায়।
-- **নিজের distributed rate limiter:** Redis + একটা Lua script দিয়ে token bucket (দুটো field, সময়-নির্ভর হিসাব, সব এক ধাপে)। তিনটা Express instance এর সামনে বসাও, আর যাচাই করো আসল সীমা ঠিক সীমার সমান (instance সংখ্যার গুণ না)। তারপর Redis বন্ধ করে দেখো — তোমার fail open / fail closed এর সিদ্ধান্ত কেমন কাজ করে; আর দুটো instance থেকে একসাথে চাপ দিয়ে race আছে কিনা মেপে দেখো (Lua ছাড়া একবার, Lua দিয়ে একবার)।
+- **একটা service বের করুন, পুরো যন্ত্রপাতি সহ:** আপনার নিজের কোনো monolith (বা TaskFlow এর মতো একটা খেলনা) থেকে একটাই bounded context বের করুন — strangler fig দিয়ে, পুরনো path টা কিছুদিন রেখে। তারপর ওই একটা call এর চারপাশে সব বসান: timeout, breaker (library দিয়ে), bulkhead, discovery (Kubernetes বা Consul), আর rate limit। তারপর **ভাঙুন**: service কে ধীর করুন, মেরে ফেলুন, 500 দিন — আর প্রতিটাতে মেপে দেখুন caller এর p99 আর ব্যর্থতার হার কী হয়। এই module এর প্রতিটা সংখ্যা আপনি নিজের হাতে আবার পাবেন।
+- **একটা saga, recovery সহ:** দুটো service, দুটো database, একটা তিন-ধাপের saga (pivot সহ) — orchestrator এর `sagas` table, প্রতিটা ধাপ idempotent (idempotency key ধরে), আর একটা recovery job যা আটকে থাকা saga খুঁজে এগিয়ে নেয় বা compensate করে। তারপর orchestrator কে প্রতিটা ধাপের মাঝে মেরে দেখুন (৫টা আলাদা জায়গায়) — প্রতিবার recovery কী করে? Compensation কে ইচ্ছে করে ব্যর্থ করান, আর দেখুন DLQ আর alert এ কী যায়।
+- **নিজের distributed rate limiter:** Redis + একটা Lua script দিয়ে token bucket (দুটো field, সময়-নির্ভর হিসাব, সব এক ধাপে)। তিনটা Express instance এর সামনে বসান, আর যাচাই করুন আসল সীমা ঠিক সীমার সমান (instance সংখ্যার গুণ না)। তারপর Redis বন্ধ করে দেখুন — আপনার fail open / fail closed এর সিদ্ধান্ত কেমন কাজ করে; আর দুটো instance থেকে একসাথে চাপ দিয়ে race আছে কিনা মেপে দেখুন (Lua ছাড়া একবার, Lua দিয়ে একবার)।
 
 ---
 
-Exit challenge টা করে পাঠাও। রেডি হলে `next` লিখলে আমরা **Module 10: Reliability, Security & Operations** এ যাব — Lesson 10.1 দিয়ে শুরু: **Consistent Hashing deep dive**, যেটা Lesson 3.2 এ শুধু পরিচয় করানো হয়েছিল আর 5.8 এ shard এর প্রসঙ্গে ছুঁয়ে যাওয়া হয়েছিল।
+Exit challenge টা করে পাঠান। রেডি হলে `next` লিখলে আমরা **Module 10: Reliability, Security & Operations** এ যাব — Lesson 10.1 দিয়ে শুরু: **Consistent Hashing deep dive**, যেটা Lesson 3.2 এ শুধু পরিচয় করানো হয়েছিল আর 5.8 এ shard এর প্রসঙ্গে ছুঁয়ে যাওয়া হয়েছিল।
 
-Module 9 জুড়ে TaskFlow ভেঙেছে, আর প্রতিটা ভাঙার সাথে একটা নতুন যন্ত্র যোগ হয়েছে — gateway, BFF, saga, registry, breaker, bulkhead, rate limiter। প্রতিটাই কাজ করে, আর প্রতিটার নিজের tuning আছে। কিন্তু একটা প্রশ্ন পুরো module জুড়ে আমরা এড়িয়ে গেছি: **এই সবকিছু যখন চলছে, তুমি কীভাবে জানবে কী ঘটছে?** ঘটনা ৪ এ ৯ দিন লেগেছিল কারণ alert ভুল জিনিস দেখছিল; ঘটনা ৯ এ কেউ বুঝতেই পারেনি rate limit উঠে গেছে, কারণ Redis এর dashboard সবুজ ছিল; ঘটনা ৩ এর postmortem এ ছয় মিনিটের ক্রমটা বের করতে কয়েক দিন লেগেছে। Module 10 এর প্রশ্ন: hash ring, bloom filter, observability, security, deployment, cost আর multi-region — অর্থাৎ system টা শুধু কাজ করা না, **চালানো** যায় কি না।
+Module 9 জুড়ে TaskFlow ভেঙেছে, আর প্রতিটা ভাঙার সাথে একটা নতুন যন্ত্র যোগ হয়েছে — gateway, BFF, saga, registry, breaker, bulkhead, rate limiter। প্রতিটাই কাজ করে, আর প্রতিটার নিজের tuning আছে। কিন্তু একটা প্রশ্ন পুরো module জুড়ে আমরা এড়িয়ে গেছি: **এই সবকিছু যখন চলছে, আপনি কীভাবে জানবেন কী ঘটছে?** ঘটনা ৪ এ ৯ দিন লেগেছিল কারণ alert ভুল জিনিস দেখছিল; ঘটনা ৯ এ কেউ বুঝতেই পারেনি rate limit উঠে গেছে, কারণ Redis এর dashboard সবুজ ছিল; ঘটনা ৩ এর postmortem এ ছয় মিনিটের ক্রমটা বের করতে কয়েক দিন লেগেছে। Module 10 এর প্রশ্ন: hash ring, bloom filter, observability, security, deployment, cost আর multi-region — অর্থাৎ system টা শুধু কাজ করা না, **চালানো** যায় কি না।

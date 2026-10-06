@@ -26,7 +26,7 @@ Module 4 এর প্রথম তিন lesson এ যা যা কাগজ�
 Node.js 22+ এবং Docker (শুধু PostgreSQL আর Redis চালানোর জন্য — app নিজে সাধারণ Node
 process হিসেবে চলবে)।
 
-Port হিসেবে **5433** (Postgres) আর **6380** (Redis) ব্যবহার করা হয়েছে, যাতে তোমার মেশিনে
+Port হিসেবে **5433** (Postgres) আর **6380** (Redis) ব্যবহার করা হয়েছে, যাতে আপনার মেশিনে
 আগে থেকে চলা কোনো instance এর সাথে সংঘাত না লাগে।
 
 ## Setup
@@ -63,13 +63,13 @@ curl -i "http://localhost:3000/api/tasks?userId=7" | head -20
 
 Expected: `X-Cache: HIT`, `"source":"cache"`, আর `tookMs` স্পষ্টভাবে কম
 
-**৩. মেপে দেখো**
+**৩. মেপে দেখুন**
 
 ```bash
 npm run bench
 ```
 
-Expected (আমার মেশিনে মাপা — তোমারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
+Expected (আমার মেশিনে মাপা — আপনারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
 
 ```
   dataset        : 5000 tasks
@@ -126,7 +126,7 @@ docker compose start redis
 ```
 
 Expected: **HTTP 200-ই আসবে**, `X-Cache: ERROR`, `"source":"database"` — request fail
-করবে না। কিন্তু `tookMs` দেখো, চমকে যাবে (নিচের experiment ২ দ্রষ্টব্য)।
+করবে না। কিন্তু `tookMs` দেখুন, চমকে যাবেন (নিচের experiment ২ দ্রষ্টব্য)।
 
 ## কী দেখার জন্য এটা বানানো
 
@@ -137,30 +137,30 @@ Expected: **HTTP 200-ই আসবে**, `X-Cache: ERROR`, `"source":"database"`
    list না। এটাই বাস্তবে সবচেয়ে বেশি ভুলে যাওয়া জিনিস
 3. **Cache মরলে কী হয়** — correctness ঠিক থাকে, কিন্তু performance ধসে পড়ে
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **TTL কমিয়ে দাও।** `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে ২ করে দাও, rebuild করে
-   `npm run bench` চালাও — hit ratio এখনো ২০/২০ দেখাবে, কারণ bench এর ২০টা request
+1. **TTL কমিয়ে দিন।** `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে ২ করে দিন, rebuild করে
+   `npm run bench` চালান — hit ratio এখনো ২০/২০ দেখাবে, কারণ bench এর ২০টা request
    ২ সেকেন্ডের অনেক আগেই শেষ হয়ে যায়। এবার একটা request পাঠিয়ে **৩ সেকেন্ড অপেক্ষা
-   করে** আবার পাঠাও, `X-Cache` header দেখো। Hit ratio আসলে TTL আর request এর হারের
-   সম্পর্কের উপর নির্ভর করে — Lesson 4.3 এর প্রশ্ন ২ এর উত্তরটা এবার নিজের চোখে দেখো।
+   করে** আবার পাঠান, `X-Cache` header দেখুন। Hit ratio আসলে TTL আর request এর হারের
+   সম্পর্কের উপর নির্ভর করে — Lesson 4.3 এর প্রশ্ন ২ এর উত্তরটা এবার নিজের চোখে দেখুন।
 
-2. **Redis বন্ধ করে latency মাপো।** `docker compose stop redis` করে পরপর কয়েকটা request
-   পাঠাও, `tookMs` লক্ষ্য করো। আমার মেশিনে: **৬২৩ → ১৪৯২ → ২২৯৯ → ৩০৯৫ → ৩৮৯৫ ms** —
+2. **Redis বন্ধ করে latency মাপুন।** `docker compose stop redis` করে পরপর কয়েকটা request
+   পাঠান, `tookMs` লক্ষ্য করুন। আমার মেশিনে: **৬২৩ → ১৪৯২ → ২২৯৯ → ৩০৯৫ → ৩৮৯৫ ms** —
    অথচ DB একদম সুস্থ। কেন বাড়ছে? (ইঙ্গিত: ioredis এর `enableOfflineQueue`, default
-   `true`।) এবার `src/cache.ts` এ একে একে তিনটা জিনিস চেষ্টা করো — `connectTimeout: 100`,
+   `true`।) এবার `src/cache.ts` এ একে একে তিনটা জিনিস চেষ্টা করুন — `connectTimeout: 100`,
    তারপর `commandTimeout: 100`, তারপর `enableOfflineQueue: false` — আর প্রতিবার সংখ্যা
    মিলাও। কোনটায় কোনো লাভই হয় না, আর কেন — সেটা বোঝা এই exercise এর সবচেয়ে
    গুরুত্বপূর্ণ শিক্ষা (বিস্তারিত Lesson 4.4 এর প্রশ্ন ৩)।
 
-3. **Invalidation ইচ্ছা করে ভাঙো।** `PATCH` handler এ `affected` array থেকে
-   `keys.completedByUser(...)` লাইনটা বাদ দাও। তারপর: completed list টা cache করো,
-   একটা task এর `completed` বদলাও, আবার completed list পড়ো। কী ভুল দেখছ? কতক্ষণ পর
+3. **Invalidation ইচ্ছা করে ভাঙুন।** `PATCH` handler এ `affected` array থেকে
+   `keys.completedByUser(...)` লাইনটা বাদ দিন। তারপর: completed list টা cache করুন,
+   একটা task এর `completed` বদলান, আবার completed list পড়ুন। কী ভুল দেখছেন? কতক্ষণ পর
    নিজে থেকে ঠিক হয়ে যায়, আর কেন?
 
-4. **Eviction চোখে দেখো।** `docker-compose.yml` এ `--maxmemory 256mb` কে `--maxmemory 1mb`
-   করে দাও। `docker compose up -d redis` করে অনেকগুলো ভিন্ন `userId` দিয়ে request পাঠাও।
-   `redis-cli -p 6380 INFO stats | grep evicted_keys` দেখো।
+4. **Eviction চোখে দেখুন।** `docker-compose.yml` এ `--maxmemory 256mb` কে `--maxmemory 1mb`
+   করে দিন। `docker compose up -d redis` করে অনেকগুলো ভিন্ন `userId` দিয়ে request পাঠান।
+   `redis-cli -p 6380 INFO stats | grep evicted_keys` দেখুন।
 
 ## Teardown
 

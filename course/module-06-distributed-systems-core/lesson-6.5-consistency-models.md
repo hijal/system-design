@@ -2,15 +2,15 @@
 
 **Module 6 — Distributed Systems Core**
 
-> **Spaced Repetition (Lesson 5.5):** Postgres এর `REPEATABLE READ` আর `SERIALIZABLE` এর মধ্যে কোন anomaly টা পার্থক্য গড়ে? (উদাহরণ সহ এক লাইনে।) আজ দেখবে "serializable" আর "linearizable" — নাম কাছাকাছি, কিন্তু একদম আলাদা প্রশ্নের উত্তর।
+> **Spaced Repetition (Lesson 5.5):** Postgres এর `REPEATABLE READ` আর `SERIALIZABLE` এর মধ্যে কোন anomaly টা পার্থক্য গড়ে? (উদাহরণ সহ এক লাইনে।) আজ দেখবেন "serializable" আর "linearizable" — নাম কাছাকাছি, কিন্তু একদম আলাদা প্রশ্নের উত্তর।
 
 **Prerequisite:** Lesson 5.5 (Isolation level), Lesson 5.9 (CAP, linearizability), Lesson 6.2 (Linearizable read), Lesson 6.3 (Session guarantee), Lesson 6.4 (Happens-before)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. Module 5–6 এ আসা সব নিশ্চয়তা — linearizable, sequential, causal, session guarantee, eventual — একটা মই এ সাজাতে পারবে, আর প্রতিটা ধাপে কী হারাও আর কী পাও বলতে পারবে
-2. একটা ছোট operation history দেখে হাতে বলতে পারবে সেটা কোন model মানে আর কোনটা ভাঙে — আর একটা checker দিয়ে যাচাই করতে পারবে
-3. Serializability আর linearizability এর পার্থক্য বলতে পারবে, আর TaskFlow এর প্রতিটা data এর জন্য একটা model বেছে design doc এ এক লাইনে লিখতে পারবে
+1. Module 5–6 এ আসা সব নিশ্চয়তা — linearizable, sequential, causal, session guarantee, eventual — একটা মই এ সাজাতে পারবেন, আর প্রতিটা ধাপে কী হারান আর কী পান বলতে পারবেন
+2. একটা ছোট operation history দেখে হাতে বলতে পারবেন সেটা কোন model মানে আর কোনটা ভাঙে — আর একটা checker দিয়ে যাচাই করতে পারবেন
+3. Serializability আর linearizability এর পার্থক্য বলতে পারবেন, আর TaskFlow এর প্রতিটা data এর জন্য একটা model বেছে design doc এ এক লাইনে লিখতে পারবেন
 
 **Tier:** 1 — Runnable Code (একটা ছোট consistency checker, আর simulated system থেকে random history)
 
@@ -54,7 +54,7 @@ Exercise এর `checker.ts` ঠিক এই প্রশ্নের উত্
 
 ### ১.২ Linearizability — যেন একটাই কপি, আর সময় মানে
 
-Lesson 5.9 এ প্রথম শুনেছিলে — CAP এর "C"। এবার পুরো সংজ্ঞা:
+Lesson 5.9 এ প্রথম শুনেছিলেন — CAP এর "C"। এবার পুরো সংজ্ঞা:
 
 **Linearizability** — প্রতিটা operation তার শুরু আর শেষের মাঝে কোনো **এক মুহূর্তে** একবারে ঘটেছে বলে ধরা যায়; আর সারিটা আসল সময় মানে — একটা operation শেষ হওয়ার পরে আরেকটা শুরু হলে (যেকোনো client এর), সারিতেও সেটা পরে।
 
@@ -74,19 +74,19 @@ Client এর চোখে: system টা যেন **একটাই কপি*
 
 কোথায় লাগে: যেখানে **সবার একই সত্যে** একমত হওয়া জরুরি — lock এর মালিক কে (6.1), leader কে (6.2), username টা নেওয়া হয়ে গেছে কিনা, account এ যথেষ্ট টাকা আছে কিনা। দাম: 6.2 এর majority round trip, আর 5.9 এর CAP — partition এ minority দিক উত্তর দিতে পারে না।
 
-### ১.৩ Sequential Consistency — নিজের ক্রম মানো, আসল সময় না
+### ১.৩ Sequential Consistency — নিজের ক্রম মানুন, আসল সময় না
 
 "পুরনো leader থেকে পড়া" এর sequential কলামে ✓। কেন?
 
 **Sequential consistency** — এমন একটা সারি আছে যেটা প্রতিটা client এর **নিজের** operation এর ক্রম মানে; কিন্তু ভিন্ন client এর মধ্যে আসল সময় মানার দরকার নেই।
 
-P2 এর পুরনো পড়াটা সারিতে P1 এর লেখার **আগে** বসিয়ে দাও — P2 এর নিজের ক্রম তাতে ভাঙে না (তার আর কোনো operation আগে নেই), P1 এর ও না। আসল সময়ে P2 পরে পড়েছে, কিন্তু sequential consistency সেটা দেখে না।
+P2 এর পুরনো পড়াটা সারিতে P1 এর লেখার **আগে** বসিয়ে দিন — P2 এর নিজের ক্রম তাতে ভাঙে না (তার আর কোনো operation আগে নেই), P1 এর ও না। আসল সময়ে P2 পরে পড়েছে, কিন্তু sequential consistency সেটা দেখে না।
 
-মনে হতে পারে পার্থক্যটা তুচ্ছ। কিন্তু ভাবো: রহিম phone এ call করে করিমকে বলল "task টা বন্ধ করে দিয়েছি, দেখো।" করিম দেখল — খোলা। Sequential consistency এটা অনুমতি দেয়, কারণ system phone call এর কথা জানে না (system এর বাইরের একটা "message")। Linearizability দেয় না, কারণ আসল সময়ে রহিমের লেখা শেষ, তারপর করিম পড়েছে।
+মনে হতে পারে পার্থক্যটা তুচ্ছ। কিন্তু ভাবুন: রহিম phone এ call করে করিমকে বলল "task টা বন্ধ করে দিয়েছি, দেখুন।" করিম দেখল — খোলা। Sequential consistency এটা অনুমতি দেয়, কারণ system phone call এর কথা জানে না (system এর বাইরের একটা "message")। Linearizability দেয় না, কারণ আসল সময়ে রহিমের লেখা শেষ, তারপর করিম পড়েছে।
 
 Database এর জগতে sequential consistency কদাচিৎ আলাদা করে বিক্রি হয় — কিন্তু এটা শেখা দরকার, কারণ এটাই বোঝায় linearizability তে "আসল সময়" অংশটা কত দামি আর কেন। (CPU আর programming language এর memory model এ এটা খুব গুরুত্বপূর্ণ ধারণা।)
 
-### ১.৪ Causal Consistency — কার্যকারণ মানো, বাকি সব স্বাধীন
+### ১.৪ Causal Consistency — কার্যকারণ মানুন, বাকি সব স্বাধীন
 
 **Causal consistency** — happens-before (6.4) দিয়ে সম্পর্কিত operation গুলো সবাই একই ক্রমে দেখে; কিন্তু concurrent operation গুলো ভিন্ন client ভিন্ন ক্রমে দেখতে পারে।
 
@@ -119,7 +119,7 @@ Causal এর একটা বিশেষ গুরুত্ব আছে: গ�
    LWW: bot's edit lost to a clock error  6.4      ✗        ✗           ✗       ✗    ✓          ✓
 ```
 
-শেষ কলামে ✓ — সব replica শেষে একই মানে পৌঁছেছে (bot এর edit হারিয়ে)। আর বাকি প্রায় সব ✗। Eventual consistency বলে না **কবে** মিলবে, বলে না মাঝের সময়ে কী দেখা যাবে, আর বলে না **কোন** মানে মিলবে — এমনকি একটা "saved" বলা লেখা হারিয়েও মিলতে পারে। Vendor যখন শুধু "eventually consistent" বলে, প্রশ্ন করো: "আর তার সাথে কী?"
+শেষ কলামে ✓ — সব replica শেষে একই মানে পৌঁছেছে (bot এর edit হারিয়ে)। আর বাকি প্রায় সব ✗। Eventual consistency বলে না **কবে** মিলবে, বলে না মাঝের সময়ে কী দেখা যাবে, আর বলে না **কোন** মানে মিলবে — এমনকি একটা "saved" বলা লেখা হারিয়েও মিলতে পারে। Vendor যখন শুধু "eventually consistent" বলে, প্রশ্ন করুন: "আর তার সাথে কী?"
 
 ### ১.৬ মইটা
 
@@ -141,13 +141,13 @@ Causal এর একটা বিশেষ গুরুত্ব আছে: গ�
                      দুর্বল — বেশি অবাক করা, সস্তা, সবসময় উত্তর দেয়
 ```
 
-উপরের ধাপ নিচের সব নিশ্চয়তা দেয় (linearizable হলে causal ও, read-your-writes ও)। নিচে নামলে দুটো জিনিস পাও: কম latency (কাছের replica থেকে উত্তর), আর partition এ availability। আর একটা জিনিস হারাও: প্রতিটা ধাপে user কে একটা নতুন ধরনের অদ্ভুত জিনিস দেখানোর অনুমতি দাও — `models` এর table এর প্রতিটা ✗ একটা support ticket।
+উপরের ধাপ নিচের সব নিশ্চয়তা দেয় (linearizable হলে causal ও, read-your-writes ও)। নিচে নামলে দুটো জিনিস পান: কম latency (কাছের replica থেকে উত্তর), আর partition এ availability। আর একটা জিনিস হারান: প্রতিটা ধাপে user কে একটা নতুন ধরনের অদ্ভুত জিনিস দেখানোর অনুমতি দিন — `models` এর table এর প্রতিটা ✗ একটা support ticket।
 
 ### ১.৭ Jepsen — দাবি নয়, history
 
-মই জানলেই হয় না — একটা system **আসলে** কোন ধাপে আছে, সেটা কীভাবে জানবে? Vendor এর দাবি দিয়ে না।
+মই জানলেই হয় না — একটা system **আসলে** কোন ধাপে আছে, সেটা কীভাবে জানবেন? Vendor এর দাবি দিয়ে না।
 
-Kyle Kingsbury (6.1 এর "The Network is Reliable" এর সহ-লেখক) এর **Jepsen** project এই প্রশ্নের উত্তর দেয়: একটা database এর cluster চালাও, অনেক client দিয়ে একসাথে পড়ো-লেখো, network কাটো, process মারো, ঘড়ি সরাও — আর **প্রতিটা operation এর history রেকর্ড করো।** তারপর একটা checker দিয়ে যাচাই করো: এই history কি দাবি করা model এর সাথে মেলে? বছরের পর বছর Jepsen অনেক পরিচিত database এর consistency দাবিতে ভুল খুঁজে পেয়েছে — কখনো bug, কখনো documentation এর অতিরঞ্জন। (Module 5 এর exit challenge এর recommendation এ এর কথা বলেছিলাম।)
+Kyle Kingsbury (6.1 এর "The Network is Reliable" এর সহ-লেখক) এর **Jepsen** project এই প্রশ্নের উত্তর দেয়: একটা database এর cluster চালান, অনেক client দিয়ে একসাথে পড়ুন-লিখুন, network কাটুন, process মারুন, ঘড়ি সরান — আর **প্রতিটা operation এর history রেকর্ড করুন।** তারপর একটা checker দিয়ে যাচাই করুন: এই history কি দাবি করা model এর সাথে মেলে? বছরের পর বছর Jepsen অনেক পরিচিত database এর consistency দাবিতে ভুল খুঁজে পেয়েছে — কখনো bug, কখনো documentation এর অতিরঞ্জন। (Module 5 এর exit challenge এর recommendation এ এর কথা বলেছিলাম।)
 
 Exercise এর `npm run jepsen` একই কাজ, ছোট করে: চারটা simulated system, প্রতিটায় ৩০০টা random history (৩ জন client, একটা key), checker দিয়ে যাচাই:
 
@@ -161,7 +161,7 @@ Exercise এর `npm run jepsen` একই কাজ, ছোট করে: চ�
 
 - **এক primary:** সব কলাম ১০০%। এটা checker এর নিজের একটা পরীক্ষাও — সঠিক system এর কোনো history কে ভুল করে "ভাঙা" বলেনি।
 - **যেকোনো replica:** শুধু eventual পুরো নিশ্চিত। বাকি সব কমবেশি ভাঙে — 6.3 এর table এর আরেকটা রূপ।
-- **Sticky replica:** monotonic reads ১০০% (6.3 এ যা দেখেছিলে) — কিন্তু বাকি কিছু ঠিক করে না।
+- **Sticky replica:** monotonic reads ১০০% (6.3 এ যা দেখেছিলেন) — কিন্তু বাকি কিছু ঠিক করে না।
 - **Version token:** sequential আর causal **১০০%**, কিন্তু linearizable মাত্র ৪৮%। Token প্রতিটা client এর দেখা একমুখী আর নিজের লেখা সহ রাখে — কিন্তু **অন্য** client এর সদ্য লেখা দেখা নিশ্চিত করে না। মই এ ঠিক একটা ধাপ নিচে। (সাবধান: এখানে একটাই key। একাধিক key তে "উত্তর আছে, প্রশ্ন নেই" token দিয়ে আটকায় না — exercise এর experiment ২।)
 
 আর table এর নিচের লাইনটা মনে রাখার মতো: **১০০% মানে "এই ৩০০টা history তে ভাঙেনি" — প্রমাণ না।** ১০০% এর কম মানে নিশ্চিতভাবে ভাঙে। Testing এর চিরকালের নিয়ম — Jepsen bug খোঁজে, সঠিকতা প্রমাণ করে না।
@@ -185,7 +185,7 @@ TaskFlow এর জন্য ব্যবহারিক ফল: Postgres primar
 
 ### ১.৯ Data অনুযায়ী Model — TaskFlow এর design doc
 
-5.9 এ CAP এর বাছাই করেছিলে data ধরে। একই কাজ, এবার মই এর ভাষায়:
+5.9 এ CAP এর বাছাই করেছিলেন data ধরে। একই কাজ, এবার মই এর ভাষায়:
 
 | TaskFlow এর data                         | Model                                     | কীভাবে (কোন lesson)                               | কেন এর চেয়ে দুর্বল না / শক্ত না                        |
 | ---------------------------------------- | ----------------------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
@@ -201,11 +201,11 @@ TaskFlow এর জন্য ব্যবহারিক ফল: Postgres primar
 
 ## ২. Interview Angle
 
-**"তোমার system এর consistency model কী?"** — একটা শব্দে উত্তর দিও না ("strong", "eventual")। Data ধরে উত্তর দাও (১.৯ এর table এর মতো), আর প্রতিটার সাথে "কেন এটা যথেষ্ট"। Interviewer এর আসল প্রশ্ন: তুমি জানো কোন data তে কী ভুল চলে, আর কোথায় চলে না।
+**"আপনার system এর consistency model কী?"** — একটা শব্দে উত্তর দেবেন না ("strong", "eventual")। Data ধরে উত্তর দিন (১.৯ এর table এর মতো), আর প্রতিটার সাথে "কেন এটা যথেষ্ট"। Interviewer এর আসল প্রশ্ন: আপনি জানেন কোন data তে কী ভুল চলে, আর কোথায় চলে না।
 
 **"Linearizable আর serializable এর পার্থক্য?"** — ১.৮ এর table এর দুই লাইন: "Serializable transaction নিয়ে, আসল সময় মানে না; linearizable একটা object নিয়ে, আসল সময় মানে। দুটো একসাথে strict serializable — Spanner।" বোনাস: "Postgres primary তে SERIALIZABLE কিন্তু replica থেকে পড়লে linearizable না।"
 
-**"একটা database বলছে 'strongly consistent, globally distributed, always available' — বিশ্বাস করবে?"** — CAP (5.9): partition এ linearizable আর সব দিক থেকে উত্তর একসাথে অসম্ভব। তাই চারটা প্রশ্ন: (১) "strong" মানে কোন model — linearizable, নাকি শুধু read-your-writes? (২) Partition এ কোন দিক উত্তর দেওয়া বন্ধ করে? (৩) Read কি সবসময় leader/quorum থেকে, নাকি default এ replica থেকে? (৪) Jepsen বা এরকম স্বাধীন পরীক্ষা হয়েছে?
+**"একটা database বলছে 'strongly consistent, globally distributed, always available' — বিশ্বাস করবেন?"** — CAP (5.9): partition এ linearizable আর সব দিক থেকে উত্তর একসাথে অসম্ভব। তাই চারটা প্রশ্ন: (১) "strong" মানে কোন model — linearizable, নাকি শুধু read-your-writes? (২) Partition এ কোন দিক উত্তর দেওয়া বন্ধ করে? (৩) Read কি সবসময় leader/quorum থেকে, নাকি default এ replica থেকে? (৪) Jepsen বা এরকম স্বাধীন পরীক্ষা হয়েছে?
 
 **"Causal consistency কেন দরকার, session guarantee তো আছে?"** — "উত্তর আছে প্রশ্ন নেই" এর উদাহরণ: session guarantee একজন client এর ইতিহাস দেখে; causal দেখে client দের মধ্যের কার্যকারণ।
 
@@ -219,9 +219,9 @@ TaskFlow এর জন্য ব্যবহারিক ফল: Postgres primar
 - **Linearizable:** একটাই কপি আর আসল সময় মানে — "পুরনো leader থেকে পড়া" ভাঙে; lock/leader/unique এর জন্য; দাম majority round trip আর partition এ unavailability
 - **Sequential:** শুধু নিজের ক্রম, আসল সময় না — পুরনো leader এর পড়া এখানে বৈধ; linearizable এর "আসল সময়" অংশটার দাম বোঝায়
 - **Causal:** কার্যকারণ সবাই একই ক্রমে দেখে, concurrent গুলো স্বাধীন; partition এও সম্ভব; "উত্তর আছে প্রশ্ন নেই" ভাঙে — যেখানে session guarantee সব ✓
-- Session guarantee গুলো আলাদা আলাদা — design doc এ নাম ধরে লেখো; **eventual** একা প্রায় কিছুই বলে না (ঘড়ির LWW এও ✓)
+- Session guarantee গুলো আলাদা আলাদা — design doc এ নাম ধরে লিখুন; **eventual** একা প্রায় কিছুই বলে না (ঘড়ির LWW এও ✓)
 - **Jepsen:** দাবি না, history যাচাই — exercise এ version token ১০০% sequential/causal কিন্তু ৪৮% linearizable; ১০০% মানে "ভাঙেনি", প্রমাণ না
-- **Serializable ≠ linearizable** (transaction বনাম object, আসল সময় মানে না বনাম মানে); দুটো একসাথে strict serializable; model বাছো data ধরে, আর মনে রাখো cache/replica মিলিয়ে user যা দেখে সেটাই আসল model
+- **Serializable ≠ linearizable** (transaction বনাম object, আসল সময় মানে না বনাম মানে); দুটো একসাথে strict serializable; model বাছুন data ধরে, আর মনে রাখুন cache/replica মিলিয়ে user যা দেখে সেটাই আসল model
 
 ---
 
@@ -240,7 +240,7 @@ TaskFlow এর জন্য ব্যবহারিক ফল: Postgres primar
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
 1. এই history টা কোন কোন model মানে? (সময় ms এ, `x` এর শুরুর মান 0)
 
@@ -252,13 +252,13 @@ TaskFlow এর জন্য ব্যবহারিক ফল: Postgres primar
 
    Linearizable? Sequential? আর এটা বাস্তবে কোন ধরনের system এ ঘটতে পারে?
 
-2. Vendor এর দাবি: "Strongly consistent. Globally distributed. Always available." CTO কে চার লাইনে উত্তর লেখো — কোন অংশ একসাথে অসম্ভব, আর vendor কে কোন চারটা প্রশ্ন করবে।
+2. Vendor এর দাবি: "Strongly consistent. Globally distributed. Always available." CTO কে চার লাইনে উত্তর লিখুন — কোন অংশ একসাথে অসম্ভব, আর vendor কে কোন চারটা প্রশ্ন করবেন।
 3. TaskFlow এর task list এর জন্য একজন engineer বলল: "আমরা Postgres এ `SERIALIZABLE` ব্যবহার করি, তাই আমাদের task list strongly consistent।" কিন্তু task list এর read version token দিয়ে replica থেকে আসে, আর সামনে একটা ৩০ সেকেন্ডের Redis cache আছে (Module 4)। User এর চোখে task list এর আসল consistency model কী? কোন model এ কোন উপাদানটা নামিয়ে দিচ্ছে?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
-**প্রশ্ন ১:** **Linearizable না।** P2 এর পড়া ২০ ms এ শেষ, আর নতুন মান (1) পেয়েছে — মানে লেখার linearization point ২০ এর আগে। P3 পড়া **শুরু** করেছে ৩০ এ — P2 এর পড়া শেষ হওয়ার পরে — আর পুরনো মান (0) পেয়েছে। আসল সময়ে সারি: লেখা → P2 → P3, কিন্তু তাহলে P3 এর 0 পাওয়ার কথা না। (লেখা নিজে ১০০ পর্যন্ত চলছে — কিন্তু তাতে বাঁচে না, কারণ একবার কেউ নতুন মান দেখে ফেললে, তার পরে শুরু হওয়া সবাইকে দেখতে হবে।) **Sequential — হ্যাঁ:** P3 এর পড়া লেখার আগে বসাও (P3 এর আর কোনো operation নেই), তারপর লেখা, তারপর P2 — প্রতিটা client এর নিজের ক্রম ঠিক। Causal, read-your-writes, monotonic — সবই ✓ (কারো নিজের ইতিহাসে কিছু ভাঙেনি, আর P3 কোনো কার্যকারণের শিকলে নেই)। বাস্তবে: লেখা primary তে হয়ে একটা replica তে পৌঁছেছে কিন্তু অন্যটায় এখনো না; P2 দ্রুত replica থেকে পড়েছে, P3 ধীরটা থেকে। অথবা leaderless quorum এ লেখা চলার মাঝে দুটো read দুটো ভিন্ন replica জোড়া পেয়েছে (6.3)। এটাকে কখনো কখনো "new-old inversion" বলে। Exercise এর experiment ১ এ checker দিয়ে যাচাই করা যায় (উত্তর: linearizable ✗, বাকি সব ✓)।
+**প্রশ্ন ১:** **Linearizable না।** P2 এর পড়া ২০ ms এ শেষ, আর নতুন মান (1) পেয়েছে — মানে লেখার linearization point ২০ এর আগে। P3 পড়া **শুরু** করেছে ৩০ এ — P2 এর পড়া শেষ হওয়ার পরে — আর পুরনো মান (0) পেয়েছে। আসল সময়ে সারি: লেখা → P2 → P3, কিন্তু তাহলে P3 এর 0 পাওয়ার কথা না। (লেখা নিজে ১০০ পর্যন্ত চলছে — কিন্তু তাতে বাঁচে না, কারণ একবার কেউ নতুন মান দেখে ফেললে, তার পরে শুরু হওয়া সবাইকে দেখতে হবে।) **Sequential — হ্যাঁ:** P3 এর পড়া লেখার আগে বসান (P3 এর আর কোনো operation নেই), তারপর লেখা, তারপর P2 — প্রতিটা client এর নিজের ক্রম ঠিক। Causal, read-your-writes, monotonic — সবই ✓ (কারো নিজের ইতিহাসে কিছু ভাঙেনি, আর P3 কোনো কার্যকারণের শিকলে নেই)। বাস্তবে: লেখা primary তে হয়ে একটা replica তে পৌঁছেছে কিন্তু অন্যটায় এখনো না; P2 দ্রুত replica থেকে পড়েছে, P3 ধীরটা থেকে। অথবা leaderless quorum এ লেখা চলার মাঝে দুটো read দুটো ভিন্ন replica জোড়া পেয়েছে (6.3)। এটাকে কখনো কখনো "new-old inversion" বলে। Exercise এর experiment ১ এ checker দিয়ে যাচাই করা যায় (উত্তর: linearizable ✗, বাকি সব ✓)।
 
 **প্রশ্ন ২:** "Strongly consistent" যদি linearizable মানে, তাহলে CAP (5.9) বলে: network partition এ linearizable থাকতে হলে কোনো একটা দিককে উত্তর দেওয়া বন্ধ করতে হবে — তাই "always available" একসাথে অসম্ভব। (Partition না থাকলেও "globally distributed" + linearizable মানে প্রতিটা লেখায় মহাদেশ পেরোনো round trip — PACELC এর দাম।) তাই দাবিটার কোনো একটা শব্দ আসলে দুর্বল। চারটা প্রশ্ন: (১) "strongly consistent" বলতে ঠিক কোন model — linearizable, serializable, নাকি শুধু read-your-writes? (২) দুই region এর মধ্যে link কাটলে কোন দিক লেখা নেওয়া বন্ধ করে, আর কোন দিক পড়া? (৩) Read এর default কী — leader/quorum থেকে, নাকি কাছের replica থেকে (তাহলে default এ strong না)? (৪) স্বাধীন কোনো পরীক্ষা (Jepsen বা এরকম) হয়েছে, আর কী পাওয়া গেছে? বাস্তবে এমন বেশিরভাগ দাবির মানে "স্বাভাবিক সময়ে strong, partition এ minority দিক বন্ধ" — যেটা সম্পূর্ণ যুক্তিসঙ্গত, শুধু "always available" অংশটা marketing।
 
@@ -284,17 +284,17 @@ TaskFlow এর জন্য ব্যবহারিক ফল: Postgres primar
 
 **সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; দুটো script দুবার করে চালিয়ে হুবহু একই output; "এক primary" system এর ৩০০টা history তে সব model ১০০% — checker এর একটা sanity check। প্রশ্ন ১ এর history ও checker দিয়ে যাচাই করা হয়েছে। এটা একটা শেখার checker — ছোট history, একটা বা দুটো key; আসল Jepsen (Knossos, Elle) অনেক বড় history আর transaction সামলায়।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে হাতে:** `models.ts` এর সাতটা history কাগজে আঁকো (সময়ের রেখায়), আর চালানোর **আগে** table এর প্রতিটা ঘর অনুমান করো। তারপর চালিয়ে মেলাও। কোন ঘরে ভুল করেছিলে, আর কোন নিয়মটা বুঝতে ভুল হয়েছিল?
+1. **আগে হাতে:** `models.ts` এর সাতটা history কাগজে আঁকুন (সময়ের রেখায়), আর চালানোর **আগে** table এর প্রতিটা ঘর অনুমান করুন। তারপর চালিয়ে মেলান। কোন ঘরে ভুল করেছিলেন, আর কোন নিয়মটা বুঝতে ভুল হয়েছিল?
 
-2. **নিজের history** (experiment ১): প্রশ্ন ১ এর history যোগ করো। তারপর এমন একটা history নিজে বানাও যেটা **causal কিন্তু sequential না** — দুজন client দুটো concurrent write কে ভিন্ন ক্রমে দেখে। (ইঙ্গিত: দুটো write, দুজন পাঠক, প্রত্যেকে দুবার পড়ে।)
+2. **নিজের history** (experiment ১): প্রশ্ন ১ এর history যোগ করুন। তারপর এমন একটা history নিজে বানান যেটা **causal কিন্তু sequential না** — দুজন client দুটো concurrent write কে ভিন্ন ক্রমে দেখে। (ইঙ্গিত: দুটো write, দুজন পাঠক, প্রত্যেকে দুবার পড়ে।)
 
-3. **দুটো key** (experiment ২): version token system এ দ্বিতীয় key যোগ করো। Causal এর শতাংশ কমে কি? কোন ধরনের history তে ভাঙে — ১.৪ এর কোন উদাহরণের মতো?
+3. **দুটো key** (experiment ২): version token system এ দ্বিতীয় key যোগ করুন। Causal এর শতাংশ কমে কি? কোন ধরনের history তে ভাঙে — ১.৪ এর কোন উদাহরণের মতো?
 
-4. **Checker ভাঙো** (experiment ৪): `linearizable()` এর নিয়ম ভুল করো (`a.end < b.start` → `a.start < b.start`)। কোন history গুলোর উত্তর বদলায়, আর এই ভুল নিয়মটা আসলে কী মাপছে? (একটা checker এর bug কত সহজে একটা system কে "সঠিক" বা "ভাঙা" দেখায় — এটাই শিক্ষা।)
+4. **Checker ভাঙুন** (experiment ৪): `linearizable()` এর নিয়ম ভুল করুন (`a.end < b.start` → `a.start < b.start`)। কোন history গুলোর উত্তর বদলায়, আর এই ভুল নিয়মটা আসলে কী মাপছে? (একটা checker এর bug কত সহজে একটা system কে "সঠিক" বা "ভাঙা" দেখায় — এটাই শিক্ষা।)
 
-5. **Design অংশ:** TaskFlow এর design doc এর "consistency" section টা লেখো — ১.৯ এর table কে নিজের মতো করে, কমপক্ষে সাতটা data (cache আর CDN সহ!) এর জন্য: model এর নাম, কীভাবে পাওয়া (কোন lesson এর কৌশল), আর "user এর চোখে সবচেয়ে খারাপ কী দেখা যায়, কতক্ষণের জন্য"। তারপর vendor এর দাবির উত্তরে CTO কে চার লাইন (প্রশ্ন ২)।
+5. **Design অংশ:** TaskFlow এর design doc এর "consistency" section টা লিখুন — ১.৯ এর table কে নিজের মতো করে, কমপক্ষে সাতটা data (cache আর CDN সহ!) এর জন্য: model এর নাম, কীভাবে পাওয়া (কোন lesson এর কৌশল), আর "user এর চোখে সবচেয়ে খারাপ কী দেখা যায়, কতক্ষণের জন্য"। তারপর vendor এর দাবির উত্তরে CTO কে চার লাইন (প্রশ্ন ২)।
 
 ---
 
@@ -316,7 +316,7 @@ Monotonic Reads, Consistent Prefix Read, Version Token, Read Repair, Hinted Hand
 Anti-Entropy, Monotonic Clock, Clock Skew/Drift, Happens-Before, Lamport Clock, Vector Clock,
 Sibling, Hybrid Logical Clock, Consistency Model, Operation History, Linearization Point,
 Sequential Consistency, Causal Consistency, Strict Serializability
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: Module 6 Exit Challenge
 =======================
 ```
@@ -325,4 +325,4 @@ Next: Module 6 Exit Challenge
 
 ## ৮. পরের ধাপ
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের "causal কিন্তু sequential না" history আর ৫ নম্বরের design doc এর section। এটা Module 6 এর শেষ lesson। রেডি হলে `next` লিখো — **Module 6 Exit Challenge** এ যাব: একটা mini design challenge (Tier 3) যেখানে পুরো module — failure model, split brain আর fencing, consensus, session guarantee, logical clock, consistency model — একটা বাস্তব scenario তে একসাথে লাগবে; একটা "তুমি এগুলো পারার কথা" checklist; আর বই, ভিডিও, project এর recommendation। তারপর Module 7 — Asynchronous Processing & Messaging: এতক্ষণ সব কথা ছিল "একটা request, একটা উত্তর" নিয়ে; এবার কাজ পরে করা, queue, আর retry এর জগৎ — যেখানে আজকের "exactly once" এর প্রশ্নগুলো নতুন রূপে ফিরবে।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের "causal কিন্তু sequential না" history আর ৫ নম্বরের design doc এর section। এটা Module 6 এর শেষ lesson। রেডি হলে `next` লিখুন — **Module 6 Exit Challenge** এ যাব: একটা mini design challenge (Tier 3) যেখানে পুরো module — failure model, split brain আর fencing, consensus, session guarantee, logical clock, consistency model — একটা বাস্তব scenario তে একসাথে লাগবে; একটা "আপনি এগুলো পারার কথা" checklist; আর বই, ভিডিও, project এর recommendation। তারপর Module 7 — Asynchronous Processing & Messaging: এতক্ষণ সব কথা ছিল "একটা request, একটা উত্তর" নিয়ে; এবার কাজ পরে করা, queue, আর retry এর জগৎ — যেখানে আজকের "exactly once" এর প্রশ্নগুলো নতুন রূপে ফিরবে।

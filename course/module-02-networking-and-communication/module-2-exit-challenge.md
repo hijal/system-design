@@ -12,39 +12,39 @@ Module 2 এর ৫টা lesson শেষ — DNS, TCP/UDP/TLS, REST/GraphQL/gR
 >
 > এর পাশাপাশি, একটা নতুন internal admin feature ও আসছে — **"Live Partner Activity Monitor"**, যেখানে TaskFlow এর নিজের team দেখতে পারবে কোন partner API কতগুলো request পাঠাচ্ছে, real-time এ, একটা dashboard এ।
 
-তোমার কাজ — নিচের প্রতিটা প্রশ্নে Module 2 এর concept প্রয়োগ করে সিদ্ধান্ত নাও এবং reasoning দাও:
+আপনার কাজ — নিচের প্রতিটা প্রশ্নে Module 2 এর concept প্রয়োগ করে সিদ্ধান্ত নিন এবং reasoning দিন:
 
 **১. API Paradigm (Lesson 2.3)**
-Partner-facing API এর জন্য REST, GraphQL, নাকি gRPC বেছে নেবে? তোমার lesson এর "৩টা প্রশ্ন" framework ব্যবহার করে যুক্তি দাও।
+Partner-facing API এর জন্য REST, GraphQL, নাকি gRPC বেছে নেবেন? আপনার lesson এর "৩টা প্রশ্ন" framework ব্যবহার করে যুক্তি দিন।
 
 **২. Versioning + Pagination (Lesson 2.5)**
 Partner রা `GET /tasks` call করে সব task এর তালিকা পাবে। এই endpoint এর জন্য:
 
-- কোন versioning strategy ব্যবহার করবে?
-- Offset নাকি cursor-based pagination? কেন (নির্দিষ্টভাবে এই partner-API context এ চিন্তা করো — partner রা কীভাবে এই endpoint ব্যবহার করবে সেটা ভাবো)?
+- কোন versioning strategy ব্যবহার করবেন?
+- Offset নাকি cursor-based pagination? কেন (নির্দিষ্টভাবে এই partner-API context এ চিন্তা করুন — partner রা কীভাবে এই endpoint ব্যবহার করবে সেটা ভাবুন)?
 
 **৩. Idempotency (Lesson 2.5)**
-Partner রা `POST /tasks` দিয়ে নতুন task তৈরি করতে পারবে। এখানে Idempotency Key pattern কীভাবে প্রযোজ্য? এই ক্ষেত্রে **যদি একই key তে ভিন্ন body আসে**, সেটা কীভাবে handle করা উচিত (তোমার নিজের হাতে-কলমে করা exercise থেকেই উত্তর দাও)?
+Partner রা `POST /tasks` দিয়ে নতুন task তৈরি করতে পারবে। এখানে Idempotency Key pattern কীভাবে প্রযোজ্য? এই ক্ষেত্রে **যদি একই key তে ভিন্ন body আসে**, সেটা কীভাবে handle করা উচিত (আপনার নিজের হাতে-কলমে করা exercise থেকেই উত্তর দিন)?
 
 **৪. Real-time Mechanism (Lesson 2.4)**
-"Live Partner Activity Monitor" এর জন্য — WebSocket, SSE, নাকি Long Polling? Bidirectional প্রয়োজনীয়তা বিবেচনা করে সিদ্ধান্ত নাও এবং কারণ দাও।
+"Live Partner Activity Monitor" এর জন্য — WebSocket, SSE, নাকি Long Polling? Bidirectional প্রয়োজনীয়তা বিবেচনা করে সিদ্ধান্ত নিন এবং কারণ দিন।
 
 **৫. Transport এবং Security (Lesson 2.1, 2.2)**
 Partner রা `api.taskflow.app` নামে একটা নতুন subdomain ব্যবহার করবে।
 
-- এই নতুন subdomain এর DNS TTL নিয়ে (launch এর সময়) কী চিন্তা করবে?
-- TLS এর ক্ষেত্রে কোন version(গুলো) সাপোর্ট করবে (Lesson 2.2 এর ২০২৬ standard মনে করে)?
+- এই নতুন subdomain এর DNS TTL নিয়ে (launch এর সময়) কী চিন্তা করবেন?
+- TLS এর ক্ষেত্রে কোন version(গুলো) সাপোর্ট করবেন (Lesson 2.2 এর ২০২৬ standard মনে করে)?
 
 **৬. Error Contract (Lesson 2.5)**
-Partner যদি একটা invalid task ID দিয়ে `GET /tasks/:id` call করে (task টা exist করে না), তাহলে error response এর একটা concrete JSON example লেখো, তোমার lesson এর error contract format অনুসরণ করে।
+Partner যদি একটা invalid task ID দিয়ে `GET /tasks/:id` call করে (task টা exist করে না), তাহলে error response এর একটা concrete JSON example লিখুন, আপনার lesson এর error contract format অনুসরণ করে।
 
-**মনে রাখার একটা কথা:** প্রতিটা উত্তরে শুধু "কী বেছে নিলাম" না, **"কী ছাড় দিচ্ছি"** সেটাও এক লাইনে বলার চেষ্টা করো — এটাই তোমার Module 2 জুড়ে মূল improvement area ছিল (2.3 এর GraphQL answer থেকে শুরু করে)।
+**মনে রাখার একটা কথা:** প্রতিটা উত্তরে শুধু "কী বেছে নিলাম" না, **"কী ছাড় দিচ্ছি"** সেটাও এক লাইনে বলার চেষ্টা করুন — এটাই আপনার Module 2 জুড়ে মূল improvement area ছিল (2.3 এর GraphQL answer থেকে শুরু করে)।
 
 আমি এটা প্রতিটা ধাপ ধরে ধরে critique করব।
 
 ---
 
-## ২. Self-Check — এই Module শেষে তুমি এগুলো পারার কথা
+## ২. Self-Check — এই Module শেষে আপনি এগুলো পারার কথা
 
 - [ ] URL থেকে response আসা পর্যন্ত DNS lookup এর পুরো chain (Recursive/Iterative, TTL) ব্যাখ্যা করতে পারি
 - [ ] TCP vs UDP কখন কোনটা উপযুক্ত, উদাহরণসহ বলতে পারি
@@ -53,10 +53,10 @@ Partner যদি একটা invalid task ID দিয়ে `GET /tasks/:id` 
 - [ ] Over-fetching/Under-fetching, N+1 Problem এই টার্মগুলো সঠিক প্রসঙ্গে ব্যবহার করতে পারি
 - [ ] WebSocket, SSE, Long Polling এর মধ্যে bidirectional-ity এবং frequency এর ভিত্তিতে সিদ্ধান্ত নিতে পারি
 - [ ] Offset vs Cursor pagination এর trade-off এবং কখন কোনটা বলতে পারি
-- [ ] Idempotency Key pattern **নিজে হাতে implement** করতে পারি (legitimate retry vs payload mismatch এর পার্থক্য সহ) — এটা তুমি আজকে verified code দিয়ে প্রমাণ করেছ
+- [ ] Idempotency Key pattern **নিজে হাতে implement** করতে পারি (legitimate retry vs payload mismatch এর পার্থক্য সহ) — এটা আপনি আজকে verified code দিয়ে প্রমাণ করেছেন
 - [ ] একটা সামঞ্জস্যপূর্ণ Error Contract ডিজাইন করতে পারি
 
-তোমার Idempotency Key hands-on exercise টা দেখে বলা যায় — শেষ বক্সটা নিয়ে তোমার কোনো সন্দেহ থাকার কথা না, ওটা তুমি বাস্তবে verify করে দেখিয়েছ।
+আপনার Idempotency Key hands-on exercise টা দেখে বলা যায় — শেষ বক্সটা নিয়ে আপনার কোনো সন্দেহ থাকার কথা না, ওটা আপনি বাস্তবে verify করে দেখিয়েছেন।
 
 ---
 
@@ -64,7 +64,7 @@ Partner যদি একটা invalid task ID দিয়ে `GET /tasks/:id` 
 
 **পড়ার জন্য:**
 
-- Stripe এর নিজস্ব [Idempotency Keys documentation](https://docs.stripe.com/api/idempotent_requests) — তোমার আজকের exercise এর সাথে সরাসরি তুলনা করে দেখতে পারবে, বাস্তব production system এ ঠিক কী কী edge case handle করা হয় (যেমন, concurrent request একই key দিয়ে একসাথে এলে কী হয় — এটা তোমার current in-memory implementation এ handle হয় না, কারণ সেটার জন্য locking/atomic operation লাগে, যেটা আমরা পরে database transaction context এ শিখব)
+- Stripe এর নিজস্ব [Idempotency Keys documentation](https://docs.stripe.com/api/idempotent_requests) — আপনার আজকের exercise এর সাথে সরাসরি তুলনা করে দেখতে পারবেন, বাস্তব production system এ ঠিক কী কী edge case handle করা হয় (যেমন, concurrent request একই key দিয়ে একসাথে এলে কী হয় — এটা আপনার current in-memory implementation এ handle হয় না, কারণ সেটার জন্য locking/atomic operation লাগে, যেটা আমরা পরে database transaction context এ শিখব)
 
 **দেখার জন্য:**
 
@@ -72,8 +72,8 @@ Partner যদি একটা invalid task ID দিয়ে `GET /tasks/:id` 
 
 **Project এর জন্য:**
 
-- নিজের সময়ে (course এর বাইরে) — তুমি আগে লেখা কোনো payment-related endpoint এ যদি idempotency key implement করা না থাকে, আজকের pattern টা (হ্যাশ-ভিত্তিক payload comparison + TTL) সেখানে সরাসরি প্রয়োগযোগ্য, শুধু in-memory Map এর জায়গায় Redis ব্যবহার করতে হবে (persistence এবং multi-instance এর জন্য, Lesson 1.6 এর stateless নীতি মনে করে)
+- নিজের সময়ে (course এর বাইরে) — আপনি আগে লেখা কোনো payment-related endpoint এ যদি idempotency key implement করা না থাকে, আজকের pattern টা (হ্যাশ-ভিত্তিক payload comparison + TTL) সেখানে সরাসরি প্রয়োগযোগ্য, শুধু in-memory Map এর জায়গায় Redis ব্যবহার করতে হবে (persistence এবং multi-instance এর জন্য, Lesson 1.6 এর stateless নীতি মনে করে)
 
 ---
 
-Exit challenge টা করে পাঠাও। রেডি হলে `next` লিখলে আমরা **Module 3: Load Balancing & Proxies** এ যাব — Lesson 3.1 দিয়ে শুরু, যেখানে TaskFlow প্রথমবারের মতো সত্যিকারের multi-server architecture তে যাবে, এবং তোমার Lesson 1.6 এর "Stateless" জ্ঞান এখানে সরাসরি কাজে লাগবে।
+Exit challenge টা করে পাঠান। রেডি হলে `next` লিখলে আমরা **Module 3: Load Balancing & Proxies** এ যাব — Lesson 3.1 দিয়ে শুরু, যেখানে TaskFlow প্রথমবারের মতো সত্যিকারের multi-server architecture তে যাবে, এবং আপনার Lesson 1.6 এর "Stateless" জ্ঞান এখানে সরাসরি কাজে লাগবে।

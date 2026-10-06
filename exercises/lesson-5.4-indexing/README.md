@@ -19,7 +19,7 @@
 
 Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য)।
 
-Port **5435** — তোমার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433, 5434) সাথে সংঘাত
+Port **5435** — আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433, 5434) সাথে সংঘাত
 এড়াতে।
 
 ## Setup
@@ -43,7 +43,7 @@ index বানিয়ে। শেষে আবার সব মুছে দ
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
 **`npm run lab`** — আমার মেশিনে (Postgres 17, সব page buffer pool এ গরম অবস্থায়, ৫ বারের
-median)। তোমার সময় ভিন্ন হবে; **plan এর আকার আর pages** প্রায় হুবহু মিলবে, কারণ data
+median)। আপনার সময় ভিন্ন হবে; **plan এর আকার আর pages** প্রায় হুবহু মিলবে, কারণ data
 deterministic:
 
 ```
@@ -99,7 +99,7 @@ WAL আর আকার প্রতিবার একই আসে; সময�
 ## কী দেখার জন্য এটা বানানো
 
 1. **Index "আছে" আর "ব্যবহার হচ্ছে" এক জিনিস না।** ধাপ ৩, ৪, ৫, ৭ — প্রতিটায় একটা index আছে,
-   তবু plan এ `Seq Scan`। Index যোগ করে থেমে যেও না — `EXPLAIN` দিয়ে দেখো।
+   তবু plan এ `Seq Scan`। Index যোগ করে থেমে যাবেন না — `EXPLAIN` দিয়ে দেখুন।
 2. **Composite index এ ক্রমই সব।** ধাপ ২ তে একই দুটো column, উল্টো ক্রমে ১০ গুণের বেশি ধীর,
    আর ধাপ ৩ এ দ্বিতীয় column একা কোনো কাজেই আসে না।
 3. **`pages` কলামটা সময়ের চেয়েও সৎ।** এখানে সব page memory তে গরম, তাই ২৩ আর ৪ page এর
@@ -107,28 +107,28 @@ WAL আর আকার প্রতিবার একই আসে; সময�
    প্রতিটা page হয়তো একটা disk read।
 4. **Index free না।** প্রতিটা index প্রতিটা insert কে ধীর করে আর বাড়তি WAL লেখায় (Lesson 5.3)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **উল্টো composite index এর "ভাগ্য"।** ধাপ ২ এ `(createdAt, projectId)` খুব খারাপ দেখায় না
    (০.৪৭ ms)। কারণ project 7 এর task সময় জুড়ে সমানভাবে ছড়ানো — পেছন থেকে পড়তে শুরু করলে
-   দ্রুতই ২০টা পাওয়া যায়। এবার `src/seed.ts` এ project 7 এর সব task কে এক বছর পুরনো বানাও
+   দ্রুতই ২০টা পাওয়া যায়। এবার `src/seed.ts` এ project 7 এর সব task কে এক বছর পুরনো বানান
    (seed এর পরে একটা `UPDATE tasks SET "createdAt" = "createdAt" - interval '365 days' WHERE "projectId" = 7`
    চালিয়ে `ANALYZE tasks`), তারপর `npm run lab -- 2`। উল্টো index এর pages আর সময় কী হলো? কেন?
 
-2. **Selectivity এর সীমারেখা খোঁজো।** ধাপ ৫ এ `'blocked'` (১%) এ Postgres index নেয়, `'done'`
-   (৭০%) এ নেয় না। `'doing'` (৭%) আর `'todo'` (২২%) দিয়ে `src/lab.ts` এ দুটো variant যোগ করো।
+2. **Selectivity এর সীমারেখা খুঁজুন।** ধাপ ৫ এ `'blocked'` (১%) এ Postgres index নেয়, `'done'`
+   (৭০%) এ নেয় না। `'doing'` (৭%) আর `'todo'` (২২%) দিয়ে `src/lab.ts` এ দুটো variant যোগ করুন।
    কোথায় গিয়ে planner মত বদলায়? আর `'blocked'` এর মাত্র ১% row এর জন্য কেন ৫,৮১০টা page
    (table এর ~৭০%) ছুঁতে হলো?
 
-3. **Planner কে জোর করে ভুল পথে পাঠাও।** `psql` এ ঢুকে (`docker compose exec postgres psql -U taskflow`)
+3. **Planner কে জোর করে ভুল পথে পাঠান।** `psql` এ ঢুকে (`docker compose exec postgres psql -U taskflow`)
    `CREATE INDEX ON tasks (status);` তারপর `SET enable_seqscan = off;` দিয়ে
-   `EXPLAIN ANALYZE SELECT id, title FROM tasks WHERE status = 'done';` চালাও। সময় Seq Scan এর
+   `EXPLAIN ANALYZE SELECT id, title FROM tasks WHERE status = 'done';` চালান। সময় Seq Scan এর
    চেয়ে ভালো হলো না খারাপ? Planner কেন ঠিক ছিল? (শেষে `RESET enable_seqscan;` আর index টা
-   `DROP` করো।)
+   `DROP` করুন।)
 
 4. **Partial index এর শর্ত মেলাতে হয়।** ধাপ ১ এর partial index `WHERE status <> 'done'` দিয়ে বানানো।
    Query তে `status <> 'done'` বাদ দিয়ে শুধু `WHERE "assigneeId" = 42` দিলে planner কি এই index
-   ব্যবহার করতে পারবে? আগে অনুমান করো, তারপর চালিয়ে দেখো।
+   ব্যবহার করতে পারবে? আগে অনুমান করুন, তারপর চালিয়ে দেখুন।
 
 ## Teardown
 

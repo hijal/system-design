@@ -114,7 +114,7 @@ payment id, a ±1 day window                                  372       372     
 - **টাকা integer পয়সায়,** আর rounding এর নিয়ম লিখে রাখা।
 - **Reconciliation শেষ রক্ষাকবচ,** আর তার সবচেয়ে বড় শত্রু মিথ্যা alert (দিনের সীমা)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **কম user retry করে:** `USER_RETRY=0.3 npm run timeout`। "timeout = ব্যর্থ" নীতিতে দুবার কাটা কমল (মাপা: ১,৭৪৬), কিন্তু "কাটা,
    order নেই" কত হলো (৪,২৪৮)? কোনটা খারাপ, আর কে টের পায়?
@@ -123,7 +123,7 @@ payment id, a ±1 day window                                  372       372     
    হয়, আর কেন (ক্ষমতা বনাম চাহিদা)?
 4. **একই time zone:** `OFFSET_H=0 npm run reconcile`। id এর একই তারিখের নিয়ম এখন কেমন (মাপা: ৩৭২ alert, সব আসল)? Amount এর নিয়ম
    এখনও কেন ৯৮% আসল সমস্যা লুকায়?
-5. **Code বদলানোর কাজ:** `src/payments.ts` এ merchant এর payout যোগ করো: সপ্তাহে একবার `merchant:*` এর balance থেকে bank এ
+5. **Code বদলানোর কাজ:** `src/payments.ts` এ merchant এর payout যোগ করুন: সপ্তাহে একবার `merchant:*` এর balance থেকে bank এ
    পাঠানো, ledger এ একটা জোড়া entry (`merchant` → `bank_payable`)। Refund যদি payout এর পরে আসে আর merchant এর balance শূন্য,
    তখন কী হবে?
 

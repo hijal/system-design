@@ -4,7 +4,7 @@
 
 ## কী বানাচ্ছি
 
-একটা ছোট **consistency checker** — Jepsen এর Knossos এর ধারণায়, অনেক সরল করে। একটা **history** দাও
+একটা ছোট **consistency checker** — Jepsen এর Knossos এর ধারণায়, অনেক সরল করে। একটা **history** দিন
 (কোন client কখন কী লিখল/পড়ল, শুরু আর শেষের সময় সহ), checker বলে দেবে সেটা কোন consistency model
 মানে আর কোনটা ভাঙে:
 
@@ -44,7 +44,7 @@ npm run jepsen
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-দুটোই deterministic — তোমার মেশিনেও **হুবহু** এই output আসবে।
+দুটোই deterministic — আপনার মেশিনেও **হুবহু** এই output আসবে।
 
 **১. `npm run models`**
 
@@ -85,16 +85,16 @@ npm run jepsen
 - **নিচের লাইন:** ১০০% মানে "৩০০টা history তে ভাঙেনি" — প্রমাণ না। কম মানে নিশ্চিতভাবে ভাঙে। Jepsen এর
   কাজও এরকম: bug খোঁজা, সঠিকতা প্রমাণ না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **নিজের history:** `src/models.ts` এ এটা যোগ করো, আর চালানোর **আগে** প্রতিটা কলাম অনুমান করো:
+1. **নিজের history:** `src/models.ts` এ এটা যোগ করুন, আর চালানোর **আগে** প্রতিটা কলাম অনুমান করুন:
    `w('P1','x',1,0,100), r('P2','x',1,10,20), r('P3','x',0,30,40)` — লেখা চলার মাঝে P2 নতুন মান দেখল, তারপর
    P3 পুরনো। Linearizable? Sequential?
-2. **দুটো key:** `src/jepsen.ts` এ দ্বিতীয় একটা key যোগ করো (কিছু write `y` তে), token টা key-নিরপেক্ষ রেখে।
+2. **দুটো key:** `src/jepsen.ts` এ দ্বিতীয় একটা key যোগ করুন (কিছু write `y` তে), token টা key-নিরপেক্ষ রেখে।
    Version token এর causal কি এখনো ১০০% থাকে? না থাকলে, কোন ধরনের history তে ভাঙে?
-3. **Lag বাড়াও:** replica এর বড় lag এর সম্ভাবনা ৫% থেকে ৩০% করো। কোন সারির কোন কলাম সবচেয়ে বেশি নামে?
+3. **Lag বাড়ান:** replica এর বড় lag এর সম্ভাবনা ৫% থেকে ৩০% করুন। কোন সারির কোন কলাম সবচেয়ে বেশি নামে?
    Version token এর কোন কলাম বদলায় না — কেন?
-4. **Checker ভাঙো:** `linearizable()` এ `a.end < b.start` কে `a.start < b.start` বানাও (ভুল নিয়ম)। কোন
+4. **Checker ভাঙুন:** `linearizable()` এ `a.end < b.start` কে `a.start < b.start` বানান (ভুল নিয়ম)। কোন
    history গুলোর উত্তর বদলায়? এই ভুল নিয়মটা আসলে কী মাপছে?
 
 ## Project Structure
@@ -111,4 +111,4 @@ lesson-6.5-consistency-models/
 ```
 
 **যাচাই:** এই মেশিনে (Node 26) `tsc --noEmit` clean; দুটো script দুবার করে চালিয়ে হুবহু একই output
-(checksum মিলিয়ে)। Experiment গুলো তোমার কাজ — চালিয়ে দেখা হয়নি।
+(checksum মিলিয়ে)। Experiment গুলো আপনার কাজ — চালিয়ে দেখা হয়নি।

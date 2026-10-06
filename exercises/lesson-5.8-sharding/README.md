@@ -35,7 +35,7 @@ npm run keys
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-সময় আমার মেশিনে মাপা (Node 26, Postgres 17); তোমার ভিন্ন হবে। Row সংখ্যা, partition সংখ্যা, shard এ ভাগ
+সময় আমার মেশিনে মাপা (Node 26, Postgres 17); আপনার ভিন্ন হবে। Row সংখ্যা, partition সংখ্যা, shard এ ভাগ
 আর `keys` এর সব সংখ্যা deterministic — হুবহু মিলবে।
 
 **১. `npm run partition`**
@@ -101,28 +101,28 @@ b. Going from 3 to 4 shards — how many of 100,000 workspaces must move to anot
    অংশ scan (২২ → ৯ ms), আর পুরনো data মোছা (DELETE ৯৯ ms + ১১.৫ MB WAL, আর table এক byte ও ছোট হয়নি;
    DROP ৮ ms + ০.১ MB)।
 2. **Shard key ই সব।** একই data, চারটা key — একটায় একটা shard ১০০% write খায়, একটায় সমান ভাগ কিন্তু
-   প্রতিটা workspace এর query ৪টা shard এ যায়। নিখুঁত key নেই; আছে তোমার access pattern (Lesson 5.1) এর
+   প্রতিটা workspace এর query ৪টা shard এ যায়। নিখুঁত key নেই; আছে আপনার access pattern (Lesson 5.1) এর
    সাথে মানানসই key।
 3. **Scatter-gather এর সময় সবচেয়ে ধীর shard এর সমান** — আর সবচেয়ে ধীর shard টা সেই hot shard।
 4. **Shard পেরোলে transaction হারায়।** দুটো আলাদা database — একটা COMMIT দিয়ে দুটো বাঁধা যায় না।
 5. **Hash function এর মান গুরুত্বপূর্ণ।** এই exercise বানানোর সময় প্রথমে সাধারণ FNV-1a ব্যবহার করেছিলাম —
    consistent hashing ring এ একটা shard ৪৭% key পাচ্ছিল, আরেকটা ১২%। একটা mixing ধাপ (MurmurHash3 এর
-   `fmix32`) যোগ করে ভাগ প্রায় সমান হলো (`src/hash.ts` এর comment দেখো)।
+   `fmix32`) যোগ করে ভাগ প্রায় সমান হলো (`src/hash.ts` এর comment দেখুন)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Partition ছাড়া query এর দাম বাড়াও।** `src/partition.ts` এ `MONTHS` ১২ থেকে ৩৬ করো (৩ বছর)। "project
+1. **Partition ছাড়া query এর দাম বাড়ান।** `src/partition.ts` এ `MONTHS` ১২ থেকে ৩৬ করুন (৩ বছর)। "project
    42, সব সময়" query এর partitioned সময় কীভাবে বদলায়? Partition বেশি হলে planning এর খরচও বাড়ে — কেন?
 
-2. **বড় workspace কে আলাদা করো।** `src/shard.ts` এর `shardIndexFor` এ একটা বিশেষ নিয়ম দাও:
+2. **বড় workspace কে আলাদা করুন।** `src/shard.ts` এর `shardIndexFor` এ একটা বিশেষ নিয়ম দিন:
    `BIG_WORKSPACE` সবসময় shard0 তে, আর বাকি সব workspace hash দিয়ে শুধু shard1 আর shard2 তে ভাগ। Task এর
    ভাগ কেমন হলো? এই "lookup table" ধরনের routing এর লাভ কী, আর নতুন কী দায়িত্ব যোগ হলো (কে ঠিক করবে
    কোন customer "বড়", আর সেটা বদলালে কী)?
 
-3. **Composite key এর সূক্ষ্মতা।** `src/keys.ts` এ `PROJECTS_PER_WORKSPACE` ২০ থেকে ২০০ করো। `hash(workspaceId,
+3. **Composite key এর সূক্ষ্মতা।** `src/keys.ts` এ `PROJECTS_PER_WORKSPACE` ২০ থেকে ২০০ করুন। `hash(workspaceId,
 projectId)` এর "সবচেয়ে ব্যস্ত" কলাম কী হয়? কেন ২০টা project এ ভাগ সমান হচ্ছিল না?
 
-4. **Virtual node কমাও।** `buildRing` এর `virtualNodes` ২০০ থেকে ১ করো। Consistent hashing এ কত % সরে, আর
+4. **Virtual node কমান।** `buildRing` এর `virtualNodes` ২০০ থেকে ১ করুন। Consistent hashing এ কত % সরে, আর
    প্রতিটা shard এর ভাগ কেমন হয়? (Lesson 10.1 এর preview।)
 
 ## Teardown

@@ -38,7 +38,7 @@ npm run fenced
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-**১. `npm run detector`** — deterministic, তোমার মেশিনেও হুবহু এই সংখ্যা আসবে:
+**১. `npm run detector`** — deterministic, আপনার মেশিনেও হুবহু এই সংখ্যা আসবে:
 
 ```
    Primary alive for 24 hours, a heartbeat every 100 ms
@@ -92,7 +92,7 @@ npm run fenced
 
 - **`detector`:** প্রতিটা সারিতে বাম কলাম ছোট করলে ডান কলাম ভালো হয়, আর উল্টোটা। "সবচেয়ে লম্বা
   নীরবতা 7.75 s" — primary পুরো সময় জীবিত ছিল, তবু ৭ সেকেন্ডের বেশি চুপ ছিল একবার।
-- **`split-brain`:** সময়ের দিকে তাকাও। A থামে 703 ms এ, lease এর মেয়াদ শেষ হয় ~1790 ms এ, B leader
+- **`split-brain`:** সময়ের দিকে তাকান। A থামে 703 ms এ, lease এর মেয়াদ শেষ হয় ~1790 ms এ, B leader
   হয়। 3203 ms এ A জাগে — আর **তার code এর কোনো লাইন ভুল না**: সে lease যাচাই করেছিল, lease তখন
   valid ছিল। ফাঁকটা যাচাই আর ব্যবহারের মাঝখানে। তারপর তার একটা পুরনো লেখা cursor কে 10 থেকে 4 এ
   ফিরিয়ে দেয় — আর B বিশ্বস্তভাবে 4…8 আবার পাঠায়। **একটা** stale লেখা, **ছয়টা** duplicate batch।
@@ -100,19 +100,19 @@ npm run fenced
   কিন্তু batch 3 তবু দুবার গেছে — কারণ email provider token দেখে না। Fencing শুধু সেই resource কে
   রক্ষা করে যে token যাচাই করে।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Pause lease এর চেয়ে ছোট:** `PAUSE_MS=600 npm run split-brain`। Duplicate কয়টা? কেন — lease এর
    কতটা বাকি ছিল যখন A থামল?
-2. **Lease লম্বা করো:** `LEASE_MS=5000 npm run split-brain`। Duplicate শূন্য — কিন্তু মোট কয়টা batch
+2. **Lease লম্বা করুন:** `LEASE_MS=5000 npm run split-brain`। Duplicate শূন্য — কিন্তু মোট কয়টা batch
    গেছে (default এ 16)? A থেমে থাকার সময় কে reminder পাঠাচ্ছিল? এবার `detector` এর table এর সাথে
-   মেলাও: lease এর মেয়াদ আসলে একটা failure detector এর timeout।
-3. **Email কেও রক্ষা করো:** `src/services.ts` এর `/email` কে idempotent বানাও — একই batch দ্বিতীয়বার
-   এলে পাঠানো ছাড়াই `ok` ফেরত দাও (Lesson 2.5 এর idempotency key, এখানে key = batch number)।
+   মেলান: lease এর মেয়াদ আসলে একটা failure detector এর timeout।
+3. **Email কেও রক্ষা করুন:** `src/services.ts` এর `/email` কে idempotent বানান — একই batch দ্বিতীয়বার
+   এলে পাঠানো ছাড়াই `ok` ফেরত দিন (Lesson 2.5 এর idempotency key, এখানে key = batch number)।
    তারপর `npm run fenced` — duplicate শূন্য হওয়ার কথা। কেন এটা fencing এর চেয়ে সহজ ছিল এখানে?
 4. **"আবার যাচাই করলেই তো হয়":** `src/worker.ts` এ pause এর পরে, email পাঠানোর ঠিক আগে lease টা
-   আবার নিজের ঘড়িতে যাচাই করো (মেয়াদ শেষ হলে থামো)। এই নির্দিষ্ট ক্ষেত্রে কাজ করবে। এবার
-   `stopTheWorld` কে নতুন যাচাইয়ের **পরে** সরাও। কী হয়? এই পরীক্ষাটা থেকে কী শিখলে?
+   আবার নিজের ঘড়িতে যাচাই করুন (মেয়াদ শেষ হলে থামুন)। এই নির্দিষ্ট ক্ষেত্রে কাজ করবে। এবার
+   `stopTheWorld` কে নতুন যাচাইয়ের **পরে** সরান। কী হয়? এই পরীক্ষাটা থেকে কী শিখলে?
 
 ## Project Structure
 
@@ -130,5 +130,5 @@ lesson-6.1-split-brain/
 
 **যাচাই:** এই মেশিনে (Node 26) `tsc --noEmit` clean; `detector` কয়েকবার চালিয়ে হুবহু একই output;
 `split-brain` আর `fenced` প্রতিটা তিনবার করে চালিয়ে একই ঘটনার ক্রম আর একই শেষ ফল; experiment ১ আর ২
-চালিয়ে দেখা হয়েছে (০ duplicate; lease 5000 এ মোট 8 batch)। Experiment ৩ আর ৪ তোমার code বদলানোর
+চালিয়ে দেখা হয়েছে (০ duplicate; lease 5000 এ মোট 8 batch)। Experiment ৩ আর ৪ আপনার code বদলানোর
 কাজ — সেগুলোর ফল চালিয়ে দেখা হয়নি।

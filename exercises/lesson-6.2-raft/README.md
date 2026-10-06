@@ -42,7 +42,7 @@ npm run unsafe
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-তিনটাই deterministic — তোমার মেশিনেও **হুবহু** এই output আসবে।
+তিনটাই deterministic — আপনার মেশিনেও **হুবহু** এই output আসবে।
 
 **১. `npm run election`**
 
@@ -102,17 +102,17 @@ npm run unsafe
 - **`unsafe`:** সেই পুরনো-log এর n2 জিতে যায়, আর তার log কে "সত্য" ধরে বাকিদের x=3 মুছে দেয় — client
   কে "নিশ্চিত" বলা লেখা। আর যারা x=3 আগেই প্রয়োগ করেছিল, তাদের মান আর মেলে না।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
-1. **Timeout range:** `src/election.ts` এর `RANGES` এ `[150, 151]` আর `[300, 600]` যোগ করো। Heartbeat
+1. **Timeout range:** `src/election.ts` এর `RANGES` এ `[150, 151]` আর `[300, 600]` যোগ করুন। Heartbeat
    (50 ms) এর তুলনায় timeout খুব বড় হলে কী দাম দিতে হয় — leader সত্যিই মরলে?
-2. **জোড় সংখ্যা:** `src/partition.ts` এ `NODES` এ `n6` যোগ করো, আর partition বদলে দুই ভাগ সমান করো
+2. **জোড় সংখ্যা:** `src/partition.ts` এ `NODES` এ `n6` যোগ করুন, আর partition বদলে দুই ভাগ সমান করুন
    (তিন | তিন)। কোনো দিক কি leader পায়? `n6` যোগ করায় কয়টা node এর ব্যর্থতা সহ্য করার ক্ষমতা বাড়ল?
-3. **Stale read ঠিক করো:** পুরনো leader n1 partition এর সময় `x = 1` বলছে। একটা `read()` method লেখো যেটা
+3. **Stale read ঠিক করুন:** পুরনো leader n1 partition এর সময় `x = 1` বলছে। একটা `read()` method লিখুন যেটা
    উত্তর দেওয়ার আগে majority থেকে heartbeat এর সাড়া নিশ্চিত করে (Raft এর "ReadIndex" ধারণা)। n1 এর
    `read()` কী করবে?
 4. **(কঠিন) PreVote:** n2 এর বাড়তে থাকা term সুস্থ leader কে সরিয়ে দিচ্ছে। Candidate হওয়ার আগে একটা
-   "আমি জিততে পারব?" জিজ্ঞাসা যোগ করো — term না বাড়িয়ে — আর majority "হ্যাঁ" বললে তবেই আসল election।
+   "আমি জিততে পারব?" জিজ্ঞাসা যোগ করুন — term না বাড়িয়ে — আর majority "হ্যাঁ" বললে তবেই আসল election।
    n3 কি আর পদ ছাড়ে?
 
 ## Project Structure
@@ -130,4 +130,4 @@ lesson-6.2-raft/
 ```
 
 **যাচাই:** এই মেশিনে (Node 26) `tsc --noEmit` clean; তিনটা script কয়েকবার চালিয়ে হুবহু একই output
-(checksum মিলিয়ে)। Experiment গুলো তোমার code বদলানোর কাজ — সেগুলোর ফল চালিয়ে দেখা হয়নি।
+(checksum মিলিয়ে)। Experiment গুলো আপনার code বদলানোর কাজ — সেগুলোর ফল চালিয়ে দেখা হয়নি।

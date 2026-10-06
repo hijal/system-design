@@ -2,15 +2,15 @@
 
 **Module 7 — Asynchronous Processing & Messaging**
 
-> **Spaced Repetition (Lesson 1.5):** TaskFlow এর SLO 99.9%। ৩০ দিনের মাসে error budget কত মিনিট? আজ দেখবে, একটা request এর পথে যতগুলো বাইরের service থাকে, এই budget তাদের সবার মধ্যে ভাগ হয়ে যায় — তুমি চাও বা না চাও।
+> **Spaced Repetition (Lesson 1.5):** TaskFlow এর SLO 99.9%। ৩০ দিনের মাসে error budget কত মিনিট? আজ দেখবেন, একটা request এর পথে যতগুলো বাইরের service থাকে, এই budget তাদের সবার মধ্যে ভাগ হয়ে যায় — আপনি চান বা না চান।
 
 **Prerequisite:** Lesson 1.5 (Latency, availability), Lesson 2.5 (Idempotency), Lesson 5.5 (Transaction), Lesson 5.6 (Connection pool, pool exhaustion, Little's Law), Lesson 6.1 (Partial failure, timeout মানে "জানি না")
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. একটা request এর **critical path** আঁকতে পারবে, আর হিসাব করে বলতে পারবে পথের প্রতিটা synchronous dependency কীভাবে latency যোগ করে আর availability গুণ করে কমায়
-2. ব্যাখ্যা করতে পারবে কীভাবে একটা **ধীর** dependency (মৃত না, শুধু ধীর) একটা ভাগ করা resource (connection pool) দখল করে পুরো app ফেলে দেয় — Little's Law দিয়ে সংখ্যা সহ
-3. একটা কাজ request এর ভেতরে থাকবে নাকি বাইরে যাবে — একটা প্রশ্নের তালিকা দিয়ে সিদ্ধান্ত নিতে পারবে; আর fire-and-forget, in-memory queue, টেকসই queue — কোনটা কী সমাধান করে আর কী করে **না**, বলতে পারবে
+1. একটা request এর **critical path** আঁকতে পারবেন, আর হিসাব করে বলতে পারবেন পথের প্রতিটা synchronous dependency কীভাবে latency যোগ করে আর availability গুণ করে কমায়
+2. ব্যাখ্যা করতে পারবেন কীভাবে একটা **ধীর** dependency (মৃত না, শুধু ধীর) একটা ভাগ করা resource (connection pool) দখল করে পুরো app ফেলে দেয় — Little's Law দিয়ে সংখ্যা সহ
+3. একটা কাজ request এর ভেতরে থাকবে নাকি বাইরে যাবে — একটা প্রশ্নের তালিকা দিয়ে সিদ্ধান্ত নিতে পারবেন; আর fire-and-forget, in-memory queue, টেকসই queue — কোনটা কী সমাধান করে আর কী করে **না**, বলতে পারবেন
 
 **Tier:** 1 — Runnable Code (তিনটা আসল Node process: নকল email provider, TaskFlow API এর চারটা সংস্করণ, আর একটা load generator)
 
@@ -81,7 +81,7 @@ Post-mortem এ কেউ একজন বলল: "Email provider ধীর হ�
 
 **Asynchronous processing** — caller কাজটা কোথাও জমা দেয় আর সাথে সাথে এগিয়ে যায়; কাজটা পরে, অন্য কেউ, অন্য সময় করে।
 
-লক্ষ করো: `await mailer.send(...)` লেখা code টা Node.js এর ভাষায় "async" — event loop আটকায় না, অপেক্ষার মধ্যে অন্য request চলে। কিন্তু **system design এর ভাষায় এটা synchronous**, কারণ HTTP request টা email শেষ হওয়া পর্যন্ত খোলা থাকে, আর user তার উত্তরের জন্য বসে থাকে। এই lesson এ "synchronous" মানে সবসময় দ্বিতীয়টা: **request এর উত্তর কি এই কাজ শেষ হওয়ার জন্য অপেক্ষা করে?**
+লক্ষ করুন: `await mailer.send(...)` লেখা code টা Node.js এর ভাষায় "async" — event loop আটকায় না, অপেক্ষার মধ্যে অন্য request চলে। কিন্তু **system design এর ভাষায় এটা synchronous**, কারণ HTTP request টা email শেষ হওয়া পর্যন্ত খোলা থাকে, আর user তার উত্তরের জন্য বসে থাকে। এই lesson এ "synchronous" মানে সবসময় দ্বিতীয়টা: **request এর উত্তর কি এই কাজ শেষ হওয়ার জন্য অপেক্ষা করে?**
 
 সোমবারের সবচেয়ে বড় বিভ্রান্তি এখান থেকেই: "event loop তো আটকায়নি, CPU ১২%, তাহলে app মরল কেন?" কারণ অপেক্ষা CPU খায় না, কিন্তু **অন্য জিনিস ধরে রাখে**। একটা request যতক্ষণ খোলা, ততক্ষণ সে দখল করে রাখে:
 
@@ -110,24 +110,24 @@ Assign route এর critical path:
                                                              পুরো পথের ৯০%+ সময় এখানে
 ```
 
-**Latency যোগ হয়।** Email provider স্বাভাবিক দিনে পথের সবচেয়ে ধীর ধাপ — assign এর ~১৬৫ ms এর মধ্যে ১৫০ ms। আর সোমবার সেটা ৪০০০ ms। যে ধাপ তোমার নিয়ন্ত্রণে নেই, সেটাই তোমার p99 ঠিক করে দিচ্ছে।
+**Latency যোগ হয়।** Email provider স্বাভাবিক দিনে পথের সবচেয়ে ধীর ধাপ — assign এর ~১৬৫ ms এর মধ্যে ১৫০ ms। আর সোমবার সেটা ৪০০০ ms। যে ধাপ আপনার নিয়ন্ত্রণে নেই, সেটাই আপনার p99 ঠিক করে দিচ্ছে।
 
-**Availability গুণ হয়।** আজকের spaced repetition প্রশ্নের উত্তর দিয়ে শুরু করি: 99.9% SLO মানে ৩০ দিনে ৪৩.২ মিনিট error budget। এবার ধরো (উদাহরণের সংখ্যা, কোনো নির্দিষ্ট vendor এর না) Postgres cluster 99.95% available, আর email provider 99.9%। দুটোই একই request এর পথে, synchronous — তাহলে assign সফল হবে শুধু যখন **দুটোই** একসাথে ঠিক আছে:
+**Availability গুণ হয়।** আজকের spaced repetition প্রশ্নের উত্তর দিয়ে শুরু করি: 99.9% SLO মানে ৩০ দিনে ৪৩.২ মিনিট error budget। এবার ধরুন (উদাহরণের সংখ্যা, কোনো নির্দিষ্ট vendor এর না) Postgres cluster 99.95% available, আর email provider 99.9%। দুটোই একই request এর পথে, synchronous — তাহলে assign সফল হবে শুধু যখন **দুটোই** একসাথে ঠিক আছে:
 
 ```
   0.9995 × 0.999 = 0.9985   →   99.85%   →   মাসে ~৬৫ মিনিট ব্যর্থ
 
-  তোমার পুরো budget ৪৩.২ মিনিট। Email provider একাই গড়ে ৪৩ মিনিট খেয়ে নিতে পারে —
-  তোমার নিজের code এর একটাও bug ছাড়াই।
+  আপনার পুরো budget ৪৩.২ মিনিট। Email provider একাই গড়ে ৪৩ মিনিট খেয়ে নিতে পারে —
+  আপনার নিজের code এর একটাও bug ছাড়াই।
 ```
 
-পথে আরেকটা dependency যোগ করো (ধরো Slack webhook, 99.9%) — 99.75%, মাসে ~১০৮ মিনিট। প্রতিটা synchronous dependency তোমার availability কে তার নিজের availability দিয়ে গুণ করে, আর ১ এর চেয়ে ছোট সংখ্যা দিয়ে গুণ করলে কেবল কমে।
+পথে আরেকটা dependency যোগ করুন (ধরুন Slack webhook, 99.9%) — 99.75%, মাসে ~১০৮ মিনিট। প্রতিটা synchronous dependency আপনার availability কে তার নিজের availability দিয়ে গুণ করে, আর ১ এর চেয়ে ছোট সংখ্যা দিয়ে গুণ করলে কেবল কমে।
 
 এর একটা নাম আছে:
 
 **Temporal coupling** — দুটো অংশ এমনভাবে জোড়া যে একটার কাজ সফল হতে হলে অন্যটাকে **ঠিক একই সময়ে** জীবিত আর দ্রুত থাকতে হয়।
 
-Assign route আর email provider temporally coupled: provider এর খারাপ ৫ মিনিট মানে TaskFlow এর assign এর খারাপ ৫ মিনিট। কিন্তু প্রশ্নটা করো — **assign করার মুহূর্তে email টা কি সত্যিই ঠিক তখনই যেতে হবে?** Assignee যদি ৩০ সেকেন্ড পরে email পায়, কেউ কি টের পাবে? না। তাহলে এই coupling টা প্রয়োজন থেকে আসেনি, code লেখার ধরন থেকে এসেছে।
+Assign route আর email provider temporally coupled: provider এর খারাপ ৫ মিনিট মানে TaskFlow এর assign এর খারাপ ৫ মিনিট। কিন্তু প্রশ্নটা করুন — **assign করার মুহূর্তে email টা কি সত্যিই ঠিক তখনই যেতে হবে?** Assignee যদি ৩০ সেকেন্ড পরে email পায়, কেউ কি টের পাবে? না। তাহলে এই coupling টা প্রয়োজন থেকে আসেনি, code লেখার ধরন থেকে এসেছে।
 
 ### ১.৩ Cascading Failure — ধীর dependency কীভাবে অন্য route কে মারে
 
@@ -171,23 +171,23 @@ Exercise এর `npm run compare` এ `sync-in-tx` mode — ঠিক উপর�
    told "failed", yet email sent: 10
 ```
 
-তিনটা জিনিস দেখো:
+তিনটা জিনিস দেখুন:
 
 1. **List এর অর্ধেক request ব্যর্থ** — ২০৭টা — অথচ list এর code এ email এর নামও নেই। List এর p99 ২৭ ms থেকে ৩ সেকেন্ড, মানে ঠিক `acquire` এর সীমা: সে কাজ করে ধীর হয়নি, লাইনে দাঁড়িয়ে ধীর হয়েছে।
 2. **সেরে ওঠার পরেও দাগ থাকে** — provider ঠিক হওয়ার পরের phase এও list এর p99 ১.২ সেকেন্ড। লাইনে জমে থাকা request গুলো আগে বের হতে হয়। Cascading failure এর একটা স্বভাব: কারণ চলে গেলেও ফল কিছুক্ষণ থাকে।
 3. **"ব্যর্থ বলা হলো, অথচ email গেছে: 10"** — সোমবারের সেই ticket। Client ৫ সেকেন্ডে হাল ছেড়েছে, কিন্তু server জানে না যে client চলে গেছে; সে connection ধরে রেখে email পাঠিয়েছে, তারপর commit করেছে। User দেখল error, আবার চাপল — দুটো email। Lesson 6.1 এর কথাটাই: **timeout মানে "ব্যর্থ" না, timeout মানে "জানি না"।**
 
-**"Pool বড় করে দাও না?"** — Exercise এর experiment ৪: `POOL_MAX=100` এ list বাঁচে। কিন্তু Lesson 5.6 এর হিসাব মনে করো: ৬টা instance × ১০০ = ৬০০ connection, Postgres এর `max_connections` ১০০। আর প্রতিটা connection এখন ৪ সেকেন্ড ধরে একটা **খোলা transaction** — `FOR UPDATE` এর row lock সহ। সেই task এ অন্য কেউ হাত দিতে চাইলে সেও ৪ সেকেন্ড আটকে থাকে। Pool বড় করা সমস্যাকে pool থেকে database এ ঠেলে দেয়; আর provider ৪ এর বদলে ৪০ সেকেন্ড ধীর হলে ১০০ ও ফুরোবে। Little's Law এ "সময়" টা অসীম হতে পারলে কোনো সীমিত pool যথেষ্ট না।
+**"Pool বড় করে দেবেন না?"** — Exercise এর experiment ৪: `POOL_MAX=100` এ list বাঁচে। কিন্তু Lesson 5.6 এর হিসাব মনে করুন: ৬টা instance × ১০০ = ৬০০ connection, Postgres এর `max_connections` ১০০। আর প্রতিটা connection এখন ৪ সেকেন্ড ধরে একটা **খোলা transaction** — `FOR UPDATE` এর row lock সহ। সেই task এ অন্য কেউ হাত দিতে চাইলে সেও ৪ সেকেন্ড আটকে থাকে। Pool বড় করা সমস্যাকে pool থেকে database এ ঠেলে দেয়; আর provider ৪ এর বদলে ৪০ সেকেন্ড ধীর হলে ১০০ ও ফুরোবে। Little's Law এ "সময়" টা অসীম হতে পারলে কোনো সীমিত pool যথেষ্ট না।
 
-(একটা পার্শ্ব নোট: Node.js এ "অপেক্ষা" ছাড়া আরেক ধরনের ধীর কাজ আছে — **CPU এর কাজ**: বড় PDF বানানো, ছবি resize, বিশাল `JSON.parse`। এগুলো অপেক্ষা করে না, event loop আটকে দেয় — আর তখন সত্যিই process এর সব request থামে, Lesson 6.1 এর process pause এর মতো। সমাধানের দিক একই: কাজটা request এর পথ থেকে সরাও, আলাদা worker process এ।)
+(একটা পার্শ্ব নোট: Node.js এ "অপেক্ষা" ছাড়া আরেক ধরনের ধীর কাজ আছে — **CPU এর কাজ**: বড় PDF বানানো, ছবি resize, বিশাল `JSON.parse`। এগুলো অপেক্ষা করে না, event loop আটকে দেয় — আর তখন সত্যিই process এর সব request থামে, Lesson 6.1 এর process pause এর মতো। সমাধানের দিক একই: কাজটা request এর পথ থেকে সরান, আলাদা worker process এ।)
 
 ### ১.৪ প্রথম তিনটা চেষ্টা — আর প্রতিটা কোথায় আটকায়
 
 Post-mortem এ তিনটা প্রস্তাব এলো। প্রতিটা আংশিক সঠিক — আর exercise এ প্রতিটা মাপা হয়েছে।
 
-**চেষ্টা ১ — Email এ timeout বসাও।** `fetch` এ ১ সেকেন্ডের timeout দিলে connection সর্বোচ্চ ১ সেকেন্ড আটকায়, cascading কমে। কিন্তু তাহলে provider ধীর হলে **assign ব্যর্থ** — user একটা task assign করতে পারল না কারণ অন্য কোম্পানির email server ধীর। আর timeout এর পরে email গেছে কিনা, সেটা আবার "জানি না"। Exercise এর experiment ৫ এ ঠিক এটা বসানো হয়েছে (১ সেকেন্ড): list এর ব্যর্থতা ৫২% থেকে ১৮% এ নামে — কমে, শূন্য হয় না, কারণ Little's Law এ এখনো ২০/s × ১ s = ২০টা connection দরকার, আছে ১০টা। আর ৮০ জন user assign এ error দেখল অথচ তাদের email ঠিকই পৌঁছাল — আমাদের timeout আমাদের অপেক্ষা থামায়, provider এর কাজ থামায় না। Timeout দরকার (বাইরের কোনো call এ timeout ছাড়া থাকা উচিত না — আর `fetch`, axios, বেশিরভাগ SDK এর default এ কোনো timeout **নেই**) — কিন্তু এটা ক্ষতি ছোট করে, দূর করে না।
+**চেষ্টা ১ — Email এ timeout বসান।** `fetch` এ ১ সেকেন্ডের timeout দিলে connection সর্বোচ্চ ১ সেকেন্ড আটকায়, cascading কমে। কিন্তু তাহলে provider ধীর হলে **assign ব্যর্থ** — user একটা task assign করতে পারল না কারণ অন্য কোম্পানির email server ধীর। আর timeout এর পরে email গেছে কিনা, সেটা আবার "জানি না"। Exercise এর experiment ৫ এ ঠিক এটা বসানো হয়েছে (১ সেকেন্ড): list এর ব্যর্থতা ৫২% থেকে ১৮% এ নামে — কমে, শূন্য হয় না, কারণ Little's Law এ এখনো ২০/s × ১ s = ২০টা connection দরকার, আছে ১০টা। আর ৮০ জন user assign এ error দেখল অথচ তাদের email ঠিকই পৌঁছাল — আমাদের timeout আমাদের অপেক্ষা থামায়, provider এর কাজ থামায় না। Timeout দরকার (বাইরের কোনো call এ timeout ছাড়া থাকা উচিত না — আর `fetch`, axios, বেশিরভাগ SDK এর default এ কোনো timeout **নেই**) — কিন্তু এটা ক্ষতি ছোট করে, দূর করে না।
 
-**চেষ্টা ২ — আগে commit, তারপর email।** এটা একটা সত্যিকারের উন্নতি, আর "email transaction এর ভেতরে" এর আসল ভুলটা এখানে দেখা যায়। ভেতরে রাখার যুক্তি ছিল "atomic"। কিন্তু ভাবো: email **চলে গেল**, তারপর `COMMIT` ব্যর্থ হলো (deadlock, failover, যেকোনো কিছু)। Transaction rollback হলো — assign হয়নি — কিন্তু email তো আর ফেরানো যায় না। Database এর transaction শুধু database এর জিনিস ফেরাতে পারে; বাইরের পৃথিবীতে পাঠানো কিছু না। তাই "atomic" টা আসলে কখনো ছিল না, শুধু connection টা বেশিক্ষণ আটকে রাখা হচ্ছিল।
+**চেষ্টা ২ — আগে commit, তারপর email।** এটা একটা সত্যিকারের উন্নতি, আর "email transaction এর ভেতরে" এর আসল ভুলটা এখানে দেখা যায়। ভেতরে রাখার যুক্তি ছিল "atomic"। কিন্তু ভাবুন: email **চলে গেল**, তারপর `COMMIT` ব্যর্থ হলো (deadlock, failover, যেকোনো কিছু)। Transaction rollback হলো — assign হয়নি — কিন্তু email তো আর ফেরানো যায় না। Database এর transaction শুধু database এর জিনিস ফেরাতে পারে; বাইরের পৃথিবীতে পাঠানো কিছু না। তাই "atomic" টা আসলে কখনো ছিল না, শুধু connection টা বেশিক্ষণ আটকে রাখা হচ্ছিল।
 
 Commit এর পরে email পাঠালে connection ৫ ms এ ফেরত যায় — `sync-after-commit`:
 
@@ -203,11 +203,11 @@ Commit এর পরে email পাঠালে connection ৫ ms এ ফের
    provider returned 429 (rate limited): 61
 ```
 
-List **পুরোপুরি বাঁচল** — ০ ব্যর্থ, p99 ২৭ ms। Cascading failure শেষ, কারণ ধীর dependency আর ভাগ করা resource ধরে রাখে না। কিন্তু assign এর নিজের অবস্থা দেখো: ধীর phase এ প্রতিটা assign ৪ সেকেন্ড, আর ৩৭% ব্যর্থ। ব্যর্থ কেন? প্রতি সেকেন্ডে ২০টা assign × ৪ সেকেন্ড = ৮০টা email একসাথে provider এ — আর provider একসাথে ৫০টার বেশি নেয় না (বাস্তবের provider এর rate limit এর মতো; exercise এ এই সীমা একটা ধরে নেওয়া সংখ্যা)। বাড়তিগুলো `429` পায়।
+List **পুরোপুরি বাঁচল** — ০ ব্যর্থ, p99 ২৭ ms। Cascading failure শেষ, কারণ ধীর dependency আর ভাগ করা resource ধরে রাখে না। কিন্তু assign এর নিজের অবস্থা দেখুন: ধীর phase এ প্রতিটা assign ৪ সেকেন্ড, আর ৩৭% ব্যর্থ। ব্যর্থ কেন? প্রতি সেকেন্ডে ২০টা assign × ৪ সেকেন্ড = ৮০টা email একসাথে provider এ — আর provider একসাথে ৫০টার বেশি নেয় না (বাস্তবের provider এর rate limit এর মতো; exercise এ এই সীমা একটা ধরে নেওয়া সংখ্যা)। বাড়তিগুলো `429` পায়।
 
 আর সবচেয়ে খারাপ অংশ: ওই ৬১টা "ব্যর্থ" assign আসলে **হয়ে গেছে** — commit আগেই হয়েছে। User error দেখল, কিন্তু task এখন assigned। Temporal coupling এখনো আছে, শুধু database থেকে সরে user এর অভিজ্ঞতায়। (Experiment ৩: provider ৬ সেকেন্ড ধীর হলে — client এর ৫ সেকেন্ডের timeout এর চেয়ে বেশি — ধীর phase এ assign **১০০%** ব্যর্থ দেখায়, অথচ ১৫৯ জনের email ঠিকই গেছে।)
 
-**চেষ্টা ৩ — অপেক্ষাই কোরো না: fire-and-forget।**
+**চেষ্টা ৩ — অপেক্ষাই করবেন না: fire-and-forget।**
 
 **Fire-and-forget** — একটা কাজ শুরু করে তার ফলের জন্য কেউ অপেক্ষা করে না, আর কাজটা ব্যর্থ হলে কেউ জানেও না।
 
@@ -231,16 +231,16 @@ res.json({ taskId: task.id, assigneeId });    // answer immediately
    told "ok", email never sent: 61
 ```
 
-দেখতে নিখুঁত: assign সবসময় ১০ ms, কেউ কোনো error দেখেনি। কিন্তু শেষ লাইনটা পড়ো — **৬০ জন user কে "সফল" বলা হয়েছে, আর তাদের assignee কখনো email পায়নি।** আর কেউ জানে না। কোনো error page নেই, কোনো alert নেই, শুধু একটা `.catch(() => {})` যেটা নীরবে গিলে ফেলেছে।
+দেখতে নিখুঁত: assign সবসময় ১০ ms, কেউ কোনো error দেখেনি। কিন্তু শেষ লাইনটা পড়ুন — **৬০ জন user কে "সফল" বলা হয়েছে, আর তাদের assignee কখনো email পায়নি।** আর কেউ জানে না। কোনো error page নেই, কোনো alert নেই, শুধু একটা `.catch(() => {})` যেটা নীরবে গিলে ফেলেছে।
 
 সমস্যা দুটো, আর দুটোই কাঠামোগত:
 
-- **কোনো সীমা নেই।** প্রতিটা request একটা নতুন email শুরু করে, যত দ্রুত request আসে তত দ্রুত। Provider ধীর হলে একসাথে চলা email এর সংখ্যা Little's Law মেনে বাড়তেই থাকে (২০ × ৪ = ৮০) — আর ৫০ এ provider এর দেয়ালে ধাক্কা খায়। Provider না থামালে তোমার process এর memory থামাত।
+- **কোনো সীমা নেই।** প্রতিটা request একটা নতুন email শুরু করে, যত দ্রুত request আসে তত দ্রুত। Provider ধীর হলে একসাথে চলা email এর সংখ্যা Little's Law মেনে বাড়তেই থাকে (২০ × ৪ = ৮০) — আর ৫০ এ provider এর দেয়ালে ধাক্কা খায়। Provider না থামালে আপনার process এর memory থামাত।
 - **কোনো স্মৃতি নেই।** যে email ব্যর্থ হলো, সেটা আবার চেষ্টা করার জন্য কোথাও লেখা নেই। Process মরলে (deploy, crash) যা শুরু হয়নি সেটা মিলিয়ে যায়।
 
 Fire-and-forget একটা ঠিক জিনিস করেছে: user কে অপেক্ষা থেকে মুক্তি দিয়েছে। কিন্তু সে কাজটার **দায়িত্ব** কাউকে দেয়নি।
 
-### ১.৫ Job Queue — কাজটা লিখে রাখো, পরে কেউ করবে
+### ১.৫ Job Queue — কাজটা লিখে রাখুন, পরে কেউ করবে
 
 চতুর্থ সংস্করণ fire-and-forget এর ঠিক দুটো সমস্যার উত্তর: সীমা আর স্মৃতি।
 
@@ -279,14 +279,14 @@ Assign ১০ ms, list অক্ষত, provider কখনো ৮টার ব�
 
 **Backlog** — queue তে জমে থাকা, এখনো শুরু না হওয়া কাজের পরিমাণ। Worker যত দ্রুত কাজ শেষ করে, তার চেয়ে দ্রুত কাজ এলে backlog বাড়ে; উল্টোটা হলে কমে।
 
-হাতে হিসাব করো, Little's Law উল্টো করে — worker রা প্রতি সেকেন্ডে কতগুলো শেষ করতে পারে:
+হাতে হিসাব করুন, Little's Law উল্টো করে — worker রা প্রতি সেকেন্ডে কতগুলো শেষ করতে পারে:
 
 ```
   ধীর phase:   8 worker ÷ 4 s     =   2 email/s বের হয়,  20 আসে  →  backlog +18/s × 8 s  ≈  144
   সেরে উঠলে:   8 worker ÷ 0.15 s  ≈  53 email/s বের হয়,  20 আসে  →  backlog −33/s  →  ~৫ সেকেন্ডে খালি
 ```
 
-মাপা ১৫২ হিসাবের ১৪৪ এর কাছে (বাকিটা phase এর কিনারার সময়)। ক্ষতিটা হারায়নি — **user এর latency থেকে সরে backlog আর দেরিতে গেছে**। ধীর phase এর শেষে assign করা কারো assignee email পেয়েছে ~৭ সেকেন্ড পরে, ১৫০ ms এর বদলে। আর এটাই পুরো lesson এর মূল বিনিময়: **user কে অপেক্ষা করানোর বদলে কাজকে অপেক্ষা করাও।** Email এর জন্য এটা স্পষ্টতই ভালো বিনিময় — ৭ সেকেন্ড দেরির email কেউ টেরও পায় না, কিন্তু ৪ সেকেন্ডের assign button সবাই টের পায়।
+মাপা ১৫২ হিসাবের ১৪৪ এর কাছে (বাকিটা phase এর কিনারার সময়)। ক্ষতিটা হারায়নি — **user এর latency থেকে সরে backlog আর দেরিতে গেছে**। ধীর phase এর শেষে assign করা কারো assignee email পেয়েছে ~৭ সেকেন্ড পরে, ১৫০ ms এর বদলে। আর এটাই পুরো lesson এর মূল বিনিময়: **user কে অপেক্ষা করানোর বদলে কাজকে অপেক্ষা করান।** Email এর জন্য এটা স্পষ্টতই ভালো বিনিময় — ৭ সেকেন্ড দেরির email কেউ টেরও পায় না, কিন্তু ৪ সেকেন্ডের assign button সবাই টের পায়।
 
 Queue দুটো জিনিস আলাদা করে দিল যেগুলো synchronous code এ এক ছিল:
 
@@ -315,28 +315,28 @@ Queue দুটো জিনিস আলাদা করে দিল যেগ
 
 1. **User কি উত্তরে এই কাজের ফল দেখতে চায়?** Task তৈরি হলো কিনা, তার id কী — হ্যাঁ। Email গেল কিনা — না, সে জানেও না কখন যায়।
 2. **কাজটা ব্যর্থ হলে user কে কি এখনই জানাতে হবে, যাতে সে কিছু বদলাতে পারে?** Validation error, permission নেই, card declined — হ্যাঁ। Search index update ব্যর্থ — না, আমরা নিজেরা আবার চেষ্টা করব।
-3. **কাজটা কতক্ষণ নেয়, আর কতটা অনিশ্চিত?** ৫ ms এর indexed query — পথে থাকলে ক্ষতি নেই। ৩০ সেকেন্ডের export, বা বাইরের API যার latency তোমার নিয়ন্ত্রণে নেই — পথ থেকে সরাও।
-4. **কাজটা কি বাইরের কারো উপর নির্ভর করে?** প্রতিটা বাইরের dependency ১.২ এর গুণফলে একটা নতুন সংখ্যা। পথে রাখলে তার খারাপ দিন তোমার খারাপ দিন।
+3. **কাজটা কতক্ষণ নেয়, আর কতটা অনিশ্চিত?** ৫ ms এর indexed query — পথে থাকলে ক্ষতি নেই। ৩০ সেকেন্ডের export, বা বাইরের API যার latency আপনার নিয়ন্ত্রণে নেই — পথ থেকে সরান।
+4. **কাজটা কি বাইরের কারো উপর নির্ভর করে?** প্রতিটা বাইরের dependency ১.২ এর গুণফলে একটা নতুন সংখ্যা। পথে রাখলে তার খারাপ দিন আপনার খারাপ দিন।
 
 TaskFlow এ প্রয়োগ করলে:
 
-| কাজ                                      | পথে / বাইরে | কেন                                                                                           |
-| ---------------------------------------- | ----------- | --------------------------------------------------------------------------------------------- |
-| Task তৈরি/assign এর database write       | পথে         | User এর ফল এটাই; ব্যর্থ হলে তাকে জানাতে হবে                                                   |
-| Permission check, input validation       | পথে         | ব্যর্থ হলে user কিছু বদলাবে; আর দ্রুত, নিজস্ব                                                 |
-| Assign এর email, push notification       | বাইরে       | User দেখে না কখন যায়; বাইরের provider                                                        |
-| Slack/webhook integration                | বাইরে       | অন্য কোম্পানির server — তার latency আর availability তোমার গুণফলে ঢুকতে দিও না                 |
-| Search index update (8.3), activity feed | বাইরে       | কয়েক সেকেন্ড পরে দেখা গেলে চলে — তবে user নিজের লেখা খুঁজে না পেলে বিভ্রান্ত হয় (নিচে দেখো) |
-| ৫০ হাজার task এর CSV export              | বাইরে       | ৩০+ সেকেন্ড — HTTP request এ রাখলে Nginx/browser এর timeout; job + "তৈরি হলে link পাঠাব"      |
-| Attachment এর thumbnail বানানো           | বাইরে       | CPU এর কাজ — Node এর event loop আটকায় (১.৩ এর নোট); আলাদা worker process                     |
-| Pro plan এ upgrade এর card charge        | পথে\*       | User কে এখনই জানাতে হবে card কাজ করল কিনা — কিন্তু timeout আর idempotency key সহ (2.5, 6.1)   |
+| কাজ                                      | পথে / বাইরে | কেন                                                                                            |
+| ---------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------- |
+| Task তৈরি/assign এর database write       | পথে         | User এর ফল এটাই; ব্যর্থ হলে তাকে জানাতে হবে                                                    |
+| Permission check, input validation       | পথে         | ব্যর্থ হলে user কিছু বদলাবে; আর দ্রুত, নিজস্ব                                                  |
+| Assign এর email, push notification       | বাইরে       | User দেখে না কখন যায়; বাইরের provider                                                         |
+| Slack/webhook integration                | বাইরে       | অন্য কোম্পানির server — তার latency আর availability আপনার গুণফলে ঢুকতে দেবেন না                |
+| Search index update (8.3), activity feed | বাইরে       | কয়েক সেকেন্ড পরে দেখা গেলে চলে — তবে user নিজের লেখা খুঁজে না পেলে বিভ্রান্ত হয় (নিচে দেখুন) |
+| ৫০ হাজার task এর CSV export              | বাইরে       | ৩০+ সেকেন্ড — HTTP request এ রাখলে Nginx/browser এর timeout; job + "তৈরি হলে link পাঠাব"       |
+| Attachment এর thumbnail বানানো           | বাইরে       | CPU এর কাজ — Node এর event loop আটকায় (১.৩ এর নোট); আলাদা worker process                      |
+| Pro plan এ upgrade এর card charge        | পথে\*       | User কে এখনই জানাতে হবে card কাজ করল কিনা — কিন্তু timeout আর idempotency key সহ (2.5, 6.1)    |
 
-\*Payment একটা ভালো উদাহরণ যে উত্তরটা সবসময় পরিষ্কার না। Charge টা পথে থাকে কারণ user এর ফল দরকার; কিন্তু তার আশেপাশের সবকিছু — receipt email, invoice PDF, accounting system এ entry, provider এর পরের webhook — বাইরে। একটা feature প্রায় কখনো পুরোটা sync বা পুরোটা async হয় না; প্রতিটা **ধাপ** আলাদা করে প্রশ্ন করো।
+\*Payment একটা ভালো উদাহরণ যে উত্তরটা সবসময় পরিষ্কার না। Charge টা পথে থাকে কারণ user এর ফল দরকার; কিন্তু তার আশেপাশের সবকিছু — receipt email, invoice PDF, accounting system এ entry, provider এর পরের webhook — বাইরে। একটা feature প্রায় কখনো পুরোটা sync বা পুরোটা async হয় না; প্রতিটা **ধাপ** আলাদা করে প্রশ্ন করুন।
 
-**Async এর দাম — যেটা interview এ সবাই ভুলে যায়।** কাজ পথ থেকে সরালে কিছু জিনিস বিনামূল্যে পাও না:
+**Async এর দাম — যেটা interview এ সবাই ভুলে যায়।** কাজ পথ থেকে সরালে কিছু জিনিস বিনামূল্যে পান না:
 
 - **"হয়েছে" মানে এখন "হবে"।** Search index async হলে user task তৈরি করে সাথে সাথে খুঁজলে না-ও পেতে পারে। এটা Module 6 এর eventual consistency, নতুন জায়গায় — আর 6.3 এর read-your-writes এর প্রশ্ন আবার আসে। UI তে সমাধান প্রায়ই সহজ: নিজের তৈরি জিনিস client এ সাথে সাথে দেখানো, বা "processing…" অবস্থা।
-- **ফলের খবর কীভাবে দেবে?** লম্বা কাজের (export) জন্য সাধারণ ধরন: request এর উত্তরে `202 Accepted` আর একটা job id; client সেই id দিয়ে status জিজ্ঞেস করে (polling), বা server খবর পাঠায় — Lesson 2.4 এর SSE/WebSocket।
+- **ফলের খবর কীভাবে দেবেন?** লম্বা কাজের (export) জন্য সাধারণ ধরন: request এর উত্তরে `202 Accepted` আর একটা job id; client সেই id দিয়ে status জিজ্ঞেস করে (polling), বা server খবর পাঠায় — Lesson 2.4 এর SSE/WebSocket।
 - **Job হারাতে পারে, বা দুবার চলতে পারে।** Worker email পাঠাল, তারপর "শেষ" লেখার আগে মরল — আরেকজন আবার পাঠাবে। টেকসই queue গুলো সাধারণত "অন্তত একবার" দেয়, "ঠিক একবার" না। তাই প্রতিটা job idempotent হতে হবে (Lesson 2.5, 6.1) — বিস্তারিত 7.4।
 - **Database আর queue — দুই জায়গায় লেখা।** Assign commit হলো, তারপর queue তে job লেখার আগে process মরল — assign আছে, email এর job নেই। উল্টো ক্রমে: job লেখা হলো, commit ব্যর্থ — email যাবে এমন assign এর জন্য যেটা হয়নি। দুটো আলাদা system এ একসাথে লেখার এই সমস্যার নাম **dual write**, আর এর পরিচিত সমাধান (transactional outbox) Lesson 7.5 এ।
 - **Debug কঠিন।** Synchronous code এ একটা error এর stack trace পুরো গল্প বলে। Async এ "email কেন যায়নি" এর উত্তর তিনটা process আর একটা queue জুড়ে ছড়ানো — job id, log, আর Lesson 10.4 এর tracing লাগে।
@@ -351,15 +351,15 @@ TaskFlow এ প্রয়োগ করলে:
 | In-memory queue + worker    | ~১০ ms                               | হ্যাঁ                  | হ্যাঁ — worker সংখ্যায়    | না (retry যোগ করলে)                   | **হ্যাঁ, পুরো backlog**     | Backlog দেখতে হয়; deploy এ হারায়                         |
 | টেকসই queue (Redis/BullMQ…) | ~১০ ms (+ queue তে লেখা)             | হ্যাঁ                  | হ্যাঁ                      | না — retry, DLQ (7.4)                 | না — job queue তে থাকে      | নতুন infrastructure; at-least-once, dual write, monitoring |
 
-বাস্তবে উত্তর প্রায় সবসময় শেষ সারি — আর বাকি module টা সেই সারির খুঁটিনাটি: কোন queue (7.2), কীভাবে বানাবে (7.3), ব্যর্থতায় কী করবে (7.4), আর queue যখন শুধু "কাজের তালিকা" না থেকে "কী ঘটেছে তার খবর" হয়ে যায় (7.5)।
+বাস্তবে উত্তর প্রায় সবসময় শেষ সারি — আর বাকি module টা সেই সারির খুঁটিনাটি: কোন queue (7.2), কীভাবে বানাবেন (7.3), ব্যর্থতায় কী করবেন (7.4), আর queue যখন শুধু "কাজের তালিকা" না থেকে "কী ঘটেছে তার খবর" হয়ে যায় (7.5)।
 
 ---
 
 ## ২. Interview Angle
 
-**"User sign up করলে একটা welcome email যাবে — design করো।"** — ছোট প্রশ্ন, কিন্তু interviewer দেখতে চায় তুমি নিজে থেকে email কে request এর পথ থেকে সরাও কিনা। ভালো উত্তরের ক্রম: sign-up এর database write sync → email async, queue দিয়ে → কেন (provider এর latency আর availability sign-up এর গুণফলে না ঢোকানো; ১.২ এর হিসাব এক লাইনে) → queue টেকসই কেন (deploy এ হারানো না) → job idempotent কেন (worker retry করলে দুটো welcome email না)। বোনাস: "sign-up commit আর job লেখার মাঝে crash হলে কী হবে?" — dual write এর নাম বলা আর outbox এর কথা তোলা।
+**"User sign up করলে একটা welcome email যাবে — design করুন।"** — ছোট প্রশ্ন, কিন্তু interviewer দেখতে চায় আপনি নিজে থেকে email কে request এর পথ থেকে সরান কিনা। ভালো উত্তরের ক্রম: sign-up এর database write sync → email async, queue দিয়ে → কেন (provider এর latency আর availability sign-up এর গুণফলে না ঢোকানো; ১.২ এর হিসাব এক লাইনে) → queue টেকসই কেন (deploy এ হারানো না) → job idempotent কেন (worker retry করলে দুটো welcome email না)। বোনাস: "sign-up commit আর job লেখার মাঝে crash হলে কী হবে?" — dual write এর নাম বলা আর outbox এর কথা তোলা।
 
-**"এই service টা ধীর হয়ে গেছে, আর তার সাথে পুরো system — কেন হতে পারে?"** — Cascading failure এর প্রশ্ন, ছদ্মবেশে। ভালো উত্তর ভাগ করা resource খোঁজে: connection pool, thread pool, worker, memory। তারপর Little's Law দিয়ে একটা সংখ্যা: "প্রতি সেকেন্ডে ২০টা request × ৪ সেকেন্ড = ৮০টা একসাথে; pool ১০।" সমাধান তিন স্তরে: ধীর কাজ পথ থেকে সরাও (async), বাইরের call এ timeout, আর ভাগ করা resource আলাদা করো (ধীর কাজের জন্য আলাদা pool — Lesson 9.4 এর bulkhead)।
+**"এই service টা ধীর হয়ে গেছে, আর তার সাথে পুরো system — কেন হতে পারে?"** — Cascading failure এর প্রশ্ন, ছদ্মবেশে। ভালো উত্তর ভাগ করা resource খোঁজে: connection pool, thread pool, worker, memory। তারপর Little's Law দিয়ে একটা সংখ্যা: "প্রতি সেকেন্ডে ২০টা request × ৪ সেকেন্ড = ৮০টা একসাথে; pool ১০।" সমাধান তিন স্তরে: ধীর কাজ পথ থেকে সরান (async), বাইরের call এ timeout, আর ভাগ করা resource আলাদা করুন (ধীর কাজের জন্য আলাদা pool — Lesson 9.4 এর bulkhead)।
 
 **"তাহলে সব কিছু async করে দিই না কেন?"** — Trap প্রশ্ন। উত্তর: কারণ async এর দাম আছে — eventual result, at-least-once তাই idempotency, dual write, debug কঠিন, backlog monitoring। আর queue capacity বানায় না: worker এর গতি গড়ে আসার গতির কম হলে backlog সীমাহীন বাড়ে। একটা কাজ sync থাকবে যদি user এর পরের পদক্ষেপ তার ফলের উপর নির্ভর করে — ১.৬ এর চারটা প্রশ্ন।
 
@@ -371,11 +371,11 @@ TaskFlow এ প্রয়োগ করলে:
 
 - System design এর "synchronous" মানে **request এর উত্তর কাজটা শেষ হওয়ার অপেক্ষা করে** — `await` লেখা Node code ও এই অর্থে synchronous। অপেক্ষা CPU খায় না, কিন্তু connection, lock, memory আর user এর ধৈর্য ধরে রাখে
 - **Critical path** এর প্রতিটা ধাপ latency **যোগ** করে আর availability **গুণ** করে কমায় — 99.95% database আর 99.9% provider একসাথে পথে থাকলে 99.85%, মাসে ~৬৫ মিনিট
-- **Temporal coupling**: একটার সাফল্যের জন্য অন্যটাকে একই মুহূর্তে জীবিত থাকতে হয়। প্রশ্ন করো — এই কাজ কি **ঠিক এখনই** হতে হবে?
+- **Temporal coupling**: একটার সাফল্যের জন্য অন্যটাকে একই মুহূর্তে জীবিত থাকতে হয়। প্রশ্ন করুন — এই কাজ কি **ঠিক এখনই** হতে হবে?
 - ধীর dependency (মৃত না, ধীর) ভাগ করা resource দখল করে **cascading failure** ঘটায় — Little's Law: ২০/s × ৪ s = ৮০ connection দরকার, আছে ১০; exercise এ email না ছোঁয়া list route এর অর্ধেক ব্যর্থ
 - Timeout ক্ষতি ছোট করে, দূর করে না; commit এর পরে পাঠানো pool বাঁচায় কিন্তু user এখনো অপেক্ষা করে; **fire-and-forget** অপেক্ষা সরায় কিন্তু সীমা আর স্মৃতি সরিয়ে দেয় — নীরবে email হারায়
 - **Job queue** কাজ নেওয়া আর কাজ করাকে আলাদা করে: user ১০ ms এ উত্তর পায়, worker নির্দিষ্ট গতিতে কাজ করে, আর ক্ষতি সরে যায় **backlog** আর দেরিতে। কিন্তু queue capacity বানায় না, আর in-memory queue deploy এ পুরো backlog হারায় — টেকসই queue লাগে
-- কাজ পথে রাখো শুধু যদি user এর পরের পদক্ষেপ তার ফলের উপর নির্ভর করে; বাইরে নিলে দাম — eventual result, at-least-once তাই idempotency, dual write, কঠিন debug
+- কাজ পথে রাখুন শুধু যদি user এর পরের পদক্ষেপ তার ফলের উপর নির্ভর করে; বাইরে নিলে দাম — eventual result, at-least-once তাই idempotency, dual write, কঠিন debug
 
 ---
 
@@ -395,18 +395,18 @@ TaskFlow এ প্রয়োগ করলে:
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর "task এ comment" route এ এখন চারটা কাজ হয়, সবগুলো `await` করে, একটার পর একটা: (ক) comment টা Postgres এ লেখা, ~৫ ms; (খ) comment এ `@mention` করা প্রত্যেককে email, provider এ গড়ে ~১৫০ ms প্রতিটা; (গ) task এর Slack channel এ webhook, ~৩০০ ms, availability ধরো 99.5%; (ঘ) search index update, ~৪০ ms। Comment route এর latency আর availability (database 99.95%, email provider 99.9%, search 99.9% ধরে) হিসাব করো — ৩ জনকে mention করা একটা comment এর জন্য। তারপর কোন কাজগুলো পথে রাখবে আর কোনগুলো সরাবে, আর সরানোর পরে latency আর availability কত হয়?
-2. একজন engineer বলল: "Queue লাগবে না। `setImmediate(() => sendEmail())` দিয়ে দিলেই request সাথে সাথে ফিরবে, আর Node তো single process — email ঠিকই যাবে।" তার কথার কোন অংশ সঠিক, আর কোন অংশ ভুল? অন্তত তিনটা পরিস্থিতি বলো যেখানে email যাবে না — আর প্রতিটায় কেউ জানবে কিনা।
-3. Black Friday তে TaskFlow এর একটা enterprise customer ২ লাখ task একসাথে import করল; প্রতিটা task এর জন্য একটা "assigned" email এর job queue তে গেল। Worker ৮টা, প্রতিটা email ~১৫০ ms। (ক) শেষ email টা কতক্ষণ পরে যাবে? (খ) এর মধ্যে অন্য সব customer এর assign email এর কী হবে — কেন? (গ) কী বদলাবে?
+1. TaskFlow এর "task এ comment" route এ এখন চারটা কাজ হয়, সবগুলো `await` করে, একটার পর একটা: (ক) comment টা Postgres এ লেখা, ~৫ ms; (খ) comment এ `@mention` করা প্রত্যেককে email, provider এ গড়ে ~১৫০ ms প্রতিটা; (গ) task এর Slack channel এ webhook, ~৩০০ ms, availability ধরুন 99.5%; (ঘ) search index update, ~৪০ ms। Comment route এর latency আর availability (database 99.95%, email provider 99.9%, search 99.9% ধরে) হিসাব করুন — ৩ জনকে mention করা একটা comment এর জন্য। তারপর কোন কাজগুলো পথে রাখবেন আর কোনগুলো সরাবেন, আর সরানোর পরে latency আর availability কত হয়?
+2. একজন engineer বলল: "Queue লাগবে না। `setImmediate(() => sendEmail())` দিয়ে দিলেই request সাথে সাথে ফিরবে, আর Node তো single process — email ঠিকই যাবে।" তার কথার কোন অংশ সঠিক, আর কোন অংশ ভুল? অন্তত তিনটা পরিস্থিতি বলুন যেখানে email যাবে না — আর প্রতিটায় কেউ জানবে কিনা।
+3. Black Friday তে TaskFlow এর একটা enterprise customer ২ লাখ task একসাথে import করল; প্রতিটা task এর জন্য একটা "assigned" email এর job queue তে গেল। Worker ৮টা, প্রতিটা email ~১৫০ ms। (ক) শেষ email টা কতক্ষণ পরে যাবে? (খ) এর মধ্যে অন্য সব customer এর assign email এর কী হবে — কেন? (গ) কী বদলাবেন?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **প্রশ্ন ১:** এখন সবকিছু পরপর, তাই latency যোগ: ৫ + (৩ × ১৫০) + ৩০০ + ৪০ = **~৭৯৫ ms** — আর এটা স্বাভাবিক দিনের গড়; p99 আরও খারাপ, কারণ চারটা ধাপের যেকোনো একটার খারাপ মুহূর্ত পুরো request এর খারাপ মুহূর্ত। Availability গুণ (email এর তিনটা call একই provider এ, তাই provider কে একবার ধরা যুক্তিসঙ্গত — যদিও প্রতিটা call আলাদা করে ব্যর্থ হতে পারে, তাতে সংখ্যা আরও কমে): 0.9995 × 0.999 × 0.995 × 0.999 ≈ **0.9925 → 99.25%** — মাসে প্রায় সাড়ে ৫ ঘণ্টা ব্যর্থ, যেখানে database একা থাকলে ~২২ মিনিট। Slack একাই সবচেয়ে বড় অংশ খাচ্ছে — অন্য কোম্পানির একটা webhook।
 
-পথে থাকবে শুধু (ক) — comment টা লেখা হলো কিনা, user এর ফল এটাই। (খ), (গ), (ঘ) তিনটাই বাইরে, queue তে তিনটা আলাদা job (বা একটা "comment তৈরি হলো" job যেটা তিনটা কাজ ছড়িয়ে দেয় — 7.5 এর event এর ধারণা)। সরানোর পরে: latency ~৫ ms + queue তে লেখা (টেকসই queue তে একটা network round trip, ধরো ~১–২ ms) ≈ **~৭ ms**; availability ≈ database × queue এর availability — বাইরের তিনটা dependency আর গুণফলে নেই। দাম: search index এ নিজের comment কয়েক সেকেন্ড পরে দেখা যাবে — আর "comment লেখা হলো, job লেখা হলো না" এর dual write প্রশ্ন।
+পথে থাকবে শুধু (ক) — comment টা লেখা হলো কিনা, user এর ফল এটাই। (খ), (গ), (ঘ) তিনটাই বাইরে, queue তে তিনটা আলাদা job (বা একটা "comment তৈরি হলো" job যেটা তিনটা কাজ ছড়িয়ে দেয় — 7.5 এর event এর ধারণা)। সরানোর পরে: latency ~৫ ms + queue তে লেখা (টেকসই queue তে একটা network round trip, ধরুন ~১–২ ms) ≈ **~৭ ms**; availability ≈ database × queue এর availability — বাইরের তিনটা dependency আর গুণফলে নেই। দাম: search index এ নিজের comment কয়েক সেকেন্ড পরে দেখা যাবে — আর "comment লেখা হলো, job লেখা হলো না" এর dual write প্রশ্ন।
 
 **প্রশ্ন ২:** সঠিক অংশ: request সাথে সাথে ফিরবে, আর event loop আটকাবে না — user এর latency ঠিক হয়ে যাবে। ভুল অংশ: "email ঠিকই যাবে"। এটা আসলে fire-and-forget, আর যেখানে email যাবে না:
 
@@ -421,7 +421,7 @@ TaskFlow এ প্রয়োগ করলে:
 
 - **আলাদা queue বা priority:** মানুষের হাতে করা assign এর email একটা high-priority queue তে, bulk import এর email আলাদা low-priority queue তে, আলাদা worker সহ — একটা আরেকটাকে আটকায় না (9.4 এর bulkhead এর ধারণা)।
 - **Customer প্রতি সীমা (fairness):** একজন customer এর job একসাথে সর্বোচ্চ কয়টা চলবে তার সীমা, যাতে সবাই পালা পায়।
-- **কাজটাই বদলানো:** ২ লাখ আলাদা email কেউ চায় না। Bulk import এ প্রতি assignee কে একটা summary email ("তোমাকে ৪৩০টা task assign হয়েছে") — ২ লাখ job এর বদলে কয়েকশো।
+- **কাজটাই বদলানো:** ২ লাখ আলাদা email কেউ চায় না। Bulk import এ প্রতি assignee কে একটা summary email ("আপনাকে ৪৩০টা task assign হয়েছে") — ২ লাখ job এর বদলে কয়েকশো।
 - **Monitoring:** সবচেয়ে পুরনো job এর বয়সে alert — ১ ঘণ্টা না, কয়েক মিনিটে টের পাওয়া।
 
 </details>
@@ -438,17 +438,17 @@ TaskFlow এ প্রয়োগ করলে:
 
 **সৎ নোট:** Sandbox এ চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; `npm run compare` দুবার চালিয়ে একই আকৃতি (সংখ্যা সামান্য আলাদা — আসল process, আসল timer; যেমন `sync-in-tx` এর list ব্যর্থ একবার ২১৫, একবার ২০৭)। README এর পাঁচটা experiment ই চালিয়ে দেখা হয়েছে (৫ নম্বরটা `api.ts` বদলে, তারপর ফিরিয়ে), সংখ্যাগুলো README তে আছে। Provider এর "একসাথে ৫০টা" সীমা একটা ধরে নেওয়া সংখ্যা — আসল provider এর সীমা account আর plan ভেদে আলাদা, আর সাধারণত "প্রতি সেকেন্ডে কয়টা" হিসেবে।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **আগে অনুমান, তারপর চালাও:** `npm run compare` চালানোর **আগে** তুলনার table এর চারটা সারির প্রতিটা ঘর অনুমান করে লিখে ফেলো (কোনটা শূন্য, কোনটা বড়)। তারপর চালিয়ে মেলাও। কোন ঘরটা তোমাকে সবচেয়ে অবাক করল, আর কেন?
+1. **আগে অনুমান, তারপর চালান:** `npm run compare` চালানোর **আগে** তুলনার table এর চারটা সারির প্রতিটা ঘর অনুমান করে লিখে ফেলুন (কোনটা শূন্য, কোনটা বড়)। তারপর চালিয়ে মেলান। কোন ঘরটা আপনাকে সবচেয়ে অবাক করল, আর কেন?
 
-2. **Little's Law দিয়ে ব্যাখ্যা:** `sync-in-tx` এর ধীর phase এ list এর p99 প্রায় ঠিক ৩.০ সেকেন্ড কেন — ২.৫ বা ৪ না? আর `queue` mode এ `email বাকি (সর্বোচ্চ)` এর সংখ্যা হাতে হিসাব করো (১.৫ এর মতো), তারপর `WORKERS=2` দিয়ে (experiment ১) আবার — backlog কেন **স্বাভাবিক phase এও** বাড়ছে?
+2. **Little's Law দিয়ে ব্যাখ্যা:** `sync-in-tx` এর ধীর phase এ list এর p99 প্রায় ঠিক ৩.০ সেকেন্ড কেন — ২.৫ বা ৪ না? আর `queue` mode এ `email বাকি (সর্বোচ্চ)` এর সংখ্যা হাতে হিসাব করুন (১.৫ এর মতো), তারপর `WORKERS=2` দিয়ে (experiment ১) আবার — backlog কেন **স্বাভাবিক phase এও** বাড়ছে?
 
-3. **Timeout বসাও** (experiment ৫): `api.ts` এর `sendEmail` এ `signal: AbortSignal.timeout(1000)` যোগ করো, তারপর `npm run scenario -- sync-in-tx`। List বাঁচল? Assign এর ব্যর্থতা কত? আর `"ব্যর্থ" বলা হলো, অথচ email গেছে` — এই সংখ্যাটা এখন কী বলছে? এক লাইনে: timeout কী ঠিক করল আর কী করল না।
+3. **Timeout বসান** (experiment ৫): `api.ts` এর `sendEmail` এ `signal: AbortSignal.timeout(1000)` যোগ করুন, তারপর `npm run scenario -- sync-in-tx`। List বাঁচল? Assign এর ব্যর্থতা কত? আর `"ব্যর্থ" বলা হলো, অথচ email গেছে` — এই সংখ্যাটা এখন কী বলছে? এক লাইনে: timeout কী ঠিক করল আর কী করল না।
 
-4. **In-memory queue এর দুর্বলতা** (experiment ২): `CRASH_AT_MS=14000 npm run scenario -- queue` আর `CRASH_AT_MS=14000 npm run scenario -- fire-and-forget` — দুটো চালাও। কোনটায় বেশি email হারাল, আর কেন? (ইঙ্গিত: কোনটা কাজ **জমিয়ে** রাখে, আর কোনটা সব কাজ সাথে সাথে provider এর দিকে ঠেলে দেয় — তার দামটা কী ছিল?)
+4. **In-memory queue এর দুর্বলতা** (experiment ২): `CRASH_AT_MS=14000 npm run scenario -- queue` আর `CRASH_AT_MS=14000 npm run scenario -- fire-and-forget` — দুটো চালান। কোনটায় বেশি email হারাল, আর কেন? (ইঙ্গিত: কোনটা কাজ **জমিয়ে** রাখে, আর কোনটা সব কাজ সাথে সাথে provider এর দিকে ঠেলে দেয় — তার দামটা কী ছিল?)
 
-5. **Design অংশ:** TaskFlow এর সব route এর একটা তালিকা বানাও (অন্তত ৮টা: task তৈরি, assign, comment, status বদল, attachment upload, CSV export, sign-up, pro plan upgrade)। প্রতিটার জন্য: route এর ভেতরের প্রতিটা **ধাপ** লেখো, আর প্রতিটা ধাপকে "পথে" বা "বাইরে" চিহ্ন দাও ১.৬ এর চারটা প্রশ্ন দিয়ে। তারপর প্রতিটা route এর critical path এর availability হিসাব করো (নিজের ধরে নেওয়া সংখ্যায়, কিন্তু লিখে রাখো)। শেষে দুই লাইন: TaskFlow এর queue তে কয়টা আলাদা **ধরনের** job আসবে, আর তাদের কি একটা queue তে রাখবে না আলাদা (প্রশ্ন ৩ মাথায় রেখে)?
+5. **Design অংশ:** TaskFlow এর সব route এর একটা তালিকা বানান (অন্তত ৮টা: task তৈরি, assign, comment, status বদল, attachment upload, CSV export, sign-up, pro plan upgrade)। প্রতিটার জন্য: route এর ভেতরের প্রতিটা **ধাপ** লিখুন, আর প্রতিটা ধাপকে "পথে" বা "বাইরে" চিহ্ন দিন ১.৬ এর চারটা প্রশ্ন দিয়ে। তারপর প্রতিটা route এর critical path এর availability হিসাব করুন (নিজের ধরে নেওয়া সংখ্যায়, কিন্তু লিখে রাখুন)। শেষে দুই লাইন: TaskFlow এর queue তে কয়টা আলাদা **ধরনের** job আসবে, আর তাদের কি একটা queue তে রাখবেন না আলাদা (প্রশ্ন ৩ মাথায় রেখে)?
 
 ---
 
@@ -464,7 +464,7 @@ export — request এর পথ থেকে সরানোর সিদ্ধ
 (prototype) — টেকসই queue বাকি (7.3); বাইরের সব call এ timeout
 Terms learned (Module 7 so far): Synchronous/Asynchronous Processing, Critical Path,
 Temporal Coupling, Cascading Failure, Fire-and-Forget, Job Queue (Producer/Worker), Backlog
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 7.2 — Message Queue vs Pub/Sub: RabbitMQ, Kafka, Redis Streams তুলনা
 =======================
 ```
@@ -473,4 +473,4 @@ Next: 7.2 — Message Queue vs Pub/Sub: RabbitMQ, Kafka, Redis Streams তুল
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ২ নম্বরের Little's Law এর হিসাব আর ৫ নম্বরের route এর তালিকা। রেডি হলে `next` লিখো — Lesson 7.2 এ যাব: **Message Queue vs Pub/Sub — RabbitMQ, Kafka, Redis Streams এর তুলনা।** আজ আমরা একটা array কে queue বলেছি, আর দেখেছি সেটা deploy এ মরে। টেকসই queue বাছতে গেলে প্রশ্নগুলো বদলে যায়: একটা job কি একজন worker ই পাবে, নাকি email service, search service আর analytics — তিনজনই একই "comment তৈরি হলো" খবর চাইবে? পড়ার পরে message মুছে যাবে, নাকি রয়ে যাবে যাতে কাল নতুন একটা service এসে পুরনো সব খবর আবার পড়তে পারে? আর ক্রম — একই task এর দুটো ঘটনা কি সবসময় একই ক্রমে পৌঁছাবে? এই তিনটা প্রশ্নের উত্তর দিয়েই তিনটা tool এর পার্থক্য।
+Exercise চালিয়ে পাঠান — বিশেষ করে ২ নম্বরের Little's Law এর হিসাব আর ৫ নম্বরের route এর তালিকা। রেডি হলে `next` লিখুন — Lesson 7.2 এ যাব: **Message Queue vs Pub/Sub — RabbitMQ, Kafka, Redis Streams এর তুলনা।** আজ আমরা একটা array কে queue বলেছি, আর দেখেছি সেটা deploy এ মরে। টেকসই queue বাছতে গেলে প্রশ্নগুলো বদলে যায়: একটা job কি একজন worker ই পাবে, নাকি email service, search service আর analytics — তিনজনই একই "comment তৈরি হলো" খবর চাইবে? পড়ার পরে message মুছে যাবে, নাকি রয়ে যাবে যাতে কাল নতুন একটা service এসে পুরনো সব খবর আবার পড়তে পারে? আর ক্রম — একই task এর দুটো ঘটনা কি সবসময় একই ক্রমে পৌঁছাবে? এই তিনটা প্রশ্নের উত্তর দিয়েই তিনটা tool এর পার্থক্য।

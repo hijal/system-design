@@ -124,21 +124,21 @@ docker compose down -v
   পরে ফেরত যায় সেটা অন্যকে ভুল "না" বলায়; আগে শুধু দেখে পরে গুনলে ৪২টা workspace সীমা পেরোয়। কোন ভুলটা সহ্য করা যায়,
   সেটা ব্যবসার সিদ্ধান্ত।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **একটা মাত্র in-doubt transaction:** `IN_DOUBT=1 LOGGED=0 npm run twopc` — ১০০টা workspace এর একটা। `lock_timeout` ছাড়া
-   কতক্ষণে সবাই আটকায়? আগে অনুমান করো (প্রতিটা client এর প্রতিটা operation এ ১% সম্ভাবনা)। (এই machine এ: ৮০৬ ms এ ৮/৮
+   কতক্ষণে সবাই আটকায়? আগে অনুমান করুন (প্রতিটা client এর প্রতিটা operation এ ১% সম্ভাবনা)। (এই machine এ: ৮০৬ ms এ ৮/৮
    আটকে; `DURATION_MS=10000` দিয়েও ৮৩২ ms — তারপর বাকি ৯ সেকেন্ড শূন্য।)
 2. **Crash ছাড়া দাম:** `CRASH_RATE=0 npm run twopc` — সব মেলে। ops/s? (এই machine এ: monolith ২৮৯৯, দুটো লেখা ১৪৩১,
-   2PC ৮৮৮।) কোন কাজ গুলো 2PC কে ধীর করে — `twoPhase()` এ গুনে দেখো কয়টা ধারাবাহিক round trip আর কয়টা disk এ লেখা।
+   2PC ৮৮৮।) কোন কাজ গুলো 2PC কে ধীর করে — `twoPhase()` এ গুনে দেখুন কয়টা ধারাবাহিক round trip আর কয়টা disk এ লেখা।
 3. **Network এর দেরি ছাড়াও:** `STEP_MS=0 npm run saga` — অংশ খ তে saga এর ধাপের মাঝে কোনো ইচ্ছাকৃত দেরি নেই। "আগে দেখা"
    এখনো সীমা পেরোয়? (এই machine এ: হ্যাঁ, একই ৪২টা workspace — ৪টা চেষ্টা একসাথে এলে কয়েকটা round trip এর ফাঁকই যথেষ্ট।)
 4. **Compensation এর মাঝে crash** (code বদলানো): `saga.ts` এর `advance()` এ `'compensating'` log এর পরে আর `release()`
-   এর আগে একটা crash যোগ করো (যেমন archived হওয়া প্রতি তৃতীয় saga তে)। Recovery কী করে? তারপর `release()` এর idempotent
-   অংশ সরিয়ে দাও (শুধু `task_count - 1`) আর recovery দুবার চালাও — কী ভাঙে?
-5. **"সীমা শেষ" নাকি "একটু পরে"** (code বদলানো): billing এর খাতায় সংরক্ষণের দুটো অবস্থা রাখো — `reserved` (pending) আর
+   এর আগে একটা crash যোগ করুন (যেমন archived হওয়া প্রতি তৃতীয় saga তে)। Recovery কী করে? তারপর `release()` এর idempotent
+   অংশ সরিয়ে দিন (শুধু `task_count - 1`) আর recovery দুবার চালান — কী ভাঙে?
+5. **"সীমা শেষ" নাকি "একটু পরে"** (code বদলানো): billing এর খাতায় সংরক্ষণের দুটো অবস্থা রাখুন — `reserved` (pending) আর
    `confirmed` (task হয়ে গেছে, saga এর তৃতীয় ধাপ)। সীমা ভরা কিন্তু কোনোটা pending থাকলে "সীমা শেষ" না বলে "busy, আবার
-   চেষ্টা করো" ফেরত দাও, আর orchestrator ২০ ms পরে একবার আবার চেষ্টা করুক। ভুল "সীমা শেষ" কত হয়? দাম কী?
+   চেষ্টা করুন" ফেরত দিন, আর orchestrator ২০ ms পরে একবার আবার চেষ্টা করুক। ভুল "সীমা শেষ" কত হয়? দাম কী?
 
 ## Project Structure
 

@@ -20,7 +20,7 @@ TaskFlow এর ১০ লাখ comment এ খোঁজা — তিনটা
 - `like` আসল database, আসল সময় — Postgres `cpus: 2`; সংখ্যা মেশিন ভেদে বদলাবে। প্রতিটা query তিনবার, মাঝেরটা।
   `like` শুরুতে `VACUUM FULL` চালায় — আগের run এর `tsv` column এর জায়গা ফেরত আনতে, যাতে প্রতিটা run একই table দিয়ে শুরু হয়।
 - "সব deploy গোনা" তে দুই section এর সময়ের পার্থক্য (৩৯০ বনাম ১৭৫ ms) index এর না — দুই ক্ষেত্রেই planner পুরো table
-  পড়ে (plan এ `Gather`), কারণ "deploy" ২৮% row এ আছে; পার্থক্যটা cache এর। Index এর প্রভাব দেখো বিরল শব্দের সারিতে।
+  পড়ে (plan এ `Gather`), কারণ "deploy" ২৮% row এ আছে; পার্থক্যটা cache এর। Index এর প্রভাব দেখুন বিরল শব্দের সারিতে।
 - `inverted` এর analyzer একটা খেলনা — stopword এর তালিকা ছোট, stemmer টা Porter এর কয়েকটা নিয়মের নকল। Elasticsearch/Lucene
   বা Postgres এর `english` config এর নিয়ম অনেক বেশি। Index টা memory তে, একটা process এ — কোনো persistence, update, বা
   shard নেই।
@@ -143,23 +143,23 @@ docker compose down -v
 - **BM25 এর দ্বিতীয় আর তৃতীয়:** মাত্র ২টা term এর comment — দুটো শব্দই আছে আর আর কিছু প্রায় নেই, তাই উঁচুতে। প্রথমটা লম্বা,
   কিন্তু checklist দুবার আর deploy দুবার (tf)।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Index এর আকার বনাম table:** `like` এর শেষে table ১২২ MB থেকে ২৬৪ MB — কেন? (`tsv` column টা stored।) Column ছাড়া
    expression index — `CREATE INDEX ON comments USING gin (to_tsvector('english', body))` — বানিয়ে আকার আর "deploy checklist"
-   এর সময় মেলাও। Query তে কী বদলাতে হয় যাতে index টা ব্যবহার হয়? (এই মেশিনে: expression index ২৫ MB, বানাতে ১০ s, "deploy
+   এর সময় মেলান। Query তে কী বদলাতে হয় যাতে index টা ব্যবহার হয়? (এই মেশিনে: expression index ২৫ MB, বানাতে ১০ s, "deploy
    checklist" ~৪০–৫৫ ms বনাম stored column এ ~৪৭ ms — আর table ১২২ MB ই থাকে; দাম: প্রতিটা মেলানো row এ `to_tsvector` আবার
    গোনা, আর query তে হুবহু একই expression লিখতে হয়।)
-2. **`ts_rank` এ IDF নেই:** `like.ts` এর সেরা ৩টা দেখো, আর `inverted` এর BM25 এর সেরা ৩টা। Postgres এর `ts_rank` শব্দ কত বার
+2. **`ts_rank` এ IDF নেই:** `like.ts` এর সেরা ৩টা দেখুন, আর `inverted` এর BM25 এর সেরা ৩টা। Postgres এর `ts_rank` শব্দ কত বার
    আর কত কাছাকাছি সেটা দেখে, কিন্তু পুরো corpus এ শব্দটা কত বিরল (IDF) সেটা দেখে না। "kax deploy" (খুব সাধারণ + সাধারণ) দিয়ে
-   দুটোই চালিয়ে দেখো — সাজানো কীভাবে আলাদা হয়?
-3. **Stopword রাখলে:** `inverted.ts` এ `STOP` খালি করে দাও (`new Set<string>()`)। Posting এর মোট সংখ্যা আর index এর আকার কত বাড়ল?
+   দুটোই চালিয়ে দেখুন — সাজানো কীভাবে আলাদা হয়?
+3. **Stopword রাখলে:** `inverted.ts` এ `STOP` খালি করে দিন (`new Set<string>()`)। Posting এর মোট সংখ্যা আর index এর আকার কত বাড়ল?
    "the deploy" খুঁজলে intersection এ কী হয়?
 4. **বড় হলে:** `DOCS=1000000 npm run inverted` — প্রতিটা সময় কত গুণ বাড়ল? পুরো scan আর index এর অনুপাত কি একই থাকল? (এই
    মেশিনে: বানাতে ৫.২ s, posting ৯৪ লাখ (~৭২ MB); substring scan ৭১.৫ ms, analyzer সহ scan ২০৩০ ms, index ৪.৬ ms — আর index এর
    ফল ২০,২৯৩, হুবহু `like` এ Postgres এর full-text এর "deploy checklist" এর সমান।)
 5. **ভুল বানানের সীমা:** `like.ts` এর শেষে `pg_trgm.similarity_threshold` কমিয়ে (`SET pg_trgm.similarity_threshold = 0.2`)
-   "recieve" আবার খোঁজো। কী কী এলো? খুব ছোট শব্দে (যেমন "bgu" → "bug") trigram কেন দুর্বল?
+   "recieve" আবার খুঁজুন। কী কী এলো? খুব ছোট শব্দে (যেমন "bgu" → "bug") trigram কেন দুর্বল?
 
 ## Project Structure
 

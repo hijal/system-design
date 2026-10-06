@@ -6,11 +6,11 @@
 
 **Prerequisite:** Lesson 2.5 (Idempotency), Lesson 3.3 (Nginx reverse proxy), Lesson 4.5 (CDN), Lesson 7.1 (Little's Law, খোলা request কী ধরে রাখে), Lesson 7.4 (Retry), Lesson 7.5 (Outbox), Lesson 8.1 (Object storage, key, dual write এর ক্রম)
 
-**তুমি এই lesson শেষে পারবে:**
+**আপনি এই lesson শেষে পারবেন:**
 
-1. কেন বড় file app server এর ভেতর দিয়ে upload হওয়া উচিত না — memory, connection আর সময় ধরে সংখ্যা দিয়ে বলতে পারবে; আর presigned URL দিয়ে browser কে সরাসরি object storage এ পাঠানোর flow design করতে পারবে — কী sign করবে, কতক্ষণের জন্য, আর upload এর পরে কী যাচাই করবে
-2. Multipart upload দিয়ে বড় file কে ভাঙা network এও নির্ভরযোগ্যভাবে পাঠাতে পারবে — part এর আকার বাছা, একটা part আবার পাঠানো, tab বন্ধের পরে যেখানে থেমেছিল সেখান থেকে শুরু, আর অসমাপ্ত upload পরিষ্কার
-3. Private file CDN দিয়ে দেওয়ার design করতে পারবে — কেন প্রত্যেকের presigned URL CDN এর cache ভেঙে দেয়, CDN এর নিজের signed URL/cookie কীভাবে সেটা সারায়, আর user এর upload করা file কোন domain থেকে কীভাবে দেবে
+1. কেন বড় file app server এর ভেতর দিয়ে upload হওয়া উচিত না — memory, connection আর সময় ধরে সংখ্যা দিয়ে বলতে পারবেন; আর presigned URL দিয়ে browser কে সরাসরি object storage এ পাঠানোর flow design করতে পারবেন — কী sign করবেন, কতক্ষণের জন্য, আর upload এর পরে কী যাচাই করবেন
+2. Multipart upload দিয়ে বড় file কে ভাঙা network এও নির্ভরযোগ্যভাবে পাঠাতে পারবেন — part এর আকার বাছা, একটা part আবার পাঠানো, tab বন্ধের পরে যেখানে থেমেছিল সেখান থেকে শুরু, আর অসমাপ্ত upload পরিষ্কার
+3. Private file CDN দিয়ে দেওয়ার design করতে পারবেন — কেন প্রত্যেকের presigned URL CDN এর cache ভেঙে দেয়, CDN এর নিজের signed URL/cookie কীভাবে সেটা সারায়, আর user এর upload করা file কোন domain থেকে কীভাবে দেবেন
 
 **Tier:** 1 — Runnable Code (Docker এ SeaweedFS — S3-compatible, authentication চালু; আসল presigned URL, মাঝপথে আসলেই কাটা connection, আর একটা ছোট CDN)
 
@@ -96,9 +96,9 @@ Signature টা কীভাবে কাজ করে, এক প্যার�
 
 তিনটা শিক্ষা:
 
-- **যা sign করা, শুধু সেটাই আটকায়।** ৩ আর ৫ এ `403` কারণ content-type আর content-length কে আমরা স্পষ্টভাবে sign এর তালিকায় রেখেছি। ৭ এ আকার sign করা ছিল না — কেউ ৫০ গুণ বড় file দিল, আর সেটা চলে গেল। Default এ presigned PUT আকার বাঁধে না। তাই হয় আকার sign করো (browser নিজেই সঠিক `Content-Length` পাঠায়), নয়তো upload এর পরে যাচাই করো — ভালো হলো দুটোই (১.৪)। (S3 এর আরেকটা রূপ আছে — presigned POST, একটা policy সহ, যেখানে `content-length-range` দিয়ে "১ থেকে ১০০ MB" এর মতো সীমা দেওয়া যায়।)
+- **যা sign করা, শুধু সেটাই আটকায়।** ৩ আর ৫ এ `403` কারণ content-type আর content-length কে আমরা স্পষ্টভাবে sign এর তালিকায় রেখেছি। ৭ এ আকার sign করা ছিল না — কেউ ৫০ গুণ বড় file দিল, আর সেটা চলে গেল। Default এ presigned PUT আকার বাঁধে না। তাই হয় আকার sign করুন (browser নিজেই সঠিক `Content-Length` পাঠায়), নয়তো upload এর পরে যাচাই করুন — ভালো হলো দুটোই (১.৪)। (S3 এর আরেকটা রূপ আছে — presigned POST, একটা policy সহ, যেখানে `content-length-range` দিয়ে "১ থেকে ১০০ MB" এর মতো সীমা দেওয়া যায়।)
 - **Presigned URL একটা bearer অনুমতি** (২): মেয়াদের মধ্যে যার হাতে, যতবার খুশি। কারো browser এর history, একটা log, বা একটা ভুল করে share করা link — সবই অনুমতি। তাই মেয়াদ ছোট (upload এ কয়েক মিনিট — শুধু **শুরু** করার জন্য; চলমান upload মেয়াদ পেরোলেও শেষ হয়), key প্রতিবার নতুন (server বানায়, client কখনো না — ৪ এর মতো অন্যের object এ লেখা আটকাতে), আর দরকার হলে replay আটকানো: experiment ৫ এ `If-None-Match: *` sign করলে একই URL দ্বিতীয়বার `412`।
-- **একটা বাস্তব ফাঁদ** (৮): AWS SDK for JavaScript v3 এর নতুন version default এ presigned PUT এর URL এ body এর একটা checksum বসায় — কিন্তু sign করার সময় body নেই, তাই খালি body এর checksum। আসল file এলে server বলে `BadDigest`। Client এ `requestChecksumCalculation: 'WHEN_REQUIRED'`। এই ধরনের জিনিস documentation এর এক কোণে থাকে, আর production এ প্রথম দিন ধরা পড়ে — তাই upload এর পথের একটা end-to-end test রাখো।
+- **একটা বাস্তব ফাঁদ** (৮): AWS SDK for JavaScript v3 এর নতুন version default এ presigned PUT এর URL এ body এর একটা checksum বসায় — কিন্তু sign করার সময় body নেই, তাই খালি body এর checksum। আসল file এলে server বলে `BadDigest`। Client এ `requestChecksumCalculation: 'WHEN_REQUIRED'`। এই ধরনের জিনিস documentation এর এক কোণে থাকে, আর production এ প্রথম দিন ধরা পড়ে — তাই upload এর পথের একটা end-to-end test রাখুন।
 
 **CORS।** Browser এর page `app.taskflow.test` থেকে, আর PUT যাচ্ছে object storage এর domain এ — অন্য origin। Browser নিজের নিরাপত্তার নিয়মে আগে জিজ্ঞেস করে।
 
@@ -159,7 +159,7 @@ Exercise এর `npm run resume`: ২০০ MB এর file, এমন network �
 - **একটা PUT:** ২০০ MB একবারে পার হওয়ার সম্ভাবনা e^(−২০০/৬০) ≈ ৩.৬%। প্রতিটা চেষ্টা গড়ে কিছুদূর গিয়ে ছেঁড়ে, আর সেই byte গুলো নষ্ট। আসল run এ ১৫ বার চেষ্টা, ৮১৯ MB পাঠানো (file এর চার গুণ) — আর তবু শেষ হয়নি। Model এ ১৫ বারের মধ্যে শেষ হয় মাত্র ৪৩% ক্ষেত্রে। বৃহস্পতিবারের designer।
 - **Multipart:** প্রতিবার ছিঁড়লে নষ্ট হয় শুধু একটা part এর অংশ — ১০০% শেষ, ১৬ MB part এ মাত্র ১৪% বাড়তি byte।
 - **Part এর আকার একটা trade-off** — Lesson 7.4 এর batch এর মতোই। বড় part মানে প্রতিটা ছেঁড়ায় বেশি নষ্ট: ৬৪ MB এ ১.৭৬ গুণ, আর আসল run এ ৩.৭৯ — একটা part বারবার ছিঁড়েছে। ছোট part মানে বেশি request, প্রতিটায় একটা round trip — ৫ MB এ ৪৩টা। Experiment ২: round trip ৬০০ ms হলে (খারাপ mobile) ৫ MB আর সবচেয়ে ভালো না (১.৮ মিনিট বনাম ১৬ MB এর ১.৭)। বাস্তবে একটা মাঝামাঝি আকার (৮–১৬ MB), আর file খুব বড় হলে বাড়ানো, যাতে ১০,০০০ part এর সীমা না ছাড়ায়।
-- **Tab বন্ধ:** browser এর memory তে কোন part শেষ তার তালিকা ছিল, সেটা গেল। ফিরে এসে app `ListParts` জিজ্ঞেস করে — ৬টা আগে থেকেই আছে — আর বাকি ৭টা পাঠায়। একটা byte ও আবার যায়নি। (তাই `UploadId` টা database এর pending row এ রাখো, browser এর memory তে শুধু না।)
+- **Tab বন্ধ:** browser এর memory তে কোন part শেষ তার তালিকা ছিল, সেটা গেল। ফিরে এসে app `ListParts` জিজ্ঞেস করে — ৬টা আগে থেকেই আছে — আর বাকি ৭টা পাঠায়। একটা byte ও আবার যায়নি। (তাই `UploadId` টা database এর pending row এ রাখুন, browser এর memory তে শুধু না।)
 
 আর multipart এর আরেকটা সুবিধা, ভাঙা network ছাড়াও: part গুলো **সমান্তরালে** যেতে পারে। দূরের region এ, বেশি latency র link এ, একটা TCP connection প্রায়ই পুরো bandwidth ব্যবহার করতে পারে না; ৪টা part একসাথে পাঠালে পারে। (Experiment ৩ এর প্রশ্ন।)
 
@@ -173,7 +173,7 @@ Exercise এর `npm run resume`: ২০০ MB এর file, এমন network �
 
 User চলে গেলে তার পাঠানো part গুলো object storage এ থেকে যায় — কোনো object হিসেবে দেখা যায় না (`LIST` এ ০টা), কিন্তু জায়গা নেয় আর বিল হয়। হাজার হাজার ব্যর্থ বড় upload মানে নীরবে জমা হওয়া terabyte। সমাধান: bucket এর lifecycle এ "অসমাপ্ত multipart upload ৭ দিন পরে abort" (S3 এর `AbortIncompleteMultipartUpload` rule) — প্রায় প্রতিটা bucket এ রাখার মতো একটা নিয়ম।
 
-(বাস্তবে এই পুরো ব্যাপারটা হাতে লিখতে হয় না — browser এর জন্য Uppy এর মতো library, আর AWS SDK এর `@aws-sdk/lib-storage` এর `Upload` — part এ ভাগ, সমান্তরালে পাঠানো, retry সব নিজে করে। কিন্তু কোন সংখ্যা বাছবে আর কী ভাঙতে পারে, সেটা জানতে হয়।)
+(বাস্তবে এই পুরো ব্যাপারটা হাতে লিখতে হয় না — browser এর জন্য Uppy এর মতো library, আর AWS SDK এর `@aws-sdk/lib-storage` এর `Upload` — part এ ভাগ, সমান্তরালে পাঠানো, retry সব নিজে করে। কিন্তু কোন সংখ্যা বাছবেন আর কী ভাঙতে পারে, সেটা জানতে হয়।)
 
 ### ১.৪ Upload এর জীবন — pending থেকে ready
 
@@ -208,7 +208,7 @@ Confirm ধাপে app browser কে বিশ্বাস করে না �
 পুরো flow, ব্যর্থতার জায়গা সহ:
 
 ```
-  ১. POST /uploads     → pending row (database)            crash → row আছে, object নেই → রাতের job: ২৪ ঘণ্টার পুরনো pending → মুছে ফেলো
+  ১. POST /uploads     → pending row (database)            crash → row আছে, object নেই → রাতের job: ২৪ ঘণ্টার পুরনো pending → মুছে ফেলুন
   ২. browser PUT       → object (object storage)          ছিঁড়ল → multipart এ শুধু part আবার; user চলে গেল → lifecycle abort
   ৩. POST /complete    → HEAD, যাচাই, ready + outbox event   browser কখনো ডাকল না (tab বন্ধ ঠিক শেষ byte এর পরে) → ↓
   ৪. (বিকল্প) object storage এর event notification ("ObjectCreated") → একই complete, idempotent
@@ -373,7 +373,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 "তাহলে cache key থেকে query বাদ দিই?" — experiment ৪। Hit rate বাড়ে, কিন্তু এখন CDN কিছুই যাচাই করছে না: একবার কেউ file টা আনলেই, **যে কেউ** শুধু path জানলে cache থেকে পায় — মেয়াদ পেরোনো বা কখনো না পাওয়া URL দিয়েও। Private file আর private থাকল না।
 
-তৃতীয় সারির উত্তর: যাচাইয়ের দায়িত্ব CDN কে দাও।
+তৃতীয় সারির উত্তর: যাচাইয়ের দায়িত্ব CDN কে দিন।
 
 **CDN signed URL / signed cookie** — CDN এর নিজের একটা key দিয়ে sign করা অনুমতি (একটা URL এর জন্য, বা cookie হিসেবে অনেক file এর জন্য); CDN প্রতিটা request এ আগে signature আর মেয়াদ যাচাই করে, তারপর signature বাদ দিয়ে শুধু path কে cache key ধরে — আর miss হলে নিজের অনুমতি দিয়ে private bucket থেকে আনে।
 
@@ -382,7 +382,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 দুটো বাড়তি নিয়ম, দুটোই 8.1 এর key এর নিয়ম থেকে আসে:
 
 - **Key কখনো বদলায় না** (`ws/12/att/{uuid}` এ নতুন file মানে নতুন key) — তাই CDN আর browser লম্বা সময় cache করতে পারে (`Cache-Control: max-age=31536000, immutable`)। Invalidation এর প্রশ্নই নেই (Lesson 4.3)। Private file এ browser এর cache এর জন্য `private`, আর CDN এর জন্য আলাদা নিয়ম — CDN এর configuration এ।
-- **User এর upload করা file নিজের app এর domain থেকে দিও না।** কেউ একটা HTML file upload করল, আর সেটা `app.taskflow.test` থেকে `text/html` হিসেবে খুলল — সেই HTML এর script TaskFlow এর domain এ চলে, user এর session নিয়ে (stored XSS)। তাই: user content আলাদা domain থেকে (যেমন `taskflow-usercontent.test` — Google এর `googleusercontent.com` এর মতো), download এ `Content-Disposition: attachment`, সঠিক `Content-Type`, আর `X-Content-Type-Options: nosniff`।
+- **User এর upload করা file নিজের app এর domain থেকে দেবেন না।** কেউ একটা HTML file upload করল, আর সেটা `app.taskflow.test` থেকে `text/html` হিসেবে খুলল — সেই HTML এর script TaskFlow এর domain এ চলে, user এর session নিয়ে (stored XSS)। তাই: user content আলাদা domain থেকে (যেমন `taskflow-usercontent.test` — Google এর `googleusercontent.com` এর মতো), download এ `Content-Disposition: attachment`, সঠিক `Content-Type`, আর `X-Content-Type-Options: nosniff`।
 
 ### ১.৬ TaskFlow এর সিদ্ধান্ত
 
@@ -406,11 +406,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 ## ২. Interview Angle
 
-**"YouTube/Dropbox এ upload design করো।"** — প্রায় প্রতিটা "file" এর design প্রশ্নের কেন্দ্র। ভালো উত্তরের ক্রম: client সরাসরি object storage এ (presigned URL — app শুধু অনুমতি দেয়, কেন: memory, connection, bandwidth); বড় file এ multipart (resume, সমান্তরাল, ছেঁড়া network — একটা সংখ্যা: "২০ Mbps এ ২ GB = ১৪ মিনিট, ভাঙবেই"); metadata এর অবস্থা (pending → ready) আর confirm; upload শেষে একটা event → processing pipeline (transcode, thumbnail, scan — Lesson 7.x)। Interviewer প্রায়ই follow-up করে: "user মাঝপথে চলে গেলে?" (অসমাপ্ত upload, lifecycle abort, pending cleanup) আর "কেউ ১০০ GB পাঠালে?" (size sign করা, API তে সীমা, confirm এ HEAD)।
+**"YouTube/Dropbox এ upload design করুন।"** — প্রায় প্রতিটা "file" এর design প্রশ্নের কেন্দ্র। ভালো উত্তরের ক্রম: client সরাসরি object storage এ (presigned URL — app শুধু অনুমতি দেয়, কেন: memory, connection, bandwidth); বড় file এ multipart (resume, সমান্তরাল, ছেঁড়া network — একটা সংখ্যা: "২০ Mbps এ ২ GB = ১৪ মিনিট, ভাঙবেই"); metadata এর অবস্থা (pending → ready) আর confirm; upload শেষে একটা event → processing pipeline (transcode, thumbnail, scan — Lesson 7.x)। Interviewer প্রায়ই follow-up করে: "user মাঝপথে চলে গেলে?" (অসমাপ্ত upload, lifecycle abort, pending cleanup) আর "কেউ ১০০ GB পাঠালে?" (size sign করা, API তে সীমা, confirm এ HEAD)।
 
-**"Presigned URL কি নিরাপদ?"** — হ্যাঁ, শর্তে: ছোট মেয়াদ, server এর বানানো key, যা আটকাতে চাও সেটা sign করা (content-type, size), আর মনে রাখা যে এটা bearer — যার হাতে সেই পারে, মেয়াদের মধ্যে যতবার খুশি। বোনাস: CORS নিরাপত্তা না, browser এর নিয়ম।
+**"Presigned URL কি নিরাপদ?"** — হ্যাঁ, শর্তে: ছোট মেয়াদ, server এর বানানো key, যা আটকাতে চান সেটা sign করা (content-type, size), আর মনে রাখা যে এটা bearer — যার হাতে সেই পারে, মেয়াদের মধ্যে যতবার খুশি। বোনাস: CORS নিরাপত্তা না, browser এর নিয়ম।
 
-**"Private file CDN দিয়ে দেবে কীভাবে?"** — এখানে cache key এর ফাঁদটা নিজে থেকে বলা senior এর চিহ্ন: প্রত্যেকের presigned URL আলাদা, তাই CDN এর hit rate শূন্য; সমাধান CDN এর signed URL/cookie, CDN যাচাই করে আর path এ cache করে, bucket শুধু CDN পড়ে।
+**"Private file CDN দিয়ে দেবেন কীভাবে?"** — এখানে cache key এর ফাঁদটা নিজে থেকে বলা senior এর চিহ্ন: প্রত্যেকের presigned URL আলাদা, তাই CDN এর hit rate শূন্য; সমাধান CDN এর signed URL/cookie, CDN যাচাই করে আর path এ cache করে, bucket শুধু CDN পড়ে।
 
 **Production এ বাস্তবে:** সবচেয়ে পরিচিত ঘটনা: lifecycle ছাড়া অসমাপ্ত multipart — মাসের পর মাস বিলে জমা; presigned URL log এ লেখা (log পড়তে পারে এমন সবাই অনুমতি পায়); CORS এ `*` আর তারপর অবাক; confirm না থাকা — database বলে "ready", object নেই; SDK এর version বদলে presigned PUT হঠাৎ ভাঙা (১.২ এর checksum); আর user এর HTML একই domain থেকে দেওয়া — XSS।
 
@@ -442,11 +442,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 ## ৫. Reflection Questions
 
-উত্তর দেখার আগে নিজে ভাবো — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলো।
+উত্তর দেখার আগে নিজে ভাবুন — প্রতিটার জন্য অন্তত দুই-তিন লাইন নিজের ভাষায় লিখে ফেলুন।
 
-1. TaskFlow এর avatar upload (৮.১ এর প্রশ্ন ১): একটা ছবি, সর্বোচ্চ ৫ MB, upload এর পরে ২৫৬×২৫৬ এ resize হবে। একজন engineer বলল: "এত ছোট file — presigned URL এর ঝামেলা কেন? Express এ `multer` দিয়ে নিয়ে নিই, সেখানেই `sharp` দিয়ে resize করে object storage এ রাখি।" তার যুক্তির কোন অংশ ঠিক? কী কী ভুল হতে পারে (Lesson 7.1 এর event loop, এই lesson এর ১.১)? তুমি কোন design বাছবে — আর যে user একটা ৫ MB এর PNG এর নাম দিয়ে আসলে একটা HTML file পাঠায়, তার কী হবে?
+1. TaskFlow এর avatar upload (৮.১ এর প্রশ্ন ১): একটা ছবি, সর্বোচ্চ ৫ MB, upload এর পরে ২৫৬×২৫৬ এ resize হবে। একজন engineer বলল: "এত ছোট file — presigned URL এর ঝামেলা কেন? Express এ `multer` দিয়ে নিয়ে নিই, সেখানেই `sharp` দিয়ে resize করে object storage এ রাখি।" তার যুক্তির কোন অংশ ঠিক? কী কী ভুল হতে পারে (Lesson 7.1 এর event loop, এই lesson এর ১.১)? আপনি কোন design বাছবেন — আর যে user একটা ৫ MB এর PNG এর নাম দিয়ে আসলে একটা HTML file পাঠায়, তার কী হবে?
 2. একজন user এর ৩ GB এর upload শুরু হলো ১০টা ৫ মিনিটে, multipart, ১৬ MB part। ১০টা ১২ তে তার laptop ঘুমিয়ে গেল, ১১টা ৪০ এ খুলল। Presigned part এর URL গুলোর মেয়াদ ছিল ১৫ মিনিট। কী কী ঘটবে, ধাপে ধাপে — কোন URL কাজ করবে না, কোন তথ্য কোথায় আছে, আর upload কীভাবে শেষ হবে? কোন design এ এটা সবচেয়ে মসৃণ হয় — সব part এর URL শুরুতে একবারে, নাকি প্রতিটা part এর আগে আলাদা করে চাওয়া?
-3. TaskFlow এর board এ একটা task খুললে তার ২০টা attachment এর thumbnail দেখায়। প্রতিটার জন্য একটা presigned GET — প্রতি page এ ২০টা sign, আর CDN এ কোনো cache না। তিনটা বিকল্প তুলনা করো: (ক) প্রতি thumbnail এ presigned GET, (খ) প্রতি thumbnail এ CDN signed URL, (গ) workspace এর prefix এর জন্য একটা CDN signed cookie। CDN এর hit rate, app এর কাজ, আর নিরাপত্তা (একজন workspace থেকে বাদ পড়লে কতক্ষণ দেখতে পায়?) — প্রতিটার জন্য।
+3. TaskFlow এর board এ একটা task খুললে তার ২০টা attachment এর thumbnail দেখায়। প্রতিটার জন্য একটা presigned GET — প্রতি page এ ২০টা sign, আর CDN এ কোনো cache না। তিনটা বিকল্প তুলনা করুন: (ক) প্রতি thumbnail এ presigned GET, (খ) প্রতি thumbnail এ CDN signed URL, (গ) workspace এর prefix এর জন্য একটা CDN signed cookie। CDN এর hit rate, app এর কাজ, আর নিরাপত্তা (একজন workspace থেকে বাদ পড়লে কতক্ষণ দেখতে পায়?) — প্রতিটার জন্য।
 
 <details>
 <summary><strong>Answer Key</strong></summary>
@@ -463,20 +463,20 @@ HTML এর user: content-type এর নাম দিয়ে কিছু প
 **প্রশ্ন ২:** ধাপে ধাপে:
 
 1. ১০:০৫ — upload শুরু: `CreateMultipartUpload`, pending row এ `UploadId`। সব part এর URL যদি শুরুতে একবারে দেওয়া হয়ে থাকে (১৯২টা, ৩ GB ÷ ১৬ MB), সবগুলোর মেয়াদ ১০:২০ এ শেষ।
-2. ১০:১২ — laptop ঘুম। ধরো ৮০টা part পৌঁছেছে, ৩টা চলমান ছিল (সেগুলো ছিঁড়েছে — object storage এ নেই)।
+2. ১০:১২ — laptop ঘুম। ধরুন ৮০টা part পৌঁছেছে, ৩টা চলমান ছিল (সেগুলো ছিঁড়েছে — object storage এ নেই)।
 3. ১১:৪০ — laptop খুলল। Browser এর memory তে হয়তো part এর তালিকা আছে (tab খোলা ছিল), কিন্তু বাকি ১১২টা URL এর মেয়াদ শেষ — প্রতিটা `403`।
 4. যা এখনো ঠিক আছে: object storage এ `UploadId` আর ৮০টা part (অসমাপ্ত upload এর lifecycle ৭ দিনের — তাই আছে)। Pending row এ `UploadId`।
-5. পুনরুদ্ধার: browser app কে বলে "আবার শুরু করো" → app pending row থেকে `UploadId` নেয়, `ListParts` করে (৮০টা আছে), আর **বাকি** part গুলোর জন্য নতুন presigned URL দেয় → browser শুধু সেগুলো পাঠায় → complete।
+5. পুনরুদ্ধার: browser app কে বলে "আবার শুরু করুন" → app pending row থেকে `UploadId` নেয়, `ListParts` করে (৮০টা আছে), আর **বাকি** part গুলোর জন্য নতুন presigned URL দেয় → browser শুধু সেগুলো পাঠায় → complete।
 
 মসৃণ design: প্রতিটা part (বা ছোট একটা ব্যাচ) এর URL দরকারের ঠিক আগে চাওয়া — তাহলে মেয়াদ ছোট রাখা যায় (৫–১৫ মিনিট), আর ঘুমের পরে স্বাভাবিকভাবেই নতুন URL আসে; বাড়তি দাম প্রতি part এ app এ একটা ছোট request। শুরুতে সব একবারে দিলে হয় মেয়াদ লম্বা করতে হয় (bearer অনুমতি ঘণ্টার পর ঘণ্টা — ১.২ এর ঝুঁকি), নয়তো ঠিক এই "মেয়াদ শেষ" এর পথটা আলাদা করে সামলাতে হয়। দুই ক্ষেত্রেই আসল নির্ভরতা একই: `UploadId` server এ, আর `ListParts` সত্যের উৎস — browser এর memory না।
 
 **প্রশ্ন ৩:**
 
-| বিকল্প                                | CDN hit rate                                               | App এর কাজ                             | বাদ পড়া member কতক্ষণ দেখে                                                              |
-| ------------------------------------- | ---------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
-| (ক) presigned GET প্রতি thumbnail     | ০% (প্রতিটা URL আলাদা — ১.৫), বা CDN নেই                   | প্রতি page এ ২০টা sign (সস্তা, কিন্তু) | URL এর মেয়াদ পর্যন্ত (যেমন ৫ মিনিট)                                                     |
-| (খ) CDN signed URL প্রতি thumbnail    | উঁচু (path এ cache)                                        | প্রতি page এ ২০টা sign                 | URL এর মেয়াদ পর্যন্ত                                                                    |
-| (গ) workspace prefix এর signed cookie | উঁচু, আর HTML এ সাধারণ স্থির URL — browser cache ও কাজ করে | Session এ একবার (আর মেয়াদ শেষে নতুন)  | Cookie এর মেয়াদ পর্যন্ত — ছোট রাখো (যেমন ১৫ মিনিট), আর বাদ পড়লে পরের নবায়নে দেওয়া না |
+| বিকল্প                                | CDN hit rate                                               | App এর কাজ                             | বাদ পড়া member কতক্ষণ দেখে                                                               |
+| ------------------------------------- | ---------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| (ক) presigned GET প্রতি thumbnail     | ০% (প্রতিটা URL আলাদা — ১.৫), বা CDN নেই                   | প্রতি page এ ২০টা sign (সস্তা, কিন্তু) | URL এর মেয়াদ পর্যন্ত (যেমন ৫ মিনিট)                                                      |
+| (খ) CDN signed URL প্রতি thumbnail    | উঁচু (path এ cache)                                        | প্রতি page এ ২০টা sign                 | URL এর মেয়াদ পর্যন্ত                                                                     |
+| (গ) workspace prefix এর signed cookie | উঁচু, আর HTML এ সাধারণ স্থির URL — browser cache ও কাজ করে | Session এ একবার (আর মেয়াদ শেষে নতুন)  | Cookie এর মেয়াদ পর্যন্ত — ছোট রাখুন (যেমন ১৫ মিনিট), আর বাদ পড়লে পরের নবায়নে দেওয়া না |
 
 বাছাই: board এর thumbnail এর জন্য (গ) — অনেক ছোট file, একই প্রশ্ন ("এই workspace এর member কি?") সবগুলোর জন্য, আর HTML এ স্থির URL মানে browser এর নিজের cache ও (key অপরিবর্তনীয়)। দাম: prefix এর সীমা design এ ঠিক রাখতে হয় (`ws/{workspaceId}/` — 8.1 এর key এর নিয়ম এখানে কাজে লাগল), আর বাদ পড়ার পরে cookie এর মেয়াদ পর্যন্ত দেখার জানালা। একক বড় file download এ (একটা ২ GB এর video) (খ) — একটা file এর নির্দিষ্ট অনুমতি।
 
@@ -492,17 +492,17 @@ HTML এর user: content-type এর নাম দিয়ে কিছু প
 
 `through-app` TaskFlow এর API কে আলাদা process এ চালিয়ে তিনটা upload এর পথ তুলনা করে — app এর memory, খোলা upload, event loop। `presign` presigned PUT/GET এর নিয়ম আসল request দিয়ে যাচাই করে, সাথে confirm ধাপ আর CORS। `resume` ভাঙা network এ একটা PUT আর multipart পাঠায় — connection আসলেই মাঝপথে কাটা — আর শেষে ১০০০ seed এর একটা model। `cdn` একটা ছোট CDN চালিয়ে presigned URL আর CDN token এর cache hit মাপে।
 
-**সৎ নোট:** Sandbox এ Docker এর SeaweedFS 4.47 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; চারটা script ই চালানো — `presign` দুবার (ETag ছাড়া হুবহু একই), `cdn` তিনবার (হুবহু একই); `resume` দুটো seed এ (৭ আর ১১); `through-app` default এ একবার আর experiment ১ এ একবার — buffer এ memory upload এর সংখ্যার সাথে রৈখিক, বাকি দুটোয় প্রায় স্থির। README এর experiment ১, ২ আর ৫ চালানো হয়েছে; ৩ আর ৪ code বদলানোর কাজ — তোমার। Object store টা SeaweedFS, AWS S3 না; S3 এর সীমা (৫ MB, ১০,০০০ part, ৫ GB) documentation থেকে। `resume` এর default seed (১১) বাছা হয়েছে কারণ তার ছেঁড়ার দূরত্ব গড়ের কাছে — seed ৭ এ দুটো ছেঁড়া প্রথম ২ MB এর মধ্যে, তারপর আর না, আর তখন সব পদ্ধতি প্রায় সমান দেখায়; তাই গড় আর p95 model এর table থেকে পড়ো। `resume` এর সময় একটা হিসাব, মাপা না। `cdn` একটা ছোট Express proxy, কোনো আসল CDN না; token টা CDN এর signed URL এর ধারণা, কোনো নির্দিষ্ট CDN এর format না। SvelteKit এর code (১.৪) browser এ চালানো হয়নি।
+**সৎ নোট:** Sandbox এ Docker এর SeaweedFS 4.47 দিয়ে চালিয়ে যাচাই করা হয়েছে: `tsc --noEmit` clean; চারটা script ই চালানো — `presign` দুবার (ETag ছাড়া হুবহু একই), `cdn` তিনবার (হুবহু একই); `resume` দুটো seed এ (৭ আর ১১); `through-app` default এ একবার আর experiment ১ এ একবার — buffer এ memory upload এর সংখ্যার সাথে রৈখিক, বাকি দুটোয় প্রায় স্থির। README এর experiment ১, ২ আর ৫ চালানো হয়েছে; ৩ আর ৪ code বদলানোর কাজ — আপনার। Object store টা SeaweedFS, AWS S3 না; S3 এর সীমা (৫ MB, ১০,০০০ part, ৫ GB) documentation থেকে। `resume` এর default seed (১১) বাছা হয়েছে কারণ তার ছেঁড়ার দূরত্ব গড়ের কাছে — seed ৭ এ দুটো ছেঁড়া প্রথম ২ MB এর মধ্যে, তারপর আর না, আর তখন সব পদ্ধতি প্রায় সমান দেখায়; তাই গড় আর p95 model এর table থেকে পড়ুন। `resume` এর সময় একটা হিসাব, মাপা না। `cdn` একটা ছোট Express proxy, কোনো আসল CDN না; token টা CDN এর signed URL এর ধারণা, কোনো নির্দিষ্ট CDN এর format না। SvelteKit এর code (১.৪) browser এ চালানো হয়নি।
 
-**সেটআপ যাচাই হলে, এই পাঁচটা করো:**
+**সেটআপ যাচাই হলে, এই পাঁচটা করুন:**
 
-1. **হিসাব আগে:** `through-app` চালানোর আগে লিখে ফেলো — buffer এ ৮টা ৬৪ MB এর upload এ app এর memory কত হবে, আর stream এ কত। তারপর চালিয়ে মেলাও। তারপর TaskFlow এর একটা খারাপ দিনের হিসাব: ৫০ জন একসাথে ২ GB এর video, ২০ Mbps এ — buffer এ memory কত, stream এ কতগুলো connection কতক্ষণ খোলা?
+1. **হিসাব আগে:** `through-app` চালানোর আগে লিখে ফেলুন — buffer এ ৮টা ৬৪ MB এর upload এ app এর memory কত হবে, আর stream এ কত। তারপর চালিয়ে মেলান। তারপর TaskFlow এর একটা খারাপ দিনের হিসাব: ৫০ জন একসাথে ২ GB এর video, ২০ Mbps এ — buffer এ memory কত, stream এ কতগুলো connection কতক্ষণ খোলা?
 
-2. **Sign এর তালিকা:** `presign` এর ৭ নম্বর কেন `200`? `presign.ts` এ `signableHeaders` থেকে `content-type` সরিয়ে ৩ নম্বর আবার চালাও — কী হলো, আর কেন? তারপর experiment ৫ (replay) — TaskFlow এর কোন upload এ এটা বসাবে?
+2. **Sign এর তালিকা:** `presign` এর ৭ নম্বর কেন `200`? `presign.ts` এ `signableHeaders` থেকে `content-type` সরিয়ে ৩ নম্বর আবার চালান — কী হলো, আর কেন? তারপর experiment ৫ (replay) — TaskFlow এর কোন upload এ এটা বসাবেন?
 
-3. **Part এর আকার:** `resume` এর model table থেকে ৫, ১৬, ৬৪ MB এর গড় আর p95 তুলনা করো, তারপর `RTT_MS=600` (experiment ২) আর `DROP_EVERY_MB=20` দিয়ে আবার। একটা ছোট নিয়ম লেখো: "network এমন হলে part এর আকার এত" — আর TaskFlow এর default কত রাখবে।
+3. **Part এর আকার:** `resume` এর model table থেকে ৫, ১৬, ৬৪ MB এর গড় আর p95 তুলনা করুন, তারপর `RTT_MS=600` (experiment ২) আর `DROP_EVERY_MB=20` দিয়ে আবার। একটা ছোট নিয়ম লিখুন: "network এমন হলে part এর আকার এত" — আর TaskFlow এর default কত রাখবেন।
 
-4. **Cache key এর ফাঁদ** (experiment ৪): `cdn.ts` এ presigned mode এর cache key থেকে query বাদ দাও। Hit rate কত হলো? এখন একজন user এর presigned URL এর মেয়াদ শেষ হলে, বা সে কখনো অনুমতিই না পেলে — শুধু path জেনে file টা পায় কি? এক প্যারাগ্রাফে লেখো কেন "hit rate বাড়ল" এখানে সাফল্য না।
+4. **Cache key এর ফাঁদ** (experiment ৪): `cdn.ts` এ presigned mode এর cache key থেকে query বাদ দিন। Hit rate কত হলো? এখন একজন user এর presigned URL এর মেয়াদ শেষ হলে, বা সে কখনো অনুমতিই না পেলে — শুধু path জেনে file টা পায় কি? এক প্যারাগ্রাফে লিখুন কেন "hit rate বাড়ল" এখানে সাফল্য না।
 
 5. **Design অংশ:** TaskFlow এর upload এর এক পাতার design: (ক) API এর তিনটা route (`POST /uploads`, `POST /:id/complete`, আর tab বন্ধের পরে `POST /:id/resume`) — প্রতিটার input, কী যাচাই করে, কী ফেরত দেয়; (খ) attachment এর অবস্থার union আর প্রতিটা transition কে ঘটায় (browser, event notification, job); (গ) কোন আকার থেকে multipart, part এর আকার, একসাথে কয়টা; (ঘ) পরিষ্কারের নিয়ম (lifecycle, pending job) আর কোন metric এ alert (যেমন "২৪ ঘণ্টার বেশি pending"); (ঙ) download এর পথ — কোন file কোন ধরনের signed URL/cookie এ।
 
@@ -525,7 +525,7 @@ outbox event → thumbnail/scan/index; lifecycle: অসমাপ্ত multipar
 Terms learned (Module 8 so far): Object Storage, Bucket / Key (Prefix), Object Metadata,
 Durability, Erasure Coding, Failure Domain, Storage Class / Lifecycle, Presigned URL, CORS /
 Preflight, Multipart Upload, Resumable Upload, Cache Key, CDN Signed URL / Signed Cookie
-Weak spots: [তুমি যেখানে আটকেছিলে — নিজে লিখো]
+Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
 Next: 8.3 — Search & inverted index: কেন LIKE %x% scale করে না
 =======================
 ```
@@ -534,4 +534,4 @@ Next: 8.3 — Search & inverted index: কেন LIKE %x% scale করে না
 
 ## ৮. পরের Lesson
 
-Exercise চালিয়ে পাঠাও — বিশেষ করে ৩ নম্বরের part এর আকারের নিয়ম আর ৫ নম্বরের design। রেডি হলে `next` লিখো — Lesson 8.3 এ যাব: **Search & inverted index — কেন `LIKE '%x%'` scale করে না।** TaskFlow এ এখন লাখ লাখ task, comment, আর attachment এর নাম — আর user রা খোঁজে: "deploy checklist", "invoice", ভুল বানানে "recieve"। আজ upload শেষে একটা `attachment.uploaded` event বেরোল; তার একটা consumer এর কাজ হবে search index এ তোলা। কিন্তু সেই index টা আসলে কী? Postgres এর `ILIKE '%deploy%'` দশ লাখ row এ কেন প্রতিবার পুরো table পড়ে (Lesson 5.4 এর index কেন এখানে কাজে আসে না), একটা inverted index কীভাবে "কোন শব্দ কোন document এ" উল্টে রাখে, কীভাবে ফলাফল সাজানো হয় (relevance), আর Postgres এর নিজের full-text search কখন যথেষ্ট আর কখন Elasticsearch/OpenSearch — মাপা সংখ্যা সহ।
+Exercise চালিয়ে পাঠান — বিশেষ করে ৩ নম্বরের part এর আকারের নিয়ম আর ৫ নম্বরের design। রেডি হলে `next` লিখুন — Lesson 8.3 এ যাব: **Search & inverted index — কেন `LIKE '%x%'` scale করে না।** TaskFlow এ এখন লাখ লাখ task, comment, আর attachment এর নাম — আর user রা খোঁজে: "deploy checklist", "invoice", ভুল বানানে "recieve"। আজ upload শেষে একটা `attachment.uploaded` event বেরোল; তার একটা consumer এর কাজ হবে search index এ তোলা। কিন্তু সেই index টা আসলে কী? Postgres এর `ILIKE '%deploy%'` দশ লাখ row এ কেন প্রতিবার পুরো table পড়ে (Lesson 5.4 এর index কেন এখানে কাজে আসে না), একটা inverted index কীভাবে "কোন শব্দ কোন document এ" উল্টে রাখে, কীভাবে ফলাফল সাজানো হয় (relevance), আর Postgres এর নিজের full-text search কখন যথেষ্ট আর কখন Elasticsearch/OpenSearch — মাপা সংখ্যা সহ।

@@ -12,7 +12,7 @@ TaskFlow এর মাসের cloud বিল, লাইন ধরে, প্�
 | Script             | প্রশ্ন                                                                                                                | Lesson §       |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------- | -------------- |
 | `npm run bill`     | মাসিক বিল ২৩টা লাইনে, আগে আর পরে; plan ধরে unit economics; endpoint ধরে খরচ; একটা cost anomaly কোন detector কখন ধরে   | ১.১ – ১.২, ১.৬ |
-| `npm run capacity` | এক সপ্তাহের traffic এ স্থির, autoscale, scheduled আর spot; কত instance commit করবে; একটা DDoS কোথায় থামালে কত বিল    | ১.৩, ১.৫       |
+| `npm run capacity` | এক সপ্তাহের traffic এ স্থির, autoscale, scheduled আর spot; কত instance commit করবেন; একটা DDoS কোথায় থামালে কত বিল   | ১.৩, ১.৫       |
 | `npm run storage`  | ২৪ মাসে attachment এর storage class আর lifecycle; ছোট object এর ফাঁদ; log এর ঢোকানো বনাম রাখা; পুরনো activity কোথায়  | ১.৪            |
 | `npm run traffic`  | Egress (compression, CDN, preview), NAT বনাম VPC endpoint, আর AZ জুড়ে traffic (monolith, service, AZ-aware, replica) | ১.৫            |
 
@@ -112,17 +112,17 @@ services, sent to any AZ                                114.0 TB        $2,281  
 - **Cost anomaly ও একটা observability এর প্রশ্ন** — মোট বিলে ৮% এর লাফ হারিয়ে যায়; প্রতিটা ভাগ নিজের ইতিহাসের সাথে তুলনা
   করলে পরের দিনই ধরা পড়ে।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **তিন বছরের commit:** `COMMIT_DISCOUNT=0.6 npm run capacity`। সেরা commit কত হলো (মাপা: ৭, ব্যবহার ৪২% সময়ে ≥ ৭)? নিয়মের
    সীমা কোথায় সরল? এই ছাড়ের দাম কী — তিন বছরে কী কী বদলাতে পারে?
 2. **Spot এর ঝুঁকি:** `SPOT_HAZARD=0.3 npm run capacity`। Interruption কয়টা হলো (মাপা: ৮৩), আর চাপে মিনিট বদলাল কি (মাপা: না,
-   ৪)? কেন — লক্ষ্য ৬০% এর headroom কী করছে? `TARGET_UTIL=0.85` দিয়ে আবার দেখো।
+   ৪)? কেন — লক্ষ্য ৬০% এর headroom কী করছে? `TARGET_UTIL=0.85` দিয়ে আবার দেখুন।
 3. **ছোট object এর সীমা:** `SMALL_KB=200 npm run storage`। ফাঁদটা কোথায় গেল (মাপা: IA $২০০, Glacier IR $১৪৮, Standard
    $২৭৬)? কোন আকার থেকে IA লাভজনক?
 4. **Chatty service:** `CALLS_PER_REQUEST=20 npm run traffic`। এলোমেলো routing এ cross-AZ কত হলো (মাপা: $৬,৬৩৬), আর monolith এর
    সাথে পার্থক্য? এটা 9.1 এর কোন যুক্তির সাথে মেলে?
-5. **নিজের দাম:** তোমার পছন্দের cloud এর আজকের দাম দেখে `PRICE_*` গুলো বদলাও। বিলের লাইনগুলোর ক্রম কি বদলাল?
+5. **নিজের দাম:** আপনার পছন্দের cloud এর আজকের দাম দেখে `PRICE_*` গুলো বদলান। বিলের লাইনগুলোর ক্রম কি বদলাল?
 
 ## Project Structure
 

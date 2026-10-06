@@ -111,7 +111,7 @@ per-conversation seq (one sequencer)                          0.00%             
 - **At-least-once + dedupe = effectively once।** client_msg_id server এ, seq client এ।
 - **ক্রম আসে sequencer থেকে, ঘড়ি থেকে না।** ফোনের ঘড়ি কার্যকারণ ভাঙে, পৌঁছানোর ক্রম সদস্যদের মধ্যে মিল ভাঙে।
 
-## নিজে ভেঙে দেখো (Experiments)
+## নিজে ভেঙে দেখুন (Experiments)
 
 1. **সস্তা প্রত্যাখ্যান:** `REJECT_COST=0.05 npm run gateway` আর `REJECT_COST=0.02`। সাথে সাথে retry কি এখন ফেরে (মাপা: না, দুটোতেই
    ০%)? Jitter এর ৯৯% কত (০.০৫ এ ৪৮.৭৮ s)? প্রত্যাখ্যানকে আরও সস্তা করার উপায় কী (TLS এর আগে, load balancer এ)?
@@ -121,7 +121,7 @@ per-conversation seq (one sequencer)                          0.00%             
    (১৭.৪২%)?
 4. **দ্রুত উত্তর (bot):** `THINK_MS=20 npm run delivery`। ফোনের ঘড়িতে উত্তর উপরে কত (মাপা: ৩৮.৮৭%), পৌঁছানোর ক্রমে (৯.২৮%),
    আর server এর ঘড়িতে (০.০৯%)? Server এর ঘড়ি কেন যথেষ্ট না?
-5. **Code বদলানোর কাজ:** `src/chat.ts` এ একটা "typing…" indicator যোগ করো — এটা কি store এ যাবে, receipt চাইবে, sync এ আসবে?
+5. **Code বদলানোর কাজ:** `src/chat.ts` এ একটা "typing…" indicator যোগ করুন — এটা কি store এ যাবে, receipt চাইবে, sync এ আসবে?
    Message এর সাথে এর নকশার পার্থক্যটা কোথায়?
 
 ## Project Structure
