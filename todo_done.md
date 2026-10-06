@@ -543,3 +543,15 @@
 - **How to test:** `curl -sI /lesson-1.1.md?lang=en` → `link: <…/lesson-1.1?lang=en>; rel="canonical"`; `curl -i /lesson-99.9.md` → `404 text/plain`; `server.spec.ts` এ test।
 - **Fix:** `[slug].md/+server.ts`: সফল response এ `Link: <origin/lesson-x?lang=…>; rel="canonical"` (একই edition এর HTML page); ৪০৪ এখন `text/plain; charset=utf-8`, ভাষা অনুযায়ী "এই lesson-টি পাওয়া যায়নি।" / "Lesson not found."। Lesson যেমন নেই, তেমনি এখনো লেখা হয়নি এমন lesson এর ক্ষেত্রেও এটাই আসে।
 - **Tested:** `curl -sI /lesson-1.1.md?lang=en` → `link: <…/lesson-1.1?lang=en>; rel="canonical"`; `curl -i /lesson-99.9.md` → `404`, `text/plain`, Bangla বার্তা; `?lang=en` → English। `server.spec.ts` এ test।
+
+## SD-46 · Search এ যে lesson একটা term এর সংজ্ঞা দেয়, সেটা শুধু উল্লেখ করা lesson গুলোর পরে আসে
+
+- **Priority:** Low
+- **Category:** UX
+- **Where:** `src/lib/server/course/search.ts` — `search()` এর ক্রম
+- **Found by:** `curl /search?lang=en&q=Sorted%20Set`: ফল ৫.১, ৭.৩, ৯.৫, ১১.৪, তারপর ১২.৩। "Sorted Set" এর glossary এর সংজ্ঞা শুধু ১২.৩ এ (`| **Sorted Set** |`); বাকিগুলোয় এক লাইনে উল্লেখ। একই আচরণ পুরো course জুড়ে, যেকোনো term এ যা আগের lesson এ নাম হিসেবে আসে আর পরে define হয়: `Lost Update` এ প্রথম ফল ৫.২, সংজ্ঞা ৫.৫ এ; `Hot Partition` এ প্রথম ফল ৫.৭, সংজ্ঞা ৫.৮ এ।
+- **Problem:** এখনকার নিয়ম: title এ মিললে আগে, বাকি সব curriculum এর ক্রমে। তাই একজন learner যে একটা term এর মানে খুঁজছে, সে প্রথমে এমন lesson পায় যেখানে term টা শুধু পাশ দিয়ে গেছে, আর আসল ব্যাখ্যা তালিকার শেষে। ২০টার বেশি ফলের term এ সংজ্ঞাটা প্রথম পাতায় না-ও আসতে পারে।
+- **Expected:** তিন স্তরের ক্রম: title এ মিল → যে lesson এর glossary table এ term টা define করা (`| **<term>** |`, বা বড় অংশের মিল) → বাকিগুলো curriculum এর ক্রমে। প্রতিটা স্তরের ভেতরে curriculum এর ক্রম আগের মতো।
+- **How to test:** `search.spec.ts` এ একটা test: একটা lesson এ term টা শুধু উল্লেখ, পরের lesson এর glossary তে সংজ্ঞা → সংজ্ঞার lesson আগে। Live এ `q=Sorted Set` → প্রথম ফল ১২.৩ (এখন ৫.১), `q=Lost Update` → ৫.৫ (এখন ৫.২), `q=Hot Partition` → ৫.৮ (এখন ৫.৭)।
+- **Fix:** `search.ts`: index তৈরির সময় প্রতিটা lesson এর raw markdown থেকে glossary অংশ (`## ৪. নতুন Term (Glossary)` / `## 4. New Terms (Glossary)` থেকে পরের `##` পর্যন্ত) এর প্রথম column এর bold term গুলো `terms` এ রাখা হয়। ক্রম এখন তিন স্তরে: title এ মিল → glossary এর কোনো term এ query আছে → বাকিগুলো; প্রতিটা স্তরের ভেতরে curriculum এর ক্রম। Glossary এর বাইরের bold row (reflection, trade-off table) গোনা হয় না। সব ১৪০টা lesson file এ glossary এর heading একই রূপে আছে (যাচাই করা)।
+- **Tested:** `search.spec.ts` এ নতুন test: শুধু উল্লেখ (২.১), glossary তে সংজ্ঞা (২.২), title এ মিল (২.৩) → ক্রম `2.3, 2.2, 2.1`; glossary এর বাইরের bold row এ মিল সংজ্ঞা ধরা হয় না (`2.1, 2.2`)। Test টা পুরনো `search.ts` এ fail করে (`2.3, 2.1, 2.2`), নতুনে pass; মোট ৫২/৫২। Local server এ দুই ভাষায়: `Sorted Set` → ১২.৩ প্রথম (আগে ৫.১), `Lost Update` → ৫.৫ (আগে ৫.২), `Hot Partition` → ৫.৮ (আগে ৫.৭); `Bloom Filter`, `Idempotency Key`, `Outbox`, `Saga` এ প্রথম ফল যথাক্রমে ১০.২, ২.৫, ৭.৫, ৯.৩। Lint, check, build clean।

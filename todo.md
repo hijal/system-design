@@ -54,12 +54,4 @@ Live site এ (commit `f28cdfa` deploy হওয়ার পরে) চাল�
 
 ইচ্ছা করে বাদ: chatgpt.com আর claude.ai এর "lesson নিয়ে প্রশ্ন করো" link এ ৪০৩ (bot আটকায়, browser এ খোলে — broken link না)।
 
-## SD-46 · Search এ যে lesson একটা term এর সংজ্ঞা দেয়, সেটা শুধু উল্লেখ করা lesson গুলোর পরে আসে
-
-- **Priority:** Low
-- **Category:** UX
-- **Where:** `src/lib/server/course/search.ts` — `search()` এর ক্রম
-- **Found by:** `curl /search?lang=en&q=Sorted%20Set`: ফল ৫.১, ৭.৩, ৯.৫, ১১.৪, তারপর ১২.৩। "Sorted Set" এর glossary এর সংজ্ঞা শুধু ১২.৩ এ (`| **Sorted Set** |`); বাকিগুলোয় এক লাইনে উল্লেখ। একই আচরণ পুরো course জুড়ে, যেকোনো term এ যা আগের lesson এ নাম হিসেবে আসে আর পরে define হয়: `Lost Update` এ প্রথম ফল ৫.২, সংজ্ঞা ৫.৫ এ; `Hot Partition` এ প্রথম ফল ৫.৭, সংজ্ঞা ৫.৮ এ।
-- **Problem:** এখনকার নিয়ম: title এ মিললে আগে, বাকি সব curriculum এর ক্রমে। তাই একজন learner যে একটা term এর মানে খুঁজছে, সে প্রথমে এমন lesson পায় যেখানে term টা শুধু পাশ দিয়ে গেছে, আর আসল ব্যাখ্যা তালিকার শেষে। ২০টার বেশি ফলের term এ সংজ্ঞাটা প্রথম পাতায় না-ও আসতে পারে।
-- **Expected:** তিন স্তরের ক্রম: title এ মিল → যে lesson এর glossary table এ term টা define করা (`| **<term>** |`, বা বড় অংশের মিল) → বাকিগুলো curriculum এর ক্রমে। প্রতিটা স্তরের ভেতরে curriculum এর ক্রম আগের মতো।
-- **How to test:** `search.spec.ts` এ একটা test: একটা lesson এ term টা শুধু উল্লেখ, পরের lesson এর glossary তে সংজ্ঞা → সংজ্ঞার lesson আগে। Live এ `q=Sorted Set` → প্রথম ফল ১২.৩ (এখন ৫.১), `q=Lost Update` → ৫.৫ (এখন ৫.২), `q=Hot Partition` → ৫.৮ (এখন ৫.৭)।
+Round 5 এর ১টাই ঠিক হয়ে `todo_done.md` এ গেছে।

@@ -37,6 +37,35 @@ describe('lesson search', () => {
 		expect(response.results.map((r) => r.id)).toEqual(['1.1']);
 		expect(response.total).toBe(2);
 	});
+	it('ranks a lesson whose glossary defines the query above lessons that only mention it', () => {
+		const glossaryBase = `## ৯. Curriculum
+### Module 2: Data
+- 2.1 Replication
+- 2.2 Transactions
+- 2.3 Lost updates in depth
+## ১০. Interaction Commands`;
+		const glossaryIndex = buildSearchIndex(
+			createCatalog(
+				glossaryBase,
+				{
+					'/course/module-02/lesson-2.1-replication.md':
+						'# 2.1\n\nA replica can show a lost update when two writers race, and not a term is mentioned here.\n\n## ৪. নতুন Term (Glossary)\n\n| Term | অর্থ |\n| --- | --- |\n| **Replica** | a copy |',
+					'/course/module-02/lesson-2.2-transactions.md':
+						'# 2.2\n\nIsolation levels.\n\n## ৪. নতুন Term (Glossary)\n\n| Term | অর্থ |\n| --- | --- |\n| **Lost Update** | one write silently wipes out another |\n\n## ৫. Reflection Questions\n\n| **Not a term** | x |',
+					'/course/module-02/lesson-2.3-lost-updates.md': '# 2.3\n\nMore about a lost update.'
+				},
+				'bn'
+			),
+			'bn'
+		);
+		expect(search(glossaryIndex, 'lost update').results.map((r) => r.id)).toEqual([
+			'2.3',
+			'2.2',
+			'2.1'
+		]);
+		expect(search(glossaryIndex, 'not a term').results.map((r) => r.id)).toEqual(['2.1', '2.2']);
+		expect(search(glossaryIndex, 'replica').results.map((r) => r.id)).toEqual(['2.1']);
+	});
 	it('only looks at the first 100 characters of a query', () => {
 		expect(search(index, `keep hot ${'x'.repeat(5000)}`)).toEqual({ results: [], total: 0 });
 		expect(search(index, `${' '.repeat(5)}keep hot${' '.repeat(5000)}x`).total).toBe(1);
