@@ -1,0 +1,20 @@
+{
+	"name": "estimation-drills-exercise",
+	"version": "1.0.0",
+	"private": true,
+	"type": "commonjs",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"drill": "npm run build && node dist/drill.js",
+		"answers": "npm run build && node dist/answers.js",
+		"rounding": "npm run build && node dist/rounding.js"
+	},
+	"dependencies": {
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"typescript": "^6.0.3"
+	}
+}
