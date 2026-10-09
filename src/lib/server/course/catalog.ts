@@ -103,7 +103,7 @@ function truncate(text: string, max: number): string {
 	if (text.length <= max) return text;
 	const cut = text.slice(0, max - 1);
 	const space = cut.lastIndexOf(' ');
-	return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:-–-]+$/, '')}…`;
+	return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:–-]+$/, '')}…`;
 }
 export function lessonDescription(lesson: Lesson, moduleTitle: string, raw: string): string {
 	const body = lessonBody(raw);
