@@ -66,17 +66,18 @@ error: lockfile had changes, but lockfile is frozen
 ```
 
 Set `BUN_VERSION` to the Bun version you develop with (currently **1.4.2**) under
-Workers project → Settings → Build → _Build Variables and Secrets_. Bun has no
+Workers project → Settings → Builds → _Variables and secrets_. Set it in both
+**Production** and **Previews Base**: preview branch builds have their own build
+variables and do not inherit the production value. Bun has no
 `.bun-version` file support in the build image; the environment variable is the only way
 to pin it. Keep `BUN_VERSION` in step with local Bun: after a local Bun upgrade that
 bumps `lockfileVersion`, CI breaks until the variable is raised to match.
 
-It must be a **build** variable. Adding `BUN_VERSION` under _Variables & Secrets_ - the
-runtime section, which offers to sync itself into the `vars` key of this Wrangler config
-
-- does not change the build image; it only hands the running Worker an unused string,
-  and the lockfile error stays. Build and runtime variables are separate: build variables
-  are not readable at runtime, and runtime `vars` are not visible to the build.
+It must be a **build** variable. Adding `BUN_VERSION` under _Runtime variables and
+secrets_ or to the `vars` key of `wrangler.jsonc` does not change the build image; it
+only hands the running Worker an unused string, and the lockfile error stays. Build
+and runtime variables are separate: build variables are not readable at runtime, and
+runtime `vars` are not visible to the build.
 
 Node.js needs no variable - `.nvmrc` pins it to 24, which the build image already
 defaults to.
