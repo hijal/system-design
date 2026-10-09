@@ -1,17 +1,17 @@
 import { latency, mulberry32, percentile } from './random';
 
-// Lesson 5.9 §1.5 — quorum in leaderless replication, as a small simulation.
+// Lesson 5.9 §1.5 - quorum in leaderless replication, as a small simulation.
 //
 // N = 3 replicas. The old value of a key (v0) is on all three.
 //   1. The client writes a new value (v1): the coordinator sends it to all three replicas, and as soon as
-//      it gets W acks it tells the client "success". (The rest get it later too — it just doesn't wait.)
+//      it gets W acks it tells the client "success". (The rest get it later too - it just doesn't wait.)
 //   2. After getting "success", the client (or someone else) reads the same key: the coordinator asks
 //      all three, takes the first R answers, and returns the newest version among them.
-//   3. If the value returned is v0 — a **stale read**: a successful write was not seen by the read.
+//   3. If the value returned is v0 - a **stale read**: a successful write was not seen by the read.
 //
 // Each replica has its own network: two close by, one in another data center (slow).
 // And as in reality, any replica occasionally falls behind suddenly (GC pause, disk stall,
-// overload) — on each write, with 5% probability, that replica applies it 50 ms late.
+// overload) - on each write, with 5% probability, that replica applies it 50 ms late.
 
 const N = 3;
 const TRIALS = 100_000;
@@ -19,9 +19,9 @@ const STALL_PROBABILITY = 0.05;
 const STALL_MS = 50;
 // one-way trip per replica: minimum ms + average extra ms
 const LINKS: [number, number][] = [
-	[0.5, 1], // replica A — same data center
-	[0.5, 1.5], // replica B — same data center
-	[10, 10] // replica C — another data center
+	[0.5, 1], // replica A - same data center
+	[0.5, 1.5], // replica B - same data center
+	[10, 10] // replica C - another data center
 ];
 
 type Result = {
@@ -39,7 +39,7 @@ function link(i: number): [number, number] {
 }
 
 function simulate(W: number, R: number, gapMs: number): Result {
-	const random = mulberry32(2026); // every (W, R) gets the same random sequence — a fair comparison
+	const random = mulberry32(2026); // every (W, R) gets the same random sequence - a fair comparison
 	const oneWay = (i: number): number => latency(random, ...link(i));
 	let stale = 0;
 	const writeTimes: number[] = [];
@@ -126,7 +126,7 @@ function main(): void {
 		`\n   N = ${N} replicas: A, B in the same data center; C in another data center (slow)`
 	);
 	console.log(
-		`   ${TRIALS.toLocaleString('en-US')} times "write, then read" for each pair (seeded — the same result every time)`
+		`   ${TRIALS.toLocaleString('en-US')} times "write, then read" for each pair (seeded - the same result every time)`
 	);
 	quorumTable(0, '1. Read right after the write succeeds (same user, read-your-writes)');
 	quorumTable(5, '2. Read 5 ms after the write succeeds (another user)');

@@ -20,11 +20,11 @@ import {
 	s3
 } from './storage';
 
-// Lesson 8.1 §1.6 — object storage's API is not a file system. Seven small tests, each one a rule:
-//   1. read right after write — is the new value returned?   5. ETag and MD5
-//   2. "Folder" — really a key prefix                         6. two writers at once — last writer wins, and conditional writes
-//   3. write the whole object, but read part of it (range)   7. Versioning — old versions after overwrite and delete
-//   4. Metadata — without downloading the body (HEAD)
+// Lesson 8.1 §1.6 - object storage's API is not a file system. Seven small tests, each one a rule:
+//   1. read right after write - is the new value returned?   5. ETag and MD5
+//   2. "Folder" - really a key prefix                         6. two writers at once - last writer wins, and conditional writes
+//   3. write the whole object, but read part of it (range)   7. Versioning - old versions after overwrite and delete
+//   4. Metadata - without downloading the body (HEAD)
 
 const B = env.BUCKET;
 const VERSIONED = `${env.BUCKET}-versioned`;
@@ -67,12 +67,12 @@ async function prefixes(): Promise<void> {
 	const list = await s3.send(
 		new ListObjectsV2Command({ Bucket: B, Prefix: 'workspaces/12/', Delimiter: '/' })
 	);
-	console.log('── 2. "Folder" — really just a key prefix ──');
+	console.log('── 2. "Folder" - really just a key prefix ──');
 	console.log("   LIST Prefix='workspaces/12/' Delimiter='/':");
 	for (const c of list.Contents ?? []) console.log(`     object  ${c.Key}`);
 	for (const p of list.CommonPrefixes ?? [])
 		console.log(`     "folder" ${p.Prefix}   ← not a real thing, just keys that match`);
-	// "rename the folder" — S3 has no rename: copy every object, then delete
+	// "rename the folder" - S3 has no rename: copy every object, then delete
 	const all = await s3.send(new ListObjectsV2Command({ Bucket: B, Prefix: 'workspaces/12/' }));
 	let requests = 1;
 	for (const c of all.Contents ?? []) {
@@ -91,10 +91,10 @@ async function wholeObjectRangeRead(): Promise<void> {
 	const size = 8 * 1024 * 1024;
 	const body = randomBytes(size);
 	await putObject(B, 'raw/design.psd', body);
-	// to change 1 byte — there is no append or "write at this offset" API: PUT the whole object again
+	// to change 1 byte - there is no append or "write at this offset" API: PUT the whole object again
 	body[1000] = (body[1000] ?? 0) ^ 0xff;
 	await s3.send(new PutObjectCommand({ Bucket: B, Key: 'raw/design.psd', Body: body }));
-	// but a read can be partial — the Range header (playing a video from the middle, part of a big file)
+	// but a read can be partial - the Range header (playing a video from the middle, part of a big file)
 	const part = await s3.send(
 		new GetObjectCommand({ Bucket: B, Key: 'raw/design.psd', Range: 'bytes=4194304-4195327' })
 	);
@@ -122,7 +122,7 @@ async function metadataAndEtag(): Promise<void> {
 	);
 	const head = await s3.send(new HeadObjectCommand({ Bucket: B, Key: 'raw/spec.pdf' }));
 	const md5 = createHash('md5').update(body).digest('hex');
-	console.log('── 4. Metadata — HEAD, without the body ──');
+	console.log('── 4. Metadata - HEAD, without the body ──');
 	console.log(
 		`   size ${head.ContentLength ?? 0} · ${head.ContentType ?? ''} · ${head.ContentDisposition ?? ''}`
 	);
@@ -152,7 +152,7 @@ async function concurrentWrites(): Promise<void> {
 		return { doc: { items }, etag: res.ETag ?? '' };
 	};
 
-	// a) two people read, both add their own item and write — without any condition
+	// a) two people read, both add their own item and write - without any condition
 	const [a, b] = await Promise.all([read(), read()]);
 	await putObject(
 		B,
@@ -166,7 +166,7 @@ async function concurrentWrites(): Promise<void> {
 	);
 	const plain = (await read()).doc.items;
 
-	// b) the same work, with If-Match — "write only if what I read is still there"
+	// b) the same work, with If-Match - "write only if what I read is still there"
 	await putObject(B, key, Buffer.from(JSON.stringify({ items: ['draft'] })));
 	const [c, d] = await Promise.all([read(), read()]);
 	const conditional = async (seen: { doc: Doc; etag: string }, item: string): Promise<string> => {
@@ -192,7 +192,7 @@ async function concurrentWrites(): Promise<void> {
 	}
 	const guarded = (await read()).doc.items;
 
-	// c) If-None-Match: * — "create only if it doesn't exist" (stops the second of two uploads with the same name)
+	// c) If-None-Match: * - "create only if it doesn't exist" (stops the second of two uploads with the same name)
 	const createOnly = await s3
 		.send(new PutObjectCommand({ Bucket: B, Key: key, Body: 'x', IfNoneMatch: '*' }))
 		.then(
@@ -205,7 +205,7 @@ async function concurrentWrites(): Promise<void> {
 		`   unconditional:         ${JSON.stringify(plain)}   ← Rahim's item silently lost (last writer wins)`
 	);
 	console.log(
-		`   If-Match (ETag):       Rahim ${first} · Karim ${second} · after re-reading, Karim ${retried || '—'}`
+		`   If-Match (ETag):       Rahim ${first} · Karim ${second} · after re-reading, Karim ${retried || '-'}`
 	);
 	console.log(`                          ${JSON.stringify(guarded)}`);
 	console.log(`   If-None-Match: * (on a key that already exists): ${createOnly}\n`);

@@ -3,13 +3,13 @@ import { z } from 'zod';
 import { dropSecondaryIndexes, sequelize } from './db';
 import { explain } from './explain';
 
-// Lesson 5.4 — the same query, different indexes, and what Postgres's planner decides.
+// Lesson 5.4 - the same query, different indexes, and what Postgres's planner decides.
 // Every variant starts by dropping every index except the primary key, then adds only that variant's index.
 
 type Variant = {
 	label: string;
 	sql: string;
-	// the index-building work — mostly with queryInterface.addIndex, exactly the way it is written
+	// the index-building work - mostly with queryInterface.addIndex, exactly the way it is written
 	// in a Sequelize migration. What addIndex can't express is raw SQL.
 	setup: () => Promise<void>;
 	sizeOf?: string; // which index to show the size of
@@ -37,7 +37,7 @@ const FEED = `SELECT id, title, "createdAt" FROM tasks WHERE "projectId" = 7 ORD
 
 const steps: Step[] = [
 	{
-		title: '1. "My open tasks" — an index on the foreign key',
+		title: '1. "My open tasks" - an index on the foreign key',
 		note: 'Postgres does not create an index on a foreign key by itself (Lesson 5.2)',
 		variants: [
 			{ label: 'no index', sql: OPEN_TASKS, setup: none },
@@ -50,7 +50,7 @@ const steps: Step[] = [
 			{
 				label: '(assigneeId) WHERE status <> done',
 				sql: OPEN_TASKS,
-				// Partial index — only the open tasks are in the index; the 70% "done" rows are left out
+				// Partial index - only the open tasks are in the index; the 70% "done" rows are left out
 				setup: () =>
 					qi.addIndex('tasks', {
 						fields: ['assigneeId'],
@@ -62,7 +62,7 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '2. Project feed — column order in a composite index',
+		title: '2. Project feed - column order in a composite index',
 		note: 'WHERE projectId = 7 ORDER BY createdAt DESC LIMIT 20',
 		variants: [
 			{ label: 'no index', sql: FEED, setup: none },
@@ -72,7 +72,7 @@ const steps: Step[] = [
 				setup: () => qi.addIndex('tasks', { fields: ['projectId'], name: 'tasks_project' })
 			},
 			{
-				label: '(createdAt, projectId) — reversed',
+				label: '(createdAt, projectId) - reversed',
 				sql: FEED,
 				setup: () =>
 					qi.addIndex('tasks', {
@@ -92,7 +92,7 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '3. Leftmost prefix — the second column of a composite index alone',
+		title: '3. Leftmost prefix - the second column of a composite index alone',
 		note: 'filtering only by createdAt, without projectId',
 		variants: [
 			{
@@ -112,7 +112,7 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '4. A function on the column — the index exists but does not help',
+		title: '4. A function on the column - the index exists but does not help',
 		note: 'both queries ask the same question; the index is the same',
 		variants: [
 			{
@@ -131,9 +131,9 @@ const steps: Step[] = [
 				setup: () => qi.addIndex('tasks', { fields: ['title'], name: 'tasks_title' })
 			},
 			{
-				label: '(lower(title)) — expression index',
+				label: '(lower(title)) - expression index',
 				sql: `SELECT id FROM tasks WHERE lower(title) = 'fix bug #23'`,
-				// Expression index — not among addIndex's typed options, so raw SQL (in a migration too)
+				// Expression index - not among addIndex's typed options, so raw SQL (in a migration too)
 				setup: async () => {
 					await sequelize.query('CREATE INDEX tasks_title_lower ON tasks (lower(title))');
 				}
@@ -141,7 +141,7 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '5. Selectivity — the index exists, but Postgres does not use it',
+		title: '5. Selectivity - the index exists, but Postgres does not use it',
 		note: 'done = ~70% of rows, blocked = ~1% of rows; the same (status) index; id and title are needed, so it has to go to the table',
 		variants: [
 			{
@@ -157,7 +157,7 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: '6. Covering index — the answer without going to the table',
+		title: '6. Covering index - the answer without going to the table',
 		note: "step 2's feed query",
 		variants: [
 			{
@@ -172,7 +172,7 @@ const steps: Step[] = [
 			{
 				label: '(projectId, createdAt) INCLUDE (id, title)',
 				sql: FEED,
-				// INCLUDE — not in the type of Sequelize v6's addIndex, so raw SQL
+				// INCLUDE - not in the type of Sequelize v6's addIndex, so raw SQL
 				setup: async () => {
 					await sequelize.query(
 						'CREATE INDEX tasks_project_created_cover ON tasks ("projectId", "createdAt") INCLUDE (id, title)'
@@ -182,7 +182,7 @@ const steps: Step[] = [
 		]
 	},
 	{
-		title: "7. LIKE — the B-tree's limit",
+		title: "7. LIKE - the B-tree's limit",
 		note: 'there is an index on title',
 		variants: [
 			{
@@ -198,7 +198,7 @@ const steps: Step[] = [
 			{
 				label: `(title text_pattern_ops) + same LIKE`,
 				sql: `SELECT count(*) FROM tasks WHERE title LIKE 'Fix bug #1234%'`,
-				// If the database collation is en_US.utf8, a plain B-tree can't serve LIKE 'abc%' —
+				// If the database collation is en_US.utf8, a plain B-tree can't serve LIKE 'abc%' -
 				// it needs an index in byte-by-byte order with text_pattern_ops. An operator class, raw SQL.
 				setup: async () => {
 					await sequelize.query(

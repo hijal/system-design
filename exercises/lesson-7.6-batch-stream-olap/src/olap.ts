@@ -2,13 +2,13 @@ import { z } from 'zod';
 import { ANALYTICS_SQL, CHECKSUM_SQL, duck, OLTP_SQL, pgPool } from './data';
 import { percentile } from './random';
 
-// Lesson 7.6 §1.2–1.3 — OLTP and OLAP in one database, and in separate engines.
+// Lesson 7.6 §1.2–1.3 - OLTP and OLAP in one database, and in separate engines.
 //
-//   step 1: OLTP only — CLIENTS clients keep asking "the project's 20 most recent events"
+//   step 1: OLTP only - CLIENTS clients keep asking "the project's 20 most recent events"
 //   step 2: the same OLTP, plus ANALYTICS_LOOPS analytics queries running nonstop on the same Postgres
-//   step 3: the analytics question once on Postgres (alone), once on DuckDB — comparing times and results
+//   step 3: the analytics question once on Postgres (alone), once on DuckDB - comparing times and results
 //
-// A real database, real time — the numbers will vary between machines, the shape should stay the same.
+// A real database, real time - the numbers will vary between machines, the shape should stay the same.
 
 const env = z
 	.object({
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
 		await pool.query('SELECT 1 FROM task_events LIMIT 1');
 	} catch {
 		console.error(
-			'task_events is missing — run `docker compose up -d --wait` and `npm run seed` first.'
+			'task_events is missing - run `docker compose up -d --wait` and `npm run seed` first.'
 		);
 		process.exit(1);
 	}
@@ -64,7 +64,7 @@ async function main(): Promise<void> {
 	console.log(
 		`\n   Postgres (2 CPUs) · ${env.CLIENTS} OLTP clients · ${env.PHASE_MS / 1000} s per phase\n`
 	);
-	// warm up once — so the first phase doesn't pay for a cold cache
+	// warm up once - so the first phase doesn't pay for a cold cache
 	await pool.query(ANALYTICS_SQL);
 	const phases = [
 		await phase('OLTP only', 0),
@@ -80,7 +80,7 @@ async function main(): Promise<void> {
 			? p.analytics.reduce((a, b) => a + b, 0) / p.analytics.length
 			: 0;
 		console.log(
-			`   ${p.name.padEnd(28)}${qps.toFixed(0).padStart(12)}${fmt(percentile(p.oltp, 50)).padStart(11)}${fmt(percentile(p.oltp, 99)).padStart(12)}${fmt(p.oltp.reduce((a, b) => Math.max(a, b), 0)).padStart(11)}${(p.analytics.length ? `${p.analytics.length} times (${fmt(avg)})` : '—').padStart(24)}`
+			`   ${p.name.padEnd(28)}${qps.toFixed(0).padStart(12)}${fmt(percentile(p.oltp, 50)).padStart(11)}${fmt(percentile(p.oltp, 99)).padStart(12)}${fmt(p.oltp.reduce((a, b) => Math.max(a, b), 0)).padStart(11)}${(p.analytics.length ? `${p.analytics.length} times (${fmt(avg)})` : '-').padStart(24)}`
 		);
 	}
 
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
 	const buffers = planText.find((l) => l.includes('Buffers:')) ?? '';
 
 	const con = await duck();
-	// DuckDB runs inside this process and by default takes every core on the machine — to keep the comparison honest, 2 like Postgres
+	// DuckDB runs inside this process and by default takes every core on the machine - to keep the comparison honest, 2 like Postgres
 	await con.run('SET threads = 2');
 	const duckTimes: number[] = [];
 	for (let i = 0; i < 3; i++) duckTimes.push(await time(() => con.runAndReadAll(ANALYTICS_SQL)));

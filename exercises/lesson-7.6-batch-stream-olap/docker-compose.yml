@@ -1,7 +1,7 @@
-# Only Postgres in a container — in the role of TaskFlow's "production" OLTP database.
+# Only Postgres in a container - in the role of TaskFlow's "production" OLTP database.
 # DuckDB (analytics) needs no container: it is a library, keeping its data in a file (data/analytics.duckdb).
-# cpus: 2 — a deliberate limit, so that whatever your machine's core count, the CPU fight between analytics and OLTP
-# looks the same (a production database's cores are limited too). Port 5444 — no clash with the earlier exercises.
+# cpus: 2 - a deliberate limit, so that whatever your machine's core count, the CPU fight between analytics and OLTP
+# looks the same (a production database's cores are limited too). Port 5444 - no clash with the earlier exercises.
 services:
   postgres:
     image: postgres:17-alpine

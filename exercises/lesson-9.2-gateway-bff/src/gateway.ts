@@ -4,12 +4,12 @@ import { httpGet } from './http';
 import { ms, pad, percentile } from './random';
 import { signInternal, signJwt } from './token';
 
-// Lesson 9.2 §1.4–1.5 — API Gateway: one door for every outside request.
+// Lesson 9.2 §1.4–1.5 - API Gateway: one door for every outside request.
 //
 // a. The cost of the extra hop: the tasks service directly, vs through the gateway (token check + proxy)
 // b. Identity: the gateway checks the token and sets the user id. But what if someone bypasses the gateway and reaches the service directly?
 //    two modes: trust (the service trusts x-user-id) and signed (it verifies the gateway's signature)
-// c. Canary / strangler fig: the thumbnail route — the old path (monolith) vs the new files service, split by user
+// c. Canary / strangler fig: the thumbnail route - the old path (monolith) vs the new files service, split by user
 
 const cfg = z
 	.object({
@@ -93,7 +93,7 @@ async function hopCost(): Promise<void> {
 			const before = row.gw ? await totalCpuMicros([row.gw]) : 0;
 			const busy = await load(row.url, row.headers, cfg.CONCURRENCY, cfg.DURATION_MS);
 			const after = row.gw ? await totalCpuMicros([row.gw]) : 0;
-			const cpu = row.gw ? ms((after - before) / 1000 / busy.requests) : '—';
+			const cpu = row.gw ? ms((after - before) / 1000 / busy.requests) : '-';
 			console.log(
 				`   ${row.name.padEnd(34)} ${pad(ms(alone.p50), 12)} ${pad(busy.perSecond.toFixed(0), 18)} ${pad(ms(busy.p50), 10)} ${pad(ms(busy.p99), 10)}   ${cpu}` +
 					(alone.errors + busy.errors > 0 ? `   (error ${alone.errors + busy.errors})` : '')
@@ -106,7 +106,7 @@ async function hopCost(): Promise<void> {
 
 async function identity(): Promise<void> {
 	console.log(
-		"\n── b. Who sent it? — the gateway's check, and bypassing the gateway to the service directly ──"
+		"\n── b. Who sent it? - the gateway's check, and bypassing the gateway to the service directly ──"
 	);
 	console.log(`   ${'request'.padEnd(58)} ${'trust mode'.padEnd(32)} signed mode`);
 	const results = new Map<string, string[]>();
@@ -152,7 +152,7 @@ async function identity(): Promise<void> {
 		try {
 			for (const c of cases) {
 				const headers = c.headers(mode);
-				let out = '—';
+				let out = '-';
 				if (headers) {
 					const url =
 						c.via === 'gateway'
@@ -182,7 +182,7 @@ async function identity(): Promise<void> {
 
 async function canary(): Promise<void> {
 	console.log(
-		`\n── c. The thumbnail route: old path (monolith) vs new files service — ${cfg.USERS} users, 2 times each ──`
+		`\n── c. The thumbnail route: old path (monolith) vs new files service - ${cfg.USERS} users, 2 times each ──`
 	);
 	console.log('   canary %   to new service    old path     same side both times');
 	const oldFiles = await start('files-old', { ROLE: 'files-old' });
@@ -215,7 +215,7 @@ async function canary(): Promise<void> {
 		await Promise.all([stop(oldFiles), stop(newFiles)]);
 	}
 	console.log(
-		"   (split by a hash of the user id — so a user's experience doesn't jump between requests)\n"
+		"   (split by a hash of the user id - so a user's experience doesn't jump between requests)\n"
 	);
 }
 

@@ -16,7 +16,7 @@ const LIMITER_P99_MS = env('LIMITER_P99_MS', 1);
 const SECONDS_PER_MONTH = 30 * 86_400;
 
 heading(
-	`Part A — load: ${n(API_RPS)} API requests/s at peak, ${n(API_SERVERS)} API servers, ${RULES} rules per request`
+	`Part A - load: ${n(API_RPS)} API requests/s at peak, ${n(API_SERVERS)} API servers, ${RULES} rules per request`
 );
 const layouts: { name: string; opsPerRequest: number }[] = [
 	{ name: 'a separate Redis call per rule', opsPerRequest: RULES },
@@ -50,7 +50,7 @@ console.log(
 	`~${n(SHARD_OPS)} op/s per shard (with Lua, assumed), keeping ${share(HEADROOM, 0)} free; ${MESSAGE_BYTES} B per message each way; ${share(CROSS_AZ_SHARE, 0)} of calls to another AZ, $${CROSS_AZ_PER_GB}/GB`
 );
 
-heading('Part B — memory: the state of active keys');
+heading('Part B - memory: the state of active keys');
 console.log(
 	row([
 		['', 62],
@@ -74,11 +74,11 @@ console.log(
 );
 
 heading(
-	`Part C — the latency budget: the API's p99 is ${API_P99_MS} ms, the limiter gets ${LIMITER_P99_MS} ms`
+	`Part C - the latency budget: the API's p99 is ${API_P99_MS} ms, the limiter gets ${LIMITER_P99_MS} ms`
 );
 console.log(
 	`the limiter's share: ${share(LIMITER_P99_MS / API_P99_MS, 0)}; within this budget, one network round trip per request, one Lua script, and no retries.`
 );
 console.log(
-	`${n(API_RPS / API_SERVERS)} requests/s on one API server — if the limiter holds each for ${LIMITER_P99_MS} ms, ~${n((API_RPS / API_SERVERS) * (LIMITER_P99_MS / 1_000))} are waiting at a time; slow at ${n(50)} ms, ~${n((API_RPS / API_SERVERS) * 0.05)}.`
+	`${n(API_RPS / API_SERVERS)} requests/s on one API server - if the limiter holds each for ${LIMITER_P99_MS} ms, ~${n((API_RPS / API_SERVERS) * (LIMITER_P99_MS / 1_000))} are waiting at a time; slow at ${n(50)} ms, ~${n((API_RPS / API_SERVERS) * 0.05)}.`
 );

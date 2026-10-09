@@ -3,7 +3,7 @@ import { Client } from 'pg';
 import { ConnectionAcquireTimeoutError } from 'sequelize';
 import { DATABASE_URL, createSequelize, percentile } from './db';
 
-// Lesson 5.6 — the connection pool's three questions, measured:
+// Lesson 5.6 - the connection pool's three questions, measured:
 //   1. what does opening one connection cost?
 //   2. is a bigger pool faster?
 //   3. what happens when several app instances together exceed the database's connection limit?
@@ -13,7 +13,7 @@ async function connectionCost(): Promise<void> {
 	const QUERIES = 200;
 	console.log(`\n1. ${QUERIES} "SELECT 1" one at a time`);
 
-	// a new connection for every query — TCP handshake + Postgres auth + a new backend process
+	// a new connection for every query - TCP handshake + Postgres auth + a new backend process
 	let started = performance.now();
 	for (let i = 0; i < QUERIES; i++) {
 		const client = new Client({ connectionString: DATABASE_URL });
@@ -23,7 +23,7 @@ async function connectionCost(): Promise<void> {
 	}
 	const fresh = (performance.now() - started) / QUERIES;
 
-	// Pool — the connection is opened once, then reused again and again (like Lesson 1.4's keep-alive)
+	// Pool - the connection is opened once, then reused again and again (like Lesson 1.4's keep-alive)
 	const sequelize = createSequelize({ max: 1 });
 	await sequelize.query('SELECT 1'); // open the connection in the pool once
 	started = performance.now();
@@ -39,8 +39,8 @@ async function connectionCost(): Promise<void> {
 
 // ── 2. Pool size sweep ──────────────────────────────────────────────────────
 // 64 "requests" at once, 320 queries in total. Two kinds of query:
-//   CPU   — the database really has to compute (the Postgres container has only 2 cores)
-//   WAIT  — the database just waits (pg_sleep) — like a lock or a slow disk
+//   CPU   - the database really has to compute (the Postgres container has only 2 cores)
+//   WAIT  - the database just waits (pg_sleep) - like a lock or a slow disk
 const CALLERS = 64;
 const TOTAL = 320;
 const CPU_SQL = 'SELECT count(*) FROM generate_series(1, 400000)';
@@ -58,7 +58,7 @@ async function sweep(poolMax: number, sql: string): Promise<SweepResult> {
 		while (remaining > 0) {
 			remaining--;
 			const started = performance.now();
-			await sequelize.query(sql); // includes the time waiting for the pool — what the user sees
+			await sequelize.query(sql); // includes the time waiting for the pool - what the user sees
 			latencies.push(performance.now() - started);
 		}
 	};
@@ -73,7 +73,7 @@ async function sweep(poolMax: number, sql: string): Promise<SweepResult> {
 
 async function poolSizes(): Promise<void> {
 	console.log(
-		`\n2. Pool size — ${CALLERS} requests at once, ${TOTAL} queries in total (database: 2 CPU cores)`
+		`\n2. Pool size - ${CALLERS} requests at once, ${TOTAL} queries in total (database: 2 CPU cores)`
 	);
 	console.log(
 		'   pool max │   CPU query: q/s    p50 ms    p99 ms │  WAIT query: q/s    p50 ms    p99 ms'

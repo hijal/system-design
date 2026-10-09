@@ -2,7 +2,7 @@ import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { CHECKSUM_SQL, duck, DUCKDB_FILE, duckSeedSql, env, pgPool, pgSeedSql } from './data';
 
-// Lesson 7.6 — the same ROWS events in two places: Postgres (row store, TaskFlow's production database)
+// Lesson 7.6 - the same ROWS events in two places: Postgres (row store, TaskFlow's production database)
 // and DuckDB (column store, analytics). Then the analytics question's result is compared across both.
 
 async function main(): Promise<void> {

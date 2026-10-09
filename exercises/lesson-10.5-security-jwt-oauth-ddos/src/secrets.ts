@@ -120,14 +120,14 @@ for (const commit of HISTORY)
 	}
 
 const verdict = (value: string): string => {
-	if (value === stripeLive) return 'real — live payment key';
-	if (value === jwtSecret) return 'real — the token signing secret';
-	if (value === dbPassword) return 'real — production DB';
-	if (value === stripeTest) return 'test key — low risk, remove it anyway';
+	if (value === stripeLive) return 'real - live payment key';
+	if (value === jwtSecret) return 'real - the token signing secret';
+	if (value === dbPassword) return 'real - production DB';
+	if (value === stripeTest) return 'test key - low risk, remove it anyway';
 	return 'false positive (lockfile hash)';
 };
 
-heading('Part A — secret scanner: HEAD only vs the whole history');
+heading('Part A - secret scanner: HEAD only vs the whole history');
 const headFindings = scan(
 	[...head.entries()].map(([file, [commit, content]]) => [commit, file, content])
 );
@@ -142,7 +142,7 @@ for (const f of historyFindings)
 const real = historyFindings.filter((f) => verdict(f.value).startsWith('real')).length;
 const headReal = headFindings.filter((f) => verdict(f.value).startsWith('real')).length;
 console.log(
-	`\nreal production secrets: ${real} in history, ${headReal} at HEAD — the "oops remove .env" commit deleted nothing`
+	`\nreal production secrets: ${real} in history, ${headReal} at HEAD - the "oops remove .env" commit deleted nothing`
 );
 
 type Leak = {
@@ -196,7 +196,7 @@ const POLICIES: Policy[] = [
 ];
 
 heading(
-	`Part B — ${n(LEAKS)} leaks, median ${DETECT_MEDIAN_DAYS} days to detect (assumed): how long a leaked secret keeps working`
+	`Part B - ${n(LEAKS)} leaks, median ${DETECT_MEDIAN_DAYS} days to detect (assumed): how long a leaked secret keeps working`
 );
 console.log(
 	row([
@@ -235,7 +235,7 @@ const SERVICES: Record<string, string[]> = {
 };
 const allSecrets = new Set(Object.values(SERVICES).flat());
 
-heading('Part C — how many secrets someone holds after getting inside one service');
+heading('Part C - how many secrets someone holds after getting inside one service');
 console.log(
 	row([
 		['got into', 12],

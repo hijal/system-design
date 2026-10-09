@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { env, getObject, pgPool } from './storage';
 import { mulberry32 } from './random';
 
-// Lesson 8.1 — where.ts's child process: downloading files from outside the app.
-//   SOURCE=s3 — the way a browser/CDN downloads straight from object storage (8.2's presigned URL); the app isn't touched
-//   SOURCE=db — from Postgres, but outside the app's process and pool — only to measure the load on the database
+// Lesson 8.1 - where.ts's child process: downloading files from outside the app.
+//   SOURCE=s3 - the way a browser/CDN downloads straight from object storage (8.2's presigned URL); the app isn't touched
+//   SOURCE=db - from Postgres, but outside the app's process and pool - only to measure the load on the database
 // A separate process because: in the same Node process the CPU for pulling the file's bytes would also enter OLTP latency.
 
 const cfgSchema = z.object({
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
 				const res = await pool.query('SELECT data FROM attachments_blob WHERE id = $1', [id]);
 				bytes += z.object({ data: z.instanceof(Buffer) }).parse(res.rows[0]).data.length;
 			} else {
-				// await first, then add — writing `bytes += await …` reads bytes' old value before the await,
+				// await first, then add - writing `bytes += await …` reads bytes' old value before the await,
 				// and workers running together wipe out each other's additions (Lesson 5.5's lost update, in JavaScript)
 				const data = await getObject(env.BUCKET, `att/${id}`);
 				bytes += data?.length ?? 0;

@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { z } from 'zod';
@@ -16,11 +17,11 @@ import {
 import { getJson, httpGet } from './http';
 import { signInternal, verifyInternal, verifyJwt } from './token';
 
-// One process — what it is, by ROLE:
-//   tasks, users, comments — TaskFlow's services; return the whole object
-//   bff       — a backend for one frontend: assembles the page's data, fixes its shape (SHAPE = web | mobile)
-//   gateway   — one door for every outside request: token check, routing, and canary
-//   files-old, files-new — the thumbnail's old path (inside the monolith) and the new service (9.1's strangler fig)
+// One process - what it is, by ROLE:
+//   tasks, users, comments - TaskFlow's services; return the whole object
+//   bff       - a backend for one frontend: assembles the page's data, fixes its shape (SHAPE = web | mobile)
+//   gateway   - one door for every outside request: token check, routing, and canary
+//   files-old, files-new - the thumbnail's old path (inside the monolith) and the new service (9.1's strangler fig)
 // The parent (cluster.ts) provides the env, and once the process is up it sends the port over IPC.
 
 const env = z
@@ -35,7 +36,7 @@ const env = z
 		// how the tasks service knows whose request it is: trust = believes the x-user-id header; signed = verifies the gateway's signature
 		AUTH_MODE: z.enum(['trust', 'signed']).default('trust'),
 		CANARY_PERCENT: z.coerce.number().min(0).max(100).default(0),
-		// the delay of going from one service to another inside the data center — added to the tasks/users/comments responses
+		// the delay of going from one service to another inside the data center - added to the tasks/users/comments responses
 		NET_MS: z.coerce.number().nonnegative().default(0)
 	})
 	.parse(process.env);
@@ -52,19 +53,29 @@ const idList = z
 	.transform((s) => s.split(',').map(Number))
 	.pipe(z.array(z.number().int().positive()).max(500));
 
-// another service's response — outside data, so parse it with Zod
+// another service's response - outside data, so parse it with Zod
 async function call<T>(url: string, schema: z.ZodType<T>): Promise<T> {
 	return schema.parse(await getJson(url));
 }
 
 const app = express();
+// Limit failed authorization attempts without throttling the successful benchmark traffic.
+app.use(
+	rateLimit({
+		windowMs: 60_000,
+		limit: 100,
+		skipSuccessfulRequests: true,
+		standardHeaders: 'draft-7',
+		legacyHeaders: false
+	})
+);
 if (env.NET_MS > 0 && ['tasks', 'users', 'comments'].includes(env.ROLE))
 	app.use((_req, _res, next) => void sleep(env.NET_MS).then(() => next()));
 
 // ── tasks ──
 if (env.ROLE === 'tasks') {
 	app.get('/tasks/:id', (req, res) => {
-		// Whose request? A service behind the gateway — but how does it know the gateway really set the header?
+		// Whose request? A service behind the gateway - but how does it know the gateway really set the header?
 		const raw = req.header('x-user-id') ?? '';
 		const viewer: number | null =
 			env.AUTH_MODE === 'trust'
@@ -158,7 +169,7 @@ if (env.ROLE === 'files-old' || env.ROLE === 'files-new') {
 
 // ── gateway ──
 if (env.ROLE === 'gateway') {
-	// the same user always goes the same way — in a canary one person's experience doesn't jump between requests
+	// the same user always goes the same way - in a canary one person's experience doesn't jump between requests
 	const bucket = (userId: number): number => (Math.imul(userId, 2654435761) >>> 0) % 100;
 
 	app.use((req, res, next) => {
@@ -175,7 +186,7 @@ if (env.ROLE === 'gateway') {
 
 	const forward = async (req: Request, res: Response, upstream: string): Promise<void> => {
 		const userId = z.number().parse(res.locals.userId);
-		// the identity header sent by the client never goes inside — the gateway sets it itself
+		// the identity header sent by the client never goes inside - the gateway sets it itself
 		const headers: Record<string, string> = {
 			'x-user-id': String(userId),
 			'x-request-id': String(req.headers['x-request-id'])
@@ -205,7 +216,7 @@ if (env.ROLE === 'gateway') {
 	);
 }
 
-// Error handler — Express recognizes it by its four parameters. If the response has already started, hand it to Express's own handler
+// Error handler - Express recognizes it by its four parameters. If the response has already started, hand it to Express's own handler
 app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
 	if (res.headersSent) {
 		next(error);

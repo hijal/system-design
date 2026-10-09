@@ -1,6 +1,6 @@
-# Lesson 11.3 — Case Study: Design a Chat System (WhatsApp-style)
+# Lesson 11.3 - Case Study: Design a Chat System (WhatsApp-style)
 
-**Module 11 — Real System Design Case Studies**
+**Module 11 - Real System Design Case Studies**
 
 > **Spaced Repetition (Lesson 7.4):** Why does a retry need **jitter** along with exponential backoff? Without jitter, when a thousand clients fail at the same moment, when do their next attempts arrive? Today a gateway will die and half a million phones will try to come back at once, and you will see that without jitter not a single one is back after ten minutes.
 
@@ -12,7 +12,7 @@
 2. Give the full answer to 2.4's open question: with millions of WebSockets on a few hundred gateways, how a message reaches the right gateway (broadcast, per-user channel, session registry), and when a gateway dies, how to keep the reconnect storm from becoming a congestion collapse
 3. Design delivery guarantees and ordering: "store first, then push", ack and retry, dedupe with client_msg_id, ordering and sync with a per-conversation seq, and what the sent/delivered/read ticks really are
 
-**Tier:** 1 — Runnable Code (three deterministic models and a real two-gateway chat with `ws`; no Docker needed)
+**Tier:** 1 - Runnable Code (three deterministic models and a real two-gateway chat with `ws`; no Docker needed)
 
 ---
 
@@ -36,7 +36,7 @@ In 2.4 we left a question open: "how will you scale WebSockets horizontally?" Ba
 
 ## 1. Theory
 
-### 1.1 Step 1 — Requirements
+### 1.1 Step 1 - Requirements
 
 ```
 Question                                   Assumed
@@ -44,7 +44,7 @@ How many users?                            500 million DAU, 30% online at peak
 What kind of chat?                         1:1 and groups (20 people on average, a few hundred at most); broadcast channels (100,000s of members) not today
 What can be sent?                          text; images and video go through 8.2's presigned upload path, only their link here
 Receipts?                                  sent ✓, delivered ✓✓, read (blue ✓✓)
-Offline?                                   yes — gets everything when back on the phone, with push notifications
+Offline?                                   yes - gets everything when back on the phone, with push notifications
 History?                                   **ask the question** (see 1.2)
 Presence ("online", "last seen")?          yes, but cheaply
 End-to-end encryption?                     out of scope (say it in one line, below)
@@ -54,29 +54,29 @@ End-to-end encryption?                     out of scope (say it in one line, bel
 
 The one line on end-to-end encryption: a message is encrypted on the phone, and the server only carries the envelope, it does not open it. Its effect on the design is big: the server cannot read the text, so server-side search or spam filters cannot work by looking at text, and one person's several devices means a separately encrypted copy for each device. Today's design does not care what is inside the envelope, so encryption can be added later.
 
-### 1.2 Step 2 — Estimation: where the cost is
+### 1.2 Step 2 - Estimation: where the cost is
 
 `npm run estimate`:
 
 ```
-── Part A — connections: 500 million DAU, 30% online at peak ──
+── Part A - connections: 500 million DAU, 30% online at peak ──
 connections open at once                                   150 million   each is a TCP + TLS + WebSocket
 connection memory (20.0 KB each, approximate)                   3.0 TB   kernel buffers, TLS, app state
 gateway servers (500,000 connections each)                         300   when one dies, this many people reconnect at once
 heartbeats / s (every 30 s)                                  5,000,000   more than the messages
 
-── Part B — messages: 40 a day per user, 30% in groups (20 people on average) ──
+── Part B - messages: 40 a day per user, 30% in groups (20 people on average) ──
 messages sent / s (peak, 3×)                                   694,444
 deliveries per message (fan-out)                                   6.4   each group member is a separate delivery
 delivery / s (peak)                                          4,444,444
-receipt (delivered + read) / s (peak)                        8,888,889   two from each delivery — more writes than messages
+receipt (delivered + read) / s (peak)                        8,888,889   two from each delivery - more writes than messages
 
-── Part C — storage: 200 B per message ──
+── Part C - storage: 200 B per message ──
 all history forever (10 years, one copy)                       14.6 PB   history on the server (like Messenger/Slack)
 only undelivered messages (deleted once delivered)              3.2 TB   50% of deliveries wait 6 hours on average
 difference                                                 4,562 times   a product decision, not a storage one
 
-── Part D — presence: 200 contacts on average, online ↔ offline 20 times a day ──
+── Part D - presence: 200 contacts on average, online ↔ offline 20 times a day ──
 push to every contact / s                                   23,148,148   presence storm
 only those with the chat open (1%) / s                         231,481   lazy presence: only if subscribed
 ```
@@ -84,7 +84,7 @@ only those with the chat open (1%) / s                         231,481   lazy pr
 1. **The real cost is in connections.** 150 million open connections, 3 TB of memory just to hold them, 300 gateways. And heartbeats (small pings to check a connection is alive) at 5 million a second, **7 times** the peak messages. The heartbeat interval is a trade-off: short, and dead connections are caught quickly, but the phone's battery and the server's CPU go; long, and the NAT and mobile network boxes in between silently cut the connection, and the server does not notice for a long time.
 2. **The real write load is fan-out and receipts.** One message sent is 6.4 deliveries on average (each group member separately), and each delivery brings two receipts. One message means almost 20 events. And with groups of 200 (experiment), 60 deliveries per message, 80 million receipts a second. So in big groups the "who has read it" receipts have to be handled separately (1.7).
 3. **The history question is 4,500 times.** If the server keeps every message forever (log into a new phone and see all your old chats, like Messenger or Slack), ~15 PB in ten years. If the server keeps them only **until delivered** and the phone keeps its own history (WhatsApp's original design is published as working this way, with backups on the phone's side), then at any moment only the waiting messages, ~3 TB. This is a question to ask the interviewer, because its answer changes the kind of database: a small, fast queue-like inbox, or a huge, permanent log.
-4. **Presence, unless done cheaply, is the biggest cost.** When someone comes online or goes offline, telling their 200 contacts: 23 million events a second, 5 times the deliveries, and almost nobody looks. **Presence** — whether a user is online right now, or when they last were. The cheap way (lazy presence): send presence only when someone has that user's chat open (has subscribed), and read "last seen" only when a chat is opened. One hundredth of the load.
+4. **Presence, unless done cheaply, is the biggest cost.** When someone comes online or goes offline, telling their 200 contacts: 23 million events a second, 5 times the deliveries, and almost nobody looks. **Presence** - whether a user is online right now, or when they last were. The cheap way (lazy presence): send presence only when someone has that user's chat open (has subscribed), and read "last seen" only when a chat is opened. One hundredth of the load.
 
 ### 1.3 API and data model
 
@@ -110,7 +110,7 @@ session(user_id → gateway_id, connected_at)                      ← the regis
 
 A message's key is `(conv_id, seq)`: all of a conversation's messages side by side, in seq order, and "everything after seq 41 in conv X" is one range scan. Sharding (5.8) by `conv_id`, so a conversation stays in one place and one party hands out its seqs (1.7). For data of this shape (one partition key, order inside it, lots of writes) a wide-column store is common: Facebook Messenger's HBase and Discord's Cassandra (later ScyllaDB) are described in their published writing. The same design also works in Postgres sharded by `conv_id`.
 
-### 1.4 Step 3 — High-level design, and which gateway to send to
+### 1.4 Step 3 - High-level design, and which gateway to send to
 
 ```
  phone ══ WebSocket ══ [gateway × 300] ──► [chat service] ──► [message store (conv_id, seq)]
@@ -122,7 +122,7 @@ A message's key is `(conv_id, seq)`: all of a conversation's messages side by si
   └──── sync: "conv X after seq N" ◄── gateway ◄── store
 ```
 
-**Connection Gateway** — a server only for holding connections: TLS, WebSocket, heartbeats, and passing frames to the chat service and writing the chat service's frames to the right socket. No business logic inside. The reason: deploying a gateway means cutting hundreds of thousands of connections (1.5), so the less it changes the better. The logic lives in the stateless chat service behind it, which can be deployed every day without cutting a single connection.
+**Connection Gateway** - a server only for holding connections: TLS, WebSocket, heartbeats, and passing frames to the chat service and writing the chat service's frames to the right socket. No business logic inside. The reason: deploying a gateway means cutting hundreds of thousands of connections (1.5), so the less it changes the better. The logic lives in the stateless chat service behind it, which can be deployed every day without cutting a single connection.
 
 Now 2.4's question: the chat service knows the message is for Bob. Which gateway is Bob on? `npm run gateway` part A, 4.4 million deliveries a second at peak, 300 gateways:
 
@@ -136,7 +136,7 @@ session registry (user → gateway) + direct send                               
 
 - **The simplest form of 2.4's "one shared pub/sub", everything on one channel, dies at this size.** Every gateway gets every delivery (4.4 million/s), 0.3% of which are its own. 1.33 billion a second in the middle layer. At a small size (a few servers) it is the right answer, and 2.4 was talking about that size.
 - **A channel per user:** each gateway subscribes to the channels of its connected users. A gateway only gets its own. But there is a trap: Redis Cluster's old `PUBLISH` spreads a message to **every node** in the cluster (that is how pub/sub across the cluster used to work), so the middle layer is multiplied by the number of nodes. Redis 7's sharded pub/sub (`SSUBSCRIBE`/`SPUBLISH`) keeps a channel on one shard.
-- **Session Registry** — a small `user → gateway` map (in Redis, with a TTL, renewed on heartbeat). The chat service does one lookup before a delivery, then sends straight to that gateway (RPC or a queue per gateway). Two ops per delivery in the middle layer. Clear and easy to debug ("where is Bob right now?" is one question), and that is what this design uses.
+- **Session Registry** - a small `user → gateway` map (in Redis, with a TTL, renewed on heartbeat). The chat service does one lookup before a delivery, then sends straight to that gateway (RPC or a queue per gateway). Two ops per delivery in the middle layer. Clear and easy to debug ("where is Bob right now?" is one question), and that is what this design uses.
 
 Both paths share a weakness, which is the centre of the next section: **the registry can be stale.** Bob's gateway has died, but the registry still says "gw2".
 
@@ -146,16 +146,16 @@ Half a million connections on one gateway. The gateway crashed (or was shut down
 
 ```
 policy                                          attempts/s (peak)  total attempts  per client  50% back  99% back        all back
-at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         —         —  0% (in 10 min)
-at once, and exactly 1 s later on failure               5,000,000     300,000,000         600         —         —  0% (in 10 min)
-exponential backoff, no jitter                          5,000,000       7,500,000          15         —         —  0% (in 10 min)
+at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         -         -  0% (in 10 min)
+at once, and exactly 1 s later on failure               5,000,000     300,000,000         600         -         -  0% (in 10 min)
+exponential backoff, no jitter                          5,000,000       7,500,000          15         -         -  0% (in 10 min)
 first one spread over 0–10 s + full jitter                251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
 best possible: 500,000 ÷ 20,000/s = 25.00 s.
 ```
 
 **The spaced repetition answer:** without jitter, clients that failed together retry together, because they all do the same maths. Backoff only widens the gap between the waves; it does not lower the height of a wave. Jitter (a random delay) spreads the wave out in time.
 
-And here is its extreme form: **Congestion Collapse (reconnect storm)** — demand so far above capacity that all the capacity goes on the cost of rejections, and not one attempt succeeds; everyone tries again, and things never get better on their own. 0.2 of half a million attempts = the work of 100,000 handshakes, against a capacity of 20,000 a second. Under the first three policies **not a single client is back after ten minutes.** There is backoff, but no jitter: half a million phones together after 1 s, together after 2 s, together after 4 s, hitting the same wall each time. Experiment 1: even with the rejection cost down at 0.02 (ten times cheaper), the collapse remains.
+And here is its extreme form: **Congestion Collapse (reconnect storm)** - demand so far above capacity that all the capacity goes on the cost of rejections, and not one attempt succeeds; everyone tries again, and things never get better on their own. 0.2 of half a million attempts = the work of 100,000 handshakes, against a capacity of 20,000 a second. Under the first three policies **not a single client is back after ten minutes.** There is backoff, but no jitter: half a million phones together after 1 s, together after 2 s, together after 4 s, hitting the same wall each time. Experiment 1: even with the rejection cost down at 0.02 (ten times cheaper), the collapse remains.
 
 Under the fourth policy everyone is back in 89 s, close to the theoretical best of 25 s. And experiment 2 shows something unexpected: spreading the first attempt over **60 s** instead of 10 s gives exactly one attempt per client, no rejections, and 99% back **in 59 s, before the 10 s spread's 76 s.** Starting slower finishes faster, because nothing is wasted on rejections.
 
@@ -171,9 +171,9 @@ first one spread over 0–10 s + full jitter          391,250 (88%)             
 
 If messages are only pushed (look up the registry, send to the gateway, done), 88% of the first 30 seconds are lost. If it is **store first, then push**, nothing is lost: the message is durable in the store, the push is only a fast path, and the phone takes whatever it missed in a sync when it comes back. The only price is delay (p99 65 s, the time for the phone to return). This is the most important rule of this design:
 
-**Store-then-Push (Inbox + Sync)** — a message is first written to a durable store (and the sender is acked right then), then pushed to an online recipient as best-effort. The recipient can ask at any time "what is there after seq N in this conversation?" and fill every gap. If a push is lost, goes twice, or the registry is wrong, the damage is only delay, never loss. Push is an optimization; sync is the truth.
+**Store-then-Push (Inbox + Sync)** - a message is first written to a durable store (and the sender is acked right then), then pushed to an online recipient as best-effort. The recipient can ask at any time "what is there after seq N in this conversation?" and fill every gap. If a push is lost, goes twice, or the registry is wrong, the damage is only delay, never loss. Push is an optimization; sync is the truth.
 
-### 1.6 Deep dive — delivering exactly once: ack, retry, dedupe
+### 1.6 Deep dive - delivering exactly once: ack, retry, dedupe
 
 On mobile networks packets get lost, connections drop, phones go into tunnels. `npm run delivery` part A: A → server → B, each packet lost 3% of the time:
 
@@ -188,11 +188,11 @@ resend + drop by client_msg_id and seq               0.00%          0.00%       
 - **Retries, no dedupe:** nothing is lost, but 5.8% is shown twice. Why: A's message reached the server, but the server's ack was lost. A thought it hadn't gone, sent it again, and the server stored it twice. The same happens on server → B.
 - **Retries + dedupe:** zero lost, zero twice. Two separate keys on the two hops: on the server, **client_msg_id** (the phone makes an id for each message and sends the same one on retry; the server checks `UNIQUE (conv, from, client_msg_id)` and returns the earlier seq, 2.5's idempotency key exactly), and on the phone, **seq** (the same seq arriving twice is one message). At-least-once + idempotent = effectively once, as 7.4 said.
 
-**Delivery Receipt (sent / delivered / read)** — each tick is a separate event and a separate write: **sent ✓** = the server has stored it durably (the sender's ack, the answer to client_msg_id); **delivered ✓✓** = the recipient's phone got the message and sent an ack on its own; **read (blue)** = the recipient opened the chat. The last two go back to the sender as receipts, and are stored on the server in `cursor` (not per message, but "how far" per conversation: `delivered_seq`, `read_seq`; one cursor covers every earlier message).
+**Delivery Receipt (sent / delivered / read)** - each tick is a separate event and a separate write: **sent ✓** = the server has stored it durably (the sender's ack, the answer to client_msg_id); **delivered ✓✓** = the recipient's phone got the message and sent an ack on its own; **read (blue)** = the recipient opened the chat. The last two go back to the sender as receipts, and are stored on the server in `cursor` (not per message, but "how far" per conversation: `delivered_seq`, `read_seq`; one cursor covers every earlier message).
 
 The cursor idea cuts the receipt load: when Bob reads ten messages together, it is one "read up to seq 50", not ten. And in a big group (200 people), sending every member's every receipt to the sender separately is 1.2's 80 million/s; so in groups receipts are batched, every few seconds, or read only when the sender opens "info".
 
-### 1.7 Deep dive — ordering: who decides which came first
+### 1.7 Deep dive - ordering: who decides which came first
 
 Two problems in a group: (1) **causality**: C saw a question and answered it; the answer must not appear above the question on anyone's screen. (2) **agreement**: two people wrote at almost the same time; everyone must see the same order, or the conversation means different things to different people. Part B, a group of 5, phone clocks ±500 ms (2% of phones a minute or so off), three chat servers (±30 ms):
 
@@ -207,9 +207,9 @@ per-conversation seq (one sequencer)                          0.00%             
 - **The phone's clock:** everyone sees the same order (the same timestamps), but **10% of answers are above their question.** 6.4's point: clocks can't be trusted, and phone clocks least of all. Someone whose phone is two minutes behind has every answer jump up.
 - **Arrival order:** causality is almost right (an answer is sent after the question arrives), but for two messages written together, **members see different orders in 48% of cases,** because the two messages reach each member by different paths.
 - **The server's clock:** both are zero here, because people take seconds to answer and the server clocks are off by a few ms. Experiment 4: with answers coming in 20 ms (a bot), 0.09% even with the server's clock. "Almost always right", not guaranteed.
-- **Per-Conversation Sequence (Sequencer)** — each conversation has one owner (the leader of its shard or partition), which gives every new message an increasing number: 1, 2, 3... Everyone sorts by seq, and on seeing a gap (43 after 41) waits or syncs. Causality is guaranteed (the answer reaches the server after the question, so it gets a bigger seq), and everyone sees the same order, both by construction, not from clocks.
+- **Per-Conversation Sequence (Sequencer)** - each conversation has one owner (the leader of its shard or partition), which gives every new message an increasing number: 1, 2, 3... Everyone sorts by seq, and on seeing a gap (43 after 41) waits or syncs. Causality is guaranteed (the answer reaches the server after the question, so it gets a bigger seq), and everyone sees the same order, both by construction, not from clocks.
 
-The real value of seq is not just ordering: it is **the language of sync.** "I have received up to 41 in conv X" is unambiguous, unlike a timestamp ("after 12:03:05" — what if two were in the same millisecond?). The cursor (1.6) and sync (1.5) stand on this one number. The price: every write to a conversation goes through one sequencer, so it is a speed limit (a few thousand messages a second in one group, which is never a problem for a human group), and its failover needs 6.2's consensus, so two parties never hand out the same seq. Seq is inside a conversation, not across the whole system: order between two different conversations has no meaning, so no global sequencer is needed.
+The real value of seq is not just ordering: it is **the language of sync.** "I have received up to 41 in conv X" is unambiguous, unlike a timestamp ("after 12:03:05" - what if two were in the same millisecond?). The cursor (1.6) and sync (1.5) stand on this one number. The price: every write to a conversation goes through one sequencer, so it is a speed limit (a few thousand messages a second in one group, which is never a problem for a human group), and its failover needs 6.2's consensus, so two parties never hand out the same seq. Seq is inside a conversation, not across the whole system: order between two different conversations has no meaning, so no global sequencer is needed.
 
 ### 1.8 A real chat: two gateways, a registry, a store
 
@@ -236,7 +236,7 @@ The real value of seq is not just ordering: it is **the language of sync.** "I h
 - Steps 8–9: gw2 dies, the registry still shows gw2, and two pushes fail as "stale route". But the messages are in the store. Bob comes back on gw1 and syncs with his cursor, getting exactly the two he missed.
 - Step 10: two people write at once; the sequencer gives 4 and 5, and Carol sees them in that order.
 
-### 1.9 Step 5 — Trade-offs and wrap-up
+### 1.9 Step 5 - Trade-offs and wrap-up
 
 **The final design:**
 
@@ -246,9 +246,9 @@ The real value of seq is not just ordering: it is **the language of sync.** "I h
 - **Ordering:** a per-conversation seq, handed out by the leader of the conversation's shard; clients sort by seq and sync on seeing a gap.
 - **Receipts:** cursors (`delivered_seq`, `read_seq`) per conversation, not per message; batched in big groups.
 - **Presence:** lazy, only for open chats.
-- **Storage:** according to the product's answer — an inbox until delivered (TB) or a permanent log (PB), key `(conv_id, seq)`, sharded by `conv_id`.
+- **Storage:** according to the product's answer - an inbox until delivered (TB) or a permanent log (PB), key `(conv_id, seq)`, sharded by `conv_id`.
 
-> **Trade-off Table — chat's big decisions**
+> **Trade-off Table - chat's big decisions**
 
 | Decision  | Chose                                    | Alternative              | What I gave                                           | What I got                                                                     |
 | --------- | ---------------------------------------- | ------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -259,7 +259,7 @@ The real value of seq is not just ordering: it is **the language of sync.** "I h
 | Reconnect | Jitter from the first attempt + draining | Retry at once            | After a crash, some phones offline for up to 1 minute | No collapse (without jitter nobody is back in 10 minutes)                      |
 | Presence  | Lazy (open chats only)                   | Push to every contact    | "Online" somewhat late, or only once a chat is open   | One hundredth of the load                                                      |
 
-**What breaks first:** big groups and channels (thousands or hundreds of thousands of members) — fan-out writes per message become impossible, and then fan-out on read (the central question of 11.4's news feed); one person's several devices (a separate cursor and a separate connection per device, and a separate copy under encryption); and multi-region (10.8) — a conversation's sequencer is in one region, and members on another continent pay a far round trip on every write.
+**What breaks first:** big groups and channels (thousands or hundreds of thousands of members) - fan-out writes per message become impossible, and then fan-out on read (the central question of 11.4's news feed); one person's several devices (a separate cursor and a separate connection per device, and a separate copy under encryption); and multi-region (10.8) - a conversation's sequencer is in one region, and members on another continent pay a far round trip on every write.
 
 ---
 
@@ -275,12 +275,12 @@ The chat system is the most common "real-time" interview question, and here the 
 
 **Follow-ups that are almost certain:**
 
-- _"Can't you just tell every gateway with Redis pub/sub?"_ — Everything on one channel: every gateway gets every delivery, 0.3% useful with 300 gateways. A channel per user is fine, but Redis Cluster's old PUBLISH spreads to every node; sharded pub/sub or a registry.
-- _"How do you order messages?"_ — Not by timestamp (10% of answers above the question with phone clocks). A per-conversation seq, one sequencer. No system-wide order is needed.
-- _"Exactly-once?"_ — There is no exactly-once delivery over a network. At-least-once + idempotent receive (client_msg_id, seq) = once in the user's eyes.
-- _"How will you deploy the gateways?"_ — Draining, slowly, and jitter on the client. And keep no logic in the gateway, so it needs fewer deploys.
-- _"A group of 100,000 members?"_ — Fan-out on read instead of fan-out on write (the conversation's log once, members pull it themselves), receipts and presence off or batched. It is really a separate product (a channel).
-- _"Offline users?"_ — The message stays in the store; the push notification (APNs/FCM) only wakes the phone, carrying no data (or very little); the phone wakes up and syncs. That is Lesson 11.5's notification system.
+- _"Can't you just tell every gateway with Redis pub/sub?"_ - Everything on one channel: every gateway gets every delivery, 0.3% useful with 300 gateways. A channel per user is fine, but Redis Cluster's old PUBLISH spreads to every node; sharded pub/sub or a registry.
+- _"How do you order messages?"_ - Not by timestamp (10% of answers above the question with phone clocks). A per-conversation seq, one sequencer. No system-wide order is needed.
+- _"Exactly-once?"_ - There is no exactly-once delivery over a network. At-least-once + idempotent receive (client_msg_id, seq) = once in the user's eyes.
+- _"How will you deploy the gateways?"_ - Draining, slowly, and jitter on the client. And keep no logic in the gateway, so it needs fewer deploys.
+- _"A group of 100,000 members?"_ - Fan-out on read instead of fan-out on write (the conversation's log once, members pull it themselves), receipts and presence off or batched. It is really a separate product (a channel).
+- _"Offline users?"_ - The message stays in the store; the push notification (APNs/FCM) only wakes the phone, carrying no data (or very little); the phone wakes up and syncs. That is Lesson 11.5's notification system.
 
 **In real production:** the most common incident is a reconnect storm after a gateway or a whole AZ outage, which brings down the auth or session store and makes the outage longer; the wrong heartbeat interval (mobile NAT silently cuts connections and the server thinks the user is online); relying on push and not storing, and the "my message was lost" tickets; and sorting by the client's clock, which shows strange orders only on some people's phones (wrong clocks) and is hard to reproduce.
 
@@ -289,10 +289,10 @@ The chat system is the most common "real-time" interview question, and here the 
 ## 3. Key Takeaway
 
 - **A chat's cost is in connections, not messages:** 150 million open connections, 3 TB of memory, heartbeats 7 times the peak messages; and the real write load is fan-out and receipts (one message ≈ 20 events)
-- **"Do we keep history" is 4,500 times** (14.6 PB vs 3.2 TB) — a product question that changes the kind of database. Presence, unless lazy, is the biggest cost (23 million/s)
+- **"Do we keep history" is 4,500 times** (14.6 PB vs 3.2 TB) - a product question that changes the kind of database. Presence, unless lazy, is the biggest cost (23 million/s)
 - **The gateway only holds connections; the session registry says who is where.** Broadcast on one channel dies at this size (every gateway gets everything, 0.3% useful)
 - **A reconnect storm without jitter is congestion collapse:** the cost of rejections eats all the capacity, and nobody is back in ten minutes. Spread from the first attempt (spread over 60 s, one attempt per client, and it finishes faster), draining, cheap rejection
-- **Store-then-push: push is the optimization, sync is the truth.** With a stale registry, push alone loses 88%, the store zero — the only price is delay
+- **Store-then-push: push is the optimization, sync is the truth.** With a stale registry, push alone loses 88%, the store zero - the only price is delay
 - **At-least-once + dedupe = effectively once:** without retries 6% is lost, without dedupe 6% is shown twice. client_msg_id on the server, seq on the phone
 - **Order comes from the conversation's sequencer, not from clocks:** with phone clocks 10% of answers are above the question, with arrival order 48% see different orders. The seq is also the language of sync and of receipt cursors
 
@@ -302,13 +302,13 @@ The chat system is the most common "real-time" interview question, and here the 
 
 | Term                                           | Meaning                                                                                                                                                                                                               |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Connection Gateway**                         | A server only for holding long-lived connections (TLS, WebSocket, heartbeats), with no business logic — so it is deployed less, and the logic can change every day in the stateless service behind it                 |
-| **Session Registry**                           | A small `user → gateway` map (with a TTL, renewed on heartbeat) — the chat service does one lookup and sends straight to the right gateway; stale for a while when a gateway dies                                     |
-| **Congestion Collapse (Reconnect Storm)**      | Demand so far above capacity that the cost of rejections uses up the capacity, nobody succeeds, and everyone's retries keep it worse — prevented with jitter, a spread first attempt, draining and cheap rejection    |
-| **Store-then-Push (Inbox + Sync)**             | A message first to a durable store (the sender is acked then), then push as best-effort; the recipient fills gaps with "what is after seq N?" — a lost push costs only delay                                          |
+| **Connection Gateway**                         | A server only for holding long-lived connections (TLS, WebSocket, heartbeats), with no business logic - so it is deployed less, and the logic can change every day in the stateless service behind it                 |
+| **Session Registry**                           | A small `user → gateway` map (with a TTL, renewed on heartbeat) - the chat service does one lookup and sends straight to the right gateway; stale for a while when a gateway dies                                     |
+| **Congestion Collapse (Reconnect Storm)**      | Demand so far above capacity that the cost of rejections uses up the capacity, nobody succeeds, and everyone's retries keep it worse - prevented with jitter, a spread first attempt, draining and cheap rejection    |
+| **Store-then-Push (Inbox + Sync)**             | A message first to a durable store (the sender is acked then), then push as best-effort; the recipient fills gaps with "what is after seq N?" - a lost push costs only delay                                          |
 | **Delivery Receipt (sent / delivered / read)** | Three separate events: durable on the server (✓), reached the recipient's phone (✓✓), the recipient read it (blue); stored as a cursor per conversation, not per message                                              |
-| **Per-Conversation Sequence (Sequencer)**      | Each conversation's owner gives every message an increasing seq — causality and the same order for everyone guaranteed, without clocks; the language of sync and cursors; the price is one sequencer and its failover |
-| **Presence**                                   | Whether a user is online now or when they last were — pushed to every contact it is a bigger load than delivery itself; lazy presence only to those with the chat open                                                |
+| **Per-Conversation Sequence (Sequencer)**      | Each conversation's owner gives every message an increasing seq - causality and the same order for everyone guaranteed, without clocks; the language of sync and cursors; the price is one sequencer and its failover |
+| **Presence**                                   | Whether a user is online now or when they last were - pushed to every contact it is a bigger load than delivery itself; lazy presence only to those with the chat open                                                |
 
 ---
 
@@ -327,19 +327,19 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 **Question 1:**
 
-(a) **Registry:** from `user → gateway` to `(user, device) → gateway`; four entries for one user. **Fan-out:** one per delivery to each of the recipient's devices, **and to the sender's own other devices too** (when Alice sends from her phone, it has to show on her laptop as well). **Cursors:** at two levels — `delivered_seq` per device (how far each device has received, for sync), and `read_seq` per user (reading is done by a person, not a device). Reading on one device moves the user's `read_seq`, and that goes to the other devices as an event ("read up to seq 50 in conv X", so the notification badge clears).
+(a) **Registry:** from `user → gateway` to `(user, device) → gateway`; four entries for one user. **Fan-out:** one per delivery to each of the recipient's devices, **and to the sender's own other devices too** (when Alice sends from her phone, it has to show on her laptop as well). **Cursors:** at two levels - `delivered_seq` per device (how far each device has received, for sync), and `read_seq` per user (reading is done by a person, not a device). Reading on one device moves the user's `read_seq`, and that goes to the other devices as an event ("read up to seq 50 in conv X", so the notification badge clears).
 
-(b) Connections: the four devices are not always online, but say online devices are 1.5 times on average: from 150 million to ~220 million, memory and gateways 1.5 times. Deliveries: multiplied by the recipient's device count, plus the sender's own devices — say 2–3 times. The "delivered" receipt per device, "read" per user. Heartbeats grow with connections.
+(b) Connections: the four devices are not always online, but say online devices are 1.5 times on average: from 150 million to ~220 million, memory and gateways 1.5 times. Deliveries: multiplied by the recipient's device count, plus the sender's own devices - say 2–3 times. The "delivered" receipt per device, "read" per user. Heartbeats grow with connections.
 
-(c) "Full history on a new device" means the server **has to keep** history — the inbox model (delete once delivered) no longer works, because delivery is now per device, and for a new device everything is "undelivered". Meaning from 1.2's 3 TB towards 14.6 PB. The alternative: the old device (the phone) owns the history, and the new device pulls history from the phone (which must be online) or from the user's own cloud backup. This is a product and privacy decision (with end-to-end encryption the server cannot read its copy, so either a separately encrypted copy per device or a handover from device to device). Either way, multi-device and "no history on the server" are hard to have together.
+(c) "Full history on a new device" means the server **has to keep** history - the inbox model (delete once delivered) no longer works, because delivery is now per device, and for a new device everything is "undelivered". Meaning from 1.2's 3 TB towards 14.6 PB. The alternative: the old device (the phone) owns the history, and the new device pulls history from the phone (which must be online) or from the user's own cloud backup. This is a product and privacy decision (with end-to-end encryption the server cannot read its copy, so either a separately encrypted copy per device or a handover from device to device). Either way, multi-device and "no history on the server" are hard to have together.
 
 **Question 2:**
 
 (a) 50 million connections ÷ 20,000/s = 2,500 s even in the best case, almost **42 minutes**. Spread over 60 s, demand is ~830,000/s, 40 times the capacity: the territory of part B's collapse (with a rejection cost of 0.2, the work of 160,000/s, 8 times the capacity). Meaning a 60 s spread is not enough at this size, and exponential backoff's jitter will work here, but over many minutes. The real lesson: the spread window has to match the fleet's capacity and the size of the event, not be a fixed number. And the time for "everyone is back" is counted in minutes, not seconds.
 
-(b) On every reconnect: TLS (the gateway's CPU), auth (verifying a token — only CPU with a JWT, the auth service if it is called every time), a registry write (Redis), and a sync (a range scan in the store for each conversation). What usually breaks first is the **auth service** (if every reconnect calls it) and **sync** (four minutes of accumulated messages, a few dozen conversations per user, all at once). To cut the sync load: the client syncs only the recent conversations first, and the rest later or when a chat is opened.
+(b) On every reconnect: TLS (the gateway's CPU), auth (verifying a token - only CPU with a JWT, the auth service if it is called every time), a registry write (Redis), and a sync (a range scan in the store for each conversation). What usually breaks first is the **auth service** (if every reconnect calls it) and **sync** (four minutes of accumulated messages, a few dozen conversations per user, all at once). To cut the sync load: the client syncs only the recent conversations first, and the rest later or when a chat is opened.
 
-(c) Preparations: (1) the client's reconnect window can be controlled from the server (a config, or the gateway says "come back after X s" on reconnect) — it can be widened to match the size of the event; (2) a resumption token for auth: a short-lived signed token the gateway can verify itself, without the auth service (like 10.5's JWT), and TLS session resumption, so the handshake is cheap; (3) a game day (10.3): deliberately cut off one AZ's gateways, and measure how long it takes for everyone to come back and which service goes red first. Plus admission control at the entrance (11.2's limiter, by connection rate) so rejection is cheap.
+(c) Preparations: (1) the client's reconnect window can be controlled from the server (a config, or the gateway says "come back after X s" on reconnect) - it can be widened to match the size of the event; (2) a resumption token for auth: a short-lived signed token the gateway can verify itself, without the auth service (like 10.5's JWT), and TLS session resumption, so the handshake is cheap; (3) a game day (10.3): deliberately cut off one AZ's gateways, and measure how long it takes for everyone to come back and which service goes red first. Plus admission control at the entrance (11.2's limiter, by connection rate) so rejection is cheap.
 
 **Question 3:**
 
@@ -347,7 +347,7 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 (b) **Read receipts:** off, or only a count ("2,310 people saw this", on the sender's request, counted from cursors), because sending each receipt to the sender is pointless and expensive. **Delivered receipts:** off. **Presence:** off, or only an approximate number like "85 online now". **Push notifications:** not on every message, by the user's preference (when mentioned, or a daily summary), otherwise 2,000 notifications a day. **Typing indicators:** off (among 10,000 people someone is always typing, and every "typing" is an event to everyone).
 
-(c) 2,000 messages a day is one or two a minute on average, maybe a few a second at peak — nothing for a sequencer. The sequencer's problem is not the write rate but **the read fan-out**: going to 10,000 people on every new message, and pushing to the gateways of the few thousand of them who are online. That is not the sequencer's job, it is delivery's; so keep the sequencer (handing out seqs) and fan-out (sending) separate, so one big group's fan-out does not slow down handing out seqs for other conversations.
+(c) 2,000 messages a day is one or two a minute on average, maybe a few a second at peak - nothing for a sequencer. The sequencer's problem is not the write rate but **the read fan-out**: going to 10,000 people on every new message, and pushing to the gateways of the few thousand of them who are online. That is not the sequencer's job, it is delivery's; so keep the sequencer (handing out seqs) and fan-out (sending) separate, so one big group's fan-out does not slow down handing out seqs for other conversations.
 
 </details>
 
@@ -355,9 +355,9 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (three deterministic models and a real two-gateway chat with `ws`; no Docker needed)
+**Tier 1 - Runnable Code** (three deterministic models and a real two-gateway chat with `ws`; no Docker needed)
 
-> **Ready to run in the repo:** [`exercises/lesson-11.3-chat-system/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.3-chat-system) — `npm install`, then `npm run estimate`, `npm run gateway`, `npm run delivery`, `npm run smoke`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-11.3-chat-system/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.3-chat-system) - `npm install`, then `npm run estimate`, `npm run gateway`, `npm run delivery`, `npm run smoke`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `estimate` works out connections, memory, gateways, heartbeats, fan-out, receipts, storage and presence. `gateway` compares four routing paths, runs four reconnect policies after a gateway crash (with the cost of rejections), and counts the messages lost while the registry is stale. `delivery` measures three delivery policies on a network losing 3% of packets, and four ordering rules in a group. `smoke` runs 11 steps with two real WebSocket gateways, a `ChatCore` and three users.
 
@@ -365,7 +365,7 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 **Once the setup checks out, do these five:**
 
-1. **Predict first:** **before** running `gateway`, write down: half a million clients on the "at once, and 1 s later on failure" policy, capacity 20,000/s — how long until everyone is back? Then run it and compare. Where was your mistake?
+1. **Predict first:** **before** running `gateway`, write down: half a million clients on the "at once, and 1 s later on failure" policy, capacity 20,000/s - how long until everyone is back? Then run it and compare. Where was your mistake?
 
 2. **Your own capacity:** `CAPACITY=50000 npm run gateway` and `CAPACITY=5000`. Which policies come out of collapse, and where is the line? Write the condition for collapse as one formula, in terms of the cost of a rejection and the demand.
 
@@ -382,24 +382,24 @@ Think for yourself before looking at the answers. Write at least two or three li
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1 – 10 (complete, with exit challenges), 11.1, 11.2
-Current: 11.3 — Case Study: Design a Chat System (WhatsApp-style)
-TaskFlow state: kept as it was at the end of Module 10 (set aside in Module 11). Case study 1 — URL shortener (11.1);
-2 — rate limiter service (11.2). Case study 3 — chat: 500 million DAU, 150 million open connections (3 TB), ~300
+Current: 11.3 - Case Study: Design a Chat System (WhatsApp-style)
+TaskFlow state: kept as it was at the end of Module 10 (set aside in Module 11). Case study 1 - URL shortener (11.1);
+2 - rate limiter service (11.2). Case study 3 - chat: 500 million DAU, 150 million open connections (3 TB), ~300
 gateways, heartbeats 5 million/s (7 times the messages), fan-out 6.4, receipts 8.9 million/s. History: forever 14.6 PB
 vs until delivered 3.2 TB (a product question). Gateways only hold connections; session registry (user → gateway) +
 direct send (broadcast is 0.3% useful per gateway). Store-then-push: durable first, ack, then push best-effort, sync by
 seq (with a stale registry, push alone loses 88%, the store 0). At-least-once + client_msg_id + seq (otherwise 6% lost
 or 6% twice). Ordering by per-conversation seq (phone clocks put 10% of answers above the question, arrival order 48%
 different). Receipts as cursors. Presence lazy. Reconnect: jitter from the first attempt (spread over 60 s, one
-attempt per client), draining, cheap rejection — without jitter, congestion collapse (0% in 10 minutes). Message key
+attempt per client), draining, cheap rejection - without jitter, congestion collapse (0% in 10 minutes). Message key
 (conv_id, seq), sharded by conv_id.
 Terms learned (Module 11): Base62 Encoding, Keyspace, Birthday Bound, Range Allocation (Ticket Server),
 Format-Preserving Permutation, 301 / 302 Redirect, Link Enumeration, Quota (vs Rate Limit), Hash Tag,
 Approximate Sync, Token Lease, Key Splitting, Degraded Mode (Local Fallback Limit), Connection Gateway,
 Session Registry, Congestion Collapse (Reconnect Storm), Store-then-Push (Inbox + Sync), Delivery Receipt,
 Per-Conversation Sequence (Sequencer), Presence
-Weak spots: [where you got stuck — write it yourself]
-Next: 11.4 — Case Study: Design a News Feed (Facebook/Twitter-style)
+Weak spots: [where you got stuck - write it yourself]
+Next: 11.4 - Case Study: Design a News Feed (Facebook/Twitter-style)
 =======================
 ```
 
@@ -409,4 +409,4 @@ Next: 11.4 — Case Study: Design a News Feed (Facebook/Twitter-style)
 
 Today's thread: **a real-time system's cost is in open connections, and its guarantees come from the store and the sequence, not from push.** The gateway only holds connections, the registry says who is where, and a message goes to a durable place first, then down the fast path. A push can be lost, can go twice, can go to the wrong place; seq and sync fix all of it. And the most dangerous moment for a stateful fleet is not one server's death, but the five minutes after it, when everyone wants to come back at once.
 
-When you are ready, write `next` — we go to **Lesson 11.4: Design a News Feed (Facebook/Twitter-style)**. Today's question 3, the big group, comes back there as a whole system: when someone posts, how does it reach the feeds of their 10 million followers? Write into every follower's feed (fan-out on write), or stitch everyone's posts together at read time (fan-out on read)? Why doesn't the same answer work for a celebrity and an ordinary user, and where does ranking sit?
+When you are ready, write `next` - we go to **Lesson 11.4: Design a News Feed (Facebook/Twitter-style)**. Today's question 3, the big group, comes back there as a whole system: when someone posts, how does it reach the feeds of their 10 million followers? Write into every follower's feed (fan-out on write), or stitch everyone's posts together at read time (fan-out on read)? Why doesn't the same answer work for a celebrity and an ordinary user, and where does ranking sit?

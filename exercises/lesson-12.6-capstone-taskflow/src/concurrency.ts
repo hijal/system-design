@@ -101,7 +101,7 @@ async function main(): Promise<void> {
 		);
 	}
 	console.log(
-		'"silently lost": got 200 but the task is not assigned to their choice. A 409 is not lost — the client is told and can re-read.'
+		'"silently lost": got 200 but the task is not assigned to their choice. A 409 is not lost - the client is told and can re-read.'
 	);
 
 	await close(server);

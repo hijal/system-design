@@ -1,8 +1,8 @@
-# Lesson 10.6 — Deployment: Blue-Green, Canary, Feature Flag, Zero-Downtime Migration
+# Lesson 10.6 - Deployment: Blue-Green, Canary, Feature Flag, Zero-Downtime Migration
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 5.5):** When a transaction runs an `UPDATE` on a row, when is that row's lock released — when the statement ends, or when the transaction ends? And what happens if another transaction wants to write that row at exactly that moment? Today you will see an `UPDATE` that is just one statement, yet for the whole 5 seconds it runs it holds up every write in TaskFlow.
+> **Spaced Repetition (Lesson 5.5):** When a transaction runs an `UPDATE` on a row, when is that row's lock released - when the statement ends, or when the transaction ends? And what happens if another transaction wants to write that row at exactly that moment? Today you will see an `UPDATE` that is just one statement, yet for the whole 5 seconds it runs it holds up every write in TaskFlow.
 
 **Prerequisite:** Lesson 2.5 (API versioning, idempotency), Lesson 3.4 (Health checks, graceful shutdown), Lesson 5.4 (Indexes, `CONCURRENTLY`), Lesson 5.5 (Locks, transactions), Lesson 7.5 (Events, outbox), Lesson 9.2 (Gateway, BFF), Lesson 10.3 (Blast radius, static stability), Lesson 10.4 (SLI, burn rate)
 
@@ -12,7 +12,7 @@
 2. Replace an instance without losing a request (readiness → wait → `close()` → finish in-flight requests). Separate deploy from release with feature flags, including the correct split (hash(flag + user)), a kill switch, and the same decision across services
 3. Change a database schema in a running system without downtime. Which DDL blocks the whole table, what a lock queue is and why `lock_timeout`, and the six steps of expand/contract. At every step old and new code run together and the path to rollback stays open
 
-**Tier:** 1 — Runnable Code (three deterministic simulations; a rolling restart with real HTTP on localhost; and two migration labs on real PostgreSQL, with Docker)
+**Tier:** 1 - Runnable Code (three deterministic simulations; a rolling restart with real HTTP on localhost; and two migration labs on real PostgreSQL, with Docker)
 
 ---
 
@@ -22,7 +22,7 @@ After 10.5, TaskFlow has a long list of changes in front of it. Moving every rou
 
 **Monday, 2 p.m.** The usual two-minute blip of errors. In 10.4 we excluded exactly this from alerting as "deploy noise". This time an engineer sat down to look into it. On every restart the requests in flight at that moment die. The load balancer keeps sending requests to the dead instance for another second or two. And the new instance gets traffic before its cache and connection pool have warmed up. Two users' "create task" POSTs were cut off halfway. They pressed again, and each got two tasks.
 
-**Tuesday.** 10.5's `Membership.scope` migration: `ALTER TABLE memberships ADD COLUMN scope text`. An instantaneous job — Postgres only changes the catalog. But just then someone on the support team was running a report on the primary database with three minutes left to go. The `ALTER` waited for that report to finish. And behind it waited **every** query touching `memberships` — meaning nearly every TaskFlow request. Three minutes of site outage, for a "10 ms" migration.
+**Tuesday.** 10.5's `Membership.scope` migration: `ALTER TABLE memberships ADD COLUMN scope text`. An instantaneous job - Postgres only changes the catalog. But just then someone on the support team was running a report on the primary database with three minutes left to go. The `ALTER` waited for that report to finish. And behind it waited **every** query touching `memberships` - meaning nearly every TaskFlow request. Three minutes of site outage, for a "10 ms" migration.
 
 **Wednesday.** At the mobile team's request, `boards.title` was renamed to `name`, to keep the name consistent across the product. The migration (`RENAME COLUMN`) ran before the deploy. For the 12 minutes of the rolling deploy, the instances still running the old code gave `column "title" does not exist` on every board. Then a separate bug was found in the new version, and it was rolled back. The old code returned, but the column is now called `name`. This time **every** instance's boards were broken, until someone wrote the reverse migration by hand. Twenty-five minutes.
 
@@ -30,7 +30,7 @@ After 10.5, TaskFlow has a long list of changes in front of it. Moving every rou
 
 **Friday.** The new board editor went live behind a feature flag for 10% of users. The flag's code was `Math.random() < 0.1`, on every request. When users refreshed, the editor changed. And the BFF and the API each checked the flag on their own: the BFF showed the new UI, the API returned the old-shaped response. "Something went wrong" on a third of requests. The flag was turned off, but the instances read config every 5 minutes.
 
-The CTO's line in the postmortem: "We treated every deploy as a jump — from one side to the other. Really every deploy is a bridge, and for a while both old and new walk on it. Old instances and new instances, old code and new schema, old browser tabs and the new API. Every incident this week happened in the middle of the bridge."
+The CTO's line in the postmortem: "We treated every deploy as a jump - from one side to the other. Really every deploy is a bridge, and for a while both old and new walk on it. Old instances and new instances, old code and new schema, old browser tabs and the new API. Every incident this week happened in the middle of the bridge."
 
 ---
 
@@ -42,7 +42,7 @@ Google's SRE book has a widely quoted claim: roughly 70% of production outages c
 
 First, a distinction between two words:
 
-**Deploy / Release** — deploy means starting new code on production machines. Release means showing users that new behaviour. There is no rule that both must happen in the same instant. Code can be deployed and sit switched off, and later be released step by step with a flag. Separate the two, and deploy becomes a harmless, frequent task, while release becomes a controlled, reversible decision.
+**Deploy / Release** - deploy means starting new code on production machines. Release means showing users that new behaviour. There is no rule that both must happen in the same instant. Code can be deployed and sit switched off, and later be released step by step with a flag. Separate the two, and deploy becomes a harmless, frequent task, while release becomes a controlled, reversible decision.
 
 And the idea of the "bridge": during any deploy, old and new coexist in four places.
 
@@ -56,7 +56,7 @@ data / queue  │ events and rows written by v1  → read by v2   │       (7.5
 
 So the rule in one line: **every change has to work with at least the version before it, in both directions.** New code can read old data, and old code (after a rollback) can read data written by new code. This is called N-1 compatibility. Wednesday's rename broke exactly this rule, in both directions. The rest of this lesson walks across each part of this bridge. First replacing one instance (1.2). Then in what order to replace many instances (1.3–1.4). Then separating code from release (1.5), versions coexisting (1.6), and the hardest part, the database (1.7–1.8).
 
-### 1.2 Replacing one instance — graceful shutdown
+### 1.2 Replacing one instance - graceful shutdown
 
 In 3.4 you saw the idea of graceful shutdown, and I said we would go deep on it here. Monday's blip is exactly this place.
 
@@ -134,16 +134,16 @@ export function shutdownOnSigterm(
 
 Notice three things. First, `/ready` and `/health` (liveness, 3.4) are different things. When readiness is false the LB moves traffic away, but the orchestrator does not kill the process. Second, `drainMs` has to be tied to the LB's health check. In the exercise it is `CHECK_MS × 2 + 500`. In Kubernetes this is usually a `preStop` wait, because there removing the endpoint and `SIGTERM` happen almost at the same time. Third, `hardLimitMs` has to be shorter than the orchestrator's patience (Kubernetes's `terminationGracePeriodSeconds`, default 30 s). Otherwise `SIGKILL` arrives before your own clean exit. And `markWarm()` is called after the DB connections, cache and anything else needed have been created.
 
-### 1.3 Four strategies — how many people a bad version touches
+### 1.3 Four strategies - how many people a bad version touches
 
 One instance can be replaced safely. Now the question is in what order to replace 12. There are four well-known answers:
 
 - **Big-bang:** every instance to the new version at once. Simple and fast.
 - **Rolling:** replacing one (or a few) at a time. This is what Monday's TaskFlow does. No extra machines needed, but in between, two versions run at once.
 
-**Blue-Green Deployment** — two complete, equal environments. "Blue" is getting traffic now; the new version is built and tested on "green". Then the load balancer (or DNS) moves all traffic to green in an instant. Rollback means moving back to blue, in seconds, because blue is still running. The cost is double capacity for the duration of the switch. And the database is usually shared by both, so the "instant rollback" covers only code, not data.
+**Blue-Green Deployment** - two complete, equal environments. "Blue" is getting traffic now; the new version is built and tested on "green". Then the load balancer (or DNS) moves all traffic to green in an instant. Rollback means moving back to blue, in seconds, because blue is still running. The cost is double capacity for the duration of the switch. And the database is usually shared by both, so the "instant rollback" covers only code, not data.
 
-**Canary Release** — giving the new version to a small share of traffic first (say 1%), comparing its SLIs with the old version's over the same period (the baseline), and increasing step by step if it looks good (1% → 5% → 25% → 100%). If an automatic **gate** does the comparison, a bad version is rolled back before any human wakes up. The name comes from the canary in a coal mine, which fell ill from poisonous gas first and warned the miners.
+**Canary Release** - giving the new version to a small share of traffic first (say 1%), comparing its SLIs with the old version's over the same period (the baseline), and increasing step by step if it looks good (1% → 5% → 25% → 100%). If an automatic **gate** does the comparison, a bad version is rolled back before any human wakes up. The name comes from the canary in a coal mine, which fell ill from poisonous gas first and warned the miners.
 
 `npm run rollout` watches 300 req/s, 60,000 users, for two hours. TaskFlow has an alert (5 minutes of errors > 1% or slow > 5%), and after the alert fires a human takes 10 minutes to decide (assumed). The canary has a z-test gate (canary versus baseline, detailed in 1.4). Three kinds of bug:
 
@@ -158,9 +158,9 @@ canary, gate: error, sticky per user                   8          8 (0%)     1.0
 canary, gate: error + latency + segment                 8          8 (0%)     1.0 min  gate, at 1%      1.5 min
 
 20% errors on big business boards (1% of traffic)
-big-bang (all at once)                           4,164        582 (1%)      missed  —                    —
-rolling (one per 2 minutes)                     3,784        581 (1%)      missed  —                    —
-blue-green                                         4,174        582 (1%)      missed  —                    —
+big-bang (all at once)                           4,164        582 (1%)      missed  -                    -
+rolling (one per 2 minutes)                     3,784        581 (1%)      missed  -                    -
+blue-green                                         4,174        582 (1%)      missed  -                    -
 canary, gate: error, random per request              8          7 (0%)      12 min  gate, at 5%       13 min
 canary, gate: error, sticky per user                   5          5 (0%)      11 min  gate, at 5%       12 min
 canary, gate: error + latency + segment                 5          5 (0%)      11 min  gate, at 5%       12 min
@@ -176,9 +176,9 @@ canary, gate: error + latency + segment               24         23 (0%)     1.0
 
 **The first bug (2% for everyone).** Big-bang and blue-green catch it in one minute. The alert fires immediately, because everyone is on the new version. But "caught" and "damage stopped" are different. After it is caught, 10 minutes for the human, then the rollback. Blue-green's rollback takes 30 seconds (flip the switch back), big-bang's 5 minutes (deploy again), hence 11 versus 16 minutes. For the whole time **everyone** is on the new version: 4–5 thousand bad requests, 7–9% of users. Rolling is caught slowly (12 minutes), because total errors pass 1% only when about half the instances (6 of 12) are on the new version, and the alert's 5-minute window has to notice it. And reverting takes time too. The canary's damage is **four to eight requests**, before any human knows. This is the canary's core point: it does not make finding the bug faster, **it keeps the bug small while it is being found.**
 
-**The second bug (Thursday).** 20% errors on 1% of traffic means total errors go from 0.1% to 0.3%. It touches no alert's threshold. Under the first three strategies **nobody ever catches it.** In two hours 582 business users — nearly everyone in that segment — are hurt. And really the damage just keeps going, until a customer calls. The canary catches it at the 5% step: in a canary-versus-baseline comparison even a 0.2% difference shows up clearly given enough requests, something a fixed threshold like "error > 1%" will never see. Five bad requests. Blue-green gave a false sense of security here: an "instant rollback" only helps if someone knows a rollback is needed.
+**The second bug (Thursday).** 20% errors on 1% of traffic means total errors go from 0.1% to 0.3%. It touches no alert's threshold. Under the first three strategies **nobody ever catches it.** In two hours 582 business users - nearly everyone in that segment - are hurt. And really the damage just keeps going, until a customer calls. The canary catches it at the 5% step: in a canary-versus-baseline comparison even a 0.2% difference shows up clearly given enough requests, something a fixed threshold like "error > 1%" will never see. Five bad requests. Blue-green gave a false sense of security here: an "instant rollback" only helps if someone knows a rollback is needed.
 
-**The third bug (no errors, just slow).** Here two of the canaries fail, because their gates only look at errors. The new version produces no errors; it just takes over a second on 10% of requests. So it passes every step and reaches 100%, and the alert fires at 32 minutes. The same damage as big-bang, only later. The last row's gate looks at both latency (the canary's slow share versus the baseline's) and segments, and catches it **in one minute, at 1%**. The lesson: **a canary is only as good as what its gate looks at.** 10.4's SLIs (success **and** latency), and the important segments (plan, region, big customers) — all of them have to be in the gate.
+**The third bug (no errors, just slow).** Here two of the canaries fail, because their gates only look at errors. The new version produces no errors; it just takes over a second on 10% of requests. So it passes every step and reaches 100%, and the alert fires at 32 minutes. The same damage as big-bang, only later. The last row's gate looks at both latency (the canary's slow share versus the baseline's) and segments, and catches it **in one minute, at 1%**. The lesson: **a canary is only as good as what its gate looks at.** 10.4's SLIs (success **and** latency), and the important segments (plan, region, big customers) - all of them have to be in the gate.
 
 **The cost of a good version.** The same strategies, with no bug:
 
@@ -192,7 +192,7 @@ canary (all three)                                  30 min              +3      
 
 Every strategy buys safety with something. Big-bang gives nothing, so it gets nothing. Rolling gives time (and one instance less capacity during the deploy). Blue-green gives money (double the machines, at least for a while). Canary gives time (30 minutes), a few extra instances, and above all, **the effort of building a good gate**. And they do not exclude each other. In practice, traffic is often moved between blue-green's two pools in canary-like steps, or a gate is placed at every step of a rolling deploy.
 
-### 1.4 The arithmetic inside a canary — how big, how long, whom
+### 1.4 The arithmetic inside a canary - how big, how long, whom
 
 A canary's gate answers a statistical question: "is the canary's error ratio higher than the baseline's, or is it luck?" The exercise's gate is a two-proportion z-test (the difference between two ratios divided by its expected random fluctuation). z > 3 means "a real difference". In `npm run rollout` part C, baseline errors are 0.1%, and each cell is run 400 times:
 
@@ -229,9 +229,9 @@ Split requests at random and a 5% canary actually touches **59% of users**. Each
 
 And **segments**: Thursday's bug was on 1% of traffic. In the exercise's experiment 1 (`STEP_MINUTES=3`), with shorter steps, the errors-only gate's sticky canary does not catch it **at all**. Each step has so few requests from the segment that the difference drowns in the average, and the bug reaches 100% (3,857 bad requests, 582 people). A segment-aware gate (a separate comparison per plan) catches the same bug in 4 minutes. A gate's segments come from exactly where your customers differ: plan, region, workspace size, client (web, mobile).
 
-### 1.5 Feature Flags — separating release from deploy
+### 1.5 Feature Flags - separating release from deploy
 
-**Feature Flag** — a condition in the code (`if (flags.isOn('new-editor', user))`) whose value can be changed while running, from an external config, without changing code or deploying. Flags serve four different jobs, and each has a different lifetime. A **release flag** turns on a new feature step by step, lives for days or weeks, and then has to be deleted. An **ops flag or kill switch** turns off some part under load (10.3's brownout), and is permanent. An **experiment flag** is for A/B tests. A **permission flag** gives features by plan.
+**Feature Flag** - a condition in the code (`if (flags.isOn('new-editor', user))`) whose value can be changed while running, from an external config, without changing code or deploying. Flags serve four different jobs, and each has a different lifetime. A **release flag** turns on a new feature step by step, lives for days or weeks, and then has to be deleted. An **ops flag or kill switch** turns off some part under load (10.3's brownout), and is permanent. An **experiment flag** is for A/B tests. A **permission flag** gives features by plan.
 
 Flags separate deploy from release. The new editor's code can be deployed on Tuesday, switched off, with almost zero risk. It is released on Thursday, to 1% of users, with one click on the flag. Canaries and flags are two layers of the same idea. A canary spreads a new **binary** step by step, a flag spreads new **behaviour**. And a flag's steps need no deploy.
 
@@ -261,7 +261,7 @@ export function isOn(flag: string, userId: string, percent: number): boolean {
 }
 ```
 
-And one more benefit: going from 10% to 25%, everyone in the earlier 10% stays inside the 25%, because their bucket value has not changed — only the threshold moved. Nobody gets a new feature and then loses it.
+And one more benefit: going from 10% to 25%, everyone in the earlier 10% stays inside the 25%, because their bucket value has not changed - only the threshold moved. Nobody gets a new feature and then loses it.
 
 **(b) How fast the kill switch is.** 12 instances, 100 req/s on the new feature, 20% of them failing. After the decision to "turn it off":
 
@@ -289,9 +289,9 @@ Friday's second row: one hashed by session, the other by user. On **a third of r
 
 **Flag debt.** Every flag creates two paths in the code, and two flags create four. A release flag has to be deleted, along with its code, once it reaches 100%. Giving every flag an owner and an expiry date is a common rule. And **never reuse an old flag's name for a new purpose.** The most famous example is Knight Capital (2012), according to published accounts (not verified here). An old, unused flag was reused in new code with a different meaning. The new code was not deployed on one of the 8 servers. When the flag was switched on there, a dead code path many years old woke up. A loss of about 440 million dollars in 45 minutes. Three of this lesson's lessons in one incident: version skew (1.6), flag debt, and the lack of automatic detection of a failed deploy.
 
-### 1.6 Version skew — old and new together
+### 1.6 Version skew - old and new together
 
-**Version Skew** — different parts of a system running different versions at the same moment: instances in the middle of a rolling deploy, client and server, producer and consumer, code and schema. This is not the exception, it is the normal state. So every change has to work with both N and N-1, and to keep rollback safe, **the new version must not write anything the old version cannot read.**
+**Version Skew** - different parts of a system running different versions at the same moment: instances in the middle of a rolling deploy, client and server, producer and consumer, code and schema. This is not the exception, it is the normal state. So every change has to work with both N and N-1, and to keep rollback safe, **the new version must not write anything the old version cannot read.**
 
 Four places, four rules:
 
@@ -302,13 +302,13 @@ Four places, four rules:
 
 Recall 10.5's key rotation here. First verify with **two** keys in every service, then sign with the new key, then remove the old key. That is exactly this rule: first **understand** the new thing, then **send** it, then delete the old one. In 1.8 we will see this same pattern in the database.
 
-### 1.7 Database changes — what blocks, and the lock queue
+### 1.7 Database changes - what blocks, and the lock queue
 
 Tuesday's mystery: how did an `ADD COLUMN`, which should finish instantly, keep the site down for three minutes?
 
 In Postgres almost every `ALTER TABLE` asks for an **ACCESS EXCLUSIVE** lock on the table. It is the strictest lock: while it is held nobody can even read the table. If the work is instantaneous (only changing the catalog), nobody even notices. But to **get** the lock it has to wait until all earlier locks are released, and even an ordinary `SELECT` holds a light lock (ACCESS SHARE) on the table until its transaction ends. Here is the blow: **every newly arriving query lines up behind the waiting ACCESS EXCLUSIVE.** Even an ordinary `SELECT`, although it does not itself conflict with the long report. Postgres grants lock requests in order, so that the `ALTER` does not starve forever.
 
-**Lock Queue** — the line of requests waiting for a lock. When a DDL waits for ACCESS EXCLUSIVE behind a long transaction, every new query (reads included) lines up behind it, so an instantaneous DDL keeps the whole table blocked for the rest of the long transaction. The remedy is `lock_timeout`: if the DDL does not get the lock within a set time it gives up (and the queue opens up), then tries again a little later.
+**Lock Queue** - the line of requests waiting for a lock. When a DDL waits for ACCESS EXCLUSIVE behind a long transaction, every new query (reads included) lines up behind it, so an instantaneous DDL keeps the whole table blocked for the rest of the long transaction. The remedy is `lock_timeout`: if the DDL does not get the lock within a set time it gives up (and the queue opens up), then tries again a little later.
 
 ```
 time →
@@ -326,7 +326,7 @@ change                                      time   app op   read max     write m
 ADD COLUMN archived boolean DEFAULT false      10 ms       15          2 ms           3 ms          0
 ADD COLUMN score float DEFAULT random()       669 ms       38        646 ms         646 ms          8
 ADD COLUMN priority int, behind a 6 s query  6.05 s      476        5.70 s         5.70 s          8
-   the ALTER itself waited 5.71 s — and everyone behind it
+   the ALTER itself waited 5.71 s - and everyone behind it
 the same, lock_timeout 200 ms + retry         6.38 s    7,421        200 ms         202 ms          0
    6 attempts, each giving up and stepping aside after 200 ms
 ```
@@ -334,7 +334,7 @@ the same, lock_timeout 200 ms + retry         6.38 s    7,421        200 ms     
 - **`ADD COLUMN` with a constant default: 10 ms.** Since Postgres 11 a constant default is written only to the catalog; rows are not touched.
 - **`DEFAULT random()`: 669 ms, with every read and write blocked the whole time.** A volatile default (a different value per row) means Postgres has to write a different value into every row, so it **rewrites** the whole table, holding ACCESS EXCLUSIVE. 700 ms at a million rows, over a minute at 100 million. Two lines that look almost the same: one instantaneous, the other a site-wide pause.
 - **Lock queue: 5.7 seconds.** A 6-second query is open, and in the middle, `ADD COLUMN priority int` (instantaneous in itself). **Every** app worker is blocked for 5.7 seconds, even plain `SELECT`s. In 6 seconds the app managed 476 operations, where it normally does ~7,400. Tuesday, in miniature.
-- **`lock_timeout` + retry: at most 200 ms.** The same situation, but if the `ALTER` does not get the lock within 200 ms it gives up and tries again a second later. Six failures; on the seventh the report has finished. Each time the app waited at most 200 ms, and did 7,421 operations — practically normal.
+- **`lock_timeout` + retry: at most 200 ms.** The same situation, but if the `ALTER` does not get the lock within 200 ms it gives up and tries again a second later. Six failures; on the seventh the report has finished. Each time the app waited at most 200 ms, and did 7,421 operations - practically normal.
 
 **Indexes and backfills:**
 
@@ -404,7 +404,7 @@ export async function ddlWithRetry(
 
 (`55P03` is Postgres's `lock_not_available`. Sequelize's `DatabaseError` keeps the original pg error in `parent`. So it is narrowed step by step from `unknown`, without `any`. `CREATE INDEX CONCURRENTLY` does not run inside a transaction, so for that a clean path is `ALTER ROLE migrator SET lock_timeout = '2s'` on the DB user that runs migrations.)
 
-### 1.8 Expand / Contract — the right way to rename
+### 1.8 Expand / Contract - the right way to rename
 
 Now Wednesday. A column cannot be renamed in one step. There is no moment when every instance moves from the old name to the new name at once. Migrate first and old code breaks; migrate after and new code breaks. `npm run rename` runs on real Postgres and Sequelize, with 20,000 rows in the `boards` table. Four instances, each working continuously in two loops (60% reads, 35% writes, 5% new boards). In the rolling deploy one instance moves to the new version every second. Four kinds of app version, each looking at the same table through a different Sequelize model:
 
@@ -429,7 +429,7 @@ then rollback (migration not reverted)  v2 → v1   8,306    4,219          0
 
 More than four thousand errors in six seconds, in each of the three orders. And the third row is the worst part of Wednesday: the rollback broke too, because the schema did not come back. A code rollback and a data rollback are different things.
 
-**Expand / Contract** — splitting a breaking change (a rename, a change of shape, a split) into several small steps, each of which can be deployed and rolled back on its own, with both old and new code working at every step. First **expand**: add the new thing alongside, write to both, bring the old data into the new place, move reads to the new place. Finally **contract**: when nobody uses the old thing any more, delete it. Also called "parallel change".
+**Expand / Contract** - splitting a breaking change (a rename, a change of shape, a split) into several small steps, each of which can be deployed and rolled back on its own, with both old and new code working at every step. First **expand**: add the new thing alongside, write to both, bring the old data into the new place, move reads to the new place. Finally **contract**: when nobody uses the old thing any more, delete it. Also called "parallel change".
 
 ```
 step  schema                              code (rolling)            rollback safe?
@@ -437,7 +437,7 @@ step  schema                              code (rolling)            rollback saf
 2                                         v1 → v1.5 (write both)    yes → v1
 3     backfill: name = title (batches)    v1.5                      yes
 4                                         v1.5 → v2r (read name)    yes → v1.5 (still writing both)
-5                                         v2r → v2 (write only name) ✗ not to v1.5 — title is going stale
+5                                         v2r → v2 (write only name) ✗ not to v1.5 - title is going stale
 6     − title  (after waiting)            v2                        ✗
 ```
 
@@ -483,11 +483,11 @@ backfill condition name IS NULL              v1 → v1.5    9,897       0       
 
 **Alternatives.** The dual-write can live in the database instead of the app: a trigger that copies to `name` when `title` is written (and the reverse). Then v1 does not need changing at all, and step 2 is skipped. The cost is logic hidden in a trigger (5.2's discussion of triggers), and the risk of an infinite loop between triggers in both directions. Another path for a small rename is a view, or Sequelize's `field` mapping: change the name in the code, not in the database. Renaming a database column is often not worth that cost at all.
 
-And this pattern exists outside the database too. Renaming an API field (add the new field → clients read both → delete the old field), changing an event's schema, 10.5's key rotation — all the same three steps: **add, move, delete.**
+And this pattern exists outside the database too. Renaming an API field (add the new field → clients read both → delete the old field), changing an event's schema, 10.5's key rotation - all the same three steps: **add, move, delete.**
 
 ### 1.9 TaskFlow's decision
 
-> **Trade-off Table — which strategy, what it buys, what it costs**
+> **Trade-off Table - which strategy, what it buys, what it costs**
 
 | Strategy          | What it buys                                                     | What it costs                                                            | When                                                        |
 | ----------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
@@ -512,7 +512,7 @@ And this pattern exists outside the database too. Renaming an API field (add the
 
 ## 2. Interview Angle
 
-Deployment comes up two ways. Directly: "how would you deploy this with zero downtime?", "what is the difference between blue-green and canary?" And at the end of a design: "now you want to change the schema — how?" The weak answer is "Kubernetes rolling update, no downtime." The shape of a good answer:
+Deployment comes up two ways. Directly: "how would you deploy this with zero downtime?", "what is the difference between blue-green and canary?" And at the end of a design: "now you want to change the schema - how?" The weak answer is "Kubernetes rolling update, no downtime." The shape of a good answer:
 
 1. **Start with the bridge.** "During a deploy, old and new run together: instances, clients, schema, messages in queues. So every change is N-1 compatible." This one line is the foundation of every other answer.
 2. **A strategy, with its gate.** "Canary, from 1%, sticky by user, the gate on SLIs (errors and latency), per segment, automatic rollback." A canary without a gate is just a slow rolling deploy.
@@ -521,11 +521,11 @@ Deployment comes up two ways. Directly: "how would you deploy this with zero dow
 
 **Follow-ups that are almost certain:**
 
-- _"Blue-green or canary?"_ — blue-green buys a fast code rollback with double capacity, but puts everyone at risk at once, and nothing rolls back if nobody knows. A canary keeps the damage small and catches bugs below the alert threshold, at the cost of time and a gate. Give numbers: for a 1% bug, blue-green hits 582 people in two hours, the canary 5.
-- _"How do you rename a column?"_ — expand/contract: a new column, dual-write, batch backfill (`IS DISTINCT FROM`), move reads, write only the new one, drop the old one after waiting. And say after which step rollback is no longer safe.
-- _"What happens when you add an index?"_ — a plain `CREATE INDEX` blocks writes; `CONCURRENTLY` does not, but cannot run in a transaction and leaves an `INVALID` index if it fails.
-- _"How do you roll back?"_ — a code rollback and a data rollback are different. If the new version writes data the old one cannot read, there is no rollback. So keep every step rollback-safe.
-- _"The risks of feature flags?"_ — flag debt, two code paths, mismatches across services, and reusing old flags (Knight Capital).
+- _"Blue-green or canary?"_ - blue-green buys a fast code rollback with double capacity, but puts everyone at risk at once, and nothing rolls back if nobody knows. A canary keeps the damage small and catches bugs below the alert threshold, at the cost of time and a gate. Give numbers: for a 1% bug, blue-green hits 582 people in two hours, the canary 5.
+- _"How do you rename a column?"_ - expand/contract: a new column, dual-write, batch backfill (`IS DISTINCT FROM`), move reads, write only the new one, drop the old one after waiting. And say after which step rollback is no longer safe.
+- _"What happens when you add an index?"_ - a plain `CREATE INDEX` blocks writes; `CONCURRENTLY` does not, but cannot run in a transaction and leaves an `INVALID` index if it fails.
+- _"How do you roll back?"_ - a code rollback and a data rollback are different. If the new version writes data the old one cannot read, there is no rollback. So keep every step rollback-safe.
+- _"The risks of feature flags?"_ - flag debt, two code paths, mismatches across services, and reusing old flags (Knight Capital).
 
 **In real production:** the most common mistakes: doing nothing on `SIGTERM` (a few requests die on every deploy, and everyone calls it "noise"). Combining readiness and liveness. A canary gate that looks only at errors, or at nothing. A random-request canary. Flags with `Math.random()`. Migration and deploy in the same step. No `lock_timeout` on migrations. `RENAME COLUMN` in one step. A backfill of millions of rows in one `UPDATE`. Never testing the rollback path.
 
@@ -533,7 +533,7 @@ Deployment comes up two ways. Directly: "how would you deploy this with zero dow
 
 ## 3. Key Takeaway
 
-- **A deploy is a bridge, not a jump.** Old and new run together in four places — instances, clients, schema, queues. So every change is N-1 compatible, in both directions; and a code rollback ≠ a data rollback
+- **A deploy is a bridge, not a jump.** Old and new run together in four places - instances, clients, schema, queues. So every change is N-1 compatible, in both directions; and a code rollback ≠ a data rollback
 - **The order of graceful shutdown is everything.** Readiness 503 → wait until the LB removes it → `close()` → finish in-flight work. A sudden kill fails 5.3%, `close()` alone 4.7%, graceful zero. The LB's retry saves GETs, not POSTs
 - **Being caught and stopping the damage are different.** Big-bang/blue-green catch a big bug in 1 minute, but by then everyone is at risk (4–5 thousand bad requests). A canary catches it at 1%, with 4–8 damaged. And a bug on 1% of traffic is caught by no alert; only by a canary (582 people versus 5)
 - **A canary is only as good as its gate.** Looking only at errors, a latency bug goes all the way to 100%. SLIs (success + latency) and segments in the gate. A small canary means less evidence (a 25% chance of catching a small regression at 1% in 5 min). Repeated checking increases false alarms. And without stickiness a 5% canary touches 59% of users
@@ -550,10 +550,10 @@ Deployment comes up two ways. Directly: "how would you deploy this with zero dow
 | **Deploy / Release**      | Deploy = starting new code in production; release = showing users the new behaviour. Separating them with feature flags makes deploys harmless and frequent, and releases controlled and reversible                                         |
 | **Blue-Green Deployment** | Two equal environments; the new version is built and tested on green, then all traffic moves in an instant. Code rollback in seconds, at the cost of double capacity; one database, so no data rollback                                     |
 | **Canary Release**        | The new version first on a small share of traffic (1% → 5% → …); an automatic gate compares the canary's SLIs with a baseline over the same period, and advances or rolls back. Sticky by user, compared per segment                        |
-| **Feature Flag**          | A condition in code whose value changes at runtime without a deploy — release, kill switch, experiment, permission. Split by `hash(flag + user)`; decided once and carried with the request; release flags must be deleted                  |
+| **Feature Flag**          | A condition in code whose value changes at runtime without a deploy - release, kill switch, experiment, permission. Split by `hash(flag + user)`; decided once and carried with the request; release flags must be deleted                  |
 | **Version Skew**          | Parts of a system on different versions at the same time (instances, clients, producer/consumer, code/schema). The normal state; so every change is N-1 compatible, and the new version writes nothing the old one cannot read              |
 | **Lock Queue**            | The line waiting for a lock. Behind a DDL asking for ACCESS EXCLUSIVE behind a long transaction, every new query (reads included) lines up. The remedy is `lock_timeout` + retry                                                            |
-| **Expand / Contract**     | Splitting a breaking change into small steps that can each be deployed and rolled back — add the new one, write to both, backfill, move reads, write only the new one, finally delete the old one; old and new code both work at every step |
+| **Expand / Contract**     | Splitting a breaking change into small steps that can each be deployed and rolled back - add the new one, write to both, backfill, move reads, write only the new one, finally delete the old one; old and new code both work at every step |
 
 ---
 
@@ -563,7 +563,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 1. 10.5's change: `memberships` (3 million rows) currently has a unique constraint on `(user_id, workspace_id)`. Guests need a new `project_id` (null means the whole workspace) and `role`, with uniqueness on `(user_id, workspace_id, project_id)`. Plus `loadBoardFor`'s new logic that understands guests. (a) Write the schema and code steps in order: at each step which DDL (with its lock), which code version is running, and where rollback is no longer safe. (b) Why is changing a unique constraint a special problem, and how will you do it without downtime? (c) How will you release the new guest feature, and which segments must be in the gate for `loadBoardFor`'s new logic's canary?
 
-2. TaskFlow's billing service receives Stripe webhooks, 2 a second on average. And at midnight on the 1st of the month a job creates invoices for every workspace. (a) For a new version of the webhook handler, a 1% canary for 10 minutes — how many requests will the canary see, and why is catching a +1% regression with that impossible? Give three alternative paths. (b) How will you "canary" a new version of the invoice job, when it runs once a month? (c) Where does the cost of a mistake differ here from other services, and how does that change the strategy?
+2. TaskFlow's billing service receives Stripe webhooks, 2 a second on average. And at midnight on the 1st of the month a job creates invoices for every workspace. (a) For a new version of the webhook handler, a 1% canary for 10 minutes - how many requests will the canary see, and why is catching a +1% regression with that impossible? Give three alternative paths. (b) How will you "canary" a new version of the invoice job, when it runs once a month? (c) Where does the cost of a mistake differ here from other services, and how does that change the strategy?
 
 3. In the mobile app's API, `assignee: "email@x.com"` (a string) in a task's JSON has to become `assignee: { id, email, name }` (an object). Old app versions in the app store keep running for up to six months, and 5% of users never update. (a) Give an expand/contract plan for the API, with every step. When will you do the "contract", and on what basis? (b) How will you know which app versions how many people are running, without breaking 10.4's cardinality rules? (c) What decision will you make about the 5% who will never update?
 
@@ -584,8 +584,8 @@ step schema / data                                         code                 
 3                                                          v1 → v2 (understands guests,   yes → v1, as long as no
                                                            new logic behind a flag, off)  guest row has been created
 4    (no backfill needed: project_id null on old rows =    v2, flag turned on in steps    yes → flag off
-     the whole workspace — exactly the right meaning)
-5    drop the old unique constraint                        v2, guests can be created      ✗ not v1 any more — v1 does
+     the whole workspace - exactly the right meaning)
+5    drop the old unique constraint                        v2, guests can be created      ✗ not v1 any more - v1 does
                                                                                           not understand guest rows
 6    delete the flag and the old code path                 v3                             ✗
 ```
@@ -594,7 +594,7 @@ The point of no return is step 5: the moment the first guest row is created. Aft
 
 (b) With the old unique `(user_id, workspace_id)` in place, a user cannot be a guest in two projects of the same workspace (two rows, same pair). And dropping the old one first leaves a window for duplicates to slip in. The right order: create the new unique index **first**, `CONCURRENTLY` (step 2). If `CONCURRENTLY` finds a duplicate while building, the index fails as `INVALID`, and then the data has to be cleaned and it run again. The two constraints coexist for a while, then drop the old one (step 5, instantaneous). The null problem: in a Postgres unique index two nulls count as different, so `(u, w, NULL)` could go in twice. Hence an expression index like `COALESCE(project_id, 0)`, or Postgres 15+'s `NULLS NOT DISTINCT`.
 
-(c) Release: the guest feature behind a flag, per workspace. First our own workspaces, then a few beta customers, then by plan. In the gate for `loadBoardFor`'s new logic's canary, **segments are a must**: (1) workspace size (Thursday's bug was on big workspaces), (2) plan, (3) the kind of actor — owner, member, guest. Authorization bugs often give no error, they give a wrong 200. So the gate needs a **behavioural** comparison alongside the error rate: the canary's and baseline's share of 404s (a sudden drop means someone is getting something they did not get before). Plus 10.5's matrix test, in CI, before the deploy. A canary will not catch a bug that "grants more permission" with no error, so that is the test's job.
+(c) Release: the guest feature behind a flag, per workspace. First our own workspaces, then a few beta customers, then by plan. In the gate for `loadBoardFor`'s new logic's canary, **segments are a must**: (1) workspace size (Thursday's bug was on big workspaces), (2) plan, (3) the kind of actor - owner, member, guest. Authorization bugs often give no error, they give a wrong 200. So the gate needs a **behavioural** comparison alongside the error rate: the canary's and baseline's share of 404s (a sudden drop means someone is getting something they did not get before). Plus 10.5's matrix test, in CI, before the deploy. A canary will not catch a bug that "grants more permission" with no error, so that is the test's job.
 
 **Question 2:**
 
@@ -620,7 +620,7 @@ The point of no return is step 5: the moment the first guest row is created. Aft
 
 The basis for the contract is not a date but **measured usage**. And after the contract, keep counting "requests asking for the old field" on the server for a few weeks.
 
-(b) The app sends its own version in a header on every request (`x-app-version: 4.12.0`). Putting `app_version` directly as a metric label makes every new version a new series, and old versions stick around for years. Cardinality grows slowly, but not unboundedly. The way to keep it bounded under 10.4's rules: only **major.minor** in the label, and everything outside the newest 10 becomes `old`. The details (exactly which patch version) go in logs and traces, where cardinality costs nothing. And a separate counter: "requests using the old `assignee` field, by `app_version` (major.minor)" — that is what the contract decision is based on.
+(b) The app sends its own version in a header on every request (`x-app-version: 4.12.0`). Putting `app_version` directly as a metric label makes every new version a new series, and old versions stick around for years. Cardinality grows slowly, but not unboundedly. The way to keep it bounded under 10.4's rules: only **major.minor** in the label, and everything outside the newest 10 becomes `old`. The details (exactly which patch version) go in logs and traces, where cardinality costs nothing. And a separate counter: "requests using the old `assignee` field, by `app_version` (major.minor)" - that is what the contract decision is based on.
 
 (c) This is a business decision, not only an engineering one. Paths: (1) **A server-driven minimum version:** an endpoint that tells the app on startup "the minimum supported version is 4.0", and below that the app shows an "update please" screen. This should exist from the app's very first version; it cannot be added later. (2) Announce a deadline, in the app and by email, a few weeks ahead. (3) For very old apps a thin compatibility layer (a BFF, 9.2) can be kept, if that 5% includes big customers: the old shape only in that BFF, not in the main API. Supporting the 5% forever means every API change exists in two shapes forever. Someone has to pay the cost of version skew, and the decision is who.
 
@@ -630,9 +630,9 @@ The basis for the contract is not a date but **measured usage**. And after the c
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (three deterministic simulations; a rolling restart with real HTTP on localhost; two labs on real PostgreSQL, with Docker)
+**Tier 1 - Runnable Code** (three deterministic simulations; a rolling restart with real HTTP on localhost; two labs on real PostgreSQL, with Docker)
 
-> **Ready to run in the repo:** [`exercises/lesson-10.6-deployment/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.6-deployment) — `docker compose up -d --wait`, `npm install`, then `npm run rollout`, `npm run flags`, `npm run drain`, `npm run locks`, `npm run rename`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-10.6-deployment/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.6-deployment) - `docker compose up -d --wait`, `npm install`, then `npm run rollout`, `npm run flags`, `npm run drain`, `npm run locks`, `npm run rename`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `rollout` runs three kinds of bug through six strategies, measures the cost of a good version, shows the statistics of canary size and duration, and compares sticky with random routing. `flags` covers percentage splits, kill switch speed, and mismatches between two services. `drain` runs five kinds of rolling restart with a real round-robin LB and four `node:http` instances on localhost. `locks` measures `ALTER`, indexes, backfills and `NOT NULL` on real Postgres, next to a million rows with live app load. `rename` runs four kinds of app version on the same table on real Postgres and Sequelize: a one-step rename, expand/contract, and four mistakes.
 
@@ -657,14 +657,14 @@ The basis for the contract is not a date but **measured usage**. And after the c
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1, 2, 3, 4, 5, 6, 7, 8, 9 (complete, with exit challenges), 10.1, 10.2, 10.3, 10.4, 10.5
-Current: 10.6 — Deployment: blue-green, canary, feature flag, zero-downtime migration
+Current: 10.6 - Deployment: blue-green, canary, feature flag, zero-downtime migration
 TaskFlow state: modular monolith + billing; gateway + BFF; saga; breaker + bulkhead; rate limits; cache
 ring; Bloom/HLL; hard/soft dependencies + brownout; OpenTelemetry, burn rate alerts; AuthN/AuthZ (jose,
 scoped loaders, matrix test), refresh rotation + denylist, OAuth PKCE, secret manager, credential stuffing
 and DDoS layers. A bad week: SIGKILL on every deploy (in-flight requests die, cold instances get traffic,
 duplicate tasks); a 10 ms ADD COLUMN behind a report in the lock queue took the site down for 3 minutes;
 title → name renamed in one step (old instances break, the rollback breaks more, 25 minutes); a 1% segment
-bug in loadBoardFor under blue-green — no alert, four days; a Math.random() flag (88% of users jump), BFF
+bug in loadBoardFor under blue-green - no alert, four days; a Math.random() flag (88% of users jump), BFF
 and API hashing differently (34% mismatch), a 5-minute poll. Now: /ready and /health separate; SIGTERM →
 readiness 503 → wait 2 health checks → close() → in-flight finishes (20 s) → pool closed; the LB retries
 idempotent requests once. Canary 1→5→25→100%, a minimum time + requests per step, sticky by workspace
@@ -684,8 +684,8 @@ Observability, Histogram, Label Cardinality, Structured Logging, Trace / Span, T
 Authentication / Authorization, JWT, BOLA, Refresh Token Rotation, OAuth 2.0 + PKCE / OIDC, Credential
 Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canary Release, Feature Flag,
 Version Skew, Lock Queue, Expand / Contract
-Weak spots: [where you got stuck — write it yourself]
-Next: 10.7 — Cost & cloud economics: cost as a first-class constraint in design
+Weak spots: [where you got stuck - write it yourself]
+Next: 10.7 - Cost & cloud economics: cost as a first-class constraint in design
 =======================
 ```
 
@@ -695,4 +695,4 @@ Next: 10.7 — Cost & cloud economics: cost as a first-class constraint in desig
 
 Today's thread: **every deploy is a bridge, and for a while old and new walk on it together.** Follow an order when replacing instances, and not a single request dies. Choosing a strategy is really answering two questions: how many people will a bad version touch, and who will catch it. A canary is only as good as what its gate looks at. Flags separate release from deploy. And in the database the most dangerous mistakes give no error at all. They silently split the data in two, and turn a 10 ms migration into a three-minute outage.
 
-Today I sidestepped one thing several times by naming its price: blue-green's double machines (+12), the canary's extra pool and baseline, every trace from a new version's first hour, computing the month's invoices twice in a dry run. The autoscaling bill in 10.5, log volume in 10.4. Every safety measure and every bit of visibility has a monthly price, and nobody writes that price down at design time. When you are ready, write `next` — we go to **Lesson 10.7: Cost & Cloud Economics**. The question there: where TaskFlow's monthly cloud bill comes from, how much money each design decision is worth, and why "cost" has to be treated as a requirement, just like latency and availability.
+Today I sidestepped one thing several times by naming its price: blue-green's double machines (+12), the canary's extra pool and baseline, every trace from a new version's first hour, computing the month's invoices twice in a dry run. The autoscaling bill in 10.5, log volume in 10.4. Every safety measure and every bit of visibility has a monthly price, and nobody writes that price down at design time. When you are ready, write `next` - we go to **Lesson 10.7: Cost & Cloud Economics**. The question there: where TaskFlow's monthly cloud bill comes from, how much money each design decision is worth, and why "cost" has to be treated as a requirement, just like latency and availability.

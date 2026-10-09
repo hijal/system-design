@@ -87,7 +87,7 @@ function sample(topology: Topology, city: City, random: () => number): Sample {
 }
 
 heading(
-	`Part A — opening a board (new connection, ${API_CALLS} API calls, ${DB_READS} queries each) and creating a task; ${Math.round(AWAY_SHARE * 100)}% of workspaces belong to another region`
+	`Part A - opening a board (new connection, ${API_CALLS} API calls, ${DB_READS} queries each) and creating a task; ${Math.round(AWAY_SHARE * 100)}% of workspaces belong to another region`
 );
 for (const topology of TOPOLOGIES) {
 	console.log(`\n${topology.name}`);
@@ -130,10 +130,10 @@ for (const topology of TOPOLOGIES) {
 	);
 }
 console.log(
-	'\n("stale read after write" = after creating a task, the next read reaches the local replica before replication — 6.3\'s read-your-writes)'
+	'\n("stale read after write" = after creating a task, the next read reaches the local replica before replication - 6.3\'s read-your-writes)'
 );
 
-heading('Part B — consensus across regions: how long a write takes to commit (majority ack)');
+heading('Part B - consensus across regions: how long a write takes to commit (majority ack)');
 type Placement = { name: string; leader: Region; followers: Region[] };
 const PLACEMENTS: Placement[] = [
 	{ name: "Singapore's 3 AZs", leader: 'singapore', followers: ['singapore', 'singapore'] },

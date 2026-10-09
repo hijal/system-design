@@ -1,12 +1,12 @@
 import { Pool } from 'pg';
 import { z } from 'zod';
 
-// Lesson 8.3 — TaskFlow's comments, from a fixed formula. Comment number i always has the same text — so
+// Lesson 8.3 - TaskFlow's comments, from a fixed formula. Comment number i always has the same text - so
 // the text kept in Postgres and the text in inverted.ts's own index match exactly.
 //
-// Every comment is 6–25 words: 35% short common words (the, to, and — "stopwords"), 15% TaskFlow work
+// Every comment is 6–25 words: 35% short common words (the, to, and - "stopwords"), 15% TaskFlow work
 // words (deploy, invoice, bug …), the rest from 5000 made-up words in a Zipf distribution (a few very common,
-// most rare — like a real language).
+// most rare - like a real language).
 
 export const env = z
 	.object({
@@ -112,7 +112,7 @@ const SYLLABLES = [
 	'te'
 ];
 
-// 5000 made-up words — each distinct, and none matches a real word (they end in "x")
+// 5000 made-up words - each distinct, and none matches a real word (they end in "x")
 export const FILLER = Array.from({ length: 5000 }, (_, i) => {
 	let n = i;
 	let word = '';

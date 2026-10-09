@@ -80,7 +80,7 @@
 			const saved = localStorage.getItem('course-theme');
 			if (saved === 'light' || saved === 'dark') theme = saved;
 		} catch {
-			// storage unavailable — fall back to system theme
+			// storage unavailable - fall back to system theme
 		}
 	});
 	function toggle(id: number) {
@@ -96,7 +96,7 @@
 		try {
 			localStorage.setItem('course-theme', next);
 		} catch {
-			// storage unavailable — theme choice just won't persist across visits
+			// storage unavailable - theme choice just won't persist across visits
 		}
 	}
 	function navigateResults(event: KeyboardEvent) {
@@ -264,7 +264,7 @@
 									aria-current={active?.id === lesson.id ? 'page' : undefined}
 									><span class="lesson-number">{lesson.kind === 'challenge' ? '◇' : lesson.id}</span
 									><span class="nav-lesson-title" title={lesson.title}
-										>{lesson.title.split(' — ')[0]}</span
+										>{lesson.title.split(' - ')[0]}</span
 									>{#if lesson.available && courseProgress.isCompleted(lesson.id)}<span
 											class="lesson-done"
 											aria-label={t.completed}

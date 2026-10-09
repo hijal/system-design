@@ -1,30 +1,30 @@
-# Video Streaming Lab — Egress এর বিল, Transcoding Pipeline, Adaptive Bitrate, জনপ্রিয়তা আর Codec, আর একটা আসল HLS Service
+# Video Streaming Lab - Egress এর বিল, Transcoding Pipeline, Adaptive Bitrate, জনপ্রিয়তা আর Codec, আর একটা আসল HLS Service
 
-> Lesson 11.6 — Case Study: Design a Video Streaming Platform · **Tier 1 — Runnable Code**
+> Lesson 11.6 - Case Study: Design a Video Streaming Platform · **Tier 1 - Runnable Code**
 > (চারটা deterministic model আর একটা আসল Express + Zod VOD service, HLS এর playlist সহ; Docker বা ffmpeg লাগে না)
 
 ## কী বানাচ্ছি
 
-একটা YouTube এর মতো on-demand video platform এর পাঁচটা প্রশ্ন। বিলের বড় লাইন কোনটা — egress, storage, না transcoding? একটা
+একটা YouTube এর মতো on-demand video platform এর পাঁচটা প্রশ্ন। বিলের বড় লাইন কোনটা - egress, storage, না transcoding? একটা
 ঘণ্টার video upload এর পরে কতক্ষণে দেখা যায়, আর spot worker কেড়ে নিলে কী হয়? ওঠানামা করা mobile network এ player কোন
 quality বাছবে? কোটি video এর মধ্যে কোনগুলো CDN এ রাখব, আর কোনগুলো দামি codec এ আবার encode করলে লাভ? আর এই সব একসাথে একটা
 service এ, HLS এর master আর media playlist সহ।
 
 | Script              | প্রশ্ন                                                                                             | Lesson § |
 | ------------------- | -------------------------------------------------------------------------------------------------- | -------- |
-| `npm run estimate`  | ২০ কোটি DAU — egress, bandwidth, upload, storage, transcoding এর core, মাসিক খরচ                   | ১.২      |
-| `npm run transcode` | এক ঘণ্টার video — পুরোটা এক worker এ, resolution প্রতি, বা ৪ s এর টুকরো ১০০ worker এ; spot এর বাধা | ১.৪      |
-| `npm run abr`       | ৩০০টা session, ওঠানামা করা network — পাঁচটা bitrate নীতির rebuffer, quality আর বদল                 | ১.৫      |
-| `npm run cdn`       | ১০ কোটি video এর Zipf — edge এ কতটা রাখলে কত দেখা; কোন video কে AV1 এ encode করা লাভজনক            | ১.৬      |
+| `npm run estimate`  | ২০ কোটি DAU - egress, bandwidth, upload, storage, transcoding এর core, মাসিক খরচ                   | ১.২      |
+| `npm run transcode` | এক ঘণ্টার video - পুরোটা এক worker এ, resolution প্রতি, বা ৪ s এর টুকরো ১০০ worker এ; spot এর বাধা | ১.৪      |
+| `npm run abr`       | ৩০০টা session, ওঠানামা করা network - পাঁচটা bitrate নীতির rebuffer, quality আর বদল                 | ১.৫      |
+| `npm run cdn`       | ১০ কোটি video এর Zipf - edge এ কতটা রাখলে কত দেখা; কোন video কে AV1 এ encode করা লাভজনক            | ১.৬      |
 | `npm run smoke`     | আসল HTTP: upload → টুকরো ধরে কাজ → playable → ready, master/media playlist, Cache-Control          | ১.৭      |
 
 **সৎ নোট:**
 
-- **Estimation আর দামের input ধরে নেওয়া** — দিনে গড়ে ১ ঘণ্টা, গড় ৩ Mbps, প্রতি মিনিটে ৩০০ ঘণ্টা upload, CDN $০.০১/GB (বড়
+- **Estimation আর দামের input ধরে নেওয়া** - দিনে গড়ে ১ ঘণ্টা, গড় ৩ Mbps, প্রতি মিনিটে ৩০০ ঘণ্টা upload, CDN $০.০১/GB (বড়
   চুক্তিতে; তালিকার দাম বেশি), transcoding ঘণ্টায় ৪ CPU-ঘণ্টা (codec, preset আর hardware ভেদে অনেক বদলায়)।
-- **`transcode` এ আসল encoding নেই** — প্রতিটা কাজের CPU সময় resolution এর ওজন থেকে, ±২০% এলোমেলো; spot এর বাধা Poisson
+- **`transcode` এ আসল encoding নেই** - প্রতিটা কাজের CPU সময় resolution এর ওজন থেকে, ±২০% এলোমেলো; spot এর বাধা Poisson
   (CPU-ঘণ্টায় ০.২ বার), কেড়ে নিলে worker আবার চালু হতে ২০ s।
-- **`abr` এর network synthetic** — ০.৪ থেকে ১২ Mbps এর ছয়টা অবস্থা, গড়ে ৬ s এ বদলায়। নীতিগুলো আসল player (যেমন hls.js,
+- **`abr` এর network synthetic** - ০.৪ থেকে ১২ Mbps এর ছয়টা অবস্থা, গড়ে ৬ s এ বদলায়। নীতিগুলো আসল player (যেমন hls.js,
   dash.js, ExoPlayer) এর সরল রূপ, তাদের আসল algorithm না।
 - **`cdn` এর জনপ্রিয়তা একটা model** (Zipf, s = ১.২)। "edge এ জায়গা" সবচেয়ে জনপ্রিয়গুলো রাখলে আদর্শ হিসাব, LRU না। AV1 এর
   ৩০% কম bit আর ১০ গুণ encode এর খরচ প্রকাশিত তুলনার মোটামুটি আন্দাজ, এখানে মাপা না।
@@ -56,7 +56,7 @@ npm run smoke
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-`npm run estimate` — দিনে ২৭০ PB egress, বিলের ৭৮%; transcoding ১%:
+`npm run estimate` - দিনে ২৭০ PB egress, বিলের ৭৮%; transcoding ১%:
 
 ```
 data out per day (egress)                                       270 PB
@@ -65,14 +65,14 @@ CDN egress ($0.01/GB)                                $81,000,000     78.2%
 transcoding ($0.02/CPU-hour)                                $1,036,800      1.0%
 ```
 
-`npm run transcode` — টুকরো করে parallel এ ঘণ্টা থেকে মিনিট, আর spot এর বাধায় প্রায় কিছু নষ্ট হয় না:
+`npm run transcode` - টুকরো করে parallel এ ঘণ্টা থেকে মিনিট, আর spot এর বাধায় প্রায় কিছু নষ্ট হয় না:
 
 ```
 one worker, the whole video, one resolution after another          4.0 h     10.6 h        27.3 min      13.72%
 4 s pieces, 100 workers                                         2.9 min    3.0 min            38 s       0.02%
 ```
 
-`npm run abr` — সর্বোচ্চ quality তে এক-তৃতীয়াংশ সময় আটকে থাকে; মিশ্র নীতিতে প্রায় শূন্য:
+`npm run abr` - সর্বোচ্চ quality তে এক-তৃতীয়াংশ সময় আটকে থাকে; মিশ্র নীতিতে প্রায় শূন্য:
 
 ```
 always 1080p                                                                   5.4 s     32.63%   5.00 Mbps               0.0
@@ -80,7 +80,7 @@ throughput: the highest under 80% of the last 3 rates                          0
 mixed: throughput, drop when the buffer is low, climb step by step             0.4 s      0.08%   2.32 Mbps              34.5
 ```
 
-`npm run cdn` — ০.১% video তে ৯২% দেখা; AV1 শুধু জনপ্রিয়গুলোতে:
+`npm run cdn` - ০.১% video তে ৯২% দেখা; AV1 শুধু জনপ্রিয়গুলোতে:
 
 ```
 0.1%                                 103,359       92.4%                     80.6 TB
@@ -89,7 +89,7 @@ all videos                           100 million         $12,000,000         $24
 over 30 hours a month                  2,235,202            $268,224         $23,589,440   $23,321,215
 ```
 
-`npm run smoke` — ১২টা ধাপ:
+`npm run smoke` - ১২টা ধাপ:
 
 ```
 3   30 jobs (360p and 240p first)                         playable (30/75)
@@ -130,12 +130,12 @@ over 30 hours a month                  2,235,202            $268,224         $23
 src/
   util.ts       seed দেওয়া PRNG, lognormal, percentile, টেবিলের format, env parse
   ladder.ts     পাঁচটা resolution: উচ্চতা, Mbps, CPU এর ওজন
-  estimate.ts   script ক — egress, bandwidth, upload, storage, transcoding, মাসিক খরচ
-  transcode.ts  script খ — চারটা pipeline এর নকশা, spot এর বাধা, publish আর playable এর সময়
-  abr.ts        script গ — network এর trace, পাঁচটা ABR নীতি, rebuffer/bitrate/বদল
-  cdn.ts        script ঘ — Zipf জনপ্রিয়তা, edge এর জায়গা, লম্বা লেজ, AV1 এর অর্থনীতি
+  estimate.ts   script ক - egress, bandwidth, upload, storage, transcoding, মাসিক খরচ
+  transcode.ts  script খ - চারটা pipeline এর নকশা, spot এর বাধা, publish আর playable এর সময়
+  abr.ts        script গ - network এর trace, পাঁচটা ABR নীতি, rebuffer/bitrate/বদল
+  cdn.ts        script ঘ - Zipf জনপ্রিয়তা, edge এর জায়গা, লম্বা লেজ, AV1 এর অর্থনীতি
   vod.ts        VodService (টুকরো ধরে কাজ, idempotent লেখা, অবস্থা, HLS এর playlist) আর Express app
-  smoke.ts      script ঙ — upload থেকে player পর্যন্ত ১২টা ধাপ
+  smoke.ts      script ঙ - upload থেকে player পর্যন্ত ১২টা ধাপ
 ```
 
 Environment variable: `DAU`, `WATCH_MIN`, `AVG_MBPS`, `PEAK`, `UPLOAD_H_PER_MIN`, `LADDER_MBPS`, `SOURCE_MBPS`,

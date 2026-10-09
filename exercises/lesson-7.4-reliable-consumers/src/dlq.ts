@@ -2,15 +2,15 @@ import { z } from 'zod';
 import { mulberry32, percentile } from './random';
 import { Sim } from './sim';
 
-// Lesson 7.4 §1.4 — Poison messages and the Dead Letter Queue: four policies, the same 5 minutes.
+// Lesson 7.4 §1.4 - Poison messages and the Dead Letter Queue: four policies, the same 5 minutes.
 //
 //   • 20 email jobs per second for 300 s (6000); 4 workers; a good job takes 100 ms
-//   • 2% of jobs are "poison": something wrong in the data (like an invalid address) — each time it works 2 s, then the provider returns 400.
+//   • 2% of jobs are "poison": something wrong in the data (like an invalid address) - each time it works 2 s, then the provider returns 400.
 //     It will never succeed.
-//   • a provider outage at 60–90 s: every request gets 503 in 50 ms — temporary, it will recover.
+//   • a provider outage at 60–90 s: every request gets 503 in 50 ms - temporary, it will recover.
 //   • at 400 s, after the outage, a human looks at the DLQ and "redrives": every job back into the queue.
 //
-// Seeded — exactly the same every time. Can be changed with SEED.
+// Seeded - exactly the same every time. Can be changed with SEED.
 
 const env = z.object({ SEED: z.coerce.number().int().default(7) }).parse(process.env);
 
@@ -43,7 +43,7 @@ const policies: Policy[] = [
 	},
 	{
 		name: 'permanent at once; transient 12 times',
-		// 1, 2, 4 … 32, then 60 s — ~7 minutes of attempts in total: long enough to cover an outage
+		// 1, 2, 4 … 32, then 60 s - ~7 minutes of attempts in total: long enough to cover an outage
 		onFail: (n, kind) => (kind === 'permanent' || n >= 12 ? 'dlq' : expo(n, 60_000))
 	}
 ];
@@ -98,7 +98,7 @@ function run(policy: Policy): Result {
 			if (!job) return;
 			busy++;
 			const outage = sim.now >= OUTAGE.from && sim.now < OUTAGE.to;
-			// Poison's fault is in the data — outage or not, 2 s of work, then 400
+			// Poison's fault is in the data - outage or not, 2 s of work, then 400
 			const ms = job.poison ? POISON_MS : outage ? FAST_FAIL_MS : GOOD_MS;
 			const ok = !job.poison && !outage;
 			const kind: ErrorKind = job.poison ? 'permanent' : 'transient';

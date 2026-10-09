@@ -1,7 +1,7 @@
 import { percentile } from './random';
 import type { TaskEvent } from './workload';
 
-// The same "service" and the same yardstick for all three brokers — so the comparison stays honest.
+// The same "service" and the same yardstick for all three brokers - so the comparison stays honest.
 
 export interface ServiceSpec {
 	name: string;
@@ -10,7 +10,7 @@ export interface ServiceSpec {
 	processMs: (event: TaskEvent) => number;
 }
 
-// The service is down during this window (deploy or crash) — all its workers at once
+// The service is down during this window (deploy or crash) - all its workers at once
 export interface Outage {
 	service: string;
 	from: number;
@@ -20,7 +20,7 @@ export interface Outage {
 type Processed = { event: TaskEvent; doneAt: number };
 
 // A ledger of what happened from each service's point of view. "Processed" means the side effect has happened
-// (the email went out, the index was written) — even before the ack or commit.
+// (the email went out, the index was written) - even before the ack or commit.
 export class Recorder {
 	readonly #log = new Map<string, Processed[]>();
 	readonly #backlogPeak = new Map<string, number>();
@@ -36,7 +36,7 @@ export class Recorder {
 		this.#backlogPeak.set(service, Math.max(this.#backlogPeak.get(service) ?? 0, size));
 	}
 
-	// Dropped by the broker itself (buffer overflow, retention) — one of the reasons for "lost"
+	// Dropped by the broker itself (buffer overflow, retention) - one of the reasons for "lost"
 	dropped(service: string, count: number): void {
 		this.#dropped.set(service, (this.#dropped.get(service) ?? 0) + count);
 	}

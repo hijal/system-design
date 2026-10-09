@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { mulberry32 } from './random';
 
-// Lesson 8.1 §1.5 — how an object survives: replication vs erasure coding, and failure domains.
-// No Docker needed — a small model and a seeded simulation.
+// Lesson 8.1 §1.5 - how an object survives: replication vs erasure coding, and failure domains.
+// No Docker needed - a small model and a seeded simulation.
 //
-//   part A: arithmetic — for each scheme, how much disk storing 1 TB of data takes, how many dead disks it survives, and the
+//   part A: arithmetic - for each scheme, how much disk storing 1 TB of data takes, how many dead disks it survives, and the
 //          annual probability of losing an object (a simple model: disks die independently, repair takes a fixed time)
 //   part B: OBJECTS objects on RACKS racks × DISKS_PER_RACK disks; when a whole rack (or several) goes down,
-//          how many objects can no longer be read — with fragments on random disks, and with each on a different rack
+//          how many objects can no longer be read - with fragments on random disks, and with each on a different rack
 
 const cfg = z
 	.object({
@@ -39,7 +39,7 @@ function choose(n: number, r: number): number {
 }
 
 // the annual probability of losing an object (approximate):
-//   any one of its n disks dies (n × AFR times a year) — and before the repair finishes at least m of the
+//   any one of its n disks dies (n × AFR times a year) - and before the repair finishes at least m of the
 //   other n−1 die (each with probability q = AFR × repair time / one year)
 function annualLoss(s: Scheme): number {
 	const n = s.k + s.m;
@@ -84,7 +84,7 @@ function place(s: Scheme, placement: Placement, random: () => number): number[] 
 		}
 		return racks.slice(0, n);
 	}
-	// n different disks, on any rack — without thinking about racks
+	// n different disks, on any rack - without thinking about racks
 	const disks = new Set<number>();
 	while (disks.size < n) disks.add(Math.floor(random() * cfg.RACKS * cfg.DISKS_PER_RACK));
 	return [...disks].map((d) => Math.floor(d / cfg.DISKS_PER_RACK));

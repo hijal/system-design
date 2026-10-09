@@ -18,7 +18,7 @@ function addNode(): void {
 	const after = nodeList('cache', 5);
 	const newcomer = after[4]?.id ?? '';
 	heading(
-		`A. 4 cache nodes to 5 — how many of ${KEYS.toLocaleString('en-US')} keys move, and where they go`
+		`A. 4 cache nodes to 5 - how many of ${KEYS.toLocaleString('en-US')} keys move, and where they go`
 	);
 	console.log(
 		row([
@@ -52,7 +52,7 @@ function removeNode(): void {
 	const before = nodeList('cache', 5);
 	const lost = before[2]?.id ?? '';
 	const after = before.filter((spec) => spec.id !== lost);
-	heading(`B. ${lost} died — who took its keys, and how much load is on the heaviest node`);
+	heading(`B. ${lost} died - who took its keys, and how much load is on the heaviest node`);
 	console.log(
 		row([
 			['routing', 26],

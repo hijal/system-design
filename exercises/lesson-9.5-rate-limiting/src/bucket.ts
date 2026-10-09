@@ -64,7 +64,7 @@ function bar(count: number): string {
 function main(): void {
 	const input = arrivals();
 	console.log(
-		`\n=== Lesson 9.5 — Token Bucket vs Leaky Bucket ===\n` +
+		`\n=== Lesson 9.5 - Token Bucket vs Leaky Bucket ===\n` +
 			`   rate ${RATE_PER_SEC}/s · capacity ${CAPACITY} · arrivals: a burst of ${BURST} at t=0, then ${TAIL_RATE}/s for ${TAIL_MS} ms (${input.length} in total)\n`
 	);
 
@@ -101,16 +101,16 @@ function main(): void {
 	);
 
 	const span = TAIL_MS + 1500;
-	console.log(`\n── b. The shape of the output — how much went downstream every ${SLOT_MS} ms ──`);
+	console.log(`\n── b. The shape of the output - how much went downstream every ${SLOT_MS} ms ──`);
 	const tokenHist = histogram(tokenPassed, SLOT_MS, span);
 	const leakyHist = histogram(leakyPassed, SLOT_MS, span);
-	console.log(`   token bucket — the burst goes out at once:`);
+	console.log(`   token bucket - the burst goes out at once:`);
 	for (const [index, count] of tokenHist.entries())
 		if (index < 8)
 			console.log(
 				`     ${padLeft(`${index * SLOT_MS} ms`, 8)}  ${padLeft(count, 3)}  ${bar(count)}`
 			);
-	console.log(`   leaky bucket — the same arrivals, going out at an even pace:`);
+	console.log(`   leaky bucket - the same arrivals, going out at an even pace:`);
 	for (const [index, count] of leakyHist.entries())
 		if (index < 8)
 			console.log(
@@ -120,7 +120,7 @@ function main(): void {
 		`\n   peak instantaneous load downstream (per ${SLOT_MS} ms): token bucket ${Math.max(...tokenHist)} · leaky bucket ${Math.max(...leakyHist)}\n`
 	);
 
-	console.log(`── c. Token bucket capacity — burst tolerance vs load on the downstream ──`);
+	console.log(`── c. Token bucket capacity - burst tolerance vs load on the downstream ──`);
 	console.log(
 		`   ${padEnd('capacity', LABEL)}${padLeft('passed', COL)}${padLeft('passed in burst', COL + 4)}${padLeft(`load/${SLOT_MS}ms`, COL + 4)}`
 	);

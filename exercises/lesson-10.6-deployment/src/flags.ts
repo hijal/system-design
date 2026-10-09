@@ -20,7 +20,7 @@ function methods(random: () => number): Method[] {
 }
 
 heading(
-	`Part A — percentage rollout: ${n(USERS)} users, ${VIEWS} pages a day, two separate flags, 10% each`
+	`Part A - percentage rollout: ${n(USERS)} users, ${VIEWS} pages a day, two separate flags, 10% each`
 );
 console.log(
 	row([
@@ -55,7 +55,7 @@ for (const method of methods(mulberry32(SEED))) {
 	);
 }
 console.log(
-	'\n("in both flags" — the same user in two separate 10% experiments; if independent, expect ~1% = 600 people)'
+	'\n("in both flags" - the same user in two separate 10% experiments; if independent, expect ~1% = 600 people)'
 );
 
 type Switch = { name: string; delay: (instance: number, random: () => number) => number };
@@ -67,7 +67,7 @@ const SWITCHES: Switch[] = [
 ];
 const INSTANCES = 12;
 heading(
-	`Part B — kill switch: ${INSTANCES} instances, ${Math.round(FEATURE_SHARE * RPS)} req/s on the new feature, ${Math.round(FEATURE_ERROR * 100)}% of it errors; after the decision to turn it off`
+	`Part B - kill switch: ${INSTANCES} instances, ${Math.round(FEATURE_SHARE * RPS)} req/s on the new feature, ${Math.round(FEATURE_ERROR * 100)}% of it errors; after the decision to turn it off`
 );
 console.log(
 	row([
@@ -145,7 +145,7 @@ const SERVICE_INSTANCES = 6;
 const WINDOW = 600;
 const RAMP_AT = 300;
 heading(
-	`Part C — two services, one flag: the BFF shows the new UI, the API returns the new shape; ${WINDOW / 60} minutes, 10% → 50% at minute ${RAMP_AT / 60}`
+	`Part C - two services, one flag: the BFF shows the new UI, the API returns the new shape; ${WINDOW / 60} minutes, 10% → 50% at minute ${RAMP_AT / 60}`
 );
 console.log(
 	row([

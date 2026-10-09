@@ -1,9 +1,9 @@
 import { httpGet } from './http';
 
 // A simple model of the link between the browser and the data center:
-//   - one round trip (RTT) per request — half going, half coming back
-//   - the response bytes come through one shared pipe (MBPS) — with several requests at once they queue up
-// The servers' own work is real (real HTTP on localhost). TCP slow start, TLS, packet loss — not in this model.
+//   - one round trip (RTT) per request - half going, half coming back
+//   - the response bytes come through one shared pipe (MBPS) - with several requests at once they queue up
+// The servers' own work is real (real HTTP on localhost). TCP slow start, TLS, packet loss - not in this model.
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 

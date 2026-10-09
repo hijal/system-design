@@ -255,7 +255,7 @@ async function main(): Promise<void> {
 		'versions: v1 = reads and writes title · v1.5 = writes both, reads title · v2r = writes both, reads name · v2 = name only'
 	);
 
-	heading('Part A — rename in one step: title → name');
+	heading('Part A - rename in one step: title → name');
 	header();
 	await fresh();
 	await play(
@@ -290,7 +290,7 @@ async function main(): Promise<void> {
 		20
 	);
 
-	heading('Part B — expand / migrate / contract');
+	heading('Part B - expand / migrate / contract');
 	header();
 	await fresh();
 	await play(
@@ -353,7 +353,7 @@ async function main(): Promise<void> {
 		`   rows with an empty name at the end: ${n(await count('SELECT count(*) AS count FROM boards WHERE name IS NULL'))}`
 	);
 
-	heading('Part C — four well-known mistakes');
+	heading('Part C - four well-known mistakes');
 	header();
 	await fresh();
 	await migrate(EXPAND);

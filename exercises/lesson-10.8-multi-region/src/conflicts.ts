@@ -96,7 +96,7 @@ for (const e of edits) {
 for (const list of byTask.values()) list.sort((a, b) => a.at - b.at);
 
 heading(
-	`Part A — one day: ${n(totalEdits)} edits (${n(edits.length)} in ${n(SESSIONS)} shared sessions, ${Math.round(CROSS_REGION * 100)}% of sessions with people from another region); writes accepted in every region`
+	`Part A - one day: ${n(totalEdits)} edits (${n(edits.length)} in ${n(SESSIONS)} shared sessions, ${Math.round(CROSS_REGION * 100)}% of sessions with people from another region); writes accepted in every region`
 );
 console.log(
 	`replication: normally half the region distance + 50 ms; the link is bad 14:00–16:00, median ${INCIDENT_LAG_S} s; Frankfurt's clock ${FRANKFURT_SKEW_MS} ms\n`
@@ -161,7 +161,7 @@ console.log(
 	])
 );
 
-heading('Part B — the price of home regions: edits from another region have to travel home');
+heading('Part B - the price of home regions: edits from another region have to travel home');
 const extra: number[] = [];
 let away = 0;
 for (const e of edits) {

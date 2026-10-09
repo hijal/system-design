@@ -1,5 +1,5 @@
-# Lesson 5.7 — PostgreSQL streaming replication: one primary, one replica.
-# Port 5438 (primary) and 5439 (replica) — to avoid clashing with the earlier exercises (5433–5437).
+# Lesson 5.7 - PostgreSQL streaming replication: one primary, one replica.
+# Port 5438 (primary) and 5439 (replica) - to avoid clashing with the earlier exercises (5433–5437).
 services:
   primary:
     image: postgres:17-alpine
@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: taskflow
       POSTGRES_PASSWORD: taskflow
       POSTGRES_DB: taskflow
-    # synchronous_standby_names: the replica's name ("*" = any one) — but the default is
+    # synchronous_standby_names: the replica's name ("*" = any one) - but the default is
     # synchronous_commit = local, so an ordinary commit is async. Only a transaction that itself
     # says `SET LOCAL synchronous_commit = remote_apply` waits for the replica.
     command: >

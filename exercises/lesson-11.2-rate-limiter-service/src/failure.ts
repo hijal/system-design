@@ -195,5 +195,5 @@ for (const [phase, label] of phases) {
 	}
 }
 console.log(
-	`\n"hanging per server" = Little's law: ${n(PER_SERVER_RPS)} requests/s per API server × average wait — how many requests are waiting for the limiter's answer at once.`
+	`\n"hanging per server" = Little's law: ${n(PER_SERVER_RPS)} requests/s per API server × average wait - how many requests are waiting for the limiter's answer at once.`
 );

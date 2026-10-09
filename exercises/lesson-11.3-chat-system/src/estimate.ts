@@ -24,7 +24,7 @@ const avg = perDay / DAY;
 const peak = avg * PEAK;
 const fanout = (1 - GROUP_SHARE) * 1 + GROUP_SHARE * (GROUP_SIZE - 1);
 
-heading(`Part A — connections: ${big(DAU)} DAU, ${Math.round(ONLINE_SHARE * 100)}% online at peak`);
+heading(`Part A - connections: ${big(DAU)} DAU, ${Math.round(ONLINE_SHARE * 100)}% online at peak`);
 console.log(
 	row([
 		['', 52],
@@ -52,7 +52,7 @@ line(
 line(`heartbeats / s (every ${HEARTBEAT_S} s)`, n(online / HEARTBEAT_S), 'more than the messages');
 
 heading(
-	`Part B — messages: ${MESSAGES_PER_USER} a day per user, ${Math.round(GROUP_SHARE * 100)}% in groups (${GROUP_SIZE} people on average)`
+	`Part B - messages: ${MESSAGES_PER_USER} a day per user, ${Math.round(GROUP_SHARE * 100)}% in groups (${GROUP_SIZE} people on average)`
 );
 line('messages sent / s (average)', n(avg), `${big(perDay)} a day`);
 line(`messages sent / s (peak, ${PEAK}×)`, n(peak), '');
@@ -65,10 +65,10 @@ line('delivery / s (peak)', n(peak * fanout), '');
 line(
 	'receipt (delivered + read) / s (peak)',
 	n(peak * fanout * 2),
-	'two from each delivery — more writes than messages'
+	'two from each delivery - more writes than messages'
 );
 
-heading(`Part C — storage: ${MESSAGE_BYTES} B per message`);
+heading(`Part C - storage: ${MESSAGE_BYTES} B per message`);
 const forever = perDay * MESSAGE_BYTES * 365 * YEARS;
 const pending = (peak / PEAK) * fanout * OFFLINE_SHARE * OFFLINE_WAIT_H * 3_600 * MESSAGE_BYTES;
 line('new per day', bytes(perDay * MESSAGE_BYTES), '');
@@ -85,7 +85,7 @@ line(
 line('difference', `${n(forever / pending)} times`, 'a product decision, not a storage one');
 
 heading(
-	`Part D — presence: ${CONTACTS} contacts on average, online ↔ offline ${TRANSITIONS} times a day`
+	`Part D - presence: ${CONTACTS} contacts on average, online ↔ offline ${TRANSITIONS} times a day`
 );
 const transitions = (DAU * TRANSITIONS) / DAY;
 line('online/offline changes / s', n(transitions), '');

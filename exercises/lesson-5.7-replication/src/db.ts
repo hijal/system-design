@@ -14,7 +14,7 @@ const PRIMARY_PORT = Number(process.env.PRIMARY_PORT ?? 5438);
 const REPLICA_PORT = Number(process.env.REPLICA_PORT ?? 5439);
 const credentials = { username: 'taskflow', password: 'taskflow', database: 'taskflow' };
 
-// TaskFlow's app connection — Sequelize's built-in read replication.
+// TaskFlow's app connection - Sequelize's built-in read replication.
 // SELECTs outside a transaction go to the `read` pool (the replica), everything else to `write` (the primary).
 // Exactly this convenience gives birth to the read-your-writes bug (lag.ts).
 export const app = new Sequelize({
@@ -27,7 +27,7 @@ export const app = new Sequelize({
 	pool: { max: 10, min: 0, idle: 10_000 }
 });
 
-// a direct connection — for admin work and measuring (LSN, lag, settings)
+// a direct connection - for admin work and measuring (LSN, lag, settings)
 function direct(port: number): Sequelize {
 	return new Sequelize({ dialect: 'postgres', logging: false, host: HOST, port, ...credentials });
 }
@@ -69,7 +69,7 @@ export function sleep(ms: number): Promise<void> {
 
 // Artificial lag on the replica: even after receiving the WAL it waits this long before applying it.
 // recovery_min_apply_delay is a real Postgres setting (used to build a deliberate "delayed replica")
-// — here it imitates the lag of heavy load or a distant network.
+// - here it imitates the lag of heavy load or a distant network.
 export async function setApplyDelay(ms: number): Promise<void> {
 	await replica.query(`ALTER SYSTEM SET recovery_min_apply_delay = '${ms}ms'`);
 	await replica.query('SELECT pg_reload_conf()');

@@ -1,7 +1,7 @@
 import { Redis } from 'ioredis';
 import { z } from 'zod';
 
-// The event contract: a past-tense name ("was created"), a fixed eventId (the consumer's dedupe key — 7.4),
+// The event contract: a past-tense name ("was created"), a fixed eventId (the consumer's dedupe key - 7.4),
 // when it happened, and whatever a consumer may need. A version is kept so old consumers don't break when the shape changes.
 
 export const STREAM = 'events:comments';
@@ -27,7 +27,7 @@ export function connectRedis(): Redis {
 	});
 }
 
-// enableOfflineQueue is off, so a command sent before the connection is ready fails immediately — wait at the start
+// enableOfflineQueue is off, so a command sent before the connection is ready fails immediately - wait at the start
 export function waitReady(redis: Redis): Promise<void> {
 	if (redis.status === 'ready') return Promise.resolve();
 	return new Promise((resolve) => redis.once('ready', () => resolve()));

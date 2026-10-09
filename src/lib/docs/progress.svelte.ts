@@ -28,7 +28,7 @@ function read(): ProgressData | null {
 		const parsed: unknown = JSON.parse(raw);
 		if (isProgressData(parsed)) return parsed;
 	} catch {
-		// corrupt or inaccessible storage (private mode) — fall back to empty progress
+		// corrupt or inaccessible storage (private mode) - fall back to empty progress
 	}
 	return { completed: [], lastVisited: null };
 }
@@ -37,7 +37,7 @@ function write(data: ProgressData): void {
 	try {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 	} catch {
-		// storage unavailable or full — progress simply won't persist this session
+		// storage unavailable or full - progress simply won't persist this session
 	}
 }
 
@@ -91,5 +91,5 @@ export class ProgressStore {
 	}
 }
 
-// Named courseProgress, not progress — Toc.svelte already has an unrelated scroll-% "progress".
+// Named courseProgress, not progress - Toc.svelte already has an unrelated scroll-% "progress".
 export const courseProgress = new ProgressStore();

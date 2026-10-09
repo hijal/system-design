@@ -1,6 +1,6 @@
-# URL Shortener Lab — Estimation, Code Generation, Redirect Path, আর একটা আসল Shortener
+# URL Shortener Lab - Estimation, Code Generation, Redirect Path, আর একটা আসল Shortener
 
-> Lesson 11.1 — Case Study: Design a URL Shortener · **Tier 1 — Runnable Code**
+> Lesson 11.1 - Case Study: Design a URL Shortener · **Tier 1 - Runnable Code**
 > (তিনটা deterministic model আর একটা আসল Express + Zod server; Docker বা database লাগে না)
 
 ## কী বানাচ্ছি
@@ -13,23 +13,23 @@ shortener যেটা চালানো যায়।
 | Script             | প্রশ্ন                                                                                                | Lesson §  |
 | ------------------ | ----------------------------------------------------------------------------------------------------- | --------- |
 | `npm run estimate` | Traffic, storage, keyspace (৫–৮ অক্ষর), আর Bloom filter, HLL, sharding এর দাম এই মাপে                 | ১.২       |
-| `npm run keygen`   | Random, hash, counter, range allocation, গোপন permutation — collision, চেষ্টা, অনুমান করে খোঁজা       | ১.৫       |
+| `npm run keygen`   | Random, hash, counter, range allocation, গোপন permutation - collision, চেষ্টা, অনুমান করে খোঁজা       | ১.৫       |
 | `npm run redirect` | Zipf traffic এ LRU cache এর hit rate, hot key, 301 বনাম 302 (analytics আর link বন্ধ করা), unique গোনা | ১.৬ – ১.৭ |
 | `npm run smoke`    | আসল Express server: তৈরি, redirect, validation, alias, মেয়াদ, বন্ধ করা, click এর buffer              | ১.৮       |
-| `npm run serve`    | একই server চালু রাখে, নিজে `curl` দিয়ে খেলার জন্য                                                    | —         |
+| `npm run serve`    | একই server চালু রাখে, নিজে `curl` দিয়ে খেলার জন্য                                                    | -         |
 
 **সৎ নোট:**
 
-- **Estimation এর input ধরে নেওয়া** — মাসে ১০ কোটি নতুন link, পড়া:লেখা ১০০:১, peak গড়ের ৩ গুণ, row প্রতি ৫০০ B। একটা
+- **Estimation এর input ধরে নেওয়া** - মাসে ১০ কোটি নতুন link, পড়া:লেখা ১০০:১, peak গড়ের ৩ গুণ, row প্রতি ৫০০ B। একটা
   Postgres primary এর "৫,০০০ insert/s" একটা মোটামুটি আন্দাজ, hardware আর schema এর উপর অনেক নির্ভর করে, এখানে মাপা না।
 - **`keygen` keyspace ছোট করে চালায়** (৪ অক্ষর = ১.৪৮ কোটি ঘর), কারণ ৭ অক্ষরের ৩.৫২ লাখ কোটি ঘর memory তে ধরে না। Retry আর
   collision এর হার নির্ভর করে শুধু **কতটা ভরা** তার উপর, তাই "০.৩৪১% ভরা" সারিটা ৭ অক্ষরে ১০ বছরের সমান। Hash এর অংশে MD5
   ব্যবহার করা হয়েছে শুধু ভাগ করার জন্য, নিরাপত্তার জন্য না।
-- **`redirect` এর traffic synthetic** — ২০ লাখ link, ৬০ লাখ redirect, জনপ্রিয়তা Zipf (s = 1)। আসল shortener এ নতুন link এর
+- **`redirect` এর traffic synthetic** - ২০ লাখ link, ৬০ লাখ redirect, জনপ্রিয়তা Zipf (s = 1)। আসল shortener এ নতুন link এর
   জনপ্রিয়তা সময়ের সাথে দ্রুত কমে (প্রথম কয়েক দিনেই বেশিরভাগ click), যেটা এই model এ নেই, তাই আসল hit rate সম্ভবত বেশি।
   Memory এর কলাম entry প্রতি ~২৫০ B ধরে, ১০০ কোটি link এ রৈখিক বাড়িয়ে। **301 এর অংশে browser এর আচরণ ধরে নেওয়া** (৮৫% browser
   cache রাখে, 301 মাস জুড়ে মনে থাকে)। আসল browser এর আচরণ version আর `Cache-Control` header এর উপর নির্ভর করে।
-- **Unique visitor এর অংশ হিসাব, simulation না** — Zipf এর বণ্টন ধরে প্রতিটা link এর গড় click, তার ৬০% unique, exact set এ
+- **Unique visitor এর অংশ হিসাব, simulation না** - Zipf এর বণ্টন ধরে প্রতিটা link এর গড় click, তার ৬০% unique, exact set এ
   visitor প্রতি ১৬ B। Redis এর HLL এর dense রূপ ১২ KB (Redis এর documentation থেকে)। "ছোট হলে set, বড় হলে HLL" সারিটা Redis
   এর sparse representation এর ধারণা, তার আসল byte এর হিসাব না।
 - **`smoke` একটা আসল HTTP server চালায়**, কিন্তু store in-memory (`MemoryLinkStore`), database না। Postgres এর schema lesson
@@ -69,7 +69,7 @@ curl -s localhost:3000/api/links/<code>/stats
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-`npm run estimate` — লেখা সামান্য, পড়া আসল চাপ; ৭ অক্ষরে ১০ বছরে keyspace এর মাত্র ০.৩৪% ভরে; Bloom filter আর per-link HLL
+`npm run estimate` - লেখা সামান্য, পড়া আসল চাপ; ৭ অক্ষরে ১০ বছরে keyspace এর মাত্র ০.৩৪% ভরে; Bloom filter আর per-link HLL
 এই মাপে দামি:
 
 ```
@@ -81,7 +81,7 @@ Bloom filter, all 12 billion codes, 1% error               14.4 GB
 HyperLogLog (dense, 12 KB) per link                          147 TB
 ```
 
-`npm run keygen` — random এ retry = যতটা ভরা; hash এ collision birthday এর আন্দাজে মেলে; counter অনুমানযোগ্য, permutation না;
+`npm run keygen` - random এ retry = যতটা ভরা; hash এ collision birthday এর আন্দাজে মেলে; counter অনুমানযোগ্য, permutation না;
 permutation এক-এক:
 
 ```
@@ -90,10 +90,10 @@ permutation এক-এক:
 counter → base62                                  0d6C 0d6D 0d6E 0d6F 0d6G          100.00%          0.34%
 counter → secret permutation → base62             f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
 1,000                   3,354          10,161                0.00011%             47.5%
-whole 3-char domain (238,328 ids): 238,328 distinct outputs — no collisions
+whole 3-char domain (238,328 ids): 238,328 distinct outputs - no collisions
 ```
 
-`npm run redirect` — ছোট cache অনেক দেয়, তারপর ধীরে; 301 analytics আর link বন্ধ করা দুটোই ভাঙে; per-link HLL exact এর চেয়েও
+`npm run redirect` - ছোট cache অনেক দেয়, তারপর ধীরে; 301 analytics আর link বন্ধ করা দুটোই ভাঙে; per-link HLL exact এর চেয়েও
 দামি:
 
 ```
@@ -105,7 +105,7 @@ exact set per link (visitor hash, 16 B)                   96.0 GB
 dense HLL (12 KB) per clicked link                         8.1 TB
 ```
 
-`npm run smoke` — ১৮টা ধাপ, প্রতিটার status ঠিক; ১০,০০০ link এ ১০,০০০টা আলাদা code আর sequence এ মাত্র ১০ বার:
+`npm run smoke` - ১৮টা ধাপ, প্রতিটার status ঠিক; ১০,০০০ link এ ১০,০০০টা আলাদা code আর sequence এ মাত্র ১০ বার:
 
 ```
 3   GET /cOoEtMq                                          302     Location: https://example.com/blog/system-design?ref=newsletter
@@ -120,9 +120,9 @@ trips to the sequence (database): 10
 
 ## কী দেখার জন্য এটা বানানো
 
-- **Estimation নকশা বদলায়।** লেখা peak এ ১১৬/s — একটা Postgres এর সামান্য অংশ। তাই "লেখা scale করতে sharding" এর প্রশ্নই
+- **Estimation নকশা বদলায়।** লেখা peak এ ১১৬/s - একটা Postgres এর সামান্য অংশ। তাই "লেখা scale করতে sharding" এর প্রশ্নই
   ওঠে না। আসল চাপ redirect এ (১১,৫৭৪/s), আর সেটা cache এর কাজ।
-- **Keyspace এর দৈর্ঘ্য একটা সিদ্ধান্ত।** ৬ অক্ষরে ১০ বছরে ২১% ভরা — random এ প্রতি পাঁচটায় একটা retry, আর অনুমান করা code
+- **Keyspace এর দৈর্ঘ্য একটা সিদ্ধান্ত।** ৬ অক্ষরে ১০ বছরে ২১% ভরা - random এ প্রতি পাঁচটায় একটা retry, আর অনুমান করা code
   এর প্রতি পাঁচটায় একটা আসল link। ৭ অক্ষরে দুটোই ০.৩৪%।
 - **Hash এর "একই URL → একই code" সুবিধা collision এ ভাঙে।** ১০ বছরে ~২ কোটি link এ salt যোগ করতে হয়, আর তখন একই URL এর
   code আর নির্ধারিত থাকে না।
@@ -145,7 +145,7 @@ trips to the sequence (database): 10
 4. **দশ গুণ বড়:** `NEW_PER_MONTH=1000000000 npm run estimate`। এখন ৬ অক্ষর কবে ভরে (৫ বছরে), ৭ অক্ষরে ১০ বছরে কত ভরা (৩.৪%),
    আর peak লেখা Postgres এর কত (২৩%)? কোন সিদ্ধান্ত বদলাতে হবে, কোনটা না?
 5. **Code বদলানোর কাজ:** `src/app.ts` এ একই URL আবার দিলে (একই owner এর জন্য) পুরনো code ফেরত দেওয়ার ব্যবস্থা করুন। কোন
-   index লাগবে, আর দুজন আলাদা user একই URL দিলে কী হওয়া উচিত — একই code না আলাদা? কেন?
+   index লাগবে, আর দুজন আলাদা user একই URL দিলে কী হওয়া উচিত - একই code না আলাদা? কেন?
 
 ## Project Structure
 
@@ -154,12 +154,12 @@ src/
   util.ts      seed দেওয়া PRNG, টেবিল আর সংখ্যার format, env parse
   base62.ts    base62 encode/decode, keyspace
   scramble.ts  গোপন permutation: Feistel network + cycle walking, [0, 62^7) এর ভেতরে এক-এক
-  estimate.ts  script ক — traffic, storage, keyspace, যন্ত্রের দাম
-  keygen.ts    script খ — random, hash, counter, range allocation, permutation
-  redirect.ts  script গ — LRU cache এর hit rate, hot key, 301 বনাম 302, unique visitor এর memory
+  estimate.ts  script ক - traffic, storage, keyspace, যন্ত্রের দাম
+  keygen.ts    script খ - random, hash, counter, range allocation, permutation
+  redirect.ts  script গ - LRU cache এর hit rate, hot key, 301 বনাম 302, unique visitor এর memory
   store.ts     Link এর type, in-memory store, sequence, range allocator, code generator, click buffer
-  app.ts       Express app: POST /api/links, GET /:code, stats, disable — Zod দিয়ে validation
-  smoke.ts     script ঘ — app কে port 0 তে চালিয়ে ১৮টা ধাপ আর ১০,০০০ link
+  app.ts       Express app: POST /api/links, GET /:code, stats, disable - Zod দিয়ে validation
+  smoke.ts     script ঘ - app কে port 0 তে চালিয়ে ১৮টা ধাপ আর ১০,০০০ link
   serve.ts     app চালু রাখে, প্রতি সেকেন্ডে click flush, SIGTERM এ graceful shutdown
 ```
 

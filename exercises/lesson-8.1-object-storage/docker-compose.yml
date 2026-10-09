@@ -1,7 +1,7 @@
-# Postgres (TaskFlow's OLTP database) and SeaweedFS (S3-compatible object storage) — both in containers;
+# Postgres (TaskFlow's OLTP database) and SeaweedFS (S3-compatible object storage) - both in containers;
 # the scripts are ordinary Node processes on your machine.
-# cpus: 2 on both — so that whatever your machine's core count, the comparison looks the same (like Lesson 7.6).
-# Ports 5445/8335 — no clash with the earlier exercises.
+# cpus: 2 on both - so that whatever your machine's core count, the comparison looks the same (like Lesson 7.6).
+# Ports 5445/8335 - no clash with the earlier exercises.
 services:
   postgres:
     image: postgres:17-alpine
@@ -20,9 +20,9 @@ services:
       retries: 15
 
   s3:
-    # SeaweedFS — an open-source object store that speaks the S3 API. In one container: the master (which file is on which
-    # volume — metadata), the volume server (the real bytes), the filer and the S3 gateway — exactly the lesson's §1.4 picture.
-    # (MinIO's community Docker image is no longer available on Docker Hub — hence this.)
+    # SeaweedFS - an open-source object store that speaks the S3 API. In one container: the master (which file is on which
+    # volume - metadata), the volume server (the real bytes), the filer and the S3 gateway - exactly the lesson's §1.4 picture.
+    # (MinIO's community Docker image is no longer available on Docker Hub - hence this.)
     image: chrislusf/seaweedfs:4.47
     command: server -dir=/data -s3 -s3.port=8333 -master.volumeSizeLimitMB=256 -volume.max=100
     ports:

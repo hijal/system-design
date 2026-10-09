@@ -97,7 +97,7 @@ async function drive(
 
 async function main(): Promise<void> {
 	console.log(
-		`\n=== Lesson 9.4 — Bulkhead ===\n` +
+		`\n=== Lesson 9.4 - Bulkhead ===\n` +
 			`   ${WORKERS} worker slots in the work service · ${REQUESTS} requests · ${CLIENTS} clients at once\n` +
 			`   mix: ${Math.round((1 - BOARD_SHARE) * 100)}% "create task" (calls billing) · ${Math.round(BOARD_SHARE * 100)}% "open board" (its own work only)\n` +
 			`   billing slow: ${SLOW_MS} ms per response · call timeout ${TIMEOUT_MS} ms\n`
@@ -113,7 +113,7 @@ async function main(): Promise<void> {
 	const boardPool = new Bulkhead(4, REQUESTS);
 	const split = await drive(createPool, boardPool);
 
-	console.log(`── a. "open board" — the work that has nothing to do with billing ──`);
+	console.log(`── a. "open board" - the work that has nothing to do with billing ──`);
 	console.log(header('pool', ['ok', 'failed', 'shed', 'p50', 'p99']));
 	console.log(
 		line(`shared (${WORKERS})`, summarise(shared.outcomes, 'board', sharedPool.rejected()))
@@ -121,7 +121,7 @@ async function main(): Promise<void> {
 	console.log(line(`bulkhead (4 board)`, summarise(split.outcomes, 'board', boardPool.rejected())));
 	console.log('');
 
-	console.log(`── b. "create task" — the work that really depends on the slow billing ──`);
+	console.log(`── b. "create task" - the work that really depends on the slow billing ──`);
 	console.log(header('pool', ['ok', 'failed', 'shed', 'p50', 'p99']));
 	console.log(
 		line(`shared (${WORKERS})`, summarise(shared.outcomes, 'create', sharedPool.rejected()))
@@ -137,8 +137,8 @@ async function main(): Promise<void> {
 	const sharedBoard = summarise(shared.outcomes, 'board', 0);
 	const splitBoard = summarise(split.outcomes, 'board', 0);
 	console.log(
-		`   with the shared pool the board's p99 is ${ms(sharedBoard.p99)} — all ${WORKERS} slots are waiting for the slow billing,\n` +
-			`   so the board has to queue. With a separate pool the board's p99 is ${ms(splitBoard.p99)} — the same slow billing, the same load.\n` +
+		`   with the shared pool the board's p99 is ${ms(sharedBoard.p99)} - all ${WORKERS} slots are waiting for the slow billing,\n` +
+			`   so the board has to queue. With a separate pool the board's p99 is ${ms(splitBoard.p99)} - the same slow billing, the same load.\n` +
 			`   total time: shared ${ms(shared.wallMs)} · bulkhead ${ms(split.wallMs)}\n`
 	);
 

@@ -333,7 +333,7 @@ async function main(): Promise<void> {
 		);
 	}
 	console.log(
-		`\n("> ${SLOW_MS} ms" = successful but slow — mostly requests that reached an instance that had not warmed up)`
+		`\n("> ${SLOW_MS} ms" = successful but slow - mostly requests that reached an instance that had not warmed up)`
 	);
 }
 

@@ -1,8 +1,8 @@
-# Lesson 10.7 — Cost & Cloud Economics
+# Lesson 10.7 - Cost & Cloud Economics
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 1.3):** How do you get the average QPS from a system's total daily requests, and how do you estimate the peak QPS? Which one sets the number of servers — the average or the peak? Today you will see that the "peak" answer is true, but buying it 24 hours a day has a price. In TaskFlow's case, 80% of the capacity bought at that price sits idle.
+> **Spaced Repetition (Lesson 1.3):** How do you get the average QPS from a system's total daily requests, and how do you estimate the peak QPS? Which one sets the number of servers - the average or the peak? Today you will see that the "peak" answer is true, but buying it 24 hours a day has a price. In TaskFlow's case, 80% of the capacity bought at that price sits idle.
 
 **Prerequisite:** Lesson 1.3 (Estimation, peak versus average), Lesson 4.5 (CDN), Lesson 7.4 (Idempotent jobs), Lesson 7.6 (OLTP versus OLAP), Lesson 8.1 (Object storage pricing), Lesson 8.2 (Previews, CDN), Lesson 9.1 (Monolith versus services), Lesson 10.3 (AZ, static stability), Lesson 10.4 (Log and metric volume), Lesson 10.5 (DDoS), Lesson 10.6 (Blue-green, canary)
 
@@ -12,7 +12,7 @@
 2. Use compute's three levers separately: autoscaling (the part that rises and falls), commitments (the part that always runs, and the arithmetic for how much to commit), and spot (the part that can tolerate interruptions). And say how much a DDoS bill comes to depending on where it is stopped
 3. Design cost around where data lives and where it moves: storage tiers and lifecycles (including the small-object trap), where the cost of logs is, NAT versus VPC endpoints, traffic across AZs. And make cost something you watch, so a mistake is caught the next day, not at the end of the month
 
-**Tier:** 1 — Runnable Code (four deterministic cost models; no cloud account or Docker needed)
+**Tier:** 1 - Runnable Code (four deterministic cost models; no cloud account or Docker needed)
 
 ---
 
@@ -40,15 +40,15 @@ The CTO's one line in the postmortem: "We keep a budget for latency, and a budge
 
 ## 1. Theory
 
-### 1.1 Reading the bill — the four drivers of cost
+### 1.1 Reading the bill - the four drivers of cost
 
 Almost every cloud price grows with one of four things:
 
 ```
-time         instance-hours, NAT/LB/endpoint hours           — whenever it's on, used or not
-storage      GB-months (disk, objects, backups, logs)        — for as long as you keep it
-movement     GB transferred (internet, across AZs, via NAT)  — how many bytes, how often, by which path
-events       requests (S3 GET/PUT, CDN, lifecycle)           — how many times
+time         instance-hours, NAT/LB/endpoint hours           - whenever it's on, used or not
+storage      GB-months (disk, objects, backups, logs)        - for as long as you keep it
+movement     GB transferred (internet, across AZs, via NAT)  - how many bytes, how often, by which path
+events       requests (S3 GET/PUT, CDN, lifecycle)           - how many times
 ```
 
 Every design decision changes the number for one or more of these four. The exercise's `npm run bill` builds a monthly bill from TaskFlow's quantities (300 req/s, 60,000 MAU, 18 TB of attachments, numbers from earlier lessons) and the approximate list prices of a big public cloud. The prices are matched to 8.1's numbers and can be changed through env vars. Prices change, so look at the **proportions** of the lines rather than the dollars:
@@ -74,9 +74,9 @@ backup snapshot                                 $570    2.2%      $285      $285
 background worker                               $561    2.1%      $196      $364                        spot (job idempotent, 7.4)
 cross-AZ: app → database                        $415    1.6%    $82.94      $332                        a read replica in every AZ
 trace collector                                 $280    1.1%      $140      $140                                       right-sized
-load balancer                                   $200    0.8%      $200        $0                                                 —
-S3 request                                    $45.00    0.2%    $45.00        $0                                                 —
-trace storage (tail sampling)                  $9.00    0.0%     $9.00        $0                                                 —
+load balancer                                   $200    0.8%      $200        $0                                                 -
+S3 request                                    $45.00    0.2%    $45.00        $0                                                 -
+trace storage (tail sampling)                  $9.00    0.0%     $9.00        $0                                                 -
 VPC interface endpoint (image pull)               $0    0.0%    $57.90   −$57.90                                    instead of NAT
 total                                        $26,290    100%    $8,276   $18,014                                          69% less
 
@@ -92,20 +92,20 @@ Three things stand out:
 
 And behind every number in the "after" column there is a trade-off. That is in 1.7.
 
-### 1.2 Unit economics — who costs how much
+### 1.2 Unit economics - who costs how much
 
 $26,290 is one number. To make decisions, it has to be split.
 
-**Unit Economics** — dividing total cost by a business unit: per customer, per workspace, per seat, per request, per GB. Then comparing that with the revenue per unit. The total bill says "how much"; unit cost says "is this sustainable, and what happens as it grows". The bill doubled but the cost per workspace stayed the same — the business grew. The cost per workspace doubled — something broke.
+**Unit Economics** - dividing total cost by a business unit: per customer, per workspace, per seat, per request, per GB. Then comparing that with the revenue per unit. The total bill says "how much"; unit cost says "is this sustainable, and what happens as it grows". The bill doubled but the cost per workspace stayed the same - the business grew. The cost per workspace doubled - something broke.
 
 TaskFlow costs $13.15 per workspace per month. But workspaces are not all alike. `npm run bill` part B splits the bill by plan. No cost is labelled with a plan directly, so each line is split by its **driver**: compute, DB and cache by share of requests; storage and backups by share of GB; attachment egress by GB; staging and the load balancer by seat.
 
-**Cost Allocation** — splitting shared costs that are not in anyone's name among teams, products, plans or customers by their driver. In the cloud it rests on resource tags (`team=billing`, `env=staging`). Showing the split is **showback**; actually charging the money is **chargeback**.
+**Cost Allocation** - splitting shared costs that are not in anyone's name among teams, products, plans or customers by their driver. In the cloud it rests on resource tags (`team=billing`, `env=staging`). Showing the split is **showback**; actually charging the money is **chargeback**.
 
 ```
 plan                          workspace    seat   revenue      cost    margin  cost / seat  cost / workspace
-free                             1,399  25,000        $0    $8,161         —      $0.326             $5.83
-free: one school district            1   3,000        $0    $1,528         —      $0.509            $1,528
+free                             1,399  25,000        $0    $8,161         -      $0.326             $5.83
+free: one school district            1   3,000        $0    $1,528         -      $0.509            $1,528
 pro                                500  15,000   $90,000    $7,695       91%      $0.513            $15.39
 business                           100  17,000  $170,000    $8,907       95%      $0.524            $89.07
 ```
@@ -113,7 +113,7 @@ business                           100  17,000  $170,000    $8,907       95%    
 Pro and business margins are above 90%. That is healthy for SaaS, and the bill is 10% of revenue. The real questions are elsewhere:
 
 - **The free plan costs $8,161 a month**, almost a third of the bill, with no revenue. That is a business decision (converting free to paid), but now the decision can be made with a number: $0.33 per free seat per month.
-- **One workspace costs $1,528 a month.** A school district on the free plan, 3,000 students, 2 TB of attachments, 1.2 TB downloaded a month. The other free workspaces average $5.83 — this one is 260 times that. Without a statistic showing this one, it could not have been found. And the answer is not engineering's but product's: storage and seat limits on the free plan (9.5's quotas), or talking to them.
+- **One workspace costs $1,528 a month.** A school district on the free plan, 3,000 students, 2 TB of attachments, 1.2 TB downloaded a month. The other free workspaces average $5.83 - this one is 260 times that. Without a statistic showing this one, it could not have been found. And the answer is not engineering's but product's: storage and seat limits on the free plan (9.5's quotas), or talking to them.
 - Look at the last column: **cost per seat is almost the same on every plan** ($0.33–0.52). Cost grows with seats. So pricing by seat matches the shape of the cost. A fixed price per workspace would have made big customers loss-making.
 
 **By endpoint.** The same question, at a finer grain. Part C gives the variable cost of one call to each endpoint: CPU ms, DB ms, bytes going out, bytes of internal calls, S3 through NAT:
@@ -128,7 +128,7 @@ POST /boards/:id/export           60,000      $0.011       $10,920      $655    
 
 Export: 0.013% of calls, 25% of variable cost. One export costs **2,300 times** one board open, because it fetches 200 files from S3 through NAT, zips them, and sends 80 MB out. That does not mean export is bad. It means export needs its own rules: a rate limit (in 9.5 export was 3 a day), a background job (7.3), and an endpoint instead of NAT (1.5). And this is how the interview question "what will this feature cost" is answered: the resources of one call, times the number of calls.
 
-### 1.3 Compute — peak, average, and three levers
+### 1.3 Compute - peak, average, and three levers
 
 **The spaced repetition answer:** average QPS = daily requests ÷ 86,400. The peak is usually taken as 2–3 times the average (1.3), and the number of servers is set by the **peak**, because without capacity at the peak, users suffer. That is right. But the peak lasts a few hours a day, five days a week. The rest of the time you are paying for that capacity.
 
@@ -147,13 +147,13 @@ reactive, 70% spot                                  7.6          $942         53
 - **Scheduled + reactive:** starting the known pattern (the midday peak) 5 minutes ahead. Strain almost halved (8,713 versus 15,252 overflowing requests), at 5% more cost. The marketing email was known (the marketing team knew!). Put it on the calendar and that would have been scheduled too. A cheap bridge between cost and reliability: teams talking to each other.
 - **Spot:** the same autoscaling, but 70% of the instances on spot.
 
-**Spot Instance** — a cloud provider's unused capacity, at a much lower price (often 20–40% of on-demand), on the condition that the provider can take it back at short notice (2 minutes on AWS). For work that can tolerate being taken back: stateless, idempotent, short jobs (7.4's workers, batch, CI). You cannot depend entirely on one price or one AZ, so it is spread across several instance types and several AZs.
+**Spot Instance** - a cloud provider's unused capacity, at a much lower price (often 20–40% of on-demand), on the condition that the provider can take it back at short notice (2 minutes on AWS). For work that can tolerate being taken back: stateless, idempotent, short jobs (7.4's workers, batch, CI). You cannot depend entirely on one price or one AZ, so it is spread across several instance types and several AZs.
 
 With spot, another 12% cheaper. In experiment 2, with the interruption rate 15 times higher (30% per instance per hour), instances are lost 83 times a week, but the strained minutes stay the same, 4. Again that 40% headroom, and a base of 3 on-demand instances. Spot is safe because of headroom and stateless design, not luck.
 
 **Commitments.** Even after autoscaling, one part always runs: a few instances even at 3 a.m. For that part, the second lever:
 
-**Commitment Discount** — getting a discount in exchange for promising a fixed amount of usage (so many instances per hour, or so many dollars per hour) for one or three years. Reserved Instances and Savings Plans on AWS, committed use discounts on other clouds, usually 30–60%. You pay whether you use it or not. So the question is **how much** to commit.
+**Commitment Discount** - getting a discount in exchange for promising a fixed amount of usage (so many instances per hour, or so many dollars per hour) for one or three years. Reserved Instances and Savings Plans on AWS, committed use discounts on other clouds, usually 30–60%. You pay whether you use it or not. So the question is **how much** to commit.
 
 Part B, using reactive's hourly usage, with a 35% discount (a one-year estimate):
 
@@ -176,16 +176,16 @@ So the three levers are for three different parts:
 instances
   ▲         ╭╮ spike
   │        ╭╯╰╮              ← on-demand (autoscaling's rise and fall)
-  │   ╭───╯   ╰───╮          ← spot (workers, batch — tolerate interruption)
+  │   ╭───╯   ╰───╮          ← spot (workers, batch - tolerate interruption)
   │──╯────────────╰────── ← commitment (the always-running base, "usage ≥ c for > 1 − discount of the time")
   └──────────────────────► time
 ```
 
-### 1.4 Storage — tiers, lifecycles, and the trap of "cheap"
+### 1.4 Storage - tiers, lifecycles, and the trap of "cheap"
 
 In 8.1 you saw that object storage is far cheaper than database disk. Now, within object storage too there are tiers.
 
-**Storage Tiering** — keeping data in classes with different prices according to its age and usage. Frequently read data in an expensive, fast class (S3 Standard), rarely read data in cheaper classes (Infrequent Access, Glacier). And the movement is automatic, through **lifecycle rules**. Cheaper classes cost less per GB-month, but charge separately for reading (retrieval), for moving (transition requests), and for small or short-lived objects (minimum size and duration).
+**Storage Tiering** - keeping data in classes with different prices according to its age and usage. Frequently read data in an expensive, fast class (S3 Standard), rarely read data in cheaper classes (Infrequent Access, Glacier). And the movement is automatic, through **lifecycle rules**. Cheaper classes cost less per GB-month, but charge separately for reading (retrieval), for moving (transition requests), and for small or short-lived objects (minimum size and duration).
 
 `npm run storage` part A, 24 months: starting with 18 TB of attachments and 14 TB of old versions (8.1's versioning, without a lifecycle), 1.2 TB new per month (+3%/month). Files are read a lot in their first month, then hardly at all. By count, 60% are small objects (thumbnails, avatars, ~40 KB), but by bytes only 2.9%:
 
@@ -230,9 +230,9 @@ all in Postgres (4 copies + backup)                 $644    $1,410           $24
 
 5.8's partitioning and 7.6's OLAP reasoning, this time in money: `DETACH` partitions older than 90 days to Parquet (6 times compressed) in S3, and read them with something like DuckDB or Athena. A tenth of the cost, and the database stays small. A small database means faster backups, faster restores, faster replica creation (10.3). Here cost and reliability point the same way.
 
-### 1.5 Data Transfer — where the bytes move
+### 1.5 Data Transfer - where the bytes move
 
-**Data Transfer Cost** — the price of bytes moving from one place to another, which differs by path. Going to the internet (egress) is the most expensive. Crossing AZs within one region (per GB, in both directions), going through a NAT gateway (per-GB processing), crossing regions (10.8) — each has its own price. Arriving in a region (ingress) and staying within one AZ are usually free. On the bill these are often scattered under different names, so they go unnoticed.
+**Data Transfer Cost** - the price of bytes moving from one place to another, which differs by path. Going to the internet (egress) is the most expensive. Crossing AZs within one region (per GB, in both directions), going through a NAT gateway (per-GB processing), crossing regions (10.8) - each has its own price. Arriving in a region (ingress) and staying within one AZ are usually free. On the bill these are often scattered under different names, so they go unnoticed.
 
 `npm run traffic` part A, egress:
 
@@ -258,7 +258,7 @@ everything through NAT, one NAT per AZ    64.5 TB     $3,001  today's TaskFlow
 + an interface endpoint for images               900 GB       $197  hourly + per GB, less than NAT
 + smaller images (500 → 150 MB)                 900 GB       $172  multi-stage build, runtime only
 everything through NAT, but one NAT for three AZs  64.5 TB     $3,795  fewer NAT hours, more cross-AZ, a SPOF in one AZ
-with endpoints, one NAT for three AZs           900 GB       $143  cheap — but if that AZ dies, nothing gets out
+with endpoints, one NAT for three AZs           900 GB       $143  cheap - but if that AZ dies, nothing gets out
 ```
 
 A **gateway endpoint** for S3 (one line in the VPC's route table, free) saves ~$2,700 a month. The cheapest win on TaskFlow's bill. And the last two rows show a trap. "One NAT instead of three" sounds economical, but the other two AZs' traffic has to travel to the NAT's AZ (the cross-AZ price), so at high traffic it is **more** expensive ($3,795). After the endpoints traffic is low, and then one NAT really is cheaper ($143 versus $197). But in 10.3's terms, if that AZ dies, the other two AZs lose their way out: Stripe, the email provider, everything. Making one AZ's outage the whole system's outage to save $54 a month. This is a pure trade between cost and reliability, and the answer depends on whether the outbound calls are hard or soft dependencies.
@@ -275,7 +275,7 @@ services, same AZ first (AZ-aware)       34.7 TB       $695  10% to another AZ (
 
 Another dimension of 9.1's "a network call is not a function call": it costs money too. If the load balancer ignores AZs, two-thirds of calls across three AZs go to another AZ, and every GB is charged in both directions. Experiment 4: at 20 calls per request, $6,636, 16 times the monolith. **AZ-aware routing** (instances in the same AZ first, another AZ only if none) cuts that by two-thirds. Topology-aware routing in Kubernetes, locality-weighted load balancing in a service mesh. And it has a reliability cost too: if more traffic arrives in one AZ, that AZ's instances come under strain even while other AZs are idle. So this routing needs a separate autoscaler per AZ and a limit ("if your own AZ's instances are more than 80% busy, send to another AZ"). (Latency drops too, because round trips within one AZ are usually shorter. Not measured here.)
 
-### 1.6 The price of security and visibility — and a DDoS bill
+### 1.6 The price of security and visibility - and a DDoS bill
 
 In 10.4 and 10.5 I said several times "this has a price". Now in numbers.
 
@@ -293,7 +293,7 @@ block / challenge at the edge (1 KB answer)                   0        $0       
 
 One four-hour attack, a bill from $721 to $3,357, depending on where it was stopped. Without an autoscaling limit the system **happily serves** the attack, and sends the bill. (In reality the database would have collapsed long before, 10.3.) With a limit of 40 the bill is $147, but the origin is swamped by the attack, so most legitimate users' requests fail too (10.5's part C). Answering from the CDN cache saves the origin, but you pay the CDN's egress and request fees. Cheapest of all is giving the attack a **small** answer, at the edge. And one thing not captured here at list prices: many CDN and DDoS protection services waive the bill for attack traffic, or keep it under a separate agreement. Check their terms (not verified here). The lesson: **an upper limit on autoscaling is a cost control**, just as 10.3's bulkhead is a reliability control.
 
-### 1.7 Watching cost — anomalies, owners, and trade-offs
+### 1.7 Watching cost - anomalies, owners, and trade-offs
 
 TaskFlow's budget alert was: email if the month's bill exceeds $30,000. It never fired once in six months. And yet the bill grew two and a half times. Why?
 
@@ -307,7 +307,7 @@ total daily > 7-day average × 1.2               missed      1 day later        
 each category daily > its own 7-day average × 1.5  1 day later     1 day later                    0
 ```
 
-**Cost Anomaly Detection** — looking at the bill not as one number at the end of the month but as a daily (or hourly) time series, split by category (service, team, line), and comparing each to its own history. A small jump gets lost in the total bill; in its own category it is tenfold.
+**Cost Anomaly Detection** - looking at the bill not as one number at the end of the month but as a daily (or hourly) time series, split by category (service, team, line), and comparing each to its own history. A small jump gets lost in the total bill; in its own category it is tenfold.
 
 Sound familiar? In 10.4 the average latency hid the p99. In 10.6 the total error rate hid a segment's bug. Here the total bill hides a tenfold rise in one line. The debug log is 8% of the total bill and is never caught by the monthly budget. But in the log line itself it is **30 times** ($0.77 to $23 a day), and the per-category detector catches it the very next day. And even the big incident (the export loop) is caught by the monthly budget **6 days** later, meaning $1,600 later. An alert that looks at one number once a month is really an accounting statement, not monitoring.
 
@@ -320,8 +320,8 @@ The habits behind this have a name, **FinOps**: making cost a daily part of engi
 | Staging at ¼ size, working hours only | $4,281             | Load tests matching reality; testing the night jobs                              | Almost always; a separate, temporary env for load tests |
 | S3 gateway endpoint                   | ~$2,700            | Almost nothing                                                                   | Always                                                  |
 | Autoscale (instead of fixed)          | $1,934             | A few minutes of strain at the start of a spike; the risk of new instances' boot | When traffic fluctuates and boot is fast                |
-| Commitment                            | ~19% of compute    | Flexibility — tied for 1–3 years                                                 | On the always-running base, committing a little less    |
-| Spot (workers)                        | $364               | Interruptions — harmful unless jobs are idempotent and short                     | 7.4's workers, batch, CI                                |
+| Commitment                            | ~19% of compute    | Flexibility - tied for 1–3 years                                                 | On the always-running base, committing a little less    |
+| Spot (workers)                        | $364               | Interruptions - harmful unless jobs are idempotent and short                     | 7.4's workers, batch, CI                                |
 | AZ-aware routing                      | $1,586             | Balance between AZs; load can pile up in one AZ                                  | When there are many internal calls                      |
 | One NAT                               | $54                | If one AZ dies, everyone loses the way out                                       | Almost never, in production                             |
 | Log sampling, 14 days                 | $823               | Logs of old and rare events                                                      | If errors and slow requests are always kept             |
@@ -331,7 +331,7 @@ One principle comes out of this table: **savings that only cut waste (staging, e
 
 ### 1.8 TaskFlow's decision
 
-> **Trade-off Table — the three questions of cost, in every design**
+> **Trade-off Table - the three questions of cost, in every design**
 
 | Question                            | Where to look                              | What changed in TaskFlow                                    |
 | ----------------------------------- | ------------------------------------------ | ----------------------------------------------------------- |
@@ -353,7 +353,7 @@ One principle comes out of this table: **savings that only cut waste (staging, e
 
 ## 2. Interview Angle
 
-Cost almost never comes up as a separate question. It comes in two ways. First, inside estimation: "how much will this cost to run?" Second, during trade-offs: "you're keeping three replicas — why not two?", "would this be cheaper on serverless?" At senior level, often directly: "you've been asked to halve this system's cost — where would you start?" The weak answer is "buy reserved instances, use spot." The shape of a good answer:
+Cost almost never comes up as a separate question. It comes in two ways. First, inside estimation: "how much will this cost to run?" Second, during trade-offs: "you're keeping three replicas - why not two?", "would this be cheaper on serverless?" At senior level, often directly: "you've been asked to halve this system's cost - where would you start?" The weak answer is "buy reserved instances, use spot." The shape of a good answer:
 
 1. **Measure first, then cut.** "I'd split the bill by driver: compute, storage, network, observability. Usually the biggest surprises are in network and non-production." Speak in unit cost: per user or per request.
 2. **Waste first, reliability later.** Idle resources, old data, default network paths (NAT, cross-AZ), compression. Then autoscaling, commitments and spot, each in its own part.
@@ -362,11 +362,11 @@ Cost almost never comes up as a separate question. It comes in two ways. First, 
 
 **Follow-ups that are almost certain:**
 
-- _"How many reserved instances / how much savings plan would you buy?"_ — for the always-running base. The rule: where usage stays above it for more than `(1 − discount)` of the time. For TaskFlow at a 35% discount, 5, where the average is 7.6. And choose a flexible kind.
-- _"Where does spot go?"_ — on stateless, idempotent work that tolerates interruption: workers, batch, CI. With headroom and several instance types. Not on the database or a sole instance.
-- _"Are microservices expensive?"_ — every internal call has a network price, more if it crosses AZs. AZ-aware routing, fewer and fatter calls. And each service's minimum capacity, monitoring and people.
-- _"Where would you keep the data?"_ — tiered by age and usage, with lifecycles. And know the three hidden costs: minimum object size, transition requests, retrieval.
-- _"Is serverless cheaper?"_ — at low or irregular traffic yes, because idle time costs nothing. At steady, high traffic often not, because the per-request price is higher than an instance's. Draw the two lines and say where they cross. (Not measured here.)
+- _"How many reserved instances / how much savings plan would you buy?"_ - for the always-running base. The rule: where usage stays above it for more than `(1 − discount)` of the time. For TaskFlow at a 35% discount, 5, where the average is 7.6. And choose a flexible kind.
+- _"Where does spot go?"_ - on stateless, idempotent work that tolerates interruption: workers, batch, CI. With headroom and several instance types. Not on the database or a sole instance.
+- _"Are microservices expensive?"_ - every internal call has a network price, more if it crosses AZs. AZ-aware routing, fewer and fatter calls. And each service's minimum capacity, monitoring and people.
+- _"Where would you keep the data?"_ - tiered by age and usage, with lifecycles. And know the three hidden costs: minimum object size, transition requests, retrieval.
+- _"Is serverless cheaper?"_ - at low or irregular traffic yes, because idle time costs nothing. At steady, high traffic often not, because the per-request price is higher than an instance's. Draw the two lines and say where they cross. (Not measured here.)
 
 **In real production:** the most common incidents: a prod-size staging, 24/7. S3 or container image traffic through NAT. Cross-AZ calls nobody knows about. Versioning without a lifecycle. Debug logs and unnecessary metric labels. Snapshots, volumes, load balancers and IPs that were never deleted (the leftovers of deleted instances). A loop with no autoscaling maximum. And a monthly budget alert as the only monitoring.
 
@@ -394,7 +394,7 @@ Cost almost never comes up as a separate question. It comes in two ways. First, 
 | **Spot Instance**          | A provider's unused capacity, much cheaper, that can be taken back at short notice; for stateless, idempotent, interruption-tolerant work (workers, batch, CI), with headroom and several instance types                          |
 | **Data Transfer Cost**     | Pricing by the bytes' path: internet egress is most expensive, crossing AZs is charged both ways, NAT charges per-GB processing, crossing regions is separate; ingress and same-AZ are usually free                               |
 | **Storage Tiering**        | Moving data from expensive-fast to cheap-slow classes by age and usage, with lifecycle rules; the cheap classes' hidden costs: minimum object size and duration, transition requests, retrieval                                   |
-| **Cost Anomaly Detection** | Viewing the bill as a daily time series, by category (service, team, line), comparing each with its own history; a small jump lost in the total is big in its own category — a monthly budget alert is accounting, not monitoring |
+| **Cost Anomaly Detection** | Viewing the bill as a daily time series, by category (service, team, line), comparing each with its own history; a small jump lost in the total is big in its own category - a monthly budget alert is accounting, not monitoring |
 
 ---
 
@@ -417,12 +417,12 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 ```
 email provider:   1.8M ÷ 1,000 × $0.10                          = $180
-DB (replica):     1.8M × 50 ms = 90,000 s CPU-ish ≈ 25 hours — ~$0 if the replica already has spare capacity;
+DB (replica):     1.8M × 50 ms = 90,000 s CPU-ish ≈ 25 hours - ~$0 if the replica already has spare capacity;
                   if not, a morning peak: spread 60,000 queries over 1 hour, ~17 queries/s, easy
 render (worker):  1.8M × 20 ms = 10 worker-hours → ~$1 on spot
 egress:           sent to the email provider 1.8M × 20 KB = 36 GB × $0.09 (+$0.045 if through NAT) ≈ $5
 log:              one line per email, 1.8M × 350 B = 0.6 GB × $0.5 ≈ $0.3
-total ≈ $190 / month — almost all of it the email provider
+total ≈ $190 / month - almost all of it the email provider
 ```
 
 The biggest driver is **events** (the number of emails), not compute. This is a common picture: external APIs (email, SMS, push, LLMs) charge per call, and that sets the shape of the cost.
@@ -433,7 +433,7 @@ The biggest driver is **events** (the number of emails), not compute. This is a 
 - A weekly digest on the free plan, daily on paid. A seventh of the cost on free, and a reason to upgrade.
 - Users can turn it off themselves (and unopened emails switch themselves off after 30 days).
 
-(c) Alert: the daily number of digests, and the email provider's daily cost, against their own 7-day average (1.7's detector). A good alert is "emails sent ÷ MAU > 1.1" — more than one per user means something is wrong. The bug that makes it ten times bigger overnight: **duplicates on retry** — the job fails and runs again, and without idempotency (7.4) every retry sends to everyone again. Or a loop that sends every member of every workspace a separate email per board. An idempotency key (`digest:{userId}:{date}`) and a daily upper limit ("no more than 100,000 today") are both needed.
+(c) Alert: the daily number of digests, and the email provider's daily cost, against their own 7-day average (1.7's detector). A good alert is "emails sent ÷ MAU > 1.1" - more than one per user means something is wrong. The bug that makes it ten times bigger overnight: **duplicates on retry** - the job fails and runs again, and without idempotency (7.4) every retry sends to everyone again. Or a loop that sends every member of every workspace a separate email per board. An idempotency key (`digest:{userId}:{date}`) and a daily upper limit ("no more than 100,000 today") are both needed.
 
 **Question 2:**
 
@@ -461,9 +461,9 @@ The biggest driver is **events** (the number of emails), not compute. This is a 
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (four deterministic cost models; no cloud account or Docker needed)
+**Tier 1 - Runnable Code** (four deterministic cost models; no cloud account or Docker needed)
 
-> **Ready to run in the repo:** [`exercises/lesson-10.7-cost/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.7-cost) — `npm install`, then `npm run bill`, `npm run capacity`, `npm run storage`, `npm run traffic`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-10.7-cost/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.7-cost) - `npm install`, then `npm run bill`, `npm run capacity`, `npm run storage`, `npm run traffic`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `bill` builds TaskFlow's monthly bill in 23 lines (before and after), splits it by plan and by endpoint, and runs four anomaly detectors over 60 days of daily bills. `capacity` runs a week of traffic one minute at a time under four policies, finds the commitment amount, and measures a DDoS bill stopped in four places. `storage` measures the attachment lifecycle over 24 months, the small-object trap, log ingestion versus retention, and the activity offload. `traffic` compares designs for egress, NAT versus endpoints, and traffic across AZs. `bill`'s app line comes from the same model as `capacity` (`src/fleet.ts`).
 
@@ -488,7 +488,7 @@ The biggest driver is **events** (the number of emails), not compute. This is a 
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1, 2, 3, 4, 5, 6, 7, 8, 9 (complete, with exit challenges), 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
-Current: 10.7 — Cost & cloud economics
+Current: 10.7 - Cost & cloud economics
 TaskFlow state: modular monolith + billing; gateway + BFF; saga; breaker + bulkhead; rate limits; cache ring;
 Bloom/HLL; hard/soft dependencies + brownout; OpenTelemetry, burn rate alerts; AuthN/AuthZ, OAuth PKCE,
 secret manager, DDoS layers; graceful shutdown, canary + gate, flags, expand/contract. The bill went from
@@ -502,7 +502,7 @@ read replica per AZ; previews; S3 lifecycle (versions 30 days, ≥128 KB to IA a
 days); activity after 90 days as Parquet in S3; backups 14 days; log sampling + 14 days; metric labels
 cleaned up. Watching: team/service/env tags (enforced in CI), unit cost by plan and endpoint, daily
 anomalies per category (own 7-day average × 1.5), budget forecast, autoscaling maximums, "monthly price
-and driver" in design reviews. Free plan: one school district alone $1,528/month — storage and seat limits
+and driver" in design reviews. Free plan: one school district alone $1,528/month - storage and seat limits
 are product's decision.
 Terms learned (Module 10): Hash Ring, Virtual Node, Preference List, Rendezvous Hashing (HRW), Jump
 Consistent Hash, Bounded-Load Consistent Hashing, Hash Slot, Probabilistic Data Structure, Bloom Filter,
@@ -513,8 +513,8 @@ Authentication / Authorization, JWT, BOLA, Refresh Token Rotation, OAuth 2.0 + P
 Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canary Release, Feature Flag,
 Version Skew, Lock Queue, Expand / Contract, Unit Economics, Cost Allocation, Commitment Discount, Spot
 Instance, Data Transfer Cost, Storage Tiering, Cost Anomaly Detection
-Weak spots: [where you got stuck — write it yourself]
-Next: 10.8 — Multi-region & geo-distribution
+Weak spots: [where you got stuck - write it yourself]
+Next: 10.8 - Multi-region & geo-distribution
 =======================
 ```
 
@@ -524,4 +524,4 @@ Next: 10.8 — Multi-region & geo-distribution
 
 Today's thread: **cost is a requirement, and every line of the bill is a design decision whose price nobody wrote down.** The biggest lines come from defaults and habits: staging, NAT, calls across AZs. Split cost by unit and decisions become possible. Compute's three levers are for three different parts. The "cheap" classes have hidden costs. Where bytes move is often the biggest surprise. And one number at the end of the month is not monitoring.
 
-One price kept coming up today, but we never saw all of it: the cost of crossing AZs. Between three AZs in one region, a few miles apart, a millisecond round trip. Now picture two regions, Dhaka and Frankfurt, thousands of kilometres apart, 150 ms per round trip. One of TaskFlow's big European customers has said their data cannot leave Europe. And users in Singapore are complaining that opening a board takes 800 ms. When you are ready, write `next` — we go to **Lesson 10.8: Multi-Region & Geo-Distribution**. The question there: what becomes hard again when a system runs in several regions (consistency, where writes go, failover, where data lives), and when that is worth the cost and the complexity. And when it is not.
+One price kept coming up today, but we never saw all of it: the cost of crossing AZs. Between three AZs in one region, a few miles apart, a millisecond round trip. Now picture two regions, Dhaka and Frankfurt, thousands of kilometres apart, 150 ms per round trip. One of TaskFlow's big European customers has said their data cannot leave Europe. And users in Singapore are complaining that opening a board takes 800 ms. When you are ready, write `next` - we go to **Lesson 10.8: Multi-Region & Geo-Distribution**. The question there: what becomes hard again when a system runs in several regions (consistency, where writes go, failover, where data lives), and when that is worth the cost and the complexity. And when it is not.

@@ -1,6 +1,6 @@
-# Only Postgres — TaskFlow's OLTP database, where the comments live. pg_trgm and full-text search are both
-# built into Postgres, nothing else is needed. cpus: 2 — like Lesson 7.6/8.1, so the numbers stay close
-# across machines. Port 5446 — no clash with the earlier exercises.
+# Only Postgres - TaskFlow's OLTP database, where the comments live. pg_trgm and full-text search are both
+# built into Postgres, nothing else is needed. cpus: 2 - like Lesson 7.6/8.1, so the numbers stay close
+# across machines. Port 5446 - no clash with the earlier exercises.
 services:
   postgres:
     image: postgres:17-alpine

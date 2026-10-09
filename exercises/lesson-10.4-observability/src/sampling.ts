@@ -124,7 +124,7 @@ console.log(
 );
 
 heading(
-	`B. The chance of having a full trace of the rare bug — it happens ${RARE_PER_DAY} times a day, varying the head sampling rate`
+	`B. The chance of having a full trace of the rare bug - it happens ${RARE_PER_DAY} times a day, varying the head sampling rate`
 );
 console.log(
 	row([

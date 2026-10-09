@@ -4,7 +4,7 @@ import { env, heading, num, row } from './util';
 const ONLY = env('ONLY', 0);
 
 for (const drill of drills.filter((item) => ONLY === 0 || item.id === ONLY)) {
-	heading(`Drill ${drill.id} — ${drill.title}`);
+	heading(`Drill ${drill.id} - ${drill.title}`);
 	for (const given of drill.givens) console.log(`  • ${given}`);
 	console.log(`  ${drill.question}`);
 	for (const item of drill.exact) {

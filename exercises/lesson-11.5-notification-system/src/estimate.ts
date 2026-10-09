@@ -22,7 +22,7 @@ const MONTH = 30;
 const perDay = DAU * PER_USER;
 const avg = perDay / DAY;
 
-heading(`Part A — load: ${big(DAU)} DAU, ${PER_USER} notifications a day per user`);
+heading(`Part A - load: ${big(DAU)} DAU, ${PER_USER} notifications a day per user`);
 console.log(
 	row([
 		['', 46],
@@ -46,7 +46,7 @@ console.log(
 	])
 );
 
-heading(`Part B — channels and monthly cost (approximate prices)`);
+heading(`Part B - channels and monthly cost (approximate prices)`);
 console.log(
 	row([
 		['channel', 18],
@@ -78,21 +78,21 @@ channels.forEach(([name, share, cost], i) => {
 	);
 });
 console.log(
-	`SMS: ${pct(SMS_SHARE, 1, 0)} of notifications, ${pct(monthly[2] ?? 0, total, 0)} of the cost — every OTP sent by push instead is a saving.`
+	`SMS: ${pct(SMS_SHARE, 1, 0)} of notifications, ${pct(monthly[2] ?? 0, total, 0)} of the cost - every OTP sent by push instead is a saving.`
 );
 
 heading(
-	`Part C — device tokens: ${big(TOKENS)} tokens, ${pct(STALE_SHARE, 1, 0)} dead (app deleted, phone changed)`
+	`Part C - device tokens: ${big(TOKENS)} tokens, ${pct(STALE_SHARE, 1, 0)} dead (app deleted, phone changed)`
 );
 const pushPerDay = perDay * PUSH_SHARE;
 console.log(
 	`sending to every token of every user is ${big(pushPerDay * (TOKENS / DAU))} pushes a day, ${big(pushPerDay * (TOKENS / DAU) * STALE_SHARE)} of them to dead tokens`
 );
 console.log(
-	'APNs/FCM return "unregistered" for a dead token — if you don\'t read that and delete the token, this waste grows every day.'
+	'APNs/FCM return "unregistered" for a dead token - if you don\'t read that and delete the token, this waste grows every day.'
 );
 
-heading(`Part D — the history of every notification (${EVENT_BYTES} B, ${RETENTION_DAYS} days)`);
+heading(`Part D - the history of every notification (${EVENT_BYTES} B, ${RETENTION_DAYS} days)`);
 console.log(
-	`${bytes(perDay * EVENT_BYTES)} a day, ${bytes(perDay * EVENT_BYTES * RETENTION_DAYS)} over ${RETENTION_DAYS} days — for answering "why did/didn't I get it" and for dedupe`
+	`${bytes(perDay * EVENT_BYTES)} a day, ${bytes(perDay * EVENT_BYTES * RETENTION_DAYS)} over ${RETENTION_DAYS} days - for answering "why did/didn't I get it" and for dedupe`
 );

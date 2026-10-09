@@ -1,6 +1,6 @@
-# Module 10 — Exit Challenge (Reliability, Security & Operations)
+# Module 10 - Exit Challenge (Reliability, Security & Operations)
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
 Module 10 এর আটটা lesson শেষ। TaskFlow এর গায়ে আটটা স্তর বসেছে: cache এর ring (10.1), Bloom filter আর HyperLogLog (10.2), dependency matrix, brownout আর static stability (10.3), trace, histogram আর burn rate (10.4), AuthN/AuthZ, secret আর DDoS এর স্তর (10.5), graceful shutdown, canary আর expand/contract (10.6), unit cost আর anomaly (10.7), আর DR, cell আর data residency (10.8)। প্রতিটা lesson এ একটা প্রশ্ন আলাদা করে মেপেছি। বাস্তবে একটা খারাপ রাতে সব একসাথে আসে। আর আরেকটা জিনিস আসে যেটা কোনো lesson এ আলাদা করে মাপা হয়নি: **সময়।** ছয় মাসে প্রতিটা রক্ষাকবচের উপর ছোট ছোট সিদ্ধান্ত জমে। একটা test "flaky" বলে বন্ধ, একটা TTL "performance" এর জন্য তুলে দেওয়া, একটা game day "পরের মাসে"। কেউ কোনো রক্ষাকবচ ইচ্ছা করে ভাঙে না, প্রতিটা নিজের মতো করে ক্ষয়ে যায়। এই Exit Challenge এমন একটা রাত।
 
@@ -84,7 +84,7 @@ Incident চলার সময় pipeline নিজে নিজে এগি�
 
 ---
 
-## ২. Self-Check — এই Module শেষে আপনি এগুলো পারার কথা
+## ২. Self-Check - এই Module শেষে আপনি এগুলো পারার কথা
 
 - [ ] `hash % N` এ N থেকে N+1 এ কত key নড়ে আর **কোথায়** যায়, সংখ্যা দিয়ে বলতে পারি; hash ring কীভাবে নড়াকে শুধু নতুন node এর ভাগে নামায়
 - [ ] Virtual node কেন লাগে, কয়টা, আর দাম কী; replica বাছাইয়ে "পরের ৩টা বিন্দু" এর ফাঁদ, আর আলাদা node আর আলাদা AZ এর নিয়ম
@@ -115,9 +115,9 @@ Incident চলার সময় pipeline নিজে নিজে এগি�
 
 - **Google এর _Site Reliability Engineering_ আর _The Site Reliability Workbook_।** দুটোই বিনামূল্যে পড়া যায়। Workbook এর "Alerting on SLOs" অধ্যায় 10.4 এর burn rate এর আসল উৎস, ধাপে ধাপে, প্রতিটা alert এর নিয়মের দুর্বলতা সহ। মূল বইয়ের "Managing Incidents" আর "Postmortem Culture" অধ্যায় এই challenge এর প্রশ্ন ১০ এর জন্য সরাসরি কাজে লাগবে।
 - **Amazon Builders' Library এর লেখাগুলো:** "Static stability using Availability Zones", "Avoiding fallback in distributed systems", "Timeouts, retries, and backoff with jitter"। 10.3 আর 10.8 এর প্রায় প্রতিটা সিদ্ধান্তের পেছনের যুক্তি, AWS এর নিজের ভুল থেকে লেখা। সাথে AWS এর whitepaper "Reducing the Scope of Impact with Cell-Based Architecture", 10.8 এর cell এর গভীর রূপ।
-- **Charity Majors, Liz Fong-Jones, George Miranda — _Observability Engineering_।** 10.4 এর "অজানা প্রশ্ন", wide event আর high-cardinality data কেন metric এ না, এর সবচেয়ে ভালো ব্যাখ্যা। কিছু অংশ একটা vendor এর দৃষ্টিভঙ্গি থেকে লেখা, সেটা মাথায় রেখে পড়ুন।
+- **Charity Majors, Liz Fong-Jones, George Miranda - _Observability Engineering_।** 10.4 এর "অজানা প্রশ্ন", wide event আর high-cardinality data কেন metric এ না, এর সবচেয়ে ভালো ব্যাখ্যা। কিছু অংশ একটা vendor এর দৃষ্টিভঙ্গি থেকে লেখা, সেটা মাথায় রেখে পড়ুন।
 - **OWASP API Security Top 10।** তালিকার এক নম্বরে BOLA, আর প্রতিটা ঝুঁকির সাথে আক্রমণের উদাহরণ। 10.5 এর সোমবারের ঘটনা ঠিক এখানে লেখা। JWT এর জন্য RFC 8725 ("JSON Web Token Best Current Practices"), ছোট আর সরাসরি।
-- **J.R. Storment, Mike Fuller — _Cloud FinOps_।** 10.7 এর tag, মালিক, showback আর anomaly এর প্রক্রিয়ার দিক। কোন সিদ্ধান্ত কে নেয়, আর engineer আর finance কীভাবে একই সংখ্যা দেখে।
+- **J.R. Storment, Mike Fuller - _Cloud FinOps_।** 10.7 এর tag, মালিক, showback আর anomaly এর প্রক্রিয়ার দিক। কোন সিদ্ধান্ত কে নেয়, আর engineer আর finance কীভাবে একই সংখ্যা দেখে।
 - **মূল paper গুলো, ছোট আর পড়ার মতো:** Karger et al., "Consistent Hashing and Random Trees" (1997); Flajolet et al., "HyperLogLog" (2007); Lamping & Veach, "A Fast, Minimal Memory, Consistent Hash Algorithm" (jump hash, 2014)। প্রতিটার শুরুর অংশ পড়লেই 10.1 আর 10.2 এর সংখ্যাগুলো কোথা থেকে আসে বোঝা যায়।
 
 **দেখার আর পড়ার মতো postmortem:**

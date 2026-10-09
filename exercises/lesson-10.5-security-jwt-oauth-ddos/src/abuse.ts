@@ -215,7 +215,7 @@ function simulate(policy: Policy): Outcome {
 const vulnerable = new Set(attempts.filter((a) => a.bot && a.correct).map((a) => a.email)).size;
 const perIp = ATTEMPTS / BOT_IPS / (ATTACK_MINUTES / 60);
 heading(
-	`Part A — credential stuffing: ${n(ATTEMPTS)} attempts, ${n(BOT_IPS)} IPs, ${ATTACK_MINUTES / 60} hours; along with ${n(LEGIT_LOGINS)} legitimate logins`
+	`Part A - credential stuffing: ${n(ATTEMPTS)} attempts, ${n(BOT_IPS)} IPs, ${ATTACK_MINUTES / 60} hours; along with ${n(LEGIT_LOGINS)} legitimate logins`
 );
 console.log(
 	`${perIp.toFixed(1)} attempts per IP per hour on average, once per email on average; the password really matches for ${n(vulnerable)} accounts on the list\n`
@@ -239,7 +239,7 @@ for (const policy of POLICIES) {
 			[n(r.takeovers), 14],
 			[`${n(r.legitBlocked)} (${pct(r.legitBlocked, r.legitTotal)})`, 22],
 			[n(r.legitFriction), 21],
-			[r.detectedAt === null ? '—' : `${Math.round((r.detectedAt - START) / 60)} min`, 12]
+			[r.detectedAt === null ? '-' : `${Math.round((r.detectedAt - START) / 60)} min`, 12]
 		])
 	);
 }
@@ -258,7 +258,7 @@ const share = (f: Flood): number => {
 };
 
 heading(
-	'Part B — volumetric: 300 Gbps UDP reflection, origin link 10 Gbps, legitimate traffic 0.8 Gbps'
+	'Part B - volumetric: 300 Gbps UDP reflection, origin link 10 Gbps, legitimate traffic 0.8 Gbps'
 );
 const volumetric: Flood[] = [
 	{
@@ -321,7 +321,7 @@ for (const f of volumetric)
 	);
 
 heading(
-	'Part C — L7 flood: public share page /s/:token, 20,000 IPs × 3 req/s, origin capacity 2,000 req/s'
+	'Part C - L7 flood: public share page /s/:token, 20,000 IPs × 3 req/s, origin capacity 2,000 req/s'
 );
 const ATTACK_RPS = 20_000 * 3;
 const LEGIT_RPS = 400;

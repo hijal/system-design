@@ -1,10 +1,10 @@
-# TaskFlow Consistency Checker — একটা ছোট Jepsen
+# TaskFlow Consistency Checker - একটা ছোট Jepsen
 
-> Lesson 6.5 — Consistency Models: Strong → Eventual · **Tier 1 — Runnable Code** (deterministic)
+> Lesson 6.5 - Consistency Models: Strong → Eventual · **Tier 1 - Runnable Code** (deterministic)
 
 ## কী বানাচ্ছি
 
-একটা ছোট **consistency checker** — Jepsen এর Knossos এর ধারণায়, অনেক সরল করে। একটা **history** দিন
+একটা ছোট **consistency checker** - Jepsen এর Knossos এর ধারণায়, অনেক সরল করে। একটা **history** দিন
 (কোন client কখন কী লিখল/পড়ল, শুরু আর শেষের সময় সহ), checker বলে দেবে সেটা কোন consistency model
 মানে আর কোনটা ভাঙে:
 
@@ -17,13 +17,13 @@
 | monotonic reads      | নিজের পরপর দুটো read এ দ্বিতীয়টা প্রথমটার চেয়ে পুরনো না (6.3)                                  |
 | eventual (সীমিত রূপ) | সব write থামার পরে (২০০ ms পরে) শুরু হওয়া read গুলো সব একই মান পায় কিনা                        |
 
-"সারি আছে কিনা" এর উত্তর backtracking search দিয়ে (সব সম্ভাব্য ক্রম, মুখস্থ রাখা অবস্থা সহ) — ছোট
+"সারি আছে কিনা" এর উত্তর backtracking search দিয়ে (সব সম্ভাব্য ক্রম, মুখস্থ রাখা অবস্থা সহ) - ছোট
 history এর জন্য (৩০টা operation পর্যন্ত) যথেষ্ট দ্রুত।
 
 | Script           | কী দেখায়                                                                                                                                  | Lesson §  |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| `npm run models` | Module 5–6 এর সাতটা ঘটনা (পুরনো leader, replica lag, refresh এ উধাও, উত্তর-আগে-প্রশ্ন, ঘড়ির LWW…) — প্রতিটা কোন model মানে                | ১.২ – ১.৬ |
-| `npm run jepsen` | চারটা simulated system (এক primary, যেকোনো replica, sticky replica, version token) থেকে ৩০০টা করে random history — কত শতাংশ কোন model মানে | ১.৭       |
+| `npm run models` | Module 5–6 এর সাতটা ঘটনা (পুরনো leader, replica lag, refresh এ উধাও, উত্তর-আগে-প্রশ্ন, ঘড়ির LWW…) - প্রতিটা কোন model মানে                | ১.২ – ১.৬ |
+| `npm run jepsen` | চারটা simulated system (এক primary, যেকোনো replica, sticky replica, version token) থেকে ৩০০টা করে random history - কত শতাংশ কোন model মানে | ১.৭       |
 
 ## Prerequisite
 
@@ -44,7 +44,7 @@ npm run jepsen
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-দুটোই deterministic — আপনার মেশিনেও **হুবহু** এই output আসবে।
+দুটোই deterministic - আপনার মেশিনেও **হুবহু** এই output আসবে।
 
 **১. `npm run models`**
 
@@ -72,28 +72,28 @@ npm run jepsen
 ## কী দেখার জন্য এটা বানানো
 
 - **`models`, "পুরনো leader থেকে পড়া":** শুধু linearizable ভাঙে। P2 এর পুরনো পড়া সারিতে P1 এর লেখার
-  **আগে** বসানো যায় — P2 এর নিজের ক্রম তাতে ভাঙে না — কিন্তু আসল সময়ে P2 পড়েছে লেখা শেষ হওয়ার ৯০ ms পরে।
+  **আগে** বসানো যায় - P2 এর নিজের ক্রম তাতে ভাঙে না - কিন্তু আসল সময়ে P2 পড়েছে লেখা শেষ হওয়ার ৯০ ms পরে।
   Linearizable আর sequential এর পুরো পার্থক্য এই এক সারিতে।
-- **"উত্তর আছে, প্রশ্ন নেই":** দুটো session guarantee ই ✓ — কিন্তু causal ✗। P3 এর নিজের দেখা কোনো নিয়ম
+- **"উত্তর আছে, প্রশ্ন নেই":** দুটো session guarantee ই ✓ - কিন্তু causal ✗। P3 এর নিজের দেখা কোনো নিয়ম
   ভাঙেনি; ভেঙেছে **অন্য দুজনের** মধ্যের কার্যকারণ। Session guarantee সব মিলিয়েও causal এর সমান না।
 - **"LWW":** eventual ✓, বাকি প্রায় সব ✗। Eventual একা প্রায় কিছুই প্রতিশ্রুতি দেয় না।
-- **`jepsen`, "এক primary" ১০০% সব:** এটা checker এর নিজের একটা পরীক্ষাও — সঠিক system এর কোনো history
+- **`jepsen`, "এক primary" ১০০% সব:** এটা checker এর নিজের একটা পরীক্ষাও - সঠিক system এর কোনো history
   কে সে ভুল করে "ভাঙা" বলেনি।
 - **"version token":** ৪৮% linearizable, কিন্তু sequential আর causal ১০০%। Token প্রতিটা client এর দেখা
   একমুখী রাখে; কিন্তু অন্য client এর সদ্য লেখা না দেখা (আসল সময় না মানা) থেকেই যায়। (সাবধান: এখানে একটাই
-  key — একাধিক key তে "উত্তর আছে, প্রশ্ন নেই" এর মতো ঘটনা token দিয়ে আটকায় না।)
-- **নিচের লাইন:** ১০০% মানে "৩০০টা history তে ভাঙেনি" — প্রমাণ না। কম মানে নিশ্চিতভাবে ভাঙে। Jepsen এর
+  key - একাধিক key তে "উত্তর আছে, প্রশ্ন নেই" এর মতো ঘটনা token দিয়ে আটকায় না।)
+- **নিচের লাইন:** ১০০% মানে "৩০০টা history তে ভাঙেনি" - প্রমাণ না। কম মানে নিশ্চিতভাবে ভাঙে। Jepsen এর
   কাজও এরকম: bug খোঁজা, সঠিকতা প্রমাণ না।
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
 1. **নিজের history:** `src/models.ts` এ এটা যোগ করুন, আর চালানোর **আগে** প্রতিটা কলাম অনুমান করুন:
-   `w('P1','x',1,0,100), r('P2','x',1,10,20), r('P3','x',0,30,40)` — লেখা চলার মাঝে P2 নতুন মান দেখল, তারপর
+   `w('P1','x',1,0,100), r('P2','x',1,10,20), r('P3','x',0,30,40)` - লেখা চলার মাঝে P2 নতুন মান দেখল, তারপর
    P3 পুরনো। Linearizable? Sequential?
 2. **দুটো key:** `src/jepsen.ts` এ দ্বিতীয় একটা key যোগ করুন (কিছু write `y` তে), token টা key-নিরপেক্ষ রেখে।
    Version token এর causal কি এখনো ১০০% থাকে? না থাকলে, কোন ধরনের history তে ভাঙে?
 3. **Lag বাড়ান:** replica এর বড় lag এর সম্ভাবনা ৫% থেকে ৩০% করুন। কোন সারির কোন কলাম সবচেয়ে বেশি নামে?
-   Version token এর কোন কলাম বদলায় না — কেন?
+   Version token এর কোন কলাম বদলায় না - কেন?
 4. **Checker ভাঙুন:** `linearizable()` এ `a.end < b.start` কে `a.start < b.start` বানান (ভুল নিয়ম)। কোন
    history গুলোর উত্তর বদলায়? এই ভুল নিয়মটা আসলে কী মাপছে?
 
@@ -111,4 +111,4 @@ lesson-6.5-consistency-models/
 ```
 
 **যাচাই:** এই মেশিনে (Node 26) `tsc --noEmit` clean; দুটো script দুবার করে চালিয়ে হুবহু একই output
-(checksum মিলিয়ে)। Experiment গুলো আপনার কাজ — চালিয়ে দেখা হয়নি।
+(checksum মিলিয়ে)। Experiment গুলো আপনার কাজ - চালিয়ে দেখা হয়নি।

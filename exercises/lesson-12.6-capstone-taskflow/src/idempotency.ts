@@ -40,7 +40,7 @@ async function main(): Promise<void> {
 	const { server, base } = await listen(createApp({ naiveRoute: false }));
 
 	heading(
-		`Part A — ${n(REQUESTS)} creates; ${(LOST * 100).toFixed(0)}% of responses are lost on the way back, the client retries`
+		`Part A - ${n(REQUESTS)} creates; ${(LOST * 100).toFixed(0)}% of responses are lost on the way back, the client retries`
 	);
 	const lines = [await retries(base, false), await retries(base, true)];
 	console.log(
@@ -64,7 +64,7 @@ async function main(): Promise<void> {
 		);
 	}
 
-	heading(`Part B — ${PAIRS} pairs: the retry fires while the first request is still running`);
+	heading(`Part B - ${PAIRS} pairs: the retry fires while the first request is still running`);
 	await resetDatabase();
 	const pairs = await Promise.all(
 		Array.from({ length: PAIRS }, (_, index) => {
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
 		`responses 201: ${created}/${responses.length} · replayed: ${replays} · tasks in the database: ${await Task.count()}`
 	);
 
-	heading('Part C — the same key with a different body');
+	heading('Part C - the same key with a different body');
 	const reuse = await http(
 		base,
 		'POST',
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
 		}
 	);
 	console.log(
-		`status ${reuse.status} — a key belongs to one request; reusing it for another is a client bug`
+		`status ${reuse.status} - a key belongs to one request; reusing it for another is a client bug`
 	);
 
 	await close(server);

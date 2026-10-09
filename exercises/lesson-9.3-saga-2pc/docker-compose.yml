@@ -1,9 +1,9 @@
-# Only Postgres. Three databases in the same container: taskflow (the monolith, for comparison), tasks_svc (the work service —
+# Only Postgres. Three databases in the same container: taskflow (the monolith, for comparison), tasks_svc (the work service -
 # also holding the saga orchestrator's and the 2PC coordinator's log), billing_svc (the billing service). Separate databases
-# mean an ordinary transaction can't touch both — as it would be on separate machines.
+# mean an ordinary transaction can't touch both - as it would be on separate machines.
 #
-# max_prepared_transactions: two-phase commit (PREPARE TRANSACTION) is off (0) by default in Postgres —
-# it is turned on here. Port 5448 — no clash with the earlier exercises.
+# max_prepared_transactions: two-phase commit (PREPARE TRANSACTION) is off (0) by default in Postgres -
+# it is turned on here. Port 5448 - no clash with the earlier exercises.
 services:
   postgres:
     image: postgres:17-alpine

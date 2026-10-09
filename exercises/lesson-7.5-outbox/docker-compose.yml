@@ -1,4 +1,4 @@
-# Postgres (comments and the outbox) and Redis (the event stream) — both in containers; the writer, relay and
+# Postgres (comments and the outbox) and Redis (the event stream) - both in containers; the writer, relay and
 # scenario are ordinary Node processes on your machine. Ports 5443/6382, so they do not clash with the earlier exercises.
 services:
   postgres:
@@ -17,7 +17,7 @@ services:
 
   redis:
     image: redis:8-alpine
-    # The event stream's Redis — like a queue's: it drops nothing, and survives a restart (Lesson 7.3)
+    # The event stream's Redis - like a queue's: it drops nothing, and survives a restart (Lesson 7.3)
     command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendonly yes --appendfsync everysec
     ports:
       - '6382:6379'

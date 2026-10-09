@@ -2,8 +2,8 @@ import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { connection, redisAddress } from './config';
 
-// Lesson 7.3 §1.3 — inside BullMQ: create jobs in various states on a small queue and look at Redis's
-// keys directly. (Key names and structure can change between BullMQ versions — this is for looking,
+// Lesson 7.3 §1.3 - inside BullMQ: create jobs in various states on a small queue and look at Redis's
+// keys directly. (Key names and structure can change between BullMQ versions - this is for looking,
 // not for relying on. In code always use BullMQ's API, never the keys directly.)
 
 const NAME = 'inspect-demo';
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 	});
 	await worker.close();
 
-	// the rest without a worker — they stay in the state they were added in
+	// the rest without a worker - they stay in the state they were added in
 	await queue.add('now', { n: 3 }, { jobId: 'demo-waiting' });
 	await queue.add('later', { n: 4 }, { jobId: 'demo-delayed', delay: 60_000 });
 	await queue.add('urgent', { n: 5 }, { jobId: 'demo-prioritized', priority: 1 });
@@ -49,7 +49,7 @@ async function main(): Promise<void> {
 		console.log(`     ${id.padEnd(18)} → ${job ? await job.getState() : 'missing'}`);
 	}
 
-	// BullMQ's own client type has no generic commands — a separate ioredis client for looking
+	// BullMQ's own client type has no generic commands - a separate ioredis client for looking
 	const client = new Redis(redisAddress);
 	const keys = (await client.keys(`bull:${NAME}:*`)).sort();
 	console.log(`\n   Redis keys (bull:${NAME}:*):`);

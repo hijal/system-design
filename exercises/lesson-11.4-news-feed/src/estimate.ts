@@ -23,7 +23,7 @@ const DAY = 86_400;
 const edges = totalEdges();
 
 heading(
-	`Part A — the follower distribution: ${big(ACCOUNTS)} accounts, following ${MEAN_FOLLOWS} on average, power law (α = ${ALPHA}), max ${big(CAP)}`
+	`Part A - the follower distribution: ${big(ACCOUNTS)} accounts, following ${MEAN_FOLLOWS} on average, power law (α = ${ALPHA}), max ${big(CAP)}`
 );
 console.log(
 	row([
@@ -60,7 +60,7 @@ for (const top of [0.0001, 0.01]) {
 const reads = (DAU * OPENS) / DAY;
 const posts = (ACCOUNTS * POSTS_PER_ACCOUNT) / DAY;
 heading(
-	`Part B — traffic: ${big(DAU)} DAU open the feed ${OPENS} times a day; ${POSTS_PER_ACCOUNT} posts a day per account`
+	`Part B - traffic: ${big(DAU)} DAU open the feed ${OPENS} times a day; ${POSTS_PER_ACCOUNT} posts a day per account`
 );
 console.log(
 	row([
@@ -85,7 +85,7 @@ console.log(
 );
 
 heading(
-	`Part C — three paths (${Math.round(ACTIVE_SHARE * 100)}% of followers active; ${TIMELINE_CAP} ids × ${ENTRY_BYTES} B in a timeline)`
+	`Part C - three paths (${Math.round(ACTIVE_SHARE * 100)}% of followers active; ${TIMELINE_CAP} ids × ${ENTRY_BYTES} B in a timeline)`
 );
 console.log(
 	row([
@@ -116,7 +116,7 @@ const strategies: [string, number, number, number, string][] = [
 		1,
 		cache
 	],
-	['fan-out on read (pull from everyone)', 0, 0, MEAN_FOLLOWS, '—']
+	['fan-out on read (pull from everyone)', 0, 0, MEAN_FOLLOWS, '-']
 ];
 for (const threshold of [1_000_000, 100_000, 10_000]) {
 	const celeb = edgesAbove(threshold);
@@ -148,12 +148,12 @@ for (const threshold of [1_000_000, 100_000, 10_000]) {
 }
 
 heading(
-	`Part D — the biggest account posted once, total fan-out capacity ${n(FANOUT_CAPACITY)} writes/s`
+	`Part D - the biggest account posted once, total fan-out capacity ${n(FANOUT_CAPACITY)} writes/s`
 );
 const top = followersAtRank(1);
 console.log(
 	`push to everyone: ${n(top)} writes → ${(top / FANOUT_CAPACITY).toFixed(0)} s at full capacity; active only: ${((top * ACTIVE_SHARE) / FANOUT_CAPACITY).toFixed(0)} s.`
 );
 console.log(
-	"meanwhile everyone else's posts in the same queue wait behind it — see `npm run fanout`."
+	"meanwhile everyone else's posts in the same queue wait behind it - see `npm run fanout`."
 );

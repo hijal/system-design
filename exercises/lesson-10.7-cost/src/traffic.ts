@@ -51,7 +51,7 @@ function table(title: string, options: Option[]): void {
 const apiGb = REQUESTS * API_KB * KB;
 const cdnRequestsFee = (ATTACHMENT_GETS / 10_000) * P.cdnPer10kRequests;
 table(
-	`Part A — going out (egress): ${n(REQUESTS / 1e6)} M API requests a month, ${tb(ATTACHMENT_GB)} of attachments`,
+	`Part A - going out (egress): ${n(REQUESTS / 1e6)} M API requests a month, ${tb(ATTACHMENT_GB)} of attachments`,
 	[
 		{
 			name: 'API JSON, no compression',
@@ -97,7 +97,7 @@ const natFlows = S3_WORKER_GB + imageGb + LOG_SHIP_GB;
 const natHours = (gateways: number): number => gateways * P.natGatewayHour * H;
 const endpointHours = AZS * P.interfaceEndpointHour * H;
 table(
-	`Part B — out of the private subnet: S3 ${tb(S3_WORKER_GB)}, image pulls ${tb(imageGb)} (${DEPLOYS_PER_DAY} deploys a day × ${INSTANCES} instances × ${IMAGE_GB * 1_000} MB), logs ${tb(LOG_SHIP_GB)}`,
+	`Part B - out of the private subnet: S3 ${tb(S3_WORKER_GB)}, image pulls ${tb(imageGb)} (${DEPLOYS_PER_DAY} deploys a day × ${INSTANCES} instances × ${IMAGE_GB * 1_000} MB), logs ${tb(LOG_SHIP_GB)}`,
 	[
 		{
 			name: 'everything through NAT, one NAT per AZ',
@@ -143,7 +143,7 @@ table(
 				LOG_SHIP_GB * remote * crossAz +
 				endpointHours +
 				imageGb * P.interfaceEndpointGb,
-			note: 'cheap — but if that AZ dies, nothing gets out'
+			note: 'cheap - but if that AZ dies, nothing gets out'
 		}
 	]
 );
@@ -152,7 +152,7 @@ const callGb = REQUESTS * CALLS_PER_REQUEST * CALL_KB * KB;
 const dbGb = REQUESTS * DB_KB * KB;
 const dbWrites = dbGb * (1 - READ_SHARE);
 table(
-	`Part C — across AZs: ${CALLS_PER_REQUEST} internal calls per request × ${CALL_KB} KB, ${DB_KB} KB to the DB (${Math.round(READ_SHARE * 100)}% reads), ${AZS} AZs`,
+	`Part C - across AZs: ${CALLS_PER_REQUEST} internal calls per request × ${CALL_KB} KB, ${DB_KB} KB to the DB (${Math.round(READ_SHARE * 100)}% reads), ${AZS} AZs`,
 	[
 		{
 			name: 'monolith: internal calls are function calls',
@@ -181,5 +181,5 @@ table(
 	]
 );
 console.log(
-	`\n(cross-AZ is charged both ways — sending and receiving — at ${usd(P.crossAzGbEachWay)} per GB each; replication traffic for building replicas is not counted here)`
+	`\n(cross-AZ is charged both ways - sending and receiving - at ${usd(P.crossAzGbEachWay)} per GB each; replication traffic for building replicas is not counted here)`
 );

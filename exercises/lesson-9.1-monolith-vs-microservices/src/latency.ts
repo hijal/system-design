@@ -5,14 +5,14 @@ import { TASKS_PER_PROJECT } from './domain';
 import { boardLoad, fetchBoard } from './load';
 import { ms, pad } from './random';
 
-// Lesson 9.1 §1.2 — a function call vs a network call.
+// Lesson 9.1 §1.2 - a function call vs a network call.
 //
 // The same board (a project's 50 tasks, each with its assignee and comment count) three ways:
-//   monolith            — tasks, users, comments in one process; the board = a few function calls
-//   microservices, chatty  — the tasks service makes separate HTTP calls to users and comments for every task
-//   microservices, batched — two HTTP calls: all users at once, all counts at once (in parallel)
-// The client always sends one HTTP request (board) — the only difference is inside.
-// All processes on the same machine (localhost) — faster than a real network; NET_MS adds delay.
+//   monolith            - tasks, users, comments in one process; the board = a few function calls
+//   microservices, chatty  - the tasks service makes separate HTTP calls to users and comments for every task
+//   microservices, batched - two HTTP calls: all users at once, all counts at once (in parallel)
+// The client always sends one HTTP request (board) - the only difference is inside.
+// All processes on the same machine (localhost) - faster than a real network; NET_MS adds delay.
 
 const cfg = z
 	.object({
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 	];
 
 	console.log(
-		`\n── Opening the board${cfg.NET_MS > 0 ? ` — ${cfg.NET_MS} ms extra on every internal call` : ' — all processes on one machine'} ──`
+		`\n── Opening the board${cfg.NET_MS > 0 ? ` - ${cfg.NET_MS} ms extra on every internal call` : ' - all processes on one machine'} ──`
 	);
 	console.log(
 		`${' '.repeat(52)}1 user alone  busy: ${cfg.CONCURRENCY} concurrent, ${(cfg.DURATION_MS / 1000).toFixed(0)} s`
@@ -54,13 +54,13 @@ async function main(): Promise<void> {
 	for (const row of rows) {
 		const topology = await row.topology();
 		try {
-			// whether the same answer comes back — otherwise the comparison means nothing
+			// whether the same answer comes back - otherwise the comparison means nothing
 			const board = await fetchBoard(topology.entry.url, 1);
 			if (reference === null) reference = board;
 			else if (!isDeepStrictEqual(board, reference)) throw new Error(`${row.name}: board differs`);
 
 			await boardLoad(topology.entry.url, 1, 500); // warm-up: JIT
-			const alone = await boardLoad(topology.entry.url, 1, 2000); // one user, an empty system — just the length of the path
+			const alone = await boardLoad(topology.entry.url, 1, 2000); // one user, an empty system - just the length of the path
 			await boardLoad(topology.entry.url, cfg.CONCURRENCY, 1000); // warm-up: the rest of the keep-alive connections
 			const cpuBefore = await totalCpuMicros(topology.procs);
 			const r = await boardLoad(topology.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS);
@@ -75,8 +75,8 @@ async function main(): Promise<void> {
 		}
 	}
 	console.log(
-		'\n   (the board is exactly the same on all three paths — verified. Microservices run 3 processes, the monolith 1 — the CPU column is the sum over all processes.\n' +
-			"    The monolith's boards/s is limited by the load generator itself, not the monolith — compare via the CPU / board column.)\n"
+		'\n   (the board is exactly the same on all three paths - verified. Microservices run 3 processes, the monolith 1 - the CPU column is the sum over all processes.\n' +
+			"    The monolith's boards/s is limited by the load generator itself, not the monolith - compare via the CPU / board column.)\n"
 	);
 }
 

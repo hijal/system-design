@@ -5,16 +5,16 @@ import { mulberry32, uniform } from './random';
 import { Sim } from './sim';
 import { generateEvents, type TaskEvent } from './workload';
 
-// Lesson 7.2 — the same stream of TaskFlow events, three kinds of broker, five situations:
+// Lesson 7.2 - the same stream of TaskFlow events, three kinds of broker, five situations:
 //
-//   npm run fanout    — three services want the same events (§1.2)
-//   npm run crash     — the search service is down for 10 seconds (deploy) (§1.3)
-//   npm run slow      — the analytics service is slower than the arrival rate (§1.3)
-//   npm run replay    — a new service arrives and wants every old event (§1.4)
-//   npm run ordering  — events of the same task must be processed in order (§1.5)
-//   npm run all       — all of them
+//   npm run fanout    - three services want the same events (§1.2)
+//   npm run crash     - the search service is down for 10 seconds (deploy) (§1.3)
+//   npm run slow      - the analytics service is slower than the arrival rate (§1.3)
+//   npm run replay    - a new service arrives and wants every old event (§1.4)
+//   npm run ordering  - events of the same task must be processed in order (§1.5)
+//   npm run all       - all of them
 //
-// Seeded — exactly the same numbers every time. Can be changed with the SEED env.
+// Seeded - exactly the same numbers every time. Can be changed with the SEED env.
 
 const scenario = z
 	.enum(['fanout', 'crash', 'slow', 'replay', 'ordering', 'all'])
@@ -30,7 +30,7 @@ const env = z
 	.parse(process.env);
 const seed = env.SEED;
 
-// The processing time of every (service, event) pair is the same on every broker — so the comparison stays honest
+// The processing time of every (service, event) pair is the same on every broker - so the comparison stays honest
 function perEvent(
 	salt: number,
 	pick: (random: () => number) => number
@@ -123,19 +123,19 @@ function header(title: string, note: string): void {
 function fanout(events: TaskEvent[]): void {
 	header(
 		'fanout',
-		`${events.length} events; email, search and analytics — all three need every one of them`
+		`${events.length} events; email, search and analytics - all three need every one of them`
 	);
 	const services = [email, search, analytics];
 	const variants: [string, Recorder][] = [
 		[
-			'queue — one shared queue',
+			'queue - one shared queue',
 			simulate((sim, rec) =>
 				runQueue(sim, events, services, rec, { layout: 'shared', ackDelayMs: 5, outages: [] })
 			)
 		],
-		['queue — one queue per service', runBroker('queue', events, services)],
+		['queue - one queue per service', runBroker('queue', events, services)],
 		['pub/sub', runBroker('pubsub', events, services)],
-		['log — one group per service', runBroker('log', events, services)]
+		['log - one group per service', runBroker('log', events, services)]
 	];
 	console.log('   broker                           email got   search got   analytics got');
 	for (const [name, rec] of variants) {
@@ -210,7 +210,7 @@ function slow(events: TaskEvent[]): void {
 		);
 	}
 	console.log(
-		'\n   (the log\'s "backlog" = consumer lag — in the log but not yet read by analytics; nothing extra for the broker)'
+		'\n   (the log\'s "backlog" = consumer lag - in the log but not yet read by analytics; nothing extra for the broker)'
 	);
 }
 
@@ -292,7 +292,7 @@ function ordering(events: TaskEvent[]): void {
 	const tasks = new Set(events.map((e) => e.taskId)).size;
 	header(
 		'ordering',
-		`notifier service, ${tasks} tasks — events of the same task should be processed in order`
+		`notifier service, ${tasks} tasks - events of the same task should be processed in order`
 	);
 	const variants: [string, Recorder, string][] = [
 		[

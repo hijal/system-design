@@ -3,11 +3,11 @@ import { monolith, microservices, stop, stopAll, type Topology } from './cluster
 import { boardLoad, type LoadResult } from './load';
 import { ms, pad } from './random';
 
-// Lesson 9.1 §1.3 — when one part breaks, what happens to the rest?
+// Lesson 9.1 §1.3 - when one part breaks, what happens to the rest?
 //
-// a. A heavy neighbour: someone is running "export every comment" — CPU work, each blocking the event loop for EXPORT_MS,
+// a. A heavy neighbour: someone is running "export every comment" - CPU work, each blocking the event loop for EXPORT_MS,
 //    back to back. Boards are being opened at the same time. In the monolith the export and the board share a process; in microservices
-//    the export is in the comments service — the board in the tasks service, but the board needs the comment counts.
+//    the export is in the comments service - the board in the tasks service, but the board needs the comment counts.
 // b. Crash: a bug in the export killed the process (like an OOM). In the monolith that process is everything;
 //    in microservices only the comments service.
 // c. Arithmetic: the more services on the request path, the more availabilities multiply.
@@ -24,7 +24,7 @@ const cfg = z
 const pct = (n: number, total: number): string =>
 	`${total === 0 ? '0' : ((n / total) * 100).toFixed(0)}%`;
 
-// boards/s = successful boards (full or without comments) per second — fast errors aren't counted
+// boards/s = successful boards (full or without comments) per second - fast errors aren't counted
 function line(name: string, r: LoadResult): void {
 	const served = r.requests === 0 ? 0 : (r.perSecond * (r.ok + r.degraded)) / r.requests;
 	console.log(
@@ -96,13 +96,13 @@ async function main(): Promise<void> {
 	}
 
 	console.log(
-		`\n── B. Crash: a bug in the export killed the process — then ${(cfg.DURATION_MS / 1000).toFixed(0)} s of opening boards ──`
+		`\n── B. Crash: a bug in the export killed the process - then ${(cfg.DURATION_MS / 1000).toFixed(0)} s of opening boards ──`
 	);
 	header();
 	{
 		const t = await monolith(exportEnv);
 		await boardLoad(t.entry.url, cfg.CONCURRENCY, 500);
-		await stop(t.entry); // the whole app — the board was in this process too
+		await stop(t.entry); // the whole app - the board was in this process too
 		line(
 			'monolith (the only process died)',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
 			'microservices, comments died, + fallback',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)
 		);
-		await stop(t.users); // users this time — it has no fallback (no rule was made for showing a card without an assignee)
+		await stop(t.users); // users this time - it has no fallback (no rule was made for showing a card without an assignee)
 		line(
 			'   … then users died (no fallback)',
 			await boardLoad(t.entry.url, cfg.CONCURRENCY, cfg.DURATION_MS)

@@ -1,21 +1,21 @@
-# TaskFlow Data Modeling — Normalization vs Denormalization
+# TaskFlow Data Modeling - Normalization vs Denormalization
 
-> Lesson 5.2 — Schema & Data Modeling · **Tier 1 — Runnable Code**
+> Lesson 5.2 - Schema & Data Modeling · **Tier 1 - Runnable Code**
 
 ## কী বানাচ্ছি
 
-একই TaskFlow data দুটো schema তে — একটা "সব এক table এ" (denormalized), আরেকটা normalized
-(3NF) — আর তিনটা script যেগুলো **দাবি না করে মেপে দেখায়**:
+একই TaskFlow data দুটো schema তে - একটা "সব এক table এ" (denormalized), আরেকটা normalized
+(3NF) - আর তিনটা script যেগুলো **দাবি না করে মেপে দেখায়**:
 
 | Script              | কী দেখায়                                                                  | Lesson § |
 | ------------------- | -------------------------------------------------------------------------- | -------- |
 | `npm run anomalies` | খারাপ schema তে update / delete anomaly আর 1NF ভাঙার ফল                    | ১.২–১.৩  |
-| `npm run dashboard` | ৪ লাখ task এ "গুনে বের করা" vs "counter পড়া" — আর query ঠিক করার প্রভাব   | ১.৪      |
+| `npm run dashboard` | ৪ লাখ task এ "গুনে বের করা" vs "counter পড়া" - আর query ঠিক করার প্রভাব   | ১.৪      |
 | `npm run counter`   | Denormalized counter কীভাবে ভুল হয় (race, ভুলে যাওয়া) আর কীভাবে ধরা যায় | ১.৫      |
 
 ## Prerequisite
 
-Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য — script গুলো সাধারণ Node process
+Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য - script গুলো সাধারণ Node process
 হিসেবে চলবে)।
 
 Port **5434** ব্যবহার করা হয়েছে, যাতে আপনার মেশিনের Postgres (5432) বা Lesson 4.4 এর
@@ -35,7 +35,7 @@ npm install
 
 ```bash
 npm run anomalies
-npm run dashboard   # seeds 400,000 rows — may take 15-20 seconds
+npm run dashboard   # seeds 400,000 rows - may take 15-20 seconds
 npm run counter
 ```
 
@@ -44,7 +44,7 @@ npm run counter
 **১. `npm run anomalies`**
 
 ```
-━━ Denormalized (bad_tasks) — everything in one table ━━━━━━━━━━
+━━ Denormalized (bad_tasks) - everything in one table ━━━━━━━━━━
 1. How many names does rahim@taskflow.app have?  2 → "Rahim", "Rahim Uddin"
 2. How many tasks with the "bug" tag?            2 → "Add logging", "Fix the login bug"
 3. How many projects after deleting the task?    1 → Website  (Marketing is gone!)
@@ -55,11 +55,11 @@ npm run counter
 3. How many projects after deleting the task?    2 → Marketing, Website
 ```
 
-এই output টা deterministic — আপনার মেশিনেও হুবহু এটাই আসবে।
+এই output টা deterministic - আপনার মেশিনেও হুবহু এটাই আসবে।
 
 **২. `npm run dashboard`**
 
-Expected (আমার মেশিনে মাপা — আপনারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
+Expected (আমার মেশিনে মাপা - আপনারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
 
 ```
   seeded         : 500 projects × 800 tasks = 400,000 tasks (14.1s)
@@ -67,10 +67,10 @@ Expected (আমার মেশিনে মাপা — আপনারটা
 
   question                     counted (simple)   counted (LATERAL)   read counter
   page of 20 projects                  39.18 ms             1.78 ms        0.42 ms
-  10 busiest projects                  39.34 ms                —           0.31 ms
+  10 busiest projects                  39.34 ms                -           0.31 ms
 ```
 
-`results match` দুটোই অবশ্যই `true` হতে হবে — দ্রুত কিন্তু ভুল উত্তরের কোনো দাম নেই।
+`results match` দুটোই অবশ্যই `true` হতে হবে - দ্রুত কিন্তু ভুল উত্তরের কোনো দাম নেই।
 
 **৩. `npm run counter`**
 
@@ -81,31 +81,31 @@ Expected (আমার মেশিনে মাপা — আপনারটা
   b. transaction + increment         counter = 200   actual = 200   ✓ correct
   c. 50 bulk imports after b         counter = 200   actual = 250   ✗ 50 lost
 
-  ran reconcile() — 2 projects had a wrong counter, fixed:
+  ran reconcile() - 2 projects had a wrong counter, fixed:
 
   a. (after reconcile)               counter = 200   actual = 200   ✓ correct
   b+c. (after reconcile)             counter = 250   actual = 250   ✓ correct
 ```
 
-(ক) তে কতগুলো হারায় সেটা মেশিনভেদে বদলাতে পারে — কিন্তু **শূন্য হবে না**। (খ) সবসময়
+(ক) তে কতগুলো হারায় সেটা মেশিনভেদে বদলাতে পারে - কিন্তু **শূন্য হবে না**। (খ) সবসময়
 ২০০ হতে হবে।
 
 ## কী দেখার জন্য এটা বানানো
 
-1. **Anomaly গুলো "তত্ত্ব" না।** একটা ছোট schema ভুল থেকে তিনটা আলাদা ধরনের ভুল data —
+1. **Anomaly গুলো "তত্ত্ব" না।** একটা ছোট schema ভুল থেকে তিনটা আলাদা ধরনের ভুল data -
    আর তিনটার কোনোটাতেই কোনো error আসে না। Database খুশি মনে ভুল data রেখে দেয়।
 2. **Denormalize করার আগে query ঠিক করুন।** `dashboard` এ পাতার query টা শুধু ভালো করে লিখেই
    (LATERAL) ~২২ গুণ দ্রুত হয়, কোনো schema না বদলে। কিন্তু "সবচেয়ে ব্যস্ত" প্রশ্নে সবগুলো
-   গুনতেই হয় — সেখানে কোনো query কৌশল কাজ করে না। **Derived মান দিয়ে sort বা filter** —
+   গুনতেই হয় - সেখানে কোনো query কৌশল কাজ করে না। **Derived মান দিয়ে sort বা filter** -
    এটাই denormalization এর আসল জায়গা।
 3. **Counter এর দাম লেখার সময় দিতে হয়।** প্রতিটা write path কে counter এর কথা মনে রাখতে
-   হয়, atomic ভাবে বাড়াতে হয়, আর তারপরও একটা reconciliation job লাগে — কারণ কেউ না কেউ
+   হয়, atomic ভাবে বাড়াতে হয়, আর তারপরও একটা reconciliation job লাগে - কারণ কেউ না কেউ
    একদিন ভুলবেই (গ)।
 
 **(ক) কেন এত চরম (১৯৯ টা হারায়)?** Sequelize এর pool এ ১০টা connection, আর ২০০টা কাজ
 একসাথে শুরু হয়। Pool এর লাইনে আগে ২০০টা `INSERT` বসে, তাই সবগুলো `SELECT` চলে যখন
-counter তখনো ০ — সবাই ০ পড়ে, সবাই ১ লেখে। বাস্তব traffic সময়ে ছড়ানো থাকে, তাই এত বেশি
-হারাবে না — কিন্তু দুটো request এর মধ্যে কয়েক millisecond এর ফাঁকও যথেষ্ট। আর এই ধরনের
+counter তখনো ০ - সবাই ০ পড়ে, সবাই ১ লেখে। বাস্তব traffic সময়ে ছড়ানো থাকে, তাই এত বেশি
+হারাবে না - কিন্তু দুটো request এর মধ্যে কয়েক millisecond এর ফাঁকও যথেষ্ট। আর এই ধরনের
 bug local এ একজন user দিয়ে test করলে **কখনো ধরা পড়ে না**।
 
 ## নিজে ভেঙে দেখুন (Experiments)
@@ -127,12 +127,12 @@ bug local এ একজন user দিয়ে test করলে **কখনো
 
 3. **Transaction আছে কিন্তু atomic না।** `atomic()` এর ভেতরে `Project.increment` এর বদলে
    `naive()` এর মতো `findByPk` → `+1` → `save()` লিখুন, কিন্তু সবকিছু `transaction` এর ভেতরে
-   রেখে (`{ transaction }` দিয়ে)। এবার কি ২০০ আসে? না আসলে — transaction থাকা সত্ত্বেও
+   রেখে (`{ transaction }` দিয়ে)। এবার কি ২০০ আসে? না আসলে - transaction থাকা সত্ত্বেও
    কেন? (এটাই Lesson 5.5 এর isolation level এর গল্পের শুরু।)
 
 4. **Status বদলানোর path ভুলে যান।** একটা ছোট function লিখুন যেটা ২০টা task এর `status`
    `'done'` করে দেয় কিন্তু counter কমায় না। তারপর `reconcile()` চালিয়ে দেখুন সে ধরতে পারে
-   কিনা। Task তৈরি ছাড়া আর কোন কোন কাজে `openTaskCount` বদলানো দরকার — একটা তালিকা বানান।
+   কিনা। Task তৈরি ছাড়া আর কোন কোন কাজে `openTaskCount` বদলানো দরকার - একটা তালিকা বানান।
 
 ## Teardown
 
@@ -150,8 +150,8 @@ lesson-5.2-data-modeling/
 └── src/
     ├── db.ts            # Sequelize connection
     ├── models/
-    │   ├── bad.ts       # BadTask — সব এক table এ, ইচ্ছা করে খারাপ
-    │   └── good.ts      # User, Project, Task, Tag, TaskTag — 3NF + openTaskCount
+    │   ├── bad.ts       # BadTask - সব এক table এ, ইচ্ছা করে খারাপ
+    │   └── good.ts      # User, Project, Task, Tag, TaskTag - 3NF + openTaskCount
     ├── reconcile.ts     # counter কে tasks table থেকে নতুন করে হিসাব করে
     ├── anomalies.ts     # তিনটা anomaly, দুই schema তে পাশাপাশি
     ├── dashboard.ts     # ৪ লাখ task seed + তিন ধরনের query মাপা
@@ -162,9 +162,9 @@ lesson-5.2-data-modeling/
 
 এই মেশিনে চালিয়ে যাচাই করা হয়েছে (Node 26, Postgres 17, Sequelize 6.37):
 
-- `tsc --noEmit` — clean pass, কোনো type error নেই, কোথাও `any` নেই
+- `tsc --noEmit` - clean pass, কোনো type error নেই, কোথাও `any` নেই
 - তিনটা script ই চালিয়ে উপরের output মিলিয়ে দেখা হয়েছে; `counter` তিনবার চালানো হয়েছে,
   প্রতিবার একই ফল
-- `dashboard` এর সংখ্যাগুলো সত্যিকারের মাপা — অনুমান করা না। Query plan `EXPLAIN ANALYZE`
+- `dashboard` এর সংখ্যাগুলো সত্যিকারের মাপা - অনুমান করা না। Query plan `EXPLAIN ANALYZE`
   দিয়েও যাচাই করা: সরল query তে পুরো `tasks` table এর Seq Scan + HashAggregate, LATERAL এ
   শুধু ২০টা project এর Index Only Scan

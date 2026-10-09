@@ -1,14 +1,14 @@
 import express, { type Request, type Response } from 'express';
 import { z } from 'zod';
 
-// Lesson 6.1 §1.5–1.6 — three small services, in one Express process for simplicity:
+// Lesson 6.1 §1.5–1.6 - three small services, in one Express process for simplicity:
 //
-//   /lock    — lock service: leases to one holder at a time; the token goes up with every new holder
-//   /cursor  — shared storage: the reminder job's cursor ("which batch to send next")
-//   /email   — email provider: a ledger of who sent which batch's reminders
+//   /lock    - lock service: leases to one holder at a time; the token goes up with every new holder
+//   /cursor  - shared storage: the reminder job's cursor ("which batch to send next")
+//   /email   - email provider: a ledger of who sent which batch's reminders
 //
 // With fencing = true, storage checks the token on every write: writes with a token smaller than
-// the largest seen so far are rejected. The email provider looks at no token — just like reality.
+// the largest seen so far are rejected. The email provider looks at no token - just like reality.
 
 export type ServiceEvent =
 	| { kind: 'lease-granted'; at: number; node: string; token: number }
@@ -16,7 +16,7 @@ export type ServiceEvent =
 	| { kind: 'cursor-write'; at: number; node: string; token: number; from: number; to: number }
 	| { kind: 'cursor-rejected'; at: number; node: string; token: number; highest: number };
 
-// The lease state as a discriminated union — impossible states like "there is a holder but no expiresAt"
+// The lease state as a discriminated union - impossible states like "there is a holder but no expiresAt"
 // are ruled out by the type
 type LockState =
 	{ status: 'free' } | { status: 'held'; holder: string; token: number; expiresAt: number };
@@ -53,7 +53,7 @@ export function createServices(fencing: boolean, start: number, leaseMs: number)
 	}
 
 	// Acquire and renew are the same endpoint: if the holder asks, the lease is extended (the token stays the same);
-	// anyone else gets it only if the lease is free or expired — by the lock service's own clock
+	// anyone else gets it only if the lease is free or expired - by the lock service's own clock
 	app.post('/lock/acquire', (req: Request, res: Response): void => {
 		const parsed = acquireSchema.safeParse(req.body);
 		if (!parsed.success) return badRequest(res, parsed.error);

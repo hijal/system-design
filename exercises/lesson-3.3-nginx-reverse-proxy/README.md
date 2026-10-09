@@ -1,11 +1,11 @@
 # Nginx Reverse Proxy + Load Balancer Demo
 
-> Lesson 3.3 — Reverse Proxy vs Forward Proxy · **Tier 2 — Infra Setup**
+> Lesson 3.3 - Reverse Proxy vs Forward Proxy · **Tier 2 - Infra Setup**
 
 ## কী বানাচ্ছি
 
 ৩টা identical TypeScript/Express backend, আর তাদের সামনে Nginx reverse proxy + load
-balancer — Round Robin আচরণ চোখে দেখার জন্য।
+balancer - Round Robin আচরণ চোখে দেখার জন্য।
 
 ## Prerequisite
 
@@ -27,7 +27,7 @@ Nginx চলবে http://localhost:8080 এ।
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-**১. একই endpoint বারবার call করুন — `servedBy` field বদলাতে থাকবে**
+**১. একই endpoint বারবার call করুন - `servedBy` field বদলাতে থাকবে**
 
 ```bash
 curl http://localhost:8080/api/tasks
@@ -36,7 +36,7 @@ curl http://localhost:8080/api/tasks
 curl http://localhost:8080/api/tasks
 ```
 
-Expected: `servedBy` ঘুরে ঘুরে আসবে — `backend-1`, `backend-2`, `backend-3`, `backend-1`, ...
+Expected: `servedBy` ঘুরে ঘুরে আসবে - `backend-1`, `backend-2`, `backend-3`, `backend-1`, ...
 এটাই Round Robin এর প্রমাণ।
 
 **২. Health check**
@@ -49,19 +49,19 @@ Expected: `{"status":"ok","instance":"backend-X"}` (কোনো একটা in
 
 ## কী দেখার জন্য এটা বানানো
 
-লক্ষ্য করুন — আপনি কখনোই সরাসরি backend1/backend2/backend3 এর সাথে কথা বলছেন না (তাদের কোনো
+লক্ষ্য করুন - আপনি কখনোই সরাসরি backend1/backend2/backend3 এর সাথে কথা বলছেন না (তাদের কোনো
 port ই host machine এ expose করা হয়নি), শুধু Nginx এর port 8080 এর সাথে কথা বলছেন। এটাই
-Reverse Proxy এর মূল কথা — backend topology client থেকে সম্পূর্ণ হিডেন।
+Reverse Proxy এর মূল কথা - backend topology client থেকে সম্পূর্ণ হিডেন।
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
 1. `nginx.conf` এ `least_conn;` uncomment করে `docker compose restart nginx` করুন। তারপর
    একটা backend এ ইচ্ছাকৃতভাবে delay যোগ করে (`server.ts` এ `setTimeout` সহ নতুন endpoint
    বানিয়ে) দেখুন distribution কীভাবে বদলায়।
-2. `ip_hash;` uncomment করে দেখুন — বারবার call করলে কি সবসময় একই backend এ যাচ্ছে?
+2. `ip_hash;` uncomment করে দেখুন - বারবার call করলে কি সবসময় একই backend এ যাচ্ছে?
    (আপনার নিজের IP থেকে সব request আসছে বলে।)
 3. একটা backend container বন্ধ করে দিন (`docker compose stop backend2`), তারপর কয়েকবার
-   curl করুন — কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা
+   curl করুন - কী হয়? Nginx কি সেটা এড়িয়ে যায়, নাকি error দেয়? এখানে একটা সীমাবদ্ধতা
    দেখবেন: plain open-source Nginx নিজে থেকে **active health check** করে না by default।
    এটাই Lesson 3.4 এর বিষয়।
 
@@ -87,6 +87,6 @@ lesson-3.3-nginx-reverse-proxy/
 
 ## Verification status
 
-- Backend `server.ts` — `tsc --noEmit` clean pass (repo তে যাচাই করা)
-- পুরো Docker Compose + Nginx integration — **সরাসরি চালিয়ে verify করা হয়নি** (এই
+- Backend `server.ts` - `tsc --noEmit` clean pass (repo তে যাচাই করা)
+- পুরো Docker Compose + Nginx integration - **সরাসরি চালিয়ে verify করা হয়নি** (এই
   environment এ Docker নেই)। আপনার মেশিনে চালিয়ে উপরের acceptance criteria মিলিয়ে দেখুন।

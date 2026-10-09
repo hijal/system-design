@@ -67,7 +67,7 @@ function main(): void {
 	let hottest = 0;
 	for (const count of exact.values()) hottest = Math.max(hottest, count);
 	heading(
-		`${REQUESTS.toLocaleString('en-US')} requests, ${exact.size.toLocaleString('en-US')} distinct boards, Zipf ${ZIPF} — the hottest board alone is ${pct(hottest, REQUESTS, 1)}`
+		`${REQUESTS.toLocaleString('en-US')} requests, ${exact.size.toLocaleString('en-US')} distinct boards, Zipf ${ZIPF} - the hottest board alone is ${pct(hottest, REQUESTS, 1)}`
 	);
 	console.log(
 		row([

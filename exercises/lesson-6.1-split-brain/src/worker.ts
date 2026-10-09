@@ -1,18 +1,18 @@
 import { z } from 'zod';
 
-// Lesson 6.1 — TaskFlow's "due-date reminder" worker. Several instances run, but only one sends
-// reminders — the one holding the lease (otherwise every email goes out several times). The leader, on every tick:
+// Lesson 6.1 - TaskFlow's "due-date reminder" worker. Several instances run, but only one sends
+// reminders - the one holding the lease (otherwise every email goes out several times). The leader, on every tick:
 //
 //   1. check the lease (acquire/extend it from the lock service if it's missing or about to expire)
-//   2. read the cursor from storage — which batch is next
+//   2. read the cursor from storage - which batch is next
 //   3. send that batch's reminder emails
 //   4. write cursor + 1, along with its own token
 //
-// With PAUSE_AT_BATCH set, the process stops completely right after step 2 at that batch —
+// With PAUSE_AT_BATCH set, the process stops completely right after step 2 at that batch -
 // a synchronous busy loop, exactly the way a stop-the-world GC freezes the whole thread.
-// While stopped no timer runs and the lease isn't renewed — and the stopped process doesn't even know it was stopped.
+// While stopped no timer runs and the lease isn't renewed - and the stopped process doesn't even know it was stopped.
 
-// env is runtime input — no type assertion, parsed with Zod
+// env is runtime input - no type assertion, parsed with Zod
 const env = z
 	.object({
 		NODE_NAME: z.string().min(1),
@@ -46,7 +46,7 @@ async function call(
 	path: string,
 	body?: unknown
 ): Promise<{ status: number; json: unknown }> {
-	// connection: close — a new connection per request. Reusing a keep-alive socket that has been idle a while
+	// connection: close - a new connection per request. Reusing a keep-alive socket that has been idle a while
 	// in Node's fetch showed a needless delay of about 300 ms; that would have muddled the timeline here
 	// (the lease itself is 1000 ms), so it is turned off.
 	const init: RequestInit = {
@@ -61,12 +61,12 @@ async function call(
 function stopTheWorld(ms: number): void {
 	const until = Date.now() + ms;
 	while (Date.now() < until) {
-		// nothing — the event loop is blocked, just like a long GC pause
+		// nothing - the event loop is blocked, just like a long GC pause
 	}
 }
 
 async function tick(): Promise<void> {
-	// Step 1 — the lease. The expiry is computed on our own clock, from the moment the request was sent (the safe side);
+	// Step 1 - the lease. The expiry is computed on our own clock, from the moment the request was sent (the safe side);
 	// renew once half the lease has passed.
 	const askedAt = Date.now();
 	if (lease === null || askedAt >= lease.localExpiresAt - lease.ttlMs / 2) {
@@ -74,7 +74,7 @@ async function tick(): Promise<void> {
 			(await call('POST', '/lock/acquire', { node: env.NODE_NAME })).json
 		);
 		if (!result.granted) {
-			if (lease !== null) log('lease not renewed — someone else is leader, I am a follower');
+			if (lease !== null) log('lease not renewed - someone else is leader, I am a follower');
 			lease = null;
 			return;
 		}
@@ -89,7 +89,7 @@ async function tick(): Promise<void> {
 		paused = true;
 		log(`read cursor = ${cursor} … then the process stopped (${env.PAUSE_MS} ms, stop-the-world)`);
 		stopTheWorld(env.PAUSE_MS);
-		log(`running again — as far as I can tell nothing happened, sending batch ${cursor}`);
+		log(`running again - as far as I can tell nothing happened, sending batch ${cursor}`);
 	}
 
 	await call('POST', '/email', { node: env.NODE_NAME, batch: cursor });
@@ -102,7 +102,7 @@ async function tick(): Promise<void> {
 	if (write.status === 409) {
 		const { highest } = staleResponse.parse(write.json);
 		log(
-			`storage rejected the write: my token ${lease.token} < ${highest} — I am no longer leader, stopping`
+			`storage rejected the write: my token ${lease.token} < ${highest} - I am no longer leader, stopping`
 		);
 		lease = null;
 	}

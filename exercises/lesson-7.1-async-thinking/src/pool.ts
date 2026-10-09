@@ -1,6 +1,6 @@
-// Lesson 7.1 §1.3 — a small imitation of Sequelize's connection pool (the `pool` option from Lesson 5.6).
+// Lesson 7.1 §1.3 - a small imitation of Sequelize's connection pool (the `pool` option from Lesson 5.6).
 //
-// No real Postgres — a "query" just means waiting a while. But what today's lesson needs
+// No real Postgres - a "query" just means waiting a while. But what today's lesson needs
 // is exactly there: at most `max` connections, a queue when all are busy, and an error after `acquireTimeoutMs`
 // (like Sequelize's `ConnectionAcquireTimeoutError`).
 
@@ -67,7 +67,7 @@ export class Pool {
 			release: () => {
 				if (released) return;
 				released = true;
-				// if someone is waiting, the connection goes straight to them — the busy count stays the same
+				// if someone is waiting, the connection goes straight to them - the busy count stays the same
 				const next = this.#waiters.shift();
 				if (next) {
 					clearTimeout(next.timer);

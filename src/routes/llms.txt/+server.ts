@@ -6,7 +6,7 @@ export const GET: RequestHandler = ({ url }) => {
 	const lines: string[] = [
 		'# System Design Handbook',
 		'',
-		'> বাংলা/English bilingual System Design course. Fundamentals থেকে distributed systems পর্যন্ত practical, progressive lessons — TaskFlow নামের একটা running example app-কে ঘিরে।',
+		'> বাংলা/English bilingual System Design course. Fundamentals থেকে distributed systems পর্যন্ত practical, progressive lessons - TaskFlow নামের একটা running example app-কে ঘিরে।',
 		'',
 		'Each lesson is available as clean Markdown at `<lesson-url>.md`: `/lesson-1.1.md` is always the Bangla edition, and `/lesson-1.1.md?lang=en` is the English edition where translated.',
 		''
@@ -17,7 +17,7 @@ export const GET: RequestHandler = ({ url }) => {
 			if (!lesson.available) continue;
 			const path = lesson.href.split('?')[0];
 			lines.push(
-				`- [${lesson.id} — ${lesson.title}](${origin}${path}.md?lang=bn): ${origin}${lesson.href}`
+				`- [${lesson.id} - ${lesson.title}](${origin}${path}.md?lang=bn): ${origin}${lesson.href}`
 			);
 		}
 		lines.push('');
@@ -27,7 +27,7 @@ export const GET: RequestHandler = ({ url }) => {
 		if (!lesson.available) continue;
 		const path = lesson.href.split('?')[0];
 		lines.push(
-			`- [${lesson.id} — ${lesson.title}](${origin}${path}.md?lang=en): ${origin}${lesson.href}`
+			`- [${lesson.id} - ${lesson.title}](${origin}${path}.md?lang=en): ${origin}${lesson.href}`
 		);
 	}
 	lines.push('');

@@ -52,7 +52,7 @@ const size = (bytes: number): string =>
 
 async function threeWays(): Promise<void> {
 	heading(
-		`A. ${USERS.toLocaleString('en-US')} distinct users in Redis ${await version()} — stored three ways`
+		`A. ${USERS.toLocaleString('en-US')} distinct users in Redis ${await version()} - stored three ways`
 	);
 	await inChunks(USERS, 'user', (batch) => redis.sadd('uniq:set', ...batch));
 	await inChunks(USERS, 'user', (batch) => redis.pfadd('uniq:hll', ...batch));
@@ -79,7 +79,7 @@ async function threeWays(): Promise<void> {
 		[
 			'Bloom (BF.RESERVE 0.01)',
 			await memory('uniq:bf'),
-			`"is it there?" — ${pct(bfWrong, PROBES, 2)} wrong "yes"`
+			`"is it there?" - ${pct(bfWrong, PROBES, 2)} wrong "yes"`
 		]
 	];
 	for (const [label, bytes, answer] of lines)
@@ -93,7 +93,7 @@ async function threeWays(): Promise<void> {
 }
 
 async function small(): Promise<void> {
-	heading("B. At small sizes — today's viewers of one board (50)");
+	heading("B. At small sizes - today's viewers of one board (50)");
 	await redis.sadd('board:set', ...ids('user', 0, 50));
 	await redis.pfadd('board:hll', ...ids('user', 0, 50));
 	const encoding = await redis.call('OBJECT', 'ENCODING', 'board:set');
@@ -131,7 +131,7 @@ async function small(): Promise<void> {
 async function overfill(): Promise<void> {
 	const capacity = Math.round(USERS / 4);
 	heading(
-		`C. Inserting ${(capacity * 3).toLocaleString('en-US')} into a Redis Bloom built for ${capacity.toLocaleString('en-US')} — default vs NONSCALING`
+		`C. Inserting ${(capacity * 3).toLocaleString('en-US')} into a Redis Bloom built for ${capacity.toLocaleString('en-US')} - default vs NONSCALING`
 	);
 	await redis.call('BF.RESERVE', 'grow:bf', '0.01', String(capacity));
 	await redis.call('BF.RESERVE', 'fixed:bf', '0.01', String(capacity), 'NONSCALING');
@@ -173,7 +173,7 @@ async function overfill(): Promise<void> {
 		);
 	}
 	console.log(
-		`   NONSCALING: BF.MADD's reply says "non scaling filter is full" — ${rejected.toLocaleString('en-US')} names not inserted, and no exception`
+		`   NONSCALING: BF.MADD's reply says "non scaling filter is full" - ${rejected.toLocaleString('en-US')} names not inserted, and no exception`
 	);
 }
 

@@ -1,4 +1,4 @@
-// Lesson 6.4 §1.4–1.6 — Lamport clocks and vector clocks, in a small example you can check by hand.
+// Lesson 6.4 §1.4–1.6 - Lamport clocks and vector clocks, in a small example you can check by hand.
 //
 // Three processes: A (Rahim's laptop), B (the TaskFlow server), C (Karim's phone). Every event is local
 // (its own work), send (sending a message), or receive (getting a message). Following the rules, the program
@@ -15,7 +15,7 @@ type Step =
 	| { kind: 'send'; proc: Proc; name: string; note: string; message: string }
 	| { kind: 'receive'; proc: Proc; name: string; note: string; message: string };
 
-// a valid order — every receive after its send
+// a valid order - every receive after its send
 const STEPS: Step[] = [
 	{ kind: 'local', proc: 'A', name: 'a1', note: 'Rahim wrote the title' },
 	{ kind: 'local', proc: 'C', name: 'c1', note: 'Karim wrote a comment offline' },
@@ -45,7 +45,7 @@ function main(): void {
 	for (const step of STEPS) {
 		const p = step.proc;
 		if (step.kind === 'receive') {
-			// rule: merge with the received message's timestamp — max for Lamport, max in every slot for vector
+			// rule: merge with the received message's timestamp - max for Lamport, max in every slot for vector
 			const got = inFlight.get(step.message);
 			if (!got) throw new Error(`${step.message} cannot be received before it is sent`);
 			lamport[p] = Math.max(lamport[p], got.lamport);
@@ -81,7 +81,7 @@ function main(): void {
 				? `${a} → ${b} (happened before)`
 				: leq(y.vector, x.vector) && !leq(x.vector, y.vector)
 					? `${b} → ${a} (happened before)`
-					: 'concurrent — neither knew about the other';
+					: 'concurrent - neither knew about the other';
 		return { byLamport, byVector };
 	}
 
@@ -97,7 +97,7 @@ function main(): void {
 		console.log(`   ${`${a}, ${b}`.padEnd(10)}  ${r.byLamport.padEnd(15)}   ${r.byVector}`);
 	}
 	console.log(
-		'\n   A smaller Lamport number does not mean "happened before" — only the reverse is true. Recognising concurrency needs vectors.\n'
+		'\n   A smaller Lamport number does not mean "happened before" - only the reverse is true. Recognising concurrency needs vectors.\n'
 	);
 }
 

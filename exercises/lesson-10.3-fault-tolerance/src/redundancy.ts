@@ -133,7 +133,7 @@ function simulate(config: Config): Result {
 }
 
 heading(
-	`A. The billing service, ${YEARS} years simulated — instances die (once every ${INSTANCE_MTBF_DAYS} days on average, ${INSTANCE_REPAIR} minutes), AZs die (${AZ_OUTAGES_PER_YEAR} times a year, ${AZ_OUTAGE} minutes), deploys (${DEPLOYS_PER_WEEK} a week, ${BAD_DEPLOY * 100}% bad)`
+	`A. The billing service, ${YEARS} years simulated - instances die (once every ${INSTANCE_MTBF_DAYS} days on average, ${INSTANCE_REPAIR} minutes), AZs die (${AZ_OUTAGES_PER_YEAR} times a year, ${AZ_OUTAGE} minutes), deploys (${DEPLOYS_PER_WEEK} a week, ${BAD_DEPLOY * 100}% bad)`
 );
 const perInstance =
 	(INSTANCE_MTBF_DAYS * 24 * 60) / (INSTANCE_MTBF_DAYS * 24 * 60 + INSTANCE_REPAIR);

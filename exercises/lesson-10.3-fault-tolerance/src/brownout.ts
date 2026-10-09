@@ -196,7 +196,7 @@ function recovery(lastLate: number): string {
 const times = arrivals();
 const fullCapacity = (WORKERS * 1_000) / (COST_AT_LEVEL[0] ?? 1);
 heading(
-	`A. Opening a board — ${WORKERS} workers, normally ${BASE_RPS} req/s, ${PEAK}× at 9 am (${n(BASE_RPS * PEAK)} req/s) for 7 minutes; the client leaves after ${CLIENT_TIMEOUT / 1_000} s`
+	`A. Opening a board - ${WORKERS} workers, normally ${BASE_RPS} req/s, ${PEAK}× at 9 am (${n(BASE_RPS * PEAK)} req/s) for 7 minutes; the client leaves after ${CLIENT_TIMEOUT / 1_000} s`
 );
 console.log(
 	`   full page = ${PARTS.map((part) => `${part.name} ${part.cost} ms`).join(' + ')} = ${COST_AT_LEVEL[0]} ms of worker time`
@@ -233,8 +233,8 @@ for (const { policy, result } of results) {
 			[pct(result.full, result.total), 11],
 			[pct(result.shed, result.total), 9],
 			[pct(result.timedOut, result.total), 10],
-			[result.latencies.length ? ms(percentile(result.latencies, 50)) : '—', 10],
-			[result.latencies.length ? ms(percentile(result.latencies, 99)) : '—', 10],
+			[result.latencies.length ? ms(percentile(result.latencies, 50)) : '-', 10],
+			[result.latencies.length ? ms(percentile(result.latencies, 99)) : '-', 10],
 			[pct(result.wasted, result.work), 12],
 			[recovery(result.lastLate), 21]
 		])
@@ -244,7 +244,7 @@ console.log(
 	`   "wasted work" = worker time spent on requests whose client had already left, as % of total worker time; "recovery after load" = how long after traffic returned to normal (minute 12) someone last failed to get a timely answer`
 );
 
-heading('B. By the minute — how the brownout level moves (0 = full page, 3 = task list only)');
+heading('B. By the minute - how the brownout level moves (0 = full page, 3 = task list only)');
 const brownout = results.find(({ policy }) => policy.name === 'brownout')?.result;
 const nothing = results[0]?.result;
 console.log(
@@ -267,7 +267,7 @@ for (let m = 0; m < DURATION / 60_000; m++) {
 			[n(b.arrived / 60), 8],
 			[(b.levelSum / Math.max(1, b.arrived)).toFixed(2), 10],
 			[ms(percentile(b.latencies, 99)), 14],
-			[x.latencies.length ? ms(percentile(x.latencies, 99)) : '—', 14],
+			[x.latencies.length ? ms(percentile(x.latencies, 99)) : '-', 14],
 			[pct(x.served, x.arrived), 17]
 		])
 	);

@@ -127,7 +127,7 @@ function simulate(strategy: Strategy): Outcome {
 function enumeration(): void {
 	const seconds = REQUESTS / RPS;
 	heading(
-		`A. ${LINKS.toLocaleString('en-US')} share links, ${pct(BOT, 1, 0)} of ${RPS.toLocaleString('en-US')} req/s are bots guessing random slugs — cache ${CACHE.toLocaleString('en-US')} entries`
+		`A. ${LINKS.toLocaleString('en-US')} share links, ${pct(BOT, 1, 0)} of ${RPS.toLocaleString('en-US')} req/s are bots guessing random slugs - cache ${CACHE.toLocaleString('en-US')} entries`
 	);
 	console.log(
 		row([
@@ -159,7 +159,7 @@ function enumeration(): void {
 	}
 	const filter = BloomFilter.forCapacity(LINKS, RATE);
 	console.log(
-		`   filter: ${Math.round(filter.size / 8 / 1024).toLocaleString('en-US')} KB, k = ${filter.hashes} — built once, in every app instance's memory`
+		`   filter: ${Math.round(filter.size / 8 / 1024).toLocaleString('en-US')} KB, k = ${filter.hashes} - built once, in every app instance's memory`
 	);
 }
 
@@ -207,7 +207,7 @@ function freshness(upkeep: Upkeep): { wrong404: number; newRequests: number } {
 
 function staleFilter(): void {
 	heading(
-		`B. ${NEW_PER_SECOND} new links are created every second, and 5% of requests go to the latest ${RECENT.toLocaleString('en-US')} — does the filter know?`
+		`B. ${NEW_PER_SECOND} new links are created every second, and 5% of requests go to the latest ${RECENT.toLocaleString('en-US')} - does the filter know?`
 	);
 	console.log(
 		row([
@@ -232,7 +232,7 @@ function staleFilter(): void {
 		);
 	}
 	console.log(
-		'   (404 here is a false negative — the filter said "none" while it is in the DB. Bloom itself never does this)'
+		'   (404 here is a false negative - the filter said "none" while it is in the DB. Bloom itself never does this)'
 	);
 }
 

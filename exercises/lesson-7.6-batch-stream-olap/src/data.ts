@@ -3,8 +3,8 @@ import path from 'node:path';
 import { Pool } from 'pg';
 import { z } from 'zod';
 
-// Lesson 7.6 — exactly the same data in two engines: a year of TaskFlow's task_events.
-// Every column is built from i by a fixed formula — so Postgres and DuckDB get the same rows, and the results
+// Lesson 7.6 - exactly the same data in two engines: a year of TaskFlow's task_events.
+// Every column is built from i by a fixed formula - so Postgres and DuckDB get the same rows, and the results
 // of both can be compared (checksum).
 
 export const env = z
@@ -25,7 +25,7 @@ export async function duck(): Promise<DuckDBConnection> {
 	return instance.connect();
 }
 
-// every column from i (1..ROWS) — the same math in both dialects
+// every column from i (1..ROWS) - the same math in both dialects
 const columns = (ts: string): string => `
 	i AS id,
 	(i * 7919) % 200 + 1 AS workspace_id,
@@ -62,7 +62,7 @@ export const duckSeedSql = (rows: number): string => `
 	FROM generate_series(1::BIGINT, ${rows}::BIGINT) AS t(i);`;
 
 // The analytics question: "how many tasks were completed in each workspace each month, and the total time"
-// — finance's monthly usage report. It has to scan the whole table, but needs only three of the eight columns.
+// - finance's monthly usage report. It has to scan the whole table, but needs only three of the eight columns.
 export const ANALYTICS_SQL = `
 	SELECT workspace_id, date_trunc('month', occurred_at) AS month,
 	       count(*) AS completed, sum(duration_ms) AS total_ms

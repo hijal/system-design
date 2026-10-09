@@ -84,7 +84,7 @@ type Tally = { ok: number; degraded: number; failed: number };
 
 function availability(): void {
 	heading(
-		`D. ${YEARS} years of simulated outages (each dependency dies independently) — how long each journey worked`
+		`D. ${YEARS} years of simulated outages (each dependency dies independently) - how long each journey worked`
 	);
 	const timeline = outageTimeline();
 	const depDown = DEPS.map(() => 0);
@@ -170,10 +170,10 @@ function availability(): void {
 }
 
 console.log(
-	`TaskFlow — ${JOURNEYS.length} user journeys, ${DEPS.length} dependencies. ✓ = fine, ~ = worked with something left out, ✗ = failed, ✗! = written but the user saw an error, Ns = took this many seconds`
+	`TaskFlow - ${JOURNEYS.length} user journeys, ${DEPS.length} dependencies. ✓ = fine, ~ = worked with something left out, ✗ = failed, ✗! = written but the user saw an error, Ns = took this many seconds`
 );
-matrix('A. One dependency dead (connection refused) — old code', asWritten, 'down');
-matrix('B. One dependency dead — code written with degradation in mind', designed, 'down');
-matrix('C. One dependency slow (answers in 3 s) — old code', asWritten, 'slow');
-matrix('C2. One dependency slow — new code (a timeout on every call)', designed, 'slow');
+matrix('A. One dependency dead (connection refused) - old code', asWritten, 'down');
+matrix('B. One dependency dead - code written with degradation in mind', designed, 'down');
+matrix('C. One dependency slow (answers in 3 s) - old code', asWritten, 'slow');
+matrix('C2. One dependency slow - new code (a timeout on every call)', designed, 'slow');
 availability();

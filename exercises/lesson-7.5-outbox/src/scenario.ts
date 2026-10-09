@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { Comment, OutboxEvent, sequelize } from './db';
 import { commentCreatedSchema, connectRedis, STREAM, waitReady } from './events';
 
-// Lesson 7.5 — comparing three writers: what each loses, what it invents, what it sends twice.
+// Lesson 7.5 - comparing three writers: what each loses, what it invents, what it sends twice.
 //
 //   npm run scenario                         → all three modes in turn (MODE=all)
 //   MODE=outbox npm run scenario             → just one
@@ -95,7 +95,7 @@ async function runWriter(mode: Mode, report: Report): Promise<void> {
 		);
 		if (signal === 'SIGKILL') report.writerCrashes++;
 		else if (last < config.N) throw new Error('writer exited unexpectedly');
-		// skip the comment that crashed (the user saw an error) — a new writer from the next id
+		// skip the comment that crashed (the user saw an error) - a new writer from the next id
 		next = last + 1;
 	}
 }
@@ -139,7 +139,7 @@ async function run(mode: Mode): Promise<Report> {
 	};
 
 	// In outbox mode the relay runs the whole time; if it crashes, a new relay (like a Kubernetes restart)
-	// it changes from inside a closure — hence a holder (for TypeScript's narrowing)
+	// it changes from inside a closure - hence a holder (for TypeScript's narrowing)
 	const relay: { current: ChildProcess | null } = { current: null };
 	let generation = 0;
 	let stopping = false;
@@ -231,7 +231,7 @@ async function main(): Promise<void> {
 	try {
 		await sequelize.authenticate();
 	} catch {
-		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
+		console.error('Postgres cannot be reached - run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	console.log(

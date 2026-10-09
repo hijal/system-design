@@ -2,15 +2,15 @@ import { Pool, type PoolClient } from 'pg';
 import { z } from 'zod';
 import { mulberry32, ms, pad, percentile } from './random';
 
-// Lesson 9.1 §1.4 — when one transaction is split across two services.
+// Lesson 9.1 §1.4 - when one transaction is split across two services.
 //
 // "Create task" means two things: a row in the tasks table, and task_count + 1 in billing's workspace (the plan's
 // limit and the bill come from this number). The two must always match.
-//   monolith  — the same database, one transaction (BEGIN … COMMIT)
-//   services  — tasks_svc and billing_svc, two separate databases (database per service); no transaction
-//               touches both, so they are two separate writes — which goes first has to be chosen
+//   monolith  - the same database, one transaction (BEGIN … COMMIT)
+//   services  - tasks_svc and billing_svc, two separate databases (database per service); no transaction
+//               touches both, so they are two separate writes - which goes first has to be chosen
 // On each operation, with probability CRASH_RATE the process dies after the first write (deploy, OOM, timeout).
-// Which operations crash is seeded — exactly the same operations on all four paths.
+// Which operations crash is seeded - exactly the same operations on all four paths.
 
 const cfg = z
 	.object({
@@ -35,7 +35,7 @@ async function setup(): Promise<void> {
 	try {
 		await admin.query('SELECT 1');
 	} catch {
-		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
+		console.error('Postgres cannot be reached - run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	for (const db of ['tasks_svc', 'billing_svc']) {
@@ -55,7 +55,7 @@ async function reset(): Promise<void> {
 		${seed};`);
 	await mono.end();
 	const tasks = pool('tasks_svc');
-	// no FOREIGN KEY to the workspace is possible — workspaces are in another database
+	// no FOREIGN KEY to the workspace is possible - workspaces are in another database
 	await tasks.query(`
 		DROP TABLE IF EXISTS tasks;
 		CREATE TABLE tasks (id bigserial PRIMARY KEY, workspace_id int NOT NULL, title text NOT NULL);`);
@@ -107,7 +107,7 @@ function monolithPath(): Path {
 				await client.query(bumpCounter, [op.workspaceId]);
 				await client.query('COMMIT');
 			} catch (error: unknown) {
-				// in a real crash the connection drops and Postgres itself ROLLs BACK — done by hand here
+				// in a real crash the connection drops and Postgres itself ROLLs BACK - done by hand here
 				await client.query('ROLLBACK');
 				throw error;
 			} finally {
@@ -134,7 +134,7 @@ function servicesPath(order: 'task-first' | 'counter-first', retry: boolean): Pa
 				: 'services: billing first, then task',
 		retry,
 		async run(op, crashNow) {
-			await first(op); // this write commits on its own — and can't be undone
+			await first(op); // this write commits on its own - and can't be undone
 			if (crashNow) throw new Crash();
 			await second(op);
 		},
@@ -162,7 +162,7 @@ async function runPath(path: Path, ops: Op[]): Promise<void> {
 			} catch (error: unknown) {
 				if (!(error instanceof Crash)) throw error;
 				if (path.retry) {
-					await path.run(op, false); // the user pressed "try again" — they don't know what happened to the first attempt
+					await path.run(op, false); // the user pressed "try again" - they don't know what happened to the first attempt
 					succeeded++;
 				} else failed++;
 			}
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
 	])
 		await runPath(path, ops);
 	console.log(
-		'\n   (in the monolith a crash cancels the whole transaction — the user sees an error, but nothing is left half-done.)\n'
+		'\n   (in the monolith a crash cancels the whole transaction - the user sees an error, but nothing is left half-done.)\n'
 	);
 }
 

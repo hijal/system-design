@@ -2,17 +2,17 @@ import { z } from 'zod';
 import { mulberry32, percentile } from './random';
 import { Sim } from './sim';
 
-// Lesson 7.4 §1.3 — Retry storm: four retry policies, two situations.
+// Lesson 7.4 §1.3 - Retry storm: four retry policies, two situations.
 //
-//   (a) everyone at once — 1000 jobs at exactly the same moment (the 9 am digest cron, or a backlog released
+//   (a) everyone at once - 1000 jobs at exactly the same moment (the 9 am digest cron, or a backlog released
 //       all at once after an outage). The question here: do the failed ones come back together again?
-//   (b) outage — jobs arrive spread out (50/s, 20 s), the provider is down for the first OUTAGE_MS.
+//   (b) outage - jobs arrive spread out (50/s, 20 s), the provider is down for the first OUTAGE_MS.
 //
 // The provider's model: it can successfully take at most 10 requests per 100 ms (100/s); the extras get
-// an immediate 503 — under overload it protects itself (load shedding). Each attempt takes 50 ms to answer.
+// an immediate 503 - under overload it protects itself (load shedding). Each attempt takes 50 ms to answer.
 // Every job is tried at most MAX_ATTEMPTS times.
 //
-// Seeded — the jitter's randomness is the same every time too. Can be changed with SEED.
+// Seeded - the jitter's randomness is the same every time too. Can be changed with SEED.
 
 const env = z
 	.object({

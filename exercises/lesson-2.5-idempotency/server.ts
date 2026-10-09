@@ -35,7 +35,7 @@ const idempotencyStore = new Map<string, IdempotencyRecord>();
 const tasks: Task[] = [];
 
 // ---------- Validation Schema ----------
-// Runtime input (req.body) is never trusted directly — it is parsed with Zod
+// Runtime input (req.body) is never trusted directly - it is parsed with Zod
 const createTaskSchema = z.object({
 	title: z.string().min(1, 'title is required and cannot be empty'),
 	description: z.string().optional()
@@ -75,7 +75,7 @@ app.post(
 			return;
 		}
 
-		// Step 1: check whether this key has been seen before — if so, return the cached result
+		// Step 1: check whether this key has been seen before - if so, return the cached result
 		// and don't execute the business logic again (this is the core of idempotency)
 		const cached = idempotencyStore.get(idempotencyKey);
 		if (cached !== undefined) {
@@ -97,7 +97,7 @@ app.post(
 			return;
 		}
 
-		// Step 3: the actual "write" — this is the non-idempotent part we are protecting
+		// Step 3: the actual "write" - this is the non-idempotent part we are protecting
 		const input: CreateTaskInput = parseResult.data;
 		const newTask: Task = {
 			id: randomUUID(),

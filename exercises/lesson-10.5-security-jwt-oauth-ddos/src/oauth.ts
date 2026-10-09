@@ -24,7 +24,8 @@ type Pending = { state: string; verifier: string };
 
 const CLIENT_ID = 'taskflow-web';
 const CALLBACK = 'https://app.taskflow.test/auth/callback';
-const EVIL_CALLBACK = 'https://app.taskflow.test.evil.example/auth/callback';
+// A same-origin open redirect can still leak a code when the full callback is not pinned.
+const EVIL_CALLBACK = 'https://app.taskflow.test/redirect?next=https://evil.example/callback';
 const CODE_TTL = 60;
 
 const random = (bytes: number): string => randomBytes(bytes).toString('base64url');
@@ -35,9 +36,12 @@ class AuthorizationServer {
 	readonly #grants = new Map<string, Grant>();
 	constructor(readonly defenses: Defenses) {}
 	#redirectAllowed(uri: string): boolean {
-		return this.defenses.exactRedirect
-			? uri === CALLBACK
-			: uri.startsWith('https://app.taskflow.test');
+		if (this.defenses.exactRedirect) return uri === CALLBACK;
+		try {
+			return new URL(uri).origin === new URL(CALLBACK).origin;
+		} catch {
+			return false;
+		}
 	}
 	authorize(
 		user: string,
@@ -138,7 +142,7 @@ const ATTACKS: Attack[] = [
 		}
 	},
 	{
-		name: "redirect_uri bait (prefix match), mallory's own PKCE",
+		name: "redirect_uri bait (open redirect), mallory's PKCE",
 		run: (server) => {
 			const verifier = random(32);
 			const redirect = server.authorize('alice', EVIL_CALLBACK, random(24), s256(verifier), 0);
@@ -156,7 +160,7 @@ const CONFIGS: [string, Defenses][] = [
 	['all (+exact, single-use)', { state: true, pkce: true, exactRedirect: true, singleUse: true }]
 ];
 
-heading('Part A — Authorization code flow: four attacks × five sets of defences');
+heading('Part A - Authorization code flow: four attacks × five sets of defences');
 console.log(padEnd('attack', 60) + CONFIGS.map(([name]) => padEnd(name, 26)).join(''));
 for (const attack of ATTACKS) {
 	let line = padEnd(attack.name, 60);
@@ -168,7 +172,7 @@ for (const attack of ATTACKS) {
 	console.log(line);
 }
 
-heading('Part B — one legitimate login, with each set');
+heading('Part B - one legitimate login, with each set');
 for (const [name, defenses] of CONFIGS) {
 	const server = new AuthorizationServer(defenses);
 	const client = new TaskFlowClient(server, defenses);
@@ -183,7 +187,7 @@ for (const [name, defenses] of CONFIGS) {
 	);
 }
 
-heading('Part C — sending an OIDC ID token to the API as an access token');
+heading('Part C - sending an OIDC ID token to the API as an access token');
 const now = 1_790_000_000;
 const key = newSigningKey('2026-10');
 const idToken = signRs256(claimsFor('alice', 'member', now, { aud: CLIENT_ID }), key);

@@ -113,7 +113,7 @@ async function scenario(
 
 async function main(): Promise<void> {
 	console.log(
-		`\n=== Lesson 9.5 — Several instances, one limit ===\n` +
+		`\n=== Lesson 9.5 - Several instances, one limit ===\n` +
 			`   ${PORTS.length} Express instances · limit ${LIMIT} requests per ${WINDOW_MS} ms per user\n` +
 			`   one user sends ${ATTEMPTS} requests round robin (the way a gateway would spread them)\n`
 	);
@@ -139,12 +139,12 @@ async function main(): Promise<void> {
 		);
 
 	console.log(
-		`\n   ${PORTS.length} instances, each counting its own — the user got ${perInstance.ok}, i.e. ` +
+		`\n   ${PORTS.length} instances, each counting its own - the user got ${perInstance.ok}, i.e. ` +
 			`${(perInstance.ok / LIMIT).toFixed(1)} times the limit (equal to the instance count).\n` +
-			`   with a shared store exactly ${shared.ok} — the price: one store call per request (${shared.storeCalls} / ${ATTEMPTS} requests).\n` +
-			`   here p99 is ${ms(perInstance.p99)} vs ${ms(shared.p99)} — this difference could not be measured, because the store is in the same process\n` +
+			`   with a shared store exactly ${shared.ok} - the price: one store call per request (${shared.storeCalls} / ${ATTEMPTS} requests).\n` +
+			`   here p99 is ${ms(perInstance.p99)} vs ${ms(shared.p99)} - this difference could not be measured, because the store is in the same process\n` +
 			`   and the RTT is only a ${STORE_RTT_MS} ms pretence. With real Redis (especially in another AZ) it is added to every request.\n` +
-			`   the bigger price is not latency — the store is now a hard dependency: when it dies, fail open (no limit) or fail closed (all 429)?\n`
+			`   the bigger price is not latency - the store is now a hard dependency: when it dies, fail open (no limit) or fail closed (all 429)?\n`
 	);
 
 	console.log(`── What the 429 response looks like ──`);

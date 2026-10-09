@@ -1,6 +1,6 @@
-# TaskFlow Cost Lab — বিল, Unit Economics, Capacity, Commitment, Storage Tier, Data Transfer
+# TaskFlow Cost Lab - বিল, Unit Economics, Capacity, Commitment, Storage Tier, Data Transfer
 
-> Lesson 10.7 — Cost & Cloud Economics · **Tier 1 — Runnable Code**
+> Lesson 10.7 - Cost & Cloud Economics · **Tier 1 - Runnable Code**
 > (চারটা deterministic cost model; কোনো cloud account, network বা Docker লাগে না)
 
 ## কী বানাচ্ছি
@@ -18,13 +18,13 @@ TaskFlow এর মাসের cloud বিল, লাইন ধরে, প্�
 
 **সৎ নোট:**
 
-- **দাম আনুমানিক।** `src/prices.ts` এ সব দাম এক জায়গায় — একটা বড় public cloud এর তালিকা মূল্যের আন্দাজ (us-east এর মতো
+- **দাম আনুমানিক।** `src/prices.ts` এ সব দাম এক জায়গায় - একটা বড় public cloud এর তালিকা মূল্যের আন্দাজ (us-east এর মতো
   region, on-demand), Lesson 8.1 এর সংখ্যার সাথে মিলিয়ে। দাম region, provider, সময় আর চুক্তি ভেদে বদলায়; এখানে যাচাই
   করা না। প্রতিটা দাম environment variable দিয়ে বদলানো যায় (`PRICE_*`, `COMMIT_DISCOUNT`, `SPOT_SHARE_OF_ON_DEMAND`)।
-- **TaskFlow এর পরিমাণও ধরে নেওয়া** — ৩০০ req/s, ৬০,০০০ MAU, ২,০০০ workspace, ১৮ TB attachment (8.1), দিনে ২.৮ GB log
-  (10.4), প্রতি request এ ৬টা ভেতরের call — আগের lesson গুলোর সংখ্যা থেকে। শিক্ষা নির্ভর করে লাইনগুলোর **অনুপাত** আর
+- **TaskFlow এর পরিমাণও ধরে নেওয়া** - ৩০০ req/s, ৬০,০০০ MAU, ২,০০০ workspace, ১৮ TB attachment (8.1), দিনে ২.৮ GB log
+  (10.4), প্রতি request এ ৬টা ভেতরের call - আগের lesson গুলোর সংখ্যা থেকে। শিক্ষা নির্ভর করে লাইনগুলোর **অনুপাত** আর
   **আকৃতির** উপর, নির্দিষ্ট ডলারের উপর না।
-- **`capacity` একটা মিনিট ধরে simulation** — seed দেওয়া noise, একটা marketing spike, instance চালু হতে ৫ মিনিট, ১৫ মিনিটের
+- **`capacity` একটা মিনিট ধরে simulation** - seed দেওয়া noise, একটা marketing spike, instance চালু হতে ৫ মিনিট, ১৫ মিনিটের
   cooldown। Spot এর interruption একটা ঘণ্টা প্রতি সম্ভাবনা, আসল spot market না।
 - **`bill` এর app instance এর লাইন `capacity` এর একই model থেকে আসে** (`src/fleet.ts`), তাই দুটোর সংখ্যা মেলে।
 - **যাচাই করা হয়েছে** Node 26 এ: `tsc --noEmit`, ESLint আর Prettier clean; চারটা script দুবার করে, output byte ধরে হুবহু
@@ -53,7 +53,7 @@ npm run traffic
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-`npm run bill` — সবচেয়ে বড় লাইন production এর না; network এর লাইনগুলো compute এর চেয়ে বড়; একটা endpoint ০.০১৩% call এ
+`npm run bill` - সবচেয়ে বড় লাইন production এর না; network এর লাইনগুলো compute এর চেয়ে বড়; একটা endpoint ০.০১৩% call এ
 খরচের ২৫%:
 
 ```
@@ -67,7 +67,7 @@ POST /boards/:id/export           60,000      $0.011       $10,920      $655    
 each category daily > its own 7-day average × 1.5           1 day later         1 day later                         0
 ```
 
-`npm run capacity` — peak ধরে স্থির fleet এর ২০% ব্যবহার; commit এর সেরা বিন্দু যেখানে ব্যবহার ৬৫% সময়ের বেশি:
+`npm run capacity` - peak ধরে স্থির fleet এর ২০% ব্যবহার; commit এর সেরা বিন্দু যেখানে ব্যবহার ৬৫% সময়ের বেশি:
 
 ```
 fixed: peak + 25%, 24/7                       20.0      $2,803         20%          0       0 (0.00%)
@@ -77,7 +77,7 @@ autoscale at the origin, no limit                         1,334    $1,025       
 block / challenge at the edge (1 KB answer)                   0        $0        $73.44           $648      $721
 ```
 
-`npm run storage` — "সস্তা" class এ ছোট object বেশি দামি; log এর দাম ঢোকানোয়:
+`npm run storage` - "সস্তা" class এ ছোট object বেশি দামি; log এর দাম ঢোকানোয়:
 
 ```
 all Standard, old versions forever                            $775    $2,066           $32,424             $0             $0
@@ -87,7 +87,7 @@ IA (with transition)              25,000,000        3.2 TB        $730
 one line per request (10.4)              2.8          $42.00                 $1.18                 $7.56                $30.66                 $2.77
 ```
 
-`npm run traffic` — S3 এর traffic NAT দিয়ে গেলে মাসে ~$৩,০০০; gateway endpoint এ প্রায় শূন্য:
+`npm run traffic` - S3 এর traffic NAT দিয়ে গেলে মাসে ~$৩,০০০; gateway endpoint এ প্রায় শূন্য:
 
 ```
 everything through NAT, one NAT per AZ                   64.5 TB        $3,001                                      today's TaskFlow
@@ -98,26 +98,26 @@ services, sent to any AZ                                114.0 TB        $2,281  
 
 ## কী দেখার জন্য এটা বানানো
 
-- **বিলের সবচেয়ে বড় লাইনগুলো কেউ design করেনি** — staging এর মাপ, NAT এর পেছনে S3 এর traffic, AZ জুড়ে call। এগুলো আসে
+- **বিলের সবচেয়ে বড় লাইনগুলো কেউ design করেনি** - staging এর মাপ, NAT এর পেছনে S3 এর traffic, AZ জুড়ে call। এগুলো আসে
   default থেকে আর অভ্যাস থেকে।
-- **Unit economics** — খরচকে একক দিয়ে ভাগ করলে (workspace, seat, request, endpoint) সিদ্ধান্ত নেওয়া যায়: কোন plan লাভজনক,
+- **Unit economics** - খরচকে একক দিয়ে ভাগ করলে (workspace, seat, request, endpoint) সিদ্ধান্ত নেওয়া যায়: কোন plan লাভজনক,
   কোন customer লোকসানের, কোন endpoint এর জন্য সীমা লাগবে।
 - **Peak এর জন্য কেনা capacity এর ৮০% অলস।** Autoscale সেটা ফেরত দেয়; commit দেয় সবসময় চলা অংশে ছাড়; spot দেয় বাধা সহ্য
   করতে পারা অংশে ছাড়। প্রতিটা আলাদা অংশের জন্য।
 - **Commit এর অঙ্ক:** একটা বাড়তি commit লাভজনক যতক্ষণ ব্যবহার তার উপরে থাকে `(১ − ছাড়)` এর বেশি সময়।
-- **Storage class এর দাম শুধু GB-মাস না** — transition request, ন্যূনতম object আকার, retrieval। ছোট object এ "সস্তা"
+- **Storage class এর দাম শুধু GB-মাস না** - transition request, ন্যূনতম object আকার, retrieval। ছোট object এ "সস্তা"
   class বেশি দামি।
-- **Bytes কোথায় নড়ে, সেটাই প্রায়ই সবচেয়ে বড় খরচ** — compression, endpoint আর AZ-aware routing প্রায় বিনা মূল্যে বড়
+- **Bytes কোথায় নড়ে, সেটাই প্রায়ই সবচেয়ে বড় খরচ** - compression, endpoint আর AZ-aware routing প্রায় বিনা মূল্যে বড়
   অংশ কাটে।
-- **Cost anomaly ও একটা observability এর প্রশ্ন** — মোট বিলে ৮% এর লাফ হারিয়ে যায়; প্রতিটা ভাগ নিজের ইতিহাসের সাথে তুলনা
+- **Cost anomaly ও একটা observability এর প্রশ্ন** - মোট বিলে ৮% এর লাফ হারিয়ে যায়; প্রতিটা ভাগ নিজের ইতিহাসের সাথে তুলনা
   করলে পরের দিনই ধরা পড়ে।
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
 1. **তিন বছরের commit:** `COMMIT_DISCOUNT=0.6 npm run capacity`। সেরা commit কত হলো (মাপা: ৭, ব্যবহার ৪২% সময়ে ≥ ৭)? নিয়মের
-   সীমা কোথায় সরল? এই ছাড়ের দাম কী — তিন বছরে কী কী বদলাতে পারে?
+   সীমা কোথায় সরল? এই ছাড়ের দাম কী - তিন বছরে কী কী বদলাতে পারে?
 2. **Spot এর ঝুঁকি:** `SPOT_HAZARD=0.3 npm run capacity`। Interruption কয়টা হলো (মাপা: ৮৩), আর চাপে মিনিট বদলাল কি (মাপা: না,
-   ৪)? কেন — লক্ষ্য ৬০% এর headroom কী করছে? `TARGET_UTIL=0.85` দিয়ে আবার দেখুন।
+   ৪)? কেন - লক্ষ্য ৬০% এর headroom কী করছে? `TARGET_UTIL=0.85` দিয়ে আবার দেখুন।
 3. **ছোট object এর সীমা:** `SMALL_KB=200 npm run storage`। ফাঁদটা কোথায় গেল (মাপা: IA $২০০, Glacier IR $১৪৮, Standard
    $২৭৬)? কোন আকার থেকে IA লাভজনক?
 4. **Chatty service:** `CALLS_PER_REQUEST=20 npm run traffic`। এলোমেলো routing এ cross-AZ কত হলো (মাপা: $৬,৬৩৬), আর monolith এর
@@ -130,11 +130,11 @@ services, sent to any AZ                                114.0 TB        $2,281  
 src/
   prices.ts    সব আনুমানিক দাম, env দিয়ে বদলানো যায়
   util.ts      seed দেওয়া PRNG, টেবিল আর টাকার format, env parse
-  fleet.ts     এক সপ্তাহের traffic আর instance এর simulation — capacity আর bill দুজনেই ব্যবহার করে
-  bill.ts      script ক — মাসিক বিল, unit economics, endpoint এর খরচ, cost anomaly
-  capacity.ts  script খ — স্থির / autoscale / scheduled / spot, commitment, DDoS এর বিল
-  storage.ts   script গ — attachment এর lifecycle, ছোট object, log retention, activity এর offload
-  traffic.ts   script ঘ — egress, NAT বনাম endpoint, AZ জুড়ে traffic
+  fleet.ts     এক সপ্তাহের traffic আর instance এর simulation - capacity আর bill দুজনেই ব্যবহার করে
+  bill.ts      script ক - মাসিক বিল, unit economics, endpoint এর খরচ, cost anomaly
+  capacity.ts  script খ - স্থির / autoscale / scheduled / spot, commitment, DDoS এর বিল
+  storage.ts   script গ - attachment এর lifecycle, ছোট object, log retention, activity এর offload
+  traffic.ts   script ঘ - egress, NAT বনাম endpoint, AZ জুড়ে traffic
 ```
 
 Environment variable: `RPS`, `MAU`, `WORKSPACES`, `INSTANCE_RPS`, `TARGET_UTIL`, `BOOT_MINUTES`, `COOLDOWN_MINUTES`,

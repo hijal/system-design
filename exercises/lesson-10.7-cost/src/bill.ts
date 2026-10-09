@@ -137,7 +137,7 @@ const LINES: Line[] = [
 		name: 'load balancer',
 		now: 2 * P.loadBalancerMonth,
 		after: 2 * P.loadBalancerMonth,
-		why: '—'
+		why: '-'
 	},
 	{
 		group: 'network',
@@ -196,7 +196,7 @@ const LINES: Line[] = [
 		name: 'S3 request',
 		now: 50_000 * P.s3GetPer1k + 5_000 * P.s3PutPer1k,
 		after: 50_000 * P.s3GetPer1k + 5_000 * P.s3PutPer1k,
-		why: '—'
+		why: '-'
 	},
 	{
 		group: 'observability',
@@ -219,7 +219,7 @@ const LINES: Line[] = [
 		name: 'trace storage (tail sampling)',
 		now: 3 * 30 * P.traceIngestGb,
 		after: 3 * 30 * P.traceIngestGb,
-		why: '—'
+		why: '-'
 	}
 ];
 
@@ -228,7 +228,7 @@ const nowTotal = total((l) => l.now);
 const afterTotal = total((l) => l.after);
 
 heading(
-	`Part A — TaskFlow's monthly bill: ${n(MAU)} MAU, ${n(WORKSPACES)} workspaces, ${RPS} req/s (${n(REQUESTS / 1e6)} M requests a month)`
+	`Part A - TaskFlow's monthly bill: ${n(MAU)} MAU, ${n(WORKSPACES)} workspaces, ${RPS} req/s (${n(REQUESTS / 1e6)} M requests a month)`
 );
 console.log(
 	row([
@@ -373,7 +373,7 @@ const allocate = (pick: (l: Line) => number, plan: Plan): number => {
 	return cost;
 };
 
-heading('Part B — unit economics: revenue vs allocated cost by plan (the current bill)');
+heading('Part B - unit economics: revenue vs allocated cost by plan (the current bill)');
 console.log(
 	row([
 		['plan', 28],
@@ -398,7 +398,7 @@ for (const plan of PLANS) {
 			[n(plan.seats), 8],
 			[usd(revenue), 10],
 			[usd(cost), 10],
-			[revenue === 0 ? '—' : pct(revenue - cost, revenue, 0), 10],
+			[revenue === 0 ? '-' : pct(revenue - cost, revenue, 0), 10],
 			[usd(cost / plan.seats), 12],
 			[usd(cost / plan.workspaces), 18]
 		])
@@ -408,7 +408,7 @@ console.log(
 	`\ntotal revenue ${usd(revenueTotal)} / month; the bill now ${usd(nowTotal)} (${pct(nowTotal, revenueTotal)}), after ${usd(afterTotal)} (${pct(afterTotal, revenueTotal)})`
 );
 console.log(
-	'(cost allocation: compute/DB/cache/observability/cross-AZ — by share of requests; storage and backup — by GB; attachment egress — by GB; staging/LB — by seat)'
+	'(cost allocation: compute/DB/cache/observability/cross-AZ - by share of requests; storage and backup - by GB; attachment egress - by GB; staging/LB - by seat)'
 );
 
 type Endpoint = {
@@ -473,7 +473,7 @@ const callCost = (e: Endpoint): number =>
 	(e.s3Mb / 1_000) * P.natPerGb +
 	(e.s3Gets / 1_000) * P.s3GetPer1k;
 
-heading('Part C — cost by endpoint (the current design, variable costs only)');
+heading('Part C - cost by endpoint (the current design, variable costs only)');
 console.log(
 	row([
 		['endpoint', 26],
@@ -596,7 +596,7 @@ const DETECTORS: Detector[] = [
 ];
 
 heading(
-	`Part D — cost anomaly: debug logs in three services on day ${DEBUG_DAY + 1} (+${usd(debugExtra)}/day), an export loop on day ${EXPORT_DAY + 1} (+${usd(exportExtra)}/day)`
+	`Part D - cost anomaly: debug logs in three services on day ${DEBUG_DAY + 1} (+${usd(debugExtra)}/day), an export loop on day ${EXPORT_DAY + 1} (+${usd(exportExtra)}/day)`
 );
 console.log(
 	`daily bill ~${usd(totals[DEBUG_DAY - 1] ?? 0)}; debug logs are ${pct(debugExtra, totals[DEBUG_DAY - 1] ?? 1)} of the total, the export loop ${pct(exportExtra, totals[EXPORT_DAY - 1] ?? 1)}\n`

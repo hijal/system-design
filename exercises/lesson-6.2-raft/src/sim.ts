@@ -17,7 +17,7 @@ export class Sim {
 	schedule(delay: number, run: () => void): Timer {
 		const timer: Timer = { cancelled: false };
 		const item: Scheduled = { at: this.now + delay, seq: this.seq++, timer, run };
-		// sorted insert — the queue stays small (a few dozen events), so no heap is needed
+		// sorted insert - the queue stays small (a few dozen events), so no heap is needed
 		let i = this.queue.length;
 		while (i > 0) {
 			const prev = this.queue[i - 1];
@@ -44,7 +44,7 @@ export class Sim {
 }
 
 // Network: every message's trip time is random (seeded), and the link between any two nodes
-// can be cut. On a cut link messages are silently lost — the sending node learns nothing.
+// can be cut. On a cut link messages are silently lost - the sending node learns nothing.
 export class Network<M> {
 	private cut = new Set<string>();
 	private handlers = new Map<string, (message: M, from: string) => void>();
@@ -70,7 +70,7 @@ export class Network<M> {
 		});
 	}
 
-	// cut every link between groups — talk within a group still works
+	// cut every link between groups - talk within a group still works
 	partition(groups: string[][]): void {
 		this.cut.clear();
 		for (const a of groups)

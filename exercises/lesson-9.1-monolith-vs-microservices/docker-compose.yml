@@ -1,6 +1,6 @@
-# Only Postgres — for transaction.ts. Three databases in the same container: taskflow (the monolith), and
-# tasks_svc, billing_svc (each service's own database — "database per service"). Separate databases
-# mean one transaction can't touch both, as it would be on separate machines. Port 5447 — no clash with the earlier
+# Only Postgres - for transaction.ts. Three databases in the same container: taskflow (the monolith), and
+# tasks_svc, billing_svc (each service's own database - "database per service"). Separate databases
+# mean one transaction can't touch both, as it would be on separate machines. Port 5447 - no clash with the earlier
 # exercises. latency and failure don't need Docker.
 services:
   postgres:

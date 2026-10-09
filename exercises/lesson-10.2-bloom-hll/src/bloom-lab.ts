@@ -21,7 +21,7 @@ function fill(filter: { add(key: string): void }, from: number, to: number): voi
 
 function bitsPerItem(): void {
 	heading(
-		`A. ${ITEMS.toLocaleString('en-US')} names, and ${PROBES.toLocaleString('en-US')} names never inserted — how many are called "maybe present"?`
+		`A. ${ITEMS.toLocaleString('en-US')} names, and ${PROBES.toLocaleString('en-US')} names never inserted - how many are called "maybe present"?`
 	);
 	console.log(
 		row([
@@ -90,7 +90,7 @@ function hashCount(): void {
 function overfill(): void {
 	const filter = BloomFilter.forCapacity(ITEMS, TARGET);
 	heading(
-		`C. A filter built for ${ITEMS.toLocaleString('en-US')} names at ${pct(TARGET, 1, 0)} (${kb(filter.size)}, k = ${filter.hashes}) — then inserting more`
+		`C. A filter built for ${ITEMS.toLocaleString('en-US')} names at ${pct(TARGET, 1, 0)} (${kb(filter.size)}, k = ${filter.hashes}) - then inserting more`
 	);
 	console.log(
 		row([
@@ -120,7 +120,7 @@ function overfill(): void {
 function deletion(): void {
 	const removed = Math.round(ITEMS / 10);
 	heading(
-		`D. ${removed.toLocaleString('en-US')} names deleted (account delete) — what happened to the other ${(ITEMS - removed).toLocaleString('en-US')}?`
+		`D. ${removed.toLocaleString('en-US')} names deleted (account delete) - what happened to the other ${(ITEMS - removed).toLocaleString('en-US')}?`
 	);
 	console.log(
 		row([

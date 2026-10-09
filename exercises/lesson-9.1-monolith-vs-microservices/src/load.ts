@@ -3,7 +3,7 @@ import { PROJECTS } from './domain';
 import { percentile } from './random';
 
 // The board's load: CONCURRENCY clients, each opening boards one after another, for DURATION_MS.
-// Every client goes through the projects in a fixed order — the same every time.
+// Every client goes through the projects in a fixed order - the same every time.
 
 const boardSchema = z.object({
 	projectId: z.number(),

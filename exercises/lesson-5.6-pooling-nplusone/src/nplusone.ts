@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { createSequelize } from './db';
 import { Member, Project, Task, User, initModels } from './models';
 
-// Lesson 5.6 — the same dashboard's data, fetched four ways:
+// Lesson 5.6 - the same dashboard's data, fetched four ways:
 // "the workspace's 50 projects, each one's tasks, each task's assignee's name"
 
 const PROJECTS = 50;
@@ -13,7 +13,7 @@ const MEMBERS_PER_PROJECT = 10;
 const USERS = 200;
 const ROUNDS = 5;
 
-// counting every query — Sequelize's logging callback is called once for every SQL
+// counting every query - Sequelize's logging callback is called once for every SQL
 const executed: string[] = [];
 let counting = true; // off during the seed
 const sequelize = createSequelize({ max: 10 }, (sql: string): void => {
@@ -23,7 +23,7 @@ initModels(sequelize);
 
 type Row = { project: string; task: string; assignee: string };
 
-// ── a. N+1 — code written "the natural way" ─────────────────────────────────
+// ── a. N+1 - code written "the natural way" ─────────────────────────────────
 async function nPlusOne(): Promise<Row[]> {
 	const rows: Row[] = [];
 	const projects = await Project.findAll({ order: [['id', 'ASC']] }); // 1 query
@@ -37,7 +37,7 @@ async function nPlusOne(): Promise<Row[]> {
 	return rows;
 }
 
-// ── b. include — one JOIN query ─────────────────────────────────────────────
+// ── b. include - one JOIN query ─────────────────────────────────────────────
 async function eager(): Promise<Row[]> {
 	const projects = await Project.findAll({
 		include: [{ model: Task, as: 'tasks', include: [{ model: User, as: 'assignee' }] }],
@@ -55,7 +55,7 @@ async function eager(): Promise<Row[]> {
 	);
 }
 
-// ── c. Batching — one `IN (...)` query per level (the DataLoader idea) ──────
+// ── c. Batching - one `IN (...)` query per level (the DataLoader idea) ──────
 async function batched(): Promise<Row[]> {
 	const projects = await Project.findAll({ order: [['id', 'ASC']] });
 	const tasks = await Task.findAll({
@@ -74,7 +74,7 @@ async function batched(): Promise<Row[]> {
 	}));
 }
 
-// ── Cartesian explosion — two hasMany included together ─────────────────────
+// ── Cartesian explosion - two hasMany included together ─────────────────────
 async function twoHasManyJoined(): Promise<number> {
 	const projects = await Project.findAll({
 		include: [
@@ -97,7 +97,7 @@ async function twoHasManySeparate(): Promise<number> {
 
 const countRow = z.array(z.object({ n: z.coerce.number() })).length(1);
 
-// how many rows the database actually sent — counted by wrapping every executed SQL in count(*)
+// how many rows the database actually sent - counted by wrapping every executed SQL in count(*)
 async function rowsReturned(sqls: string[]): Promise<number> {
 	let total = 0;
 	for (const sql of sqls) {
@@ -159,9 +159,9 @@ function line(label: string, m: Measured, projectedRttMs: number): string {
 
 async function main(): Promise<void> {
 	await seed();
-	const RTT = 1; // in production the app and DB are on separate machines — calculated at ~1 ms per round trip
+	const RTT = 1; // in production the app and DB are on separate machines - calculated at ~1 ms per round trip
 
-	// correctness first — whether all three give the same data
+	// correctness first - whether all three give the same data
 	const [a, b, c] = [await nPlusOne(), await eager(), await batched()];
 	const same = JSON.stringify(a) === JSON.stringify(b) && JSON.stringify(b) === JSON.stringify(c);
 	console.log(
@@ -183,7 +183,7 @@ async function main(): Promise<void> {
 		`\n   * measured time on this machine (DB on the same machine, round trip near zero). The last column is a calculation,`
 	);
 	console.log(
-		`     not a measurement: measured time + query count × ${RTT} ms — what it would be with the app and DB on separate machines.\n`
+		`     not a measurement: measured time + query count × ${RTT} ms - what it would be with the app and DB on separate machines.\n`
 	);
 	await sequelize.close();
 }

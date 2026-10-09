@@ -5,12 +5,12 @@ import { z } from 'zod';
 import { messageSchema } from './app';
 import { emptyBucket, mb, ms, percentile, prepareBucket, sendPut } from './common';
 
-// Lesson 8.2 §1.1 — what happens to the app when uploads go through it?
+// Lesson 8.2 §1.1 - what happens to the app when uploads go through it?
 //
 // UPLOADERS users at once, each sends ROUNDS files of FILE_MB, at CLIENT_MBPS per second (like good
 // broadband). At the same time PINGERS keep calling a cheap route, like the board. Four steps:
 //   ping only (for comparison) · buffer (8.1's path) · stream · presigned (the app only hands out a URL)
-// The app is a separate process — its memory, event loop delay, and the number of uploads open at once are measured.
+// The app is a separate process - its memory, event loop delay, and the number of uploads open at once are measured.
 
 const cfg = z
 	.object({
@@ -79,7 +79,7 @@ async function run(name: string, mode: Mode, body: Buffer): Promise<Row> {
 					body: JSON.stringify({ size: body.length, contentType: 'application/pdf' })
 				});
 				const { url: signed } = z.object({ url: z.string().url() }).parse(await res.json());
-				// 2. straight to object storage — the app is out of it
+				// 2. straight to object storage - the app is out of it
 				const r = await sendPut(signed, body, {
 					mbps: cfg.CLIENT_MBPS,
 					headers: { 'content-type': 'application/pdf' }
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
 	for (const r of rows) {
 		const s = r.stats;
 		console.log(
-			`   ${r.name.padEnd(40)} ${`${s.baseRssMb.toFixed(0)} → ${s.peakRssMb.toFixed(0)} MB`.padStart(22)} ${String(s.maxOpenUploads).padStart(24)} ${mb(s.bytesThroughApp).padStart(18)}   ${`${ms(percentile(r.ping, 50))} / ${ms(percentile(r.ping, 99))}`.padEnd(19)} ${`${ms(s.loopDelayP99)} / ${ms(s.loopDelayMax)}`.padStart(24)} ${(r.name === 'ping only' ? '—' : ms(r.uploadMs)).padStart(14)}`
+			`   ${r.name.padEnd(40)} ${`${s.baseRssMb.toFixed(0)} → ${s.peakRssMb.toFixed(0)} MB`.padStart(22)} ${String(s.maxOpenUploads).padStart(24)} ${mb(s.bytesThroughApp).padStart(18)}   ${`${ms(percentile(r.ping, 50))} / ${ms(percentile(r.ping, 99))}`.padEnd(19)} ${`${ms(s.loopDelayP99)} / ${ms(s.loopDelayMax)}`.padStart(24)} ${(r.name === 'ping only' ? '-' : ms(r.uploadMs)).padStart(14)}`
 		);
 	}
 	console.log();

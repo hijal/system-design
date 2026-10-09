@@ -15,7 +15,7 @@
 	);
 </script>
 
-<svelte:head><title>{page.status} — System Design</title></svelte:head>
+<svelte:head><title>{page.status} - System Design</title></svelte:head>
 <div class="reader-page">
 	<section class="empty-lesson error-state">
 		<div class="eyebrow">{page.status}</div>

@@ -128,13 +128,13 @@ function evaluate(policy: Policy, cumulative: Float64Array, baseline: Float64Arr
 }
 
 const after = (t: number | null): string => {
-	if (t === null) return '—';
+	if (t === null) return '-';
 	const minutes = t - INCIDENT_AT;
 	return minutes >= 120 ? `${(minutes / 60).toFixed(1)} h` : `${minutes} min`;
 };
 
 heading(
-	`A. SLO ${SLO * 100}% (error budget of ${n(MONTH_BUDGET)} failed requests in 30 days), ${RPS} req/s; the event starts at 9 am on day 4 — who paged, and when`
+	`A. SLO ${SLO * 100}% (error budget of ${n(MONTH_BUDGET)} failed requests in 30 days), ${RPS} req/s; the event starts at 9 am on day 4 - who paged, and when`
 );
 console.log(
 	row([

@@ -21,7 +21,7 @@ const yearsToFill = (fill: number, length: number): string => {
 };
 
 heading(
-	`Part A — random code + "is it taken" check: keyspace shrunk to ${LENGTH} chars (${n(K)}), ${n(PROBES)} new codes at each fill level`
+	`Part A - random code + "is it taken" check: keyspace shrunk to ${LENGTH} chars (${n(K)}), ${n(PROBES)} new codes at each fill level`
 );
 console.log(
 	row([
@@ -70,7 +70,7 @@ console.log(
 console.log('each attempt = one INSERT ... ON CONFLICT DO NOTHING round trip to the database.');
 
 heading(
-	`Part B — first ${LENGTH} chars of the URL's hash (MD5): distinct URLs, on collision add a salt and hash again`
+	`Part B - first ${LENGTH} chars of the URL's hash (MD5): distinct URLs, on collision add a salt and hash again`
 );
 console.log(
 	row([
@@ -118,7 +118,7 @@ console.log(
 		);
 	}
 	console.log(
-		'"birthday estimate" = N² / 2K — throw N things into K slots and roughly this many pairs land in the same slot.'
+		'"birthday estimate" = N² / 2K - throw N things into K slots and roughly this many pairs land in the same slot.'
 	);
 	const real = REAL_FILL * keyspace(7);
 	console.log(
@@ -127,7 +127,7 @@ console.log(
 }
 
 heading(
-	`Part C — finding by guessing: ${share(REAL_FILL, 3)} full (equal to 10 years at 7 chars), the 10,000 codes before your own and 10,000 random attempts`
+	`Part C - finding by guessing: ${share(REAL_FILL, 3)} full (equal to 10 years at 7 chars), the 10,000 codes before your own and 10,000 random attempts`
 );
 {
 	const count = Math.round(REAL_FILL * K);
@@ -173,7 +173,7 @@ heading(
 }
 
 heading(
-	`Part D — sharing out the counter (range allocation): ${SERVERS} app servers, ${n(CREATES_PER_DAY)} links a day, each server restarts ${RESTARTS_PER_DAY}× a day`
+	`Part D - sharing out the counter (range allocation): ${SERVERS} app servers, ${n(CREATES_PER_DAY)} links a day, each server restarts ${RESTARTS_PER_DAY}× a day`
 );
 console.log(
 	row([
@@ -224,10 +224,10 @@ for (const block of [1, 100, 1_000, 10_000]) {
 	);
 }
 console.log(
-	'"out of time order" = the next link\'s id is smaller than the previous link\'s — codes cannot be sorted by time.'
+	'"out of time order" = the next link\'s id is smaller than the previous link\'s - codes cannot be sorted by time.'
 );
 
-heading('Part E — is the secret permutation (Feistel + cycle walking) really one-to-one');
+heading('Part E - is the secret permutation (Feistel + cycle walking) really one-to-one');
 {
 	const small = keyspace(3);
 	const perm = new Permutation(small, SECRET);
@@ -239,13 +239,13 @@ heading('Part E — is the secret permutation (Feistel + cycle walking) really o
 		seen[out] = 1;
 	}
 	console.log(
-		`whole 3-char domain (${n(small)} ids): ${n(unique)} distinct outputs — ${unique === small ? 'no collisions' : 'COLLISION!'}; extra rounds: ${n(perm.walks)} (${pct(perm.walks, small, 1)})`
+		`whole 3-char domain (${n(small)} ids): ${n(unique)} distinct outputs - ${unique === small ? 'no collisions' : 'COLLISION!'}; extra rounds: ${n(perm.walks)} (${pct(perm.walks, small, 1)})`
 	);
 	const full = new Permutation(keyspace(7), SECRET);
 	const codes = [1, 2, 3, 4, 5].map((id) => `${encode(id, 7)} → ${encode(full.apply(id), 7)}`);
 	console.log(`7 chars, ids 1–5:  ${codes.join('   ')}`);
 	const back = decode(encode(full.apply(42), 7));
 	console.log(
-		`decode(code) returns a number (${n(back)}), but it is not the id — recovering the id needs the secret.`
+		`decode(code) returns a number (${n(back)}), but it is not the id - recovering the id needs the secret.`
 	);
 }

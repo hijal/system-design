@@ -44,7 +44,7 @@ function scaleOut(): void {
 	const after = nodeList('cache', 4);
 	const database = new Map(keys.map((key) => [key, 0]));
 	heading(
-		`A. TaskFlow's cache: 3 nodes to 4, while warm — ${RPS.toLocaleString('en-US')} reads/s, Zipf ${ZIPF}`
+		`A. TaskFlow's cache: 3 nodes to 4, while warm - ${RPS.toLocaleString('en-US')} reads/s, Zipf ${ZIPF}`
 	);
 	console.log(
 		row([
@@ -86,7 +86,7 @@ function scaleOut(): void {
 		);
 	}
 	console.log(
-		'   (hit rate ~100% before the change — every key was warm; so every miss is caused only by the routing change)'
+		'   (hit rate ~100% before the change - every key was warm; so every miss is caused only by the routing change)'
 	);
 }
 
@@ -133,7 +133,7 @@ function flappingNode(flushOnRejoin: boolean): {
 }
 
 function flapping(): void {
-	heading('B. cache-2 out of reach for 30 s (not dead), then came back — with its old data');
+	heading('B. cache-2 out of reach for 30 s (not dead), then came back - with its old data');
 	console.log(
 		row([
 			['on return', 28],
@@ -158,7 +158,7 @@ function flapping(): void {
 		);
 	}
 	console.log(
-		'   (while it is away, one write every 50 requests — the DB changes, and the invalidate goes to the owner at that time)'
+		'   (while it is away, one write every 50 requests - the DB changes, and the invalidate goes to the owner at that time)'
 	);
 }
 

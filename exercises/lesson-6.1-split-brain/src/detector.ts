@@ -1,15 +1,15 @@
 import { latency, mulberry32, percentile } from './random';
 
-// Lesson 6.1 §1.3 — "is the other one dead, or just silent?" — the heartbeat and timeout trade-off.
+// Lesson 6.1 §1.3 - "is the other one dead, or just silent?" - the heartbeat and timeout trade-off.
 //
 // The primary sends the monitor a heartbeat every 100 ms. The monitor's rule is simple:
-// "if no heartbeat arrives for TIMEOUT ms, the primary is dead — start a failover."
+// "if no heartbeat arrives for TIMEOUT ms, the primary is dead - start a failover."
 //
-// The primary is **alive** for the full 24 hours — it never crashes. Yet it is sometimes silent:
+// The primary is **alive** for the full 24 hours - it never crashes. Yet it is sometimes silent:
 //   - packets are lost on the network (1%)
-//   - the process stops — short pauses (GC, 200 ms on average) often, and now and then long ones
-//     (VM migration, swap, disk stall — 1 to 8 seconds)
-// These numbers are an assumed model, not measured values of any particular system — the shape is what matters.
+//   - the process stops - short pauses (GC, 200 ms on average) often, and now and then long ones
+//     (VM migration, swap, disk stall - 1 to 8 seconds)
+// These numbers are an assumed model, not measured values of any particular system - the shape is what matters.
 //
 // Two questions for each timeout:
 //   1. how many times a day the living primary was wrongly declared "dead" (each = a needless failover)
@@ -18,7 +18,7 @@ import { latency, mulberry32, percentile } from './random';
 const HOURS = 24;
 const INTERVAL_MS = 100;
 const LOSS = 0.01;
-const PAUSE_PROBABILITY = 1 / 2000; // per heartbeat — one pause every ~200 seconds on average
+const PAUSE_PROBABILITY = 1 / 2000; // per heartbeat - one pause every ~200 seconds on average
 const TIMEOUTS_MS = [150, 300, 500, 1000, 2000, 5000, 10_000];
 
 function pauseMs(random: () => number): number {
@@ -65,7 +65,7 @@ function main(): void {
 		`   heartbeats arrived: ${beats.length.toLocaleString('en-US')}; the longest silence between two: ${(longest / 1000).toFixed(2)} s`
 	);
 	console.log(
-		`   (seeded — the same result every time; the pause/loss rates are an assumed model, not measured)\n`
+		`   (seeded - the same result every time; the pause/loss rates are an assumed model, not measured)\n`
 	);
 	console.log(
 		'   timeout     false "dead" calls / day     time to notice a real crash (p50 / p99)'

@@ -1,6 +1,6 @@
-# Estimation Drill — দশটা Timed প্রশ্ন, আর গোল করা বনাম ভুল ধাপের দাম
+# Estimation Drill - দশটা Timed প্রশ্ন, আর গোল করা বনাম ভুল ধাপের দাম
 
-> Lesson 12.2 — Estimation Drill: ১০টা rapid-fire · **Tier 1 — Runnable Code**
+> Lesson 12.2 - Estimation Drill: ১০টা rapid-fire · **Tier 1 - Runnable Code**
 > (একটা interactive drill, একটা সমাধানের তালিকা, আর একটা script যা গোল করা আর ভুল ধাপের প্রভাব মাপে; Docker লাগে না)
 
 ## কী বানাচ্ছি
@@ -12,14 +12,14 @@ Interview এ estimation এর জন্য পাঁচ মিনিটের 
 | Script             | কী করে                                                                               | Lesson § |
 | ------------------ | ------------------------------------------------------------------------------------ | -------- |
 | `npm run drill`    | দশটা প্রশ্ন একটা একটা করে, প্রতিটায় সময় মাপে, আপনার উত্তর reference এর সাথে মেলায় | ১.৪, ৬   |
-| `npm run answers`  | প্রতিটা drill এর পুরো হিসাবের chain, ধাপে ধাপে, আর শেষে "so" — সংখ্যা থেকে সিদ্ধান্ত | ১.৪      |
+| `npm run answers`  | প্রতিটা drill এর পুরো হিসাবের chain, ধাপে ধাপে, আর শেষে "so" - সংখ্যা থেকে সিদ্ধান্ত | ১.৪      |
 | `npm run rounding` | গোল করা বনাম ঠিক হিসাব, একটা ভুল ধাপ বনাম ঠিক হিসাব, আর কোন ধ্রুবক গোল করা নিরাপদ    | ১.৫      |
 
 **`answers` আর `rounding` এর output এ উত্তর আছে।** Drill টা নিজে করার আগে এ দুটো চালিও না।
 
 **সৎ নোট:**
 
-- **প্রতিটা প্রশ্নের givens ধরে নেওয়া** — user, request, file এর আকার, একটা server এ কত connection, ইত্যাদি। এগুলো hardware
+- **প্রতিটা প্রশ্নের givens ধরে নেওয়া** - user, request, file এর আকার, একটা server এ কত connection, ইত্যাদি। এগুলো hardware
   বা কোনো আসল কোম্পানির মাপা সংখ্যা না; drill এর জন্য দেওয়া, যাতে সবার উত্তর তুলনা করা যায়। আসল interview এ এগুলো আপনি নিজে
   stated assumption হিসেবে বলবেন (12.1)।
 - **"মাথায় হিসাব" এর chain একটা সম্ভাব্য রূপ**, প্রতিটা drill এ আমি যেভাবে গোল করতাম। আপনার গোল করা আলাদা হলে আপনার ফলও একটু
@@ -56,7 +56,7 @@ npm run rounding
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-`npm run drill` — প্রতিটা উত্তরের পরে reference আর "so", শেষে একটা summary। উদাহরণ (উত্তর piped, তাই সময় ০):
+`npm run drill` - প্রতিটা উত্তরের পরে reference আর "so", শেষে একটা summary। উদাহরণ (উত্তর piped, তাই সময় ০):
 
 ```
 ── Summary ──
@@ -69,17 +69,17 @@ drill                                      yours     reference    off by  second
 within 2×: 8/10 · within 10×: 9/10 · over 120 s: 0 · total 0 s
 ```
 
-`npm run answers` — প্রতিটা drill এর chain:
+`npm run answers` - প্রতিটা drill এর chain:
 
 ```
-── Drill 1 — Photo app: peak reads ──
+── Drill 1 - Photo app: peak reads ──
     views per day = 50M × 40                         2,000,000,000  views/day
     average = views / 86,400                                23,148  req/s
     peak = average × 3                                      69,444  req/s
   answer: 69,444 requests/s
 ```
 
-`npm run rounding` — গোল করার সবচেয়ে বড় ভুল ১.২৭ গুণ; সবচেয়ে ছোট ভুল ধাপ ১.৬৭ গুণ, সবচেয়ে বড় ৮৬,৪০০ গুণ:
+`npm run rounding` - গোল করার সবচেয়ে বড় ভুল ১.২৭ গুণ; সবচেয়ে ছোট ভুল ধাপ ১.৬৭ গুণ, সবচেয়ে বড় ৮৬,৪০০ গুণ:
 
 ```
 8. Fan-out: tail latency                    39.5          50.0     1.27×
@@ -96,17 +96,17 @@ seconds in a day                          86,400          10^5     1.16×
   headroom দিয়ে। `answers` এ chain গুলো পাশাপাশি দেখুন।
 - **গোল করা নিরাপদ।** দশটা drill এ মাথায় গোল করা হিসাব ঠিক হিসাব থেকে সর্বোচ্চ ১.২৭ গুণ দূরে। কোনো design এর সিদ্ধান্ত এতে বদলায় না।
 - **ভুল ধাপ নিরাপদ না।** একটা ধাপ ভুল হলে উত্তর ১.৬৭ থেকে ৮৬,৪০০ গুণ সরে। তাই নজর রাখার জায়গা unit আর ধাপ, দশমিক না।
-- **প্রতিটা সংখ্যার শেষে "so"।** Reference এর পরে প্রতিটা drill একটা সিদ্ধান্ত দেখায় — সংখ্যাটা কেন গোনা হলো।
+- **প্রতিটা সংখ্যার শেষে "so"।** Reference এর পরে প্রতিটা drill একটা সিদ্ধান্ত দেখায় - সংখ্যাটা কেন গোনা হলো।
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
-1. **দুই মিনিটের সীমা কমান:** `LIMIT_S=60 npm run drill`। কোন drill গুলো সীমা পার হয়? সেগুলোর chain এ কোন ধাপটা ধীর —
+1. **দুই মিনিটের সীমা কমান:** `LIMIT_S=60 npm run drill`। কোন drill গুলো সীমা পার হয়? সেগুলোর chain এ কোন ধাপটা ধীর -
    গুণ, ভাগ, নাকি "কোন সংখ্যা দিয়ে শুরু করব" ঠিক করা?
 2. **দ্বিতীয় রাউন্ড, এক সপ্তাহ পরে:** একই drill আবার, কাগজের আগের হিসাব না দেখে। Summary এর "within 2×" আর "total" আগের সাথে
    মেলান। দ্রুত হয়েছেন, কিন্তু নির্ভুলতা কমেছে কি?
 3. **একটা নতুন slip যোগ করুন:** `src/drills.ts` এ Drill 2 বা 7 এর জন্য একটা `slip` লিখুন (যেমন "per month instead of per year",
    বা "forgot the headroom"), তারপর `npm run rounding`। কত গুণ সরে, আর সেটা গোল করার সবচেয়ে বড় ভুলের পাশে কেমন?
-4. **নিজের drill:** `src/drills.ts` এ ১১ নম্বর drill যোগ করুন — নিজের কোনো system এর একটা প্রশ্ন, givens, exact আর mental chain,
+4. **নিজের drill:** `src/drills.ts` এ ১১ নম্বর drill যোগ করুন - নিজের কোনো system এর একটা প্রশ্ন, givens, exact আর mental chain,
    আর একটা `so`। `tsc --noEmit` clean রাখুন।
 
 ## Project Structure
@@ -115,9 +115,9 @@ seconds in a day                          86,400          10^5     1.16×
 src/
   util.ts      সংখ্যার format, টেবিলের column, env parse
   drills.ts    দশটা drill: givens, প্রশ্ন, exact chain, mental chain, so, আর একটা common slip
-  drill.ts     script ক — interactive drill: সময় মাপা, Zod দিয়ে উত্তর parse, grading, summary
-  answers.ts   script খ — প্রতিটা drill এর পুরো chain আর সিদ্ধান্ত
-  rounding.ts  script গ — গোল করা বনাম ঠিক, ভুল ধাপ বনাম ঠিক, ধ্রুবক গোল করার ভুল
+  drill.ts     script ক - interactive drill: সময় মাপা, Zod দিয়ে উত্তর parse, grading, summary
+  answers.ts   script খ - প্রতিটা drill এর পুরো chain আর সিদ্ধান্ত
+  rounding.ts  script গ - গোল করা বনাম ঠিক, ভুল ধাপ বনাম ঠিক, ধ্রুবক গোল করার ভুল
 ```
 
 Environment variable: `ONLY`, `LIMIT_S`।

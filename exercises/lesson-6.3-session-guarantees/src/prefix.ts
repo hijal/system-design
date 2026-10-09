@@ -1,11 +1,11 @@
 import { mulberry32 } from './random';
 import { Replica, type LagModel } from './replica';
 
-// Lesson 6.3 §1.5 — Consistent prefix: the answer first, the question later.
+// Lesson 6.3 §1.5 - Consistent prefix: the answer first, the question later.
 //
 // TaskFlow's comment table is split into two partitions (Lesson 5.8), each with its own primary and replica.
 // Rahim asks a question on a task ("when is the deploy?"), and a little later Karim answers ("9 pm tonight").
-// Others read the thread — from the two partitions' replicas.
+// Others read the thread - from the two partitions' replicas.
 //
 // Comparing two shard keys:
 //   commentId  → the question and the answer are often in two different partitions
@@ -92,7 +92,7 @@ function main(): void {
 	console.log(
 		`\n   comments in 2 partitions, each with one async replica; ${THREADS} question-answer pairs, each thread read ${READS_PER_THREAD} times`
 	);
-	console.log('   (seeded — the same result every time)\n');
+	console.log('   (seeded - the same result every time)\n');
 	console.log('   shard key       answer seen         answer present but question missing');
 	for (const key of ['commentId', 'taskId'] as const) {
 		const r = run(key);

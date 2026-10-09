@@ -3,12 +3,12 @@ import { mulberry32 } from './random';
 import { RaftNode, type Message, type RaftEvent } from './raft';
 import { Network, Sim } from './sim';
 
-// Lesson 6.2 §1.5–1.7 — what Raft does in a partition, and why there is no split brain.
+// Lesson 6.2 §1.5–1.7 - what Raft does in a partition, and why there is no split brain.
 //
 // 5 nodes. First a leader (L) is elected and x=1 is written. Then the network splits three ways:
-//   [L]            — the old leader, isolated alone
-//   [F]            — one follower, isolated alone (its term keeps going up — you'll see why)
-//   [the other 3]  — the majority
+//   [L]            - the old leader, isolated alone
+//   [F]            - one follower, isolated alone (its term keeps going up - you'll see why)
+//   [the other 3]  - the majority
 // Client A writes x=2 to the old leader; client B writes x=3 to the new leader. Then the network heals.
 //
 //   npm run partition  → real Raft
@@ -41,7 +41,7 @@ const pending: Pending[] = [];
 function onEvent(event: RaftEvent): void {
 	switch (event.kind) {
 		case 'candidate':
-			return; // the isolated F becomes candidate again and again — instead of printing each one, show its term in the snapshot
+			return; // the isolated F becomes candidate again and again - instead of printing each one, show its term in the snapshot
 		case 'leader':
 			return say(event.node, `★ became leader (term ${event.term})`);
 		case 'step-down':
@@ -52,7 +52,7 @@ function onEvent(event: RaftEvent): void {
 		case 'vote-rejected-log':
 			return say(
 				event.node,
-				`did not vote for ${event.candidate} — its log is older than mine (term ${event.term})`
+				`did not vote for ${event.candidate} - its log is older than mine (term ${event.term})`
 			);
 		case 'commit': {
 			say(event.node, `commit: index ${event.index} "${event.command}"`);
@@ -95,7 +95,7 @@ function write(client: string, target: RaftNode, command: string): void {
 	pending.push(p);
 	sim.schedule(CLIENT_TIMEOUT_MS, () => {
 		if (!p.done)
-			say(client, `✗ "${command}" — no confirmation within ${CLIENT_TIMEOUT_MS} ms (timeout)`);
+			say(client, `✗ "${command}" - no confirmation within ${CLIENT_TIMEOUT_MS} ms (timeout)`);
 	});
 }
 
@@ -103,9 +103,9 @@ function snapshot(title: string): void {
 	lines.push('', `   ── ${title} ──`);
 	for (const n of nodes) {
 		const role = n.isLeader ? 'LEADER' : n.role.kind;
-		const log = n.log.map((e) => `${e.command}(t${e.term})`).join(' ') || '—';
+		const log = n.log.map((e) => `${e.command}(t${e.term})`).join(' ') || '-';
 		lines.push(
-			`   ${n.id}  ${role.padEnd(9)} term ${String(n.term).padStart(2)}   log: ${log.padEnd(30)} commit ${n.commitIndex}   x = ${n.kv.get('x') ?? '—'}`
+			`   ${n.id}  ${role.padEnd(9)} term ${String(n.term).padStart(2)}   log: ${log.padEnd(30)} commit ${n.commitIndex}   x = ${n.kv.get('x') ?? '-'}`
 		);
 	}
 	lines.push('');
@@ -127,18 +127,18 @@ function main(): void {
 	network.partition([[L.id], [F.id], majority.map((n) => n.id)]);
 	lines.push(
 		'',
-		`   ═══ ${Math.round(sim.now)} ms: network cut — [${L.id}] | [${F.id}] | [${majority.map((n) => n.id).join(' ')}] ═══`,
+		`   ═══ ${Math.round(sim.now)} ms: network cut - [${L.id}] | [${F.id}] | [${majority.map((n) => n.id).join(' ')}] ═══`,
 		''
 	);
 
 	sim.runUntil(1250);
-	write('A', L, 'x=2'); // to the old leader — it still thinks it is leader
+	write('A', L, 'x=2'); // to the old leader - it still thinks it is leader
 	sim.runUntil(2000);
 
 	const newLeader = leaders().find((n) => n !== L);
 	if (newLeader) write('B', newLeader, 'x=3');
 	sim.runUntil(2300);
-	snapshot('partition in progress — two "leaders"?');
+	snapshot('partition in progress - two "leaders"?');
 
 	sim.runUntil(3500);
 	network.heal();
@@ -151,7 +151,7 @@ function main(): void {
 	snapshot('final state');
 
 	console.log(
-		`\n   ${mode === 'safe' ? 'SAFE — real Raft' : 'UNSAFE — election restriction off'}  (5 nodes, election timeout 150–300 ms)\n`
+		`\n   ${mode === 'safe' ? 'SAFE - real Raft' : 'UNSAFE - election restriction off'}  (5 nodes, election timeout 150–300 ms)\n`
 	);
 	console.log(lines.join('\n'));
 
@@ -166,9 +166,9 @@ function main(): void {
 	console.log(
 		`   "x=2" (never confirmed) is in how many logs: ${nodes.filter((n) => n.log.some((e) => e.command === 'x=2')).length}/5`
 	);
-	const values = new Set(nodes.map((n) => n.kv.get('x') ?? '—'));
+	const values = new Set(nodes.map((n) => n.kv.get('x') ?? '-'));
 	console.log(
-		`   is x the same on every node? ${values.size === 1 ? 'yes' : `no — ${nodes.map((n) => `${n.id}=${n.kv.get('x') ?? '—'}`).join(' ')}   ← the replicas have diverged!`}\n`
+		`   is x the same on every node? ${values.size === 1 ? 'yes' : `no - ${nodes.map((n) => `${n.id}=${n.kv.get('x') ?? '-'}`).join(' ')}   ← the replicas have diverged!`}\n`
 	);
 }
 

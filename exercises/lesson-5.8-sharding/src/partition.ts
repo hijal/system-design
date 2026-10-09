@@ -3,11 +3,11 @@ import { QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { closeAll, scalar, shardAt } from './db';
 
-// Lesson 5.8 §1.2 — partitioning inside one database (Postgres declarative partitioning).
-// TaskFlow's activity log — 12 months, 100,000 events a month. The same data in two tables:
-//   activity_plain — one ordinary table
-//   activity       — split into 12 partitions by month
-// Sequelize can't create a partitioned table — so the DDL is raw SQL (it has to be in a migration too).
+// Lesson 5.8 §1.2 - partitioning inside one database (Postgres declarative partitioning).
+// TaskFlow's activity log - 12 months, 100,000 events a month. The same data in two tables:
+//   activity_plain - one ordinary table
+//   activity       - split into 12 partitions by month
+// Sequelize can't create a partitioned table - so the DDL is raw SQL (it has to be in a migration too).
 
 const db = shardAt(0);
 const MONTHS = 12;
@@ -32,7 +32,7 @@ async function setup(): Promise<void> {
 		action text NOT NULL,
 		"createdAt" timestamptz NOT NULL`;
 	await db.query(`CREATE TABLE activity_plain (${columns}, PRIMARY KEY (id))`);
-	// In a partitioned table the primary key must include the partition key — Postgres's rule
+	// In a partitioned table the primary key must include the partition key - Postgres's rule
 	await db.query(
 		`CREATE TABLE activity (${columns}, PRIMARY KEY (id, "createdAt")) PARTITION BY RANGE ("createdAt")`
 	);
@@ -42,7 +42,7 @@ async function setup(): Promise<void> {
 			 FOR VALUES FROM ('${monthStart(m)}') TO ('${monthStart(m + 1)}')`
 		);
 	}
-	// the same index in both places — on a partitioned table it is created on every partition by itself
+	// the same index in both places - on a partitioned table it is created on every partition by itself
 	await db.query('CREATE INDEX ON activity_plain ("projectId", "createdAt")');
 	await db.query('CREATE INDEX ON activity ("projectId", "createdAt")');
 
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
 		`\n  ${MONTHS} months × ${PER_MONTH.toLocaleString('en-US')} = ${(MONTHS * PER_MONTH).toLocaleString('en-US')} activities, in two tables (${((performance.now() - started) / 1000).toFixed(1)}s)`
 	);
 
-	console.log('\n1. Partition pruning — which partitions does a query touch?');
+	console.log('\n1. Partition pruning - which partitions does a query touch?');
 	const queries: [string, string][] = [
 		[
 			'project 42, last 7 days',
@@ -125,16 +125,16 @@ async function main(): Promise<void> {
 		const plain = await explain(template.replace('{t}', 'activity_plain'));
 		const parted = await explain(template.replace('{t}', 'activity'));
 		console.log(
-			`   ${label.padEnd(40)} ${`${plain.ms.toFixed(2)} ms`.padEnd(26)} ${parted.ms.toFixed(2)} ms — ${describeTouched(parted.touched)}`
+			`   ${label.padEnd(40)} ${`${plain.ms.toFixed(2)} ms`.padEnd(26)} ${parted.ms.toFixed(2)} ms - ${describeTouched(parted.touched)}`
 		);
 	}
 
-	console.log('\n2. Retention — deleting the oldest month (October 2025)');
+	console.log('\n2. Retention - deleting the oldest month (October 2025)');
 	const plainBefore = await scalar(db, `SELECT pg_total_relation_size('activity_plain') AS v`);
 
 	let lsn = await currentLsn();
 	let t0 = performance.now();
-	// the DELETE metadata carries pg's `rowCount` — unknown in the type, so it is read with Zod
+	// the DELETE metadata carries pg's `rowCount` - unknown in the type, so it is read with Zod
 	const [, meta] = await db.query(
 		`DELETE FROM activity_plain WHERE "createdAt" < '${monthStart(1)}'`
 	);

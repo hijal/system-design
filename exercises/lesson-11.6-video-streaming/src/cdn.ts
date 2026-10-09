@@ -36,7 +36,7 @@ const gbPerHour = (mbps: number): number => (3_600 * mbps) / 8 / 1_000;
 const videoHours = VIDEO_MIN / 60;
 
 heading(
-	`Part A — popularity: ${big(VIDEOS)} videos (${VIDEO_MIN} minutes on average), ${big(WATCH_HOURS)} hours watched a month, Zipf (s = ${ZIPF_S})`
+	`Part A - popularity: ${big(VIDEOS)} videos (${VIDEO_MIN} minutes on average), ${big(WATCH_HOURS)} hours watched a month, Zipf (s = ${ZIPF_S})`
 );
 let seen = 0;
 let acc = 0;
@@ -78,7 +78,7 @@ console.log(
 );
 
 heading(
-	`Part B — which videos to re-encode in AV1: ${AV1_SAVING * 100}% fewer bits, encoding ${AV1_COST_X}× as expensive`
+	`Part B - which videos to re-encode in AV1: ${AV1_SAVING * 100}% fewer bits, encoding ${AV1_COST_X}× as expensive`
 );
 const extraEncode = H264_PER_HOUR * (AV1_COST_X - 1) * videoHours;
 const savingPerWatchHour = gbPerHour(AVG_MBPS) * CDN_PER_GB * AV1_SAVING;

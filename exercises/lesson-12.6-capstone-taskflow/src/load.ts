@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 	latencies.sort((a, b) => a - b);
 	const throughput = latencies.length / DURATION_S;
 	heading(
-		`${CLIENTS} clients moving their own tasks for ${DURATION_S} s — each move: read, conditional UPDATE, outbox INSERT, one transaction`
+		`${CLIENTS} clients moving their own tasks for ${DURATION_S} s - each move: read, conditional UPDATE, outbox INSERT, one transaction`
 	);
 	console.log(`moves                 ${n(latencies.length)}  (${conflicts} conflicts)`);
 	console.log(`throughput            ${n(throughput)} moves/s`);

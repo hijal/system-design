@@ -1,6 +1,6 @@
-# Lesson 10.8 — Multi-Region & Geo-Distribution
+# Lesson 10.8 - Multi-Region & Geo-Distribution
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
 > **Spaced Repetition (Lesson 2.1):** Why is DNS TTL lowered before changing a server's IP (a migration)? And does lowering the TTL send every user to the new IP immediately? Today, after a region dies, DNS will be changed, and you will see that even with a 60-second TTL, 9% of traffic is still going to the dead region five minutes later.
 
@@ -12,7 +12,7 @@
 2. Choose a DR strategy (backup, pilot light, warm standby, active-active) by RPO and RTO, with each one's monthly price. Understand the tail of DNS failover, and say why the real danger of automatic failover is not a region dying but a partition, and what a witness does
 3. Say how many writes are silently lost, and when, if several regions accept writes. And put together a design with home regions, cells and data residency in which you know which path a customer's data takes and where it goes
 
-**Tier:** 1 — Runnable Code (four deterministic models; no cloud account or Docker needed)
+**Tier:** 1 - Runnable Code (four deterministic models; no cloud account or Docker needed)
 
 ---
 
@@ -49,7 +49,7 @@ data residency          specific data inside a specific boundary, on every path 
 
 These are not the same, and they can even work against each other. DR wants data copied **somewhere else**. Residency wants data **not to leave** one place. Keeping the EU data's DR copy in Singapore breaks residency. Keeping a read replica in every region for latency spreads residency-bound data to every region. So the first question is always: **for which reason?** And the question before that: can it be met by a cheaper path? Much of the distance problem is met by a CDN and the edge (1.2). Some of a region outage is met by backups (1.4). A second region roughly means a second production: double the cost (10.7), double the deploys (10.6), and all the hard consistency questions (Module 6) all over again, this time at 100 ms of distance.
 
-### 1.2 Latency — distance multiplies across round trips
+### 1.2 Latency - distance multiplies across round trips
 
 Light travels about two hundred thousand kilometres a second in optical fibre. Singapore to London is more than 10,000 kilometres, and the round trip along the internet's actual paths is about 170 ms. No engineering gets below that. What you can do is **reduce the number of round trips**, and do the remaining ones with something **nearby**.
 
@@ -102,7 +102,7 @@ Four lessons, one at a time:
 
 The last topology, the **cell**: every workspace has a home region, and all of that workspace's data and all its writes are there. In a workspace in your own region, everything is fast. Writes in London take 38 ms, because writes are local too. But the p95 is near 700 ms: the 20% of the time a user opens a workspace in another region, the whole board goes to the far home region. In experiment 1, with half the workspaces in another region, the overall p50 is 253 ms. Cells are good when **most collaboration stays within one region** (one company, one country). And bad when the people of one workspace are spread across the world.
 
-### 1.3 Writes and consensus — the price of physics
+### 1.3 Writes and consensus - the price of physics
 
 Reads can be brought close (replicas). Writes are harder, because a write needs an owner (5.7). And if you want writes to be durable across several regions, so that a write is not lost even if a region dies, the write's commit has to wait for another region's ack. `npm run latency` part B, a Raft-like majority commit (6.2):
 
@@ -119,9 +119,9 @@ A majority commit needs the ack of the **second-nearest** node. 2 ms across thre
 
 Most user-facing writes do not want to pay this price. So the usual path is: writes synchronous within one region (across AZs), and **asynchronous** to other regions, with a few seconds of lag. The price is those few seconds of writes when a region is lost. The next section's RPO.
 
-### 1.4 Disaster recovery — RPO, RTO and their prices
+### 1.4 Disaster recovery - RPO, RTO and their prices
 
-**RPO / RTO** — Recovery Point Objective: after a disaster, **how old** a state you are willing to return to, meaning the maximum span of writes you can tolerate losing (RPO 5 seconds = the last 5 seconds of writes may be lost). Recovery Time Objective: after a disaster, **how soon** you must be running again. Two separate levers, and both have a price. A small RPO is bought with replication, a small RTO with capacity already running somewhere else.
+**RPO / RTO** - Recovery Point Objective: after a disaster, **how old** a state you are willing to return to, meaning the maximum span of writes you can tolerate losing (RPO 5 seconds = the last 5 seconds of writes may be lost). Recovery Time Objective: after a disaster, **how soon** you must be running again. Two separate levers, and both have a price. A small RPO is bought with replication, a small RTO with capacity already running somewhere else.
 
 `npm run failover` part A: the Singapore region down for 4 hours, 300 req/s, 10% of them writes. Five strategies. Each one's RTO is the sum of its steps (assumed times), and the monthly extra cost is on top of 10.7's $8,276:
 
@@ -139,20 +139,20 @@ warm:        detect 5 → decide 10 → scale out 5 → replica promote 2 → DN
 active:      detect 2 → automatic promote (with witness) 1 → global LB / anycast 1
 ```
 
-**Active-Passive / Active-Active** — in active-passive one region takes traffic and another waits. There are three well-known levels of how ready it waits: **backup & restore** (only a copy of the data), **pilot light** (data on a running replica, compute off), **warm standby** (everything running at small size). In active-active every region takes traffic, so when one dies the others just take its share. The more preparation, the smaller the RTO and the bigger the monthly price.
+**Active-Passive / Active-Active** - in active-passive one region takes traffic and another waits. There are three well-known levels of how ready it waits: **backup & restore** (only a copy of the data), **pilot light** (data on a running replica, compute off), **warm standby** (everything running at small size). In active-active every region takes traffic, so when one dies the others just take its share. The more preparation, the smaller the RTO and the bigger the monthly price.
 
 Four things from the table:
 
 1. **RPO and RTO prices go opposite ways.** For $359 a month (backup), 2.2 hours down and on average **12 hours of writes lost** (a daily snapshot, with the disaster striking at any moment). For $833 a month (pilot light), an RPO of 5 seconds. The biggest leap in lost writes comes cheapest: one async replica. After that, every minute of RTO costs more.
 2. **Most of the RTO is human.** Of pilot light's 42 minutes, 15 are "decide": someone woke up, understood, asked someone, took responsibility for "shall we fail over?". Bigger than the restore or the boot. So a runbook (who decides, on which signal) and **practice** (10.3's game day) are the cheapest improvements to RTO.
-3. **Slow strategies buy nothing in a short outage.** Experiment 2: if the outage lasts 30 minutes, the region comes back before backup's or pilot light's failover is done. Only warm standby (27 minutes) and active-active help. And starting a failover midway brings another problem: the region came back, now there is data in two places — which is the truth? **Failback** (returning to the old region) is often harder than failover, because this time there is no rush, but data has moved in both directions.
+3. **Slow strategies buy nothing in a short outage.** Experiment 2: if the outage lasts 30 minutes, the region comes back before backup's or pilot light's failover is done. Only warm standby (27 minutes) and active-active help. And starting a failover midway brings another problem: the region came back, now there is data in two places - which is the truth? **Failback** (returning to the old region) is often harder than failover, because this time there is no rush, but data has moved in both directions.
 4. **The German customer's contract (RPO ≤ 1 minute, RTO ≤ 30 minutes):** backup is out, pilot light is out (42 minutes), warm standby just about fits (27 minutes), and only if the "decide" step takes 10 minutes, which means rules written in advance and practice. Active-active fits comfortably, at $3,836 a month. This is a business question: whether the contract's revenue (1.7) carries this cost.
 
-### 1.5 Moving traffic — DNS's tail and split brain
+### 1.5 Moving traffic - DNS's tail and split brain
 
 The last step of RTO: sending users' traffic to the new region.
 
-**Geo-Routing** — sending a user's request to one of the regions by their location or measured latency, and moving it to the others when a region dies. There are two main tools. **GeoDNS / latency-based DNS** gives different IPs for the same name in different places, and failover means changing the DNS answer. **Anycast / a global load balancer** announces the same IP from many places around the world (4.5), and the provider's network itself sends traffic to a healthy region, without changing DNS.
+**Geo-Routing** - sending a user's request to one of the regions by their location or measured latency, and moving it to the others when a region dies. There are two main tools. **GeoDNS / latency-based DNS** gives different IPs for the same name in different places, and failover means changing the DNS answer. **Anycast / a global load balancer** announces the same IP from many places around the world (4.5), and the provider's network itself sends traffic to a healthy region, without changing DNS.
 
 **The spaced repetition answer:** the TTL is lowered before a migration so that resolvers do not cache the old answer for long. But not everyone respects TTLs. `npm run failover` part B, an assumed mix of clients: 70% respect the TTL, 20% have resolvers that treat the TTL as at least 5 minutes, 10% hold on to the old IP for up to an hour (open connections, the app's own DNS cache). After DNS is changed, what % of traffic still goes to the dead region:
 
@@ -171,7 +171,7 @@ The difference between TTL 60 and 300 is only in the first few minutes. After th
 ```
 policy                                   failed writes  divergent writes  who could write
 no automatic failover                      15,300                   0  Singapore only; everyone else's writes fail
-Mumbai promotes itself after 2 minutes    3,060               2,160  both sides — two primaries (split brain)
+Mumbai promotes itself after 2 minutes    3,060               2,160  both sides - two primaries (split brain)
 with a witness (majority + lease, fencing)       5,625                   0  the Mumbai side; Singapore stops itself after 30 s
 ```
 
@@ -179,7 +179,7 @@ with a witness (majority + lease, fencing)       5,625                   0  the 
 - **Mumbai decides by what it sees:** fewer failed writes, but for 8 minutes **two primaries**. Singapore does not know it is "dead", and accepts 2,160 writes from its users. When the partition heals, these writes do not fit Mumbai's history. They have to be reconciled by hand, or they are lost. 6.1's split brain, at region scale.
 - **A witness:** a third region (say Frankfurt, a small node) votes. Becoming primary takes a majority, and a primary can renew its lease only by talking to a majority. Singapore is cut off, so when its lease ends after 30 seconds it **stops itself** (fencing). Two primaries never exist at once. The cost: Singapore's users' writes fail for 9.5 minutes (5,625 failed in total, fewer than not failing over). This is 6.2's Raft reasoning, at region scale. Automatic failover is safe only with a quorum and fencing. Otherwise the safest automatic failover is a button in a human's hand.
 
-### 1.6 Writes in several regions — the real cost of 6.4's pilot
+### 1.6 Writes in several regions - the real cost of 6.4's pilot
 
 Now the pile of support tickets. 6.4's pilot accepts writes in every region and reconciles them with LWW. How many writes is it losing?
 
@@ -198,17 +198,17 @@ writes to the workspace's home region      0        0%                    0     
 - **Reconciling per field cuts lost edits to a third.** One person changed the status, another the title: both survive. This is the cheapest improvement.
 - **HLC removes clock errors, not concurrency.** "Reversed by the clock" (one edit was written after seeing the other, but the old one won because of a lagging clock) is zero with HLC. Experiment 4: with Frankfurt's clock 2 seconds behind, 685 on the wall clock, 0 with HLC. But the 633 truly concurrent edits are lost with HLC too. 6.4's point: HLC preserves causality, it does not recognize concurrency.
 
-**Home Region** — every piece of data (here, every workspace) has one owning region, and all its writes go there, wherever the user is. Writing in one place means single-leader (5.7), so there are no write conflicts. A write from a user in another region pays one far round trip to reach home. 5.7's "avoid conflicts — the most common in practice."
+**Home Region** - every piece of data (here, every workspace) has one owning region, and all its writes go there, wherever the user is. Writing in one place means single-leader (5.7), so there are no write conflicts. A write from a user in another region pays one far round trip to reach home. 5.7's "avoid conflicts - the most common in practice."
 
 The cost, part B: 14.3% of joint-session edits come from another region, with extra latency of p50 119 ms, p95 235 ms. Of all edits, only 2.86% pay this price. And in exchange, from 2,068 silent losses a day to **zero**. For most products this is an easy decision: optimistic UI (the client shows its own write immediately) hides 119 ms, and no UI can hide a lost write.
 
 Where many people really do write the same text at once (rich-text descriptions, like Google Docs), instead of LWW use a **CRDT** or operational transform: data structures whose concurrent changes always merge by themselves, losing nothing (an automatic form of 6.4's siblings). The cost is complexity and metadata. And even then a home region often acts as the sequencer.
 
-### 1.7 Data residency and cells — where data goes
+### 1.7 Data residency and cells - where data goes
 
 The German contract: "all personal data inside the EU." The first plan was a database and app in Frankfurt. But data does not live only in the database.
 
-**Data Residency** — the obligation to store and process specific data (often personal data) inside a specific geographic boundary. It comes from contracts, or from a country's law (data localization). A caution: the EU's GDPR itself does not always require **keeping** data in the EU; it requires a legal basis and safeguards for **transferring** it out. Many contracts and some countries' laws are stricter than that. Which one applies is a lawyer's question, not an engineer's (not verified here). The engineer's question is: **which paths does the data actually take?**
+**Data Residency** - the obligation to store and process specific data (often personal data) inside a specific geographic boundary. It comes from contracts, or from a country's law (data localization). A caution: the EU's GDPR itself does not always require **keeping** data in the EU; it requires a legal basis and safeguards for **transferring** it out. Many contracts and some countries' laws are stricter than that. Which one applies is a lawyer's question, not an engineer's (not verified here). The engineer's question is: **which paths does the data actually take?**
 
 `npm run residency` counts this customer's (300 workspaces, 6,000 users) data paths, under three designs:
 
@@ -231,9 +231,9 @@ paths taking personal data outside                                              
 personal data going outside / month                                                                        6.9 TB              3.9 TB                0 GB
 ```
 
-**Moving the database and S3 to Frankfurt fixes only 2 of the 11 paths.** The other 9 are each a decision from almost every module of this course. 10.3's DR copy (in Singapore, because "another region"), 4.5's CDN (private files cached in PoPs around the world), 10.4's central logs and traces (user ids, IPs — IPs are personal data too), 8.3's search cluster, 7.6's analytics, 9.2's identity, and external services (email, the error tracker, whose request bodies nobody knows the contents of). Residency is not a database setting. It is a property of every path in the system.
+**Moving the database and S3 to Frankfurt fixes only 2 of the 11 paths.** The other 9 are each a decision from almost every module of this course. 10.3's DR copy (in Singapore, because "another region"), 4.5's CDN (private files cached in PoPs around the world), 10.4's central logs and traces (user ids, IPs - IPs are personal data too), 8.3's search cluster, 7.6's analytics, 9.2's identity, and external services (email, the error tracker, whose request bodies nobody knows the contents of). Residency is not a database setting. It is a property of every path in the system.
 
-**Cell-Based Architecture** — splitting a system into several independent, complete copies (cells). Each cell has its own app, database, cache, queue, logs and search, and each customer (or workspace) lives in exactly one cell. On top sits a thin global layer (routing, the identity directory, billing) that knows which customer is in which cell. Cells by region meet residency and latency. And several cells in the same region shrink the blast radius (10.3): a bad deploy or bad data in one cell touches only that cell's customers.
+**Cell-Based Architecture** - splitting a system into several independent, complete copies (cells). Each cell has its own app, database, cache, queue, logs and search, and each customer (or workspace) lives in exactly one cell. On top sits a thin global layer (routing, the identity directory, billing) that knows which customer is in which cell. Cells by region meet residency and latency. And several cells in the same region shrink the blast radius (10.3): a bad deploy or bad data in one cell touches only that cell's customers.
 
 In the full EU cell, no path takes personal data out. What does leave (metrics, aggregate analytics) carries no personal data, and that is guaranteed by design (10.4's label rules, analytics computed without user ids). The DR copy is in a second EU region (the resolution of 1.1's conflict: DR's "somewhere else" means somewhere else inside the boundary). In identity, the user's profile is in the EU, and the global directory holds only a hash of the email, mapping to "this user's home cell". The first step of login knows only that much.
 
@@ -257,23 +257,23 @@ A cell has a **fixed base cost**, however small the customer: the database's Mul
 
 ### 1.8 TaskFlow's decision
 
-> **Trade-off Table — four topologies, three reasons**
+> **Trade-off Table - four topologies, three reasons**
 
 | Topology                          | Latency (far users)                                            | DR (when a region is lost)            | Residency                               | Cost and complexity                                                |
 | --------------------------------- | -------------------------------------------------------------- | ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| One region + CDN edge             | Shorter handshake; every call far (London 599 ms)              | Nothing, or backups (RPO hours)       | One place — either it fits or not       | Lowest                                                             |
-| + read replica in every region    | Fast reads (131 ms); slow writes (355), RYW breaks             | Promote a replica — like pilot light  | Data spreads to every region ✗          | App + replica per region; RYW design                               |
+| One region + CDN edge             | Shorter handshake; every call far (London 599 ms)              | Nothing, or backups (RPO hours)       | One place - either it fits or not       | Lowest                                                             |
+| + read replica in every region    | Fast reads (131 ms); slow writes (355), RYW breaks             | Promote a replica - like pilot light  | Data spreads to every region ✗          | App + replica per region; RYW design                               |
 | Active-passive (warm standby)     | No gain                                                        | RTO 27 min, RPO 5 s                   | ✓ if the standby is inside the boundary | +$1,259; practising failover                                       |
 | Active-active, home region (cell) | Everything fast in your own region; slow in others' workspaces | One region's cells lost, the rest run | ✓ cells by region                       | Each cell's base cost; a global layer; everything N times          |
 | Active-active, writes everywhere  | Everything fast                                                | RTO minutes                           | ✗                                       | Write conflicts (thousands of lost writes a day), the most complex |
 
 **Now:** TLS at the CDN edge and one call in the BFF (London's board from 925 to ~209 ms, measured in the model, with no second region). A DNS TTL of 60 s. 6.4's multi-region write pilot **shut down**: all writes in one place again, after first moving it to per-field LWW + HLC for as long as it takes to shut it down.
 
-**DR (for everyone):** an async replica of Singapore's database in Mumbai, S3 replication, and the ability to run the whole stack in Mumbai through IaC: pilot light, RPO ~5 s, RTO ~40 minutes, ~$833 a month. A written runbook: on which signal, who decides, every step. Failover in human hands, with one button — not automatic without a witness. A game day every six months (10.3), in which traffic really is moved to Mumbai and back. The failback part is practised too.
+**DR (for everyone):** an async replica of Singapore's database in Mumbai, S3 replication, and the ability to run the whole stack in Mumbai through IaC: pilot light, RPO ~5 s, RTO ~40 minutes, ~$833 a month. A written runbook: on which signal, who decides, every step. Failover in human hands, with one button - not automatic without a witness. A game day every six months (10.3), in which traffic really is moved to Mumbai and back. The failback part is practised too.
 
 **EU cell (with the German contract):** a complete cell in Frankfurt, including every path of personal data (logs, traces, search, the error tracker, the email provider's EU processing, the CDN cache for private files off or on EU edges only). DR in another EU region, warm standby, to meet RTO ≤ 30 minutes. Only metrics and aggregate analytics leave, with no user-level data. The global layer: routing (workspace → cell), the identity directory (email hash → cell), billing. This layer is small, almost read-only, and each cell keeps a cache of it (10.3's static stability: cells keep running even if the global layer dies). When a new workspace is created, the customer chooses its region themselves, and changing it later is a migration, not a click.
 
-**Later, if needed:** if more customers come in London and New York, open the Frankfurt and Virginia cells to ordinary customers too (home regions). A read replica in every region: **no** — it breaks residency and slows writes.
+**Later, if needed:** if more customers come in London and New York, open the Frankfurt and Virginia cells to ordinary customers too (home regions). A read replica in every region: **no** - it breaks residency and slows writes.
 
 ---
 
@@ -288,10 +288,10 @@ Multi-region comes at the end of almost every big design question: "now make it 
 
 **Follow-ups that are almost certain:**
 
-- _"Why not use a global database (Spanner, CockroachDB, DynamoDB global tables)?"_ — they do not remove the problem, they make its price explicit. If synchronous, every write's commit needs a majority ack across regions (60 ms+ across three regions). If multi-leader async, conflicts and LWW. The question is which price you are choosing.
-- _"In active-active, what if the same row is written in two regions?"_ — LWW (silent loss; reduced per field, HLC removes clock errors), CRDTs (merge by themselves, complex), or a home region (no conflicts, one round trip for far writes). Give numbers: conflicts jump when the link is bad.
-- _"How would you automate failover?"_ — a partition and a death cannot be told apart. So a quorum (a witness in a third region) and fencing with leases. Otherwise split brain. In many places database failover is deliberately kept in human hands.
-- _"We want RPO zero."_ — then every write's commit waits for another region's ack. The price on every write is the RTT to the second-nearest region. Which data really needs zero (money), and for which is 5 seconds fine (a task's title)?
+- _"Why not use a global database (Spanner, CockroachDB, DynamoDB global tables)?"_ - they do not remove the problem, they make its price explicit. If synchronous, every write's commit needs a majority ack across regions (60 ms+ across three regions). If multi-leader async, conflicts and LWW. The question is which price you are choosing.
+- _"In active-active, what if the same row is written in two regions?"_ - LWW (silent loss; reduced per field, HLC removes clock errors), CRDTs (merge by themselves, complex), or a home region (no conflicts, one round trip for far writes). Give numbers: conflicts jump when the link is bad.
+- _"How would you automate failover?"_ - a partition and a death cannot be told apart. So a quorum (a witness in a third region) and fencing with leases. Otherwise split brain. In many places database failover is deliberately kept in human hands.
+- _"We want RPO zero."_ - then every write's commit waits for another region's ack. The price on every write is the RTT to the second-nearest region. Which data really needs zero (money), and for which is 5 seconds fine (a task's title)?
 
 **In real production:** the most common incidents: a DR region that was never tested, and on the day of the disaster config, secrets or quotas turn out to be missing. Long DNS TTLs. Automatic failover on a network blip, followed by split brain. Read replicas far away, and complaints about read-your-writes. Multi-leader LWW whose losses nobody counts. Claims of "data in the EU" while logs, backups and search are in Singapore. And a global layer (identity, routing) that is itself a single point of failure, taking every cell down at once.
 
@@ -299,7 +299,7 @@ Multi-region comes at the end of almost every big design question: "now make it 
 
 ## 3. Key Takeaway
 
-- **Multi-region's three reasons (latency, DR, residency) call for three different designs, and sometimes work against each other.** Cheap paths first: TLS at the CDN edge takes London's board from 925 to 599 ms, and with one call in the BFF, 209 ms — without any second region
+- **Multi-region's three reasons (latency, DR, residency) call for three different designs, and sometimes work against each other.** Cheap paths first: TLS at the CDN edge takes London's board from 925 to 599 ms, and with one call in the BFF, 209 ms - without any second region
 - **Distance multiplies across round trips, and moving the app away from the DB is the worst move.** A far read replica makes reads fast (131 ms), but London's writes go from 192 to 355 ms, and reads after writes are stale 61% of the time
 - **The price of durable writes across regions is the RTT to the second-nearest region.** 2 ms across three AZs, 60 ms across three regions. An odd number, the leader near the writers. So most writes are sync within a region and async beyond it
 - **RPO and RTO can be bought, at an explicit price.** An async replica (pilot light, $833) brings RPO from 12 hours to 5 seconds. Every minute of RTO costs more after that (active-active $3,836, 4 minutes). The biggest part of RTO is the human decision, hence runbooks and practice. In a short outage slow strategies buy nothing
@@ -314,12 +314,12 @@ Multi-region comes at the end of almost every big design question: "now make it 
 | Term                                  | Meaning                                                                                                                                                                                                                                                  |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **RPO / RTO**                         | RPO = the maximum span of writes you tolerate losing in a disaster (bought with replication); RTO = how soon you are running again (bought with capacity already running, and practice). Two separate levers, each with a monthly price                  |
-| **Active-Passive / Active-Active**    | Active-passive: one region takes traffic, another waits — backup & restore, pilot light (data running, compute off), warm standby (everything running at small size). Active-active: every region takes traffic                                          |
-| **Geo-Routing**                       | Sending users to a region by location or latency, and moving them when a region dies — GeoDNS (failover has DNS's tail) or anycast / a global load balancer (DNS does not change)                                                                        |
-| **Witness (the quorum's third vote)** | A small node in a third region that forms the majority in the failover vote; a primary can renew its lease only with a majority, and stops itself when cut off — preventing split brain at region scale (6.1, 6.2)                                       |
-| **Home Region**                       | Every piece of data (like a workspace) has one owning region, and all writes go there — single-leader across regions, no write conflicts; the cost is one far round trip on writes from users in other regions                                           |
+| **Active-Passive / Active-Active**    | Active-passive: one region takes traffic, another waits - backup & restore, pilot light (data running, compute off), warm standby (everything running at small size). Active-active: every region takes traffic                                          |
+| **Geo-Routing**                       | Sending users to a region by location or latency, and moving them when a region dies - GeoDNS (failover has DNS's tail) or anycast / a global load balancer (DNS does not change)                                                                        |
+| **Witness (the quorum's third vote)** | A small node in a third region that forms the majority in the failover vote; a primary can renew its lease only with a majority, and stops itself when cut off - preventing split brain at region scale (6.1, 6.2)                                       |
+| **Home Region**                       | Every piece of data (like a workspace) has one owning region, and all writes go there - single-leader across regions, no write conflicts; the cost is one far round trip on writes from users in other regions                                           |
 | **Cell-Based Architecture**           | Splitting a system into independent, complete copies (cells), each customer in one cell, with a thin global layer on top (routing, identity directory, billing); gives residency, latency and a small blast radius, at the cost of each cell's base cost |
-| **Data Residency**                    | The obligation to store and process specific data inside a specific boundary (from a contract or law); not a database setting but a property of every path — backups, CDN, logs, traces, search, analytics, external services                            |
+| **Data Residency**                    | The obligation to store and process specific data inside a specific boundary (from a contract or law); not a database setting but a property of every path - backups, CDN, logs, traces, search, analytics, external services                            |
 
 ---
 
@@ -341,25 +341,25 @@ Think before you look at the answers. Write at least two or three lines in your 
 (a) RPO ≤ 1 minute means an async replica (pilot light or above). RTO ≤ 30 minutes means warm standby or active-active. The second region must be inside the EU, a failure domain separate from Frankfurt (say Ireland or Paris). The warm standby steps:
 
 ```
-detect          5 min   (10.4's burn rate page — Frankfurt's SLI, measured from outside)
+detect          5 min   (10.4's burn rate page - Frankfurt's SLI, measured from outside)
 decide         10 min   (conditions written in the runbook in advance; who decides, by name)
 scale out       5 min   (the standby's app from 2 → full size; autoscaling max raised in advance)
-promote         2 min   (replica → primary, fencing Frankfurt — so the old primary cannot write)
+promote         2 min   (replica → primary, fencing Frankfurt - so the old primary cannot write)
 traffic         5 min   (DNS TTL 60 s, or one click on the global LB)
-total          27 min   — under the 30 limit, but with only 3 minutes of margin
+total          27 min   - under the 30 limit, but with only 3 minutes of margin
 ```
 
-The most uncertain is **decide**. In a partial outage (some services slow, some fine), the argument over "is this bad enough for a failover?" easily takes 20 minutes. The remedy: conditions in numbers in the runbook ("Frankfurt's success SLI below 90% for 10 minutes, and a region-level incident on the provider's status page — fail over, without asking"). And the annual proof is not just for the contract; it is the only way to know whether these 27 minutes really are 27. The second uncertainty: something exists in prod but not in the standby (a secret, a new queue, a quota). So the standby's config comes from the same IaC as prod, with a diff in CI.
+The most uncertain is **decide**. In a partial outage (some services slow, some fine), the argument over "is this bad enough for a failover?" easily takes 20 minutes. The remedy: conditions in numbers in the runbook ("Frankfurt's success SLI below 90% for 10 minutes, and a region-level incident on the provider's status page - fail over, without asking"). And the annual proof is not just for the contract; it is the only way to know whether these 27 minutes really are 27. The second uncertainty: something exists in prod but not in the standby (a secret, a new queue, a quota). So the standby's config comes from the same IaC as prod, with a diff in CI.
 
 (b) The start of the runbook:
 
 1. **Condition:** Frankfurt's board/login SLI < 90% for 10 minutes (from an external synthetic probe), **or** the provider has declared a region-level incident in Frankfurt. The on-call engineer opens an incident and calls the EU cell's owner (name, alternate name).
 2. **Decision:** the EU cell's owner or the on-call lead, within 5 minutes, against this runbook's conditions. At most 10 minutes for "let's wait a little longer".
-3. **Fencing first:** stop writes to Frankfurt's database (close the app's connections in the security group, or make the DB read-only) — if it can be reached. If not, rely on the witness's lease (it will stop itself).
+3. **Fencing first:** stop writes to Frankfurt's database (close the app's connections in the security group, or make the DB read-only) - if it can be reached. If not, rely on the witness's lease (it will stop itself).
 4. **Promote and scale the standby:** one script (`dr-failover eu`), run again and again on game days. Promote the replica, bring the app's minimum capacity to full size.
 5. **Traffic:** change the EU cell's target on the global LB. Notify the status page and the customer's contacts (the contract has a notice period).
 
-(c) This is the subtlest question in cell design. The global layer is in Singapore; if Singapore dies, the first step of a new login (email → which cell) cannot answer. The design: (1) **cache the directory in every cell** (10.3's static stability) — the EU cell knows its own users, so an EU user's login completes in the EU cell, without the global layer. (2) The routing list (workspace → cell) lives in the global LB's config, with a copy in every cell too. (3) The global layer itself runs in several regions (small, almost read-only, so cheap to replicate), and its data holds no personal information, only hashes and cell ids. The test: on a game day, switch off the global layer and see whether EU users can log in and work. If not, your "independent" cell is not actually independent.
+(c) This is the subtlest question in cell design. The global layer is in Singapore; if Singapore dies, the first step of a new login (email → which cell) cannot answer. The design: (1) **cache the directory in every cell** (10.3's static stability) - the EU cell knows its own users, so an EU user's login completes in the EU cell, without the global layer. (2) The routing list (workspace → cell) lives in the global LB's config, with a copy in every cell too. (3) The global layer itself runs in several regions (small, almost read-only, so cheap to replicate), and its data holds no personal information, only hashes and cell ids. The test: on a game day, switch off the global layer and see whether EU users can log in and work. If not, your "independent" cell is not actually independent.
 
 **Question 2:**
 
@@ -380,7 +380,7 @@ The most uncertain is **decide**. In a partial outage (some services slow, some 
 
 - **Login:** the browser gives the email to the global layer. The global directory holds only `hash(email) → [EU cell, SG cell]`. Login (password or SSO) happens in the user's **home cell**, where their credential lives (see c below). After login, a token that both cells can verify (10.5's JWT, each cell holding the public key). The token holds only the user id, no personal data.
 - **"All my work":** the browser (or BFF) asks each cell separately, with the user's token, and the results are joined **in the browser** or in the BFF of the user's own region. The EU task list goes straight from the EU cell to the user, and is not stored in any other cell. A global "all work" table (a copy of every cell's tasks) is the simplest design, and exactly what breaks residency.
-- **Search:** the same pattern — each cell's own index, query fan-out (5.8's scatter-gather), results joined on the user's side. No global index.
+- **Search:** the same pattern - each cell's own index, query fan-out (5.8's scatter-gather), results joined on the user's side. No global index.
 
 (b) When one cell dies (10.3): that part of the fan-out fails on timeout. The page does not break entirely. It shows the work from the other cell, with a clear message: "work from EU workspaces cannot be shown right now." This is a soft dependency. A short timeout (one slow cell should not make the whole page slow), and a breaker for that cell (9.4).
 
@@ -392,9 +392,9 @@ The most uncertain is **decide**. In a partial outage (some services slow, some 
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (four deterministic models; no cloud account or Docker needed)
+**Tier 1 - Runnable Code** (four deterministic models; no cloud account or Docker needed)
 
-> **Ready to run in the repo:** [`exercises/lesson-10.8-multi-region/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.8-multi-region) — `npm install`, then `npm run latency`, `npm run failover`, `npm run conflicts`, `npm run residency`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-10.8-multi-region/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.8-multi-region) - `npm install`, then `npm run latency`, `npm run failover`, `npm run conflicts`, `npm run residency`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `latency` runs users from five cities through four topologies: opening a board, creating a task, stale reads after writes. Plus majority commits across regions. `failover` covers five DR strategies in Singapore's four-hour outage (RTO, RPO, cost), the tail after a DNS change, and three failover policies under a partition. `conflicts` compares three LWW rules and home regions over a day of a million edits. `residency` counts an EU customer's 12 data paths under three designs, and compares a cell's cost with its revenue.
 
@@ -406,7 +406,7 @@ The most uncertain is **decide**. In a partial outage (some services slow, some 
 
 2. **Your own DR:** `DECIDE_MINUTES=3 npm run failover` and `DECIDE_MINUTES=30 npm run failover`. How much does each strategy's RTO move? Then, together with `OUTAGE_MINUTES=30`, say: if most of TaskFlow's region outages last less than an hour, which strategy actually buys anything?
 
-3. **The conflict window:** `CROSS_REGION=0.6 npm run conflicts`, then `INCIDENT_LAG_S=60`. How do lost edits grow? Who actually controls these two numbers in TaskFlow — product, or infrastructure?
+3. **The conflict window:** `CROSS_REGION=0.6 npm run conflicts`, then `INCIDENT_LAG_S=60`. How do lost edits grow? Who actually controls these two numbers in TaskFlow - product, or infrastructure?
 
 4. **A fifth region:** add `tokyo` to `src/geo.ts` (RTTs by your estimate), and a five-region row to `latency.ts`'s consensus table. What is the commit, and how many regions can be lost? Why is it better than four regions?
 
@@ -419,7 +419,7 @@ The most uncertain is **decide**. In a partial outage (some services slow, some 
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1, 2, 3, 4, 5, 6, 7, 8, 9 (complete, with exit challenges), 10.1 – 10.7
-Current: 10.8 — Multi-region & geo-distribution
+Current: 10.8 - Multi-region & geo-distribution
 TaskFlow state: modular monolith + billing; gateway + BFF; saga; breaker + bulkhead; rate limits; cache ring;
 Bloom/HLL; brownout; OpenTelemetry, burn rate; AuthN/AuthZ, OAuth PKCE, secret manager, DDoS layers;
 graceful shutdown, canary + gate, flags, expand/contract; bill $8,276 (autoscale, commit, endpoints,
@@ -435,7 +435,7 @@ Frankfurt: every path of personal data (logs, traces, search, error tracker, the
 processing, CDN cache), DR as warm standby in another EU region (RTO ~27 min), only metrics and aggregate
 analytics leave; a small global layer (routing, hash(email) → cell, billing), a cache of it in every cell
 (static stability); region chosen when a workspace is created. The cell costs ~$4,870/month (13% of the
-first EU customer's revenue). A read replica in every region — no (breaks both residency and writes).
+first EU customer's revenue). A read replica in every region - no (breaks both residency and writes).
 Terms learned (Module 10): Hash Ring, Virtual Node, Preference List, Rendezvous Hashing (HRW), Jump
 Consistent Hash, Bounded-Load Consistent Hashing, Hash Slot, Probabilistic Data Structure, Bloom Filter,
 False Positive Rate, Counting Bloom Filter, Cardinality, HyperLogLog, Count-Min Sketch, Fault Tolerance,
@@ -446,7 +446,7 @@ Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canar
 Version Skew, Lock Queue, Expand / Contract, Unit Economics, Cost Allocation, Commitment Discount, Spot
 Instance, Data Transfer Cost, Storage Tiering, Cost Anomaly Detection, RPO / RTO, Active-Passive /
 Active-Active, Geo-Routing, Witness, Home Region, Cell-Based Architecture, Data Residency
-Weak spots: [where you got stuck — write it yourself]
+Weak spots: [where you got stuck - write it yourself]
 Next: Module 10 Exit Challenge
 =======================
 ```
@@ -457,4 +457,4 @@ Next: Module 10 Exit Challenge
 
 Today's thread: **multi-region is three different problems with three different answers, each with an explicit price.** Distance multiplies across round trips, so first cut round trips, then bring reads closer. Bring writes closer and you pay in consistency; make written data durable and you pay in latency. RPO and RTO can be bought, and a big part of them is human practice. The real danger of failover is the partition, and its answer is a quorum. And data residency is not a database setting but a property of every path in the system.
 
-Module 10 ends here. Over eight lessons, eight layers were put on TaskFlow: consistent hashing and probabilistic structures, fault tolerance and chaos, observability, security, safe deploys, cost, and multi-region. In each lesson we measured one question in isolation. In reality, one bad night brings them all at once: a region outage, a canary in the middle of it, a DDoS, and a bill at the end of the month. When you are ready, write `next` — we go to the **Module 10 Exit Challenge**. There I will give you an incident timeline with a piece of every lesson in this module in it. You will read it and say what broke, why, and which decision could have stopped it. Then a checklist and a reading list.
+Module 10 ends here. Over eight lessons, eight layers were put on TaskFlow: consistent hashing and probabilistic structures, fault tolerance and chaos, observability, security, safe deploys, cost, and multi-region. In each lesson we measured one question in isolation. In reality, one bad night brings them all at once: a region outage, a canary in the middle of it, a DDoS, and a bill at the end of the month. When you are ready, write `next` - we go to the **Module 10 Exit Challenge**. There I will give you an incident timeline with a piece of every lesson in this module in it. You will read it and say what broke, why, and which decision could have stopped it. Then a checklist and a reading list.

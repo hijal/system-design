@@ -181,7 +181,7 @@ for (const design of DESIGNS) {
 			[pct(result.worstMinute, 1), 20],
 			[result.minutesShort, 14],
 			[n(result.failedBootAttempts), 14],
-			[design.perRequest ? '—' : `${(result.maxStaleness / 60).toFixed(0)} minutes`, 25]
+			[design.perRequest ? '-' : `${(result.maxStaleness / 60).toFixed(0)} minutes`, 25]
 		])
 	);
 }

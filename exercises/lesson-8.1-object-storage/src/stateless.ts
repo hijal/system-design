@@ -7,17 +7,17 @@ import { z } from 'zod';
 import { checkServices, emptyBucket, env, getObject, pgPool, putObject } from './storage';
 import { mulberry32 } from './random';
 
-// Lesson 8.1 §1.3 — what happens if attachments are kept on the app server's own disk?
+// Lesson 8.1 §1.3 - what happens if attachments are kept on the app server's own disk?
 //
-// Two Express instances (A and B) behind a load balancer — 6 in the real TaskFlow (Module 3). The same
+// Two Express instances (A and B) behind a load balancer - 6 in the real TaskFlow (Module 3). The same
 // route, only the place files are kept differs:
-//   local  — each instance in a folder on its own disk (data/instance-a, data/instance-b)
-//   object — both in the same bucket
-// The load balancer two ways: round robin, and sticky (the same instance per user — Lesson 3.4).
+//   local  - each instance in a folder on its own disk (data/instance-a, data/instance-b)
+//   object - both in the same bucket
+// The load balancer two ways: round robin, and sticky (the same instance per user - Lesson 3.4).
 //
 // USERS users, each uploads FILES_PER_USER files; then (1) the uploader opens them again,
-// (2) a teammate opens them, (3) instance A is replaced (deploy/scale-in — a new container, an empty disk), and they are opened again.
-// Seeded — exactly the same numbers every time.
+// (2) a teammate opens them, (3) instance A is replaced (deploy/scale-in - a new container, an empty disk), and they are opened again.
+// Seeded - exactly the same numbers every time.
 
 const cfg = z
 	.object({
@@ -48,7 +48,7 @@ class LocalDiskStore implements AttachmentStore {
 		}
 	}
 	async replaceInstance(): Promise<void> {
-		// a new container's disk is empty — the disk went with the old one
+		// a new container's disk is empty - the disk went with the old one
 		await rm(this.dir, { recursive: true, force: true });
 	}
 }
@@ -61,13 +61,13 @@ class ObjectStore implements AttachmentStore {
 		return getObject(env.BUCKET, `stateless/${id}`);
 	}
 	async replaceInstance(): Promise<void> {
-		// the new instance talks to the same bucket — nothing to lose
+		// the new instance talks to the same bucket - nothing to lose
 	}
 }
 
 const idSchema = z.string().regex(/^[a-z0-9-]+$/);
 
-// Express 4 doesn't catch an async handler's rejection itself — catch it and pass it to next(), otherwise the process crashes
+// Express 4 doesn't catch an async handler's rejection itself - catch it and pass it to next(), otherwise the process crashes
 type Handler<P> = (req: Request<P>, res: Response) => Promise<void>;
 const handle =
 	<P>(fn: Handler<P>) =>
@@ -75,7 +75,7 @@ const handle =
 		fn(req, res).catch(next);
 	};
 
-// a seeded shuffle — many users at once, so the requests don't arrive grouped by user
+// a seeded shuffle - many users at once, so the requests don't arrive grouped by user
 function shuffled<T>(items: T[], random: () => number): T[] {
 	const out = [...items];
 	for (let i = out.length - 1; i > 0; i--) {
@@ -89,7 +89,7 @@ function shuffled<T>(items: T[], random: () => number): T[] {
 	return out;
 }
 
-// one TaskFlow API instance — only the two attachment routes
+// one TaskFlow API instance - only the two attachment routes
 function startInstance(store: AttachmentStore): Promise<{ url: string; server: Server }> {
 	const app = express();
 	app.put(
@@ -97,7 +97,7 @@ function startInstance(store: AttachmentStore): Promise<{ url: string; server: S
 		express.raw({ type: '*/*', limit: '20mb' }),
 		handle<{ id: string }>(async (req, res) => {
 			const id = idSchema.parse(req.params.id);
-			// express.raw's body is a Buffer, but unknown in the type — validate it
+			// express.raw's body is a Buffer, but unknown in the type - validate it
 			const body = z.instanceof(Buffer).parse(req.body);
 			await store.put(id, body);
 			res.status(201).json({ id });
@@ -138,7 +138,7 @@ async function run(name: string, kind: 'local' | 'object', balancer: Balancer): 
 	const instances = await Promise.all(stores.map(startInstance));
 
 	// Load balancer: which request goes to which instance. Sticky = from a hash of the user's id (like an instance
-	// written in a cookie) — the same user always on the same instance
+	// written in a cookie) - the same user always on the same instance
 	let turn = 0;
 	const pick = (userId: number): string => {
 		const hash = Math.imul(userId + 1, 2654435761) >>> 0;
@@ -149,7 +149,7 @@ async function run(name: string, kind: 'local' | 'object', balancer: Balancer): 
 	const random = mulberry32(cfg.SEED);
 	const planned = Array.from({ length: cfg.USERS * cfg.FILES_PER_USER }, (_, i) => {
 		const owner = Math.floor(i / cfg.FILES_PER_USER);
-		// teammate: anyone other than the owner — their own sticky instance may be different
+		// teammate: anyone other than the owner - their own sticky instance may be different
 		const teammate = (owner + 1 + Math.floor(random() * (cfg.USERS - 1))) % cfg.USERS;
 		return {
 			id: `u${owner}-f${i % cfg.FILES_PER_USER}`,

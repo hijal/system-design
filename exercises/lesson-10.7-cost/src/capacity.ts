@@ -19,7 +19,7 @@ import { heading, n, pct, row, usd } from './util';
 
 const weekRequests = demand.reduce((a, b) => a + b, 0) * 60;
 heading(
-	`Part A — one week: average ${AVG_RPS} req/s, peak ${n(peak)} req/s (marketing email at 10 on Wednesday), ${PER_INSTANCE} req/s per instance, ${BOOT_MINUTES} minutes to start`
+	`Part A - one week: average ${AVG_RPS} req/s, peak ${n(peak)} req/s (marketing email at 10 on Wednesday), ${PER_INSTANCE} req/s per instance, ${BOOT_MINUTES} minutes to start`
 );
 console.log(
 	row([
@@ -51,7 +51,7 @@ for (const policy of POLICIES) {
 	);
 }
 console.log(
-	'\n("overflowing req" = requests above capacity in that minute — slow, queued, or 503; "in spike" = the 3 hours on Wednesday)'
+	'\n("overflowing req" = requests above capacity in that minute - slow, queued, or 503; "in spike" = the 3 hours on Wednesday)'
 );
 
 const reactive = results.get('reactive');
@@ -59,7 +59,7 @@ if (reactive) {
 	const usage = reactive.hourly;
 	const maxUse = Math.ceil(Math.max(...usage));
 	heading(
-		`Part B — commitment (savings plan / reserved): on reactive's hourly usage, ${Math.round(P.commitDiscount * 100)}% discount`
+		`Part B - commitment (savings plan / reserved): on reactive's hourly usage, ${Math.round(P.commitDiscount * 100)}% discount`
 	);
 	console.log(
 		row([
@@ -88,12 +88,12 @@ if (reactive) {
 		);
 	}
 	console.log(
-		`\n(rule: one more unit of commit pays off as long as usage stays above it > ${Math.round((1 - P.commitDiscount) * 100)}% of the hours — i.e. the complement of the discount)`
+		`\n(rule: one more unit of commit pays off as long as usage stays above it > ${Math.round((1 - P.commitDiscount) * 100)}% of the hours - i.e. the complement of the discount)`
 	);
 }
 
 heading(
-	"Part C — 10.5's L7 flood: 60,000 req/s, 4 hours, 30 KB per answer — what the bill is depending on where it is stopped"
+	"Part C - 10.5's L7 flood: 60,000 req/s, 4 hours, 30 KB per answer - what the bill is depending on where it is stopped"
 );
 const FLOOD_RPS = 60_000;
 const FLOOD_SECONDS = 4 * 3_600;
@@ -161,5 +161,5 @@ for (const s of STOPS) {
 	);
 }
 console.log(
-	'\n(many CDNs/providers waive or separate the bill for DDoS traffic — check their terms; list prices are assumed here)'
+	'\n(many CDNs/providers waive or separate the bill for DDoS traffic - check their terms; list prices are assumed here)'
 );

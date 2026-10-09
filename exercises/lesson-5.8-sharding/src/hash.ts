@@ -1,8 +1,8 @@
-// The hash for shard routing — it needs two things:
-//   1. Stable: the same key always gives the same number — on any app instance, at any time
+// The hash for shard routing - it needs two things:
+//   1. Stable: the same key always gives the same number - on any app instance, at any time
 //   2. Well mixed: nearly identical keys ("shard3#vn1", "shard3#vn2") must give completely different numbers
 //
-// FNV-1a alone gives (1), but is weak at (2) on short, nearly identical strings — measured in this exercise:
+// FNV-1a alone gives (1), but is weak at (2) on short, nearly identical strings - measured in this exercise:
 // on the consistent hashing ring one shard was getting 47% of keys, another 12%. So at the end MurmurHash3's
 // finalizer (fmix32) mixes the bits further. (Production usually uses a tested hash like MurmurHash3
 // or xxHash.)

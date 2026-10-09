@@ -1,27 +1,27 @@
-// Lesson 7.4 §1.2 — Idempotent consumer: five strategies, counting **every** crash point and **every**
+// Lesson 7.4 §1.2 - Idempotent consumer: five strategies, counting **every** crash point and **every**
 // interleaving of each.
 //
 // The job: "send an email to the user mentioned in a comment". The queue is at-least-once (7.2, 7.3), so the same message
-// can arrive again — in two ways:
+// can arrive again - in two ways:
 //   (a) the first delivery crashed halfway, no ack → the broker delivered it again (one after the other)
 //   (b) the first worker was stuck so its lock expired, a second worker picked it up too → both **at once** (7.3's stalled)
 //
-// Every step is taken as atomic (one database statement, one API call). Nothing is random — every possibility
+// Every step is taken as atomic (one database statement, one API call). Nothing is random - every possibility
 // is counted, so the output is exactly the same every time.
 
 type Status = 'pending' | 'sent';
 
 interface World {
-	// processed_messages / sent_notifications table — a unique constraint on key
+	// processed_messages / sent_notifications table - a unique constraint on key
 	db: Map<string, Status>;
-	// how many emails the user actually got (or how many times the counter went up) — this is what we measure
+	// how many emails the user actually got (or how many times the counter went up) - this is what we measure
 	effects: number;
 	// the provider's own idempotency: it does not send a key it has seen before again
 	providerKeys: Set<string>;
 	acked: boolean;
 }
 
-// 'skip' means "the work is already done" — skip the remaining steps and ack directly
+// 'skip' means "the work is already done" - skip the remaining steps and ack directly
 type StepResult = 'next' | 'skip';
 interface Step {
 	label: string;
@@ -59,7 +59,7 @@ const ack: Step = {
 	}
 };
 
-// skip if 'sent'; if 'pending', someone before stopped halfway — the work has to be tried again
+// skip if 'sent'; if 'pending', someone before stopped halfway - the work has to be tried again
 const claimPending: Step = {
 	label: 'claimed (pending)',
 	run: (w) => {
@@ -99,7 +99,7 @@ const strategies: Strategy[] = [
 		steps: [
 			{
 				label: 'claimed in the table',
-				// INSERT … ON CONFLICT DO NOTHING — skip if the row already exists
+				// INSERT … ON CONFLICT DO NOTHING - skip if the row already exists
 				run: (w) => {
 					if (w.db.has(KEY)) return 'skip';
 					w.db.set(KEY, 'sent');
@@ -124,7 +124,7 @@ const strategies: Strategy[] = [
 			{
 				label: 'transaction: claim + effect',
 				// BEGIN; INSERT processed_messages …; UPDATE usage SET count = count + 1; COMMIT
-				// — both happen together or neither does
+				// - both happen together or neither does
 				run: (w) => {
 					if (w.db.has(KEY)) return 'skip';
 					w.db.set(KEY, 'sent');
@@ -174,7 +174,7 @@ function crashThenRedeliver(strategy: Strategy, crashAfter: number | null): numb
 	return w.effects;
 }
 
-// (b) two deliveries at once: at every moment, who runs the next step — counting every possible order
+// (b) two deliveries at once: at every moment, who runs the next step - counting every possible order
 function allInterleavings(strategy: Strategy): number[] {
 	const outcomes: number[] = [];
 	const explore = (w: World, a: number, b: number): void => {
@@ -208,7 +208,7 @@ for (const strategy of strategies) {
 	console.log(`   ${strategy.name}`);
 	let lost = 0;
 	let dup = 0;
-	const points = strategy.steps.length - 1; // a crash after the ack means the work is done — no need to count it
+	const points = strategy.steps.length - 1; // a crash after the ack means the work is done - no need to count it
 	console.log(`        ${'no crash'.padEnd(44)} ${verdict(crashThenRedeliver(strategy, null))}`);
 	for (let c = 0; c < points; c++) {
 		const effects = crashThenRedeliver(strategy, c);
@@ -223,7 +223,7 @@ for (const strategy of strategies) {
 
 console.log('── (b) two workers on the same message at once (stalled) ──────────────────');
 console.log(
-	'   every order in which the steps of the two deliveries can interleave — all of them\n'
+	'   every order in which the steps of the two deliveries can interleave - all of them\n'
 );
 for (const s of summary) {
 	const twice = s.race.filter((e) => e > 1).length;

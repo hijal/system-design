@@ -47,7 +47,7 @@ export function createCatalog(
 	function entry(id: string, title: string, kind: Lesson['kind'], moduleId: number): Lesson {
 		const raw = contents.get(`${id}:${locale}`) ?? '';
 		const body = lessonBody(raw);
-		const translatedHeading = raw.match(/^#\s+(?:Lesson\s+\d+\.\d+\s*[—–:-]\s*)?(.+)$/m)?.[1];
+		const translatedHeading = raw.match(/^#\s+(?:Lesson\s+\d+\.\d+\s*[-–:-]\s*)?(.+)$/m)?.[1];
 		return {
 			id,
 			title:
@@ -103,7 +103,7 @@ function truncate(text: string, max: number): string {
 	if (text.length <= max) return text;
 	const cut = text.slice(0, max - 1);
 	const space = cut.lastIndexOf(' ');
-	return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:—–-]+$/, '')}…`;
+	return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,;:–-]+$/, '')}…`;
 }
 export function lessonDescription(lesson: Lesson, moduleTitle: string, raw: string): string {
 	const body = lessonBody(raw);
@@ -112,6 +112,6 @@ export function lessonDescription(lesson: Lesson, moduleTitle: string, raw: stri
 			? body.split(/\n\s*\n/).find((block) => /^[^\s#>*|`<\d-]/.test(block.trim()))
 			: body.match(objective)?.[1];
 	if (!lesson.available || !summary)
-		return `${lesson.title} (${moduleTitle}) — System Design Handbook`;
-	return truncate(`${lesson.title.split(' — ')[0]} — ${plainText(summary)}`, 160);
+		return `${lesson.title} (${moduleTitle}) - System Design Handbook`;
+	return truncate(`${lesson.title.split(' - ')[0]} - ${plainText(summary)}`, 160);
 }

@@ -142,5 +142,5 @@ for (const plan of plans) {
 	);
 }
 console.log(
-	`\n"360p watchable" = every 360p piece is built, and the video can be opened to viewers. A worker takes ${STARTUP_S} s to start; when taken back, the job runs again — the whole resolution, or just that piece.`
+	`\n"360p watchable" = every 360p piece is built, and the video can be opened to viewers. A worker takes ${STARTUP_S} s to start; when taken back, the job runs again - the whole resolution, or just that piece.`
 );

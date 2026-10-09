@@ -3,7 +3,7 @@ import { Sequelize, type PoolOptions } from 'sequelize';
 export const DATABASE_URL: string =
 	process.env.DATABASE_URL ?? 'postgres://taskflow:taskflow@localhost:5437/taskflow';
 
-// Every Sequelize instance means its own separate pool — just as every Express instance
+// Every Sequelize instance means its own separate pool - just as every Express instance
 // (Lesson 1.6, 3.x) runs its own separate pool.
 export function createSequelize(
 	pool: PoolOptions = {},

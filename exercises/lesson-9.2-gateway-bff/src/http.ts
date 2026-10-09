@@ -1,7 +1,7 @@
 import http from 'node:http';
 
-// A small GET client — node:http, with keep-alive.
-// Why not fetch: Node 26's built-in fetch (undici) showed an oddity on this machine — after a short pause
+// A small GET client - node:http, with keep-alive.
+// Why not fetch: Node 26's built-in fetch (undici) showed an oddity on this machine - after a short pause
 // (10 ms) the next request is often ~500 ms late, even on localhost. In this exercise the gaps between the browser's round trips
 // are exactly such pauses, so the numbers would be ruined. With node:http the same request takes ~1 ms.
 

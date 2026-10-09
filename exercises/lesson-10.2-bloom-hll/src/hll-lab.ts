@@ -22,7 +22,7 @@ function sketchOf(prefix: string, count: number, precision = PRECISION): HyperLo
 function accuracy(): void {
 	const sketch = new HyperLogLog(PRECISION);
 	heading(
-		`A. One HyperLogLog (p = ${PRECISION}, ${n(sketch.memoryBytes())} bytes) seeing the same users again and again — real count vs estimate`
+		`A. One HyperLogLog (p = ${PRECISION}, ${n(sketch.memoryBytes())} bytes) seeing the same users again and again - real count vs estimate`
 	);
 	console.log(
 		row([
@@ -73,7 +73,7 @@ function spread(precision: number, count: number): { typical: number; worst: num
 function precisionSweep(): void {
 	const count = 100_000;
 	heading(
-		`B. Changing the precision — ${n(count)} distinct users, ${TRIALS} different days (different user sets), each day's estimate error`
+		`B. Changing the precision - ${n(count)} distinct users, ${TRIALS} different days (different user sets), each day's estimate error`
 	);
 	console.log(
 		row([
@@ -106,7 +106,7 @@ function precisionSweep(): void {
 
 function weekly(): void {
 	heading(
-		"C. TaskFlow's 7 days: ~200k active each day, 150k of them regulars — how many distinct users in the week?"
+		"C. TaskFlow's 7 days: ~200k active each day, 150k of them regulars - how many distinct users in the week?"
 	);
 	const random = mulberry32(21);
 	const regulars = 150_000;
@@ -150,14 +150,14 @@ function weekly(): void {
 			])
 		);
 	console.log(
-		`   each day's HLL is ${n(days[0]?.memoryBytes() ?? 0)} bytes; still the same size after merging — even merging 30 days`
+		`   each day's HLL is ${n(days[0]?.memoryBytes() ?? 0)} bytes; still the same size after merging - even merging 30 days`
 	);
 }
 
 function intersection(): void {
 	const size = 1_000_000;
 	heading(
-		`D. Two workspaces, ${n(size)} viewers each — how many in both? (|A∩B| = |A| + |B| − |A∪B|)`
+		`D. Two workspaces, ${n(size)} viewers each - how many in both? (|A∩B| = |A| + |B| − |A∪B|)`
 	);
 	console.log(
 		row([
@@ -184,7 +184,7 @@ function intersection(): void {
 		);
 	}
 	console.log(
-		'   (the union is ~2 million, ~0.8% of it ≈ 16,000 — all of it lands on the small intersection)'
+		'   (the union is ~2 million, ~0.8% of it ≈ 16,000 - all of it lands on the small intersection)'
 	);
 }
 

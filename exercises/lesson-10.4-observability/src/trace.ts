@@ -148,13 +148,13 @@ async function main(): Promise<void> {
 	const durations = results.map((result) => result.ms).sort((a, b) => a - b);
 
 	heading(
-		`A. ${REQUESTS} board requests — gateway → bff → (work, billing); work's replica r3 stalls ${n(STALL_MS)} ms during requests ${STALL_FROM}–${STALL_TO}`
+		`A. ${REQUESTS} board requests - gateway → bff → (work, billing); work's replica r3 stalls ${n(STALL_MS)} ms during requests ${STALL_FROM}–${STALL_TO}`
 	);
 	console.log(
 		`   p50 ${n(percentile(durations, 50))} ms, slowest ${n(slowest?.ms ?? 0)} ms; ${spans.length} spans in total, ${new Set(spans.map((span) => span.traceId)).size} distinct traces`
 	);
 	if (!slowest) return;
-	console.log(`\n   the slowest request's trace — ${slowest.trace}`);
+	console.log(`\n   the slowest request's trace - ${slowest.trace}`);
 	waterfall(slowest.trace);
 
 	heading("B. Searching four services' logs by the same trace_id");
@@ -203,7 +203,7 @@ async function main(): Promise<void> {
 		.filter((span) => span.name === 'db.query tasks')
 		.sort((a, b) => b.end - b.start - (a.end - a.start))[0];
 
-	heading('D. If bff forgets to pass traceparent — the same 30 requests');
+	heading('D. If bff forgets to pass traceparent - the same 30 requests');
 	console.log(
 		row([
 			['', 26],
@@ -226,9 +226,9 @@ async function main(): Promise<void> {
 		])
 	);
 	if (brokenSlowest && slowQuery) {
-		console.log(`\n   the slowest request's gateway trace — ${brokenSlowest.trace}`);
+		console.log(`\n   the slowest request's gateway trace - ${brokenSlowest.trace}`);
 		waterfall(brokenSlowest.trace);
-		console.log(`\n   the slow query is in a different trace — ${slowQuery.traceId}`);
+		console.log(`\n   the slow query is in a different trace - ${slowQuery.traceId}`);
 		waterfall(slowQuery.traceId);
 	}
 }

@@ -18,7 +18,7 @@ const writes = NEW_PER_MONTH / SECONDS_PER_MONTH;
 const reads = writes * READ_RATIO;
 
 heading(
-	`Part A — traffic: ${big(NEW_PER_MONTH)} new links a month, read:write = ${READ_RATIO}:1, peak ${PEAK}× the average`
+	`Part A - traffic: ${big(NEW_PER_MONTH)} new links a month, read:write = ${READ_RATIO}:1, peak ${PEAK}× the average`
 );
 console.log(
 	row([
@@ -39,28 +39,28 @@ console.log(
 		['redirects (reads) / s', 34],
 		[n(reads), 14],
 		[n(reads * PEAK), 14]
-	]) + "   the real load is here — the cache's job"
+	]) + "   the real load is here - the cache's job"
 );
 console.log(
 	row([
 		['redirect bandwidth', 34],
 		[`${bytes(reads * RESPONSE_BYTES)}/s`, 14],
 		[`${bytes(reads * PEAK * RESPONSE_BYTES)}/s`, 14]
-	]) + '   small responses — not a network problem'
+	]) + '   small responses - not a network problem'
 );
 console.log(
 	row([
 		['click events / month', 34],
 		[big(NEW_PER_MONTH * READ_RATIO), 14],
 		[bytes(NEW_PER_MONTH * READ_RATIO * EVENT_BYTES), 14]
-	]) + `   ${EVENT_BYTES} B per event — analytics data`
+	]) + `   ${EVENT_BYTES} B per event - analytics data`
 );
 console.log(
 	`\nPeak writes are ${share((writes * PEAK) / PG_INSERTS_PER_S, 1)} of one Postgres's approximate capacity (${n(PG_INSERTS_PER_S)} inserts/s, assumed)`
 );
 
 heading(
-	`Part B — storage: ${YEARS} years, ${ROW_BYTES} B per row (URL + code + owner + time + index, approximate)`
+	`Part B - storage: ${YEARS} years, ${ROW_BYTES} B per row (URL + code + owner + time + index, approximate)`
 );
 console.log(
 	row([
@@ -88,7 +88,7 @@ console.log(
 	`\nRestoring ${YEARS} years of data to one node (${RESTORE_MB_S} MB/s): ~${restoreHours.toFixed(1)} hours`
 );
 
-heading(`Part C — keyspace: base62, ${big(perYear)} new codes a year`);
+heading(`Part C - keyspace: base62, ${big(perYear)} new codes a year`);
 console.log(
 	row([
 		['length', 8],
@@ -119,7 +119,7 @@ console.log(
 	'"guess hits" = the chance that a random code someone makes up and tries is a real link.'
 );
 
-heading('Part D — the tools that come to mind, and their price at this size');
+heading('Part D - the tools that come to mind, and their price at this size');
 const bloomBits = (-total * Math.log(0.01)) / (Math.LN2 * Math.LN2);
 console.log(
 	row([
@@ -131,7 +131,7 @@ console.log(
 	row([
 		[`Bloom filter, all ${big(total)} codes, 1% error`, 52],
 		[bytes(bloomBits / 8), 14]
-	]) + '   "is the code taken" — with a counter the question never comes up'
+	]) + '   "is the code taken" - with a counter the question never comes up'
 );
 console.log(
 	row([
@@ -149,5 +149,5 @@ console.log(
 	row([
 		['Sharding: total data / one comfortable 2 TB node', 52],
 		[`${((total * ROW_BYTES) / 2e12).toFixed(1)}×`, 14]
-	]) + '   for storage and restore over a decade — not for writes'
+	]) + '   for storage and restore over a decade - not for writes'
 );
