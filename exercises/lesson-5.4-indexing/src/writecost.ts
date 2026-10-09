@@ -3,7 +3,7 @@ import { QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { sequelize } from './db';
 
-// Lesson 5.4 §1.6 — an index's price is paid at write time.
+// Lesson 5.4 §1.6 - an index's price is paid at write time.
 // The same 200,000 rows are inserted into three tables: primary key only, 3 indexes, 6 indexes.
 // Measured: the time, and how many bytes of WAL were written (Lesson 5.3's write amplification).
 

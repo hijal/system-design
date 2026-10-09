@@ -9,7 +9,7 @@ const keys = keyNames('tasks:board', KEYS);
 function balance(): void {
 	const nodes = nodeList('cache', NODES);
 	heading(
-		`A. ${NODES} nodes, ${KEYS.toLocaleString('en-US')} keys — how even the split gets as virtual nodes grow`
+		`A. ${NODES} nodes, ${KEYS.toLocaleString('en-US')} keys - how even the split gets as virtual nodes grow`
 	);
 	console.log(
 		row([
@@ -45,7 +45,7 @@ function weights(): void {
 	const nodes = [node('cache-1'), node('cache-2'), node('cache-3'), node('cache-big', 'az-1', 2)];
 	const ring = new HashRing(nodes, 160);
 	const load = loadByNode(ring, keys);
-	heading('B. one machine twice as big — weight 2 means twice the virtual nodes');
+	heading('B. one machine twice as big - weight 2 means twice the virtual nodes');
 	console.log(
 		row([
 			['node', 16],
@@ -69,7 +69,7 @@ function replicas(): void {
 	const nodes = nodeList('store', 6);
 	const ring = new HashRing(nodes, 160);
 	const sample = keys.slice(0, 50_000);
-	heading('C. 6 nodes, 3 AZs, 3 copies of every key — how to pick the next 3 from the ring');
+	heading('C. 6 nodes, 3 AZs, 3 copies of every key - how to pick the next 3 from the ring');
 	console.log(
 		row([
 			['rule', 30],

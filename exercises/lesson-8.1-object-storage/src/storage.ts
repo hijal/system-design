@@ -9,7 +9,7 @@ import {
 import { Pool } from 'pg';
 import { z } from 'zod';
 
-// Lesson 8.1 — the part shared by every script: env, the Postgres pool, the S3 client, and a few small helpers.
+// Lesson 8.1 - the part shared by every script: env, the Postgres pool, the S3 client, and a few small helpers.
 
 export const env = z
 	.object({
@@ -24,7 +24,7 @@ export function pgPool(max: number): Pool {
 }
 
 // SeaweedFS has no identity config, so any key works; on real S3 these are IAM credentials.
-// forcePathStyle: `http://host/bucket/key` — for a local S3-compatible server
+// forcePathStyle: `http://host/bucket/key` - for a local S3-compatible server
 // (AWS's own default is `http://bucket.host/key`).
 export const s3 = new S3Client({
 	endpoint: env.S3_ENDPOINT,
@@ -37,14 +37,14 @@ export async function ensureBucket(bucket: string): Promise<void> {
 	try {
 		await s3.send(new CreateBucketCommand({ Bucket: bucket }));
 	} catch (error: unknown) {
-		// fine if it already exists — any other error is a real problem
+		// fine if it already exists - any other error is a real problem
 		const name = error instanceof Error ? error.name : '';
 		if (name !== 'BucketAlreadyOwnedByYou' && name !== 'BucketAlreadyExists') throw error;
 	}
 }
 
-// Delete every object in the bucket — for a clean start on every run. There is no "delete folder" API:
-// list, then delete 1000 at a time (S3's DeleteObjects limit) — §1.6's flat namespace.
+// Delete every object in the bucket - for a clean start on every run. There is no "delete folder" API:
+// list, then delete 1000 at a time (S3's DeleteObjects limit) - §1.6's flat namespace.
 export async function emptyBucket(bucket: string): Promise<number> {
 	let deleted = 0;
 	for (;;) {
@@ -68,7 +68,7 @@ export async function putObject(
 	return res.ETag ?? '';
 }
 
-// read the whole object into a Buffer — null if not found (404)
+// read the whole object into a Buffer - null if not found (404)
 export async function getObject(bucket: string, key: string): Promise<Buffer | null> {
 	try {
 		const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
@@ -85,7 +85,7 @@ export async function checkServices(pool: Pool): Promise<void> {
 		await pool.query('SELECT 1');
 		await ensureBucket(env.BUCKET);
 	} catch (error: unknown) {
-		console.error('Postgres or S3 cannot be reached — run `docker compose up -d --wait` first.');
+		console.error('Postgres or S3 cannot be reached - run `docker compose up -d --wait` first.');
 		console.error(error instanceof Error ? error.message : error);
 		process.exit(1);
 	}

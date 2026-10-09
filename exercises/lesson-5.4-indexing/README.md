@@ -1,25 +1,25 @@
-# TaskFlow Indexing Lab — EXPLAIN ANALYZE দিয়ে
+# TaskFlow Indexing Lab - EXPLAIN ANALYZE দিয়ে
 
-> Lesson 5.4 — Indexing Deep Dive · **Tier 1 — Runnable Code**
+> Lesson 5.4 - Indexing Deep Dive · **Tier 1 - Runnable Code**
 
 ## কী বানাচ্ছি
 
 ১০ লাখ task এর একটা TaskFlow table, আর একটা "lab" যেটা TaskFlow এর আসল query গুলো ভিন্ন
-ভিন্ন index দিয়ে চালিয়ে `EXPLAIN (ANALYZE, BUFFERS)` এর ফল পাশাপাশি দেখায় — plan এর
+ভিন্ন index দিয়ে চালিয়ে `EXPLAIN (ANALYZE, BUFFERS)` এর ফল পাশাপাশি দেখায় - plan এর
 আকার, সময়, আর কতগুলো page ছুঁয়েছে। সাথে একটা script যেটা index এর **লেখার দাম** মাপে।
 
 | Script              | কী দেখায়                                                     | Lesson §  |
 | ------------------- | ------------------------------------------------------------- | --------- |
-| `npm run seed`      | ১০ লাখ task তৈরি (deterministic — প্রতিবার একই data)          | —         |
+| `npm run seed`      | ১০ লাখ task তৈরি (deterministic - প্রতিবার একই data)          | -         |
 | `npm run lab`       | ৭টা ধাপ: FK index, composite ক্রম, leftmost prefix, function… | ১.২ – ১.৫ |
 | `npm run lab -- 4`  | শুধু একটা ধাপ (এখানে ধাপ ৪)                                   |           |
-| `npm run writecost` | ০, ৩, ৬টা index নিয়ে ২ লাখ row insert — সময়, WAL, আকার      | ১.৬       |
+| `npm run writecost` | ০, ৩, ৬টা index নিয়ে ২ লাখ row insert - সময়, WAL, আকার      | ১.৬       |
 
 ## Prerequisite
 
 Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য)।
 
-Port **5435** — আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433, 5434) সাথে সংঘাত
+Port **5435** - আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433, 5434) সাথে সংঘাত
 এড়াতে।
 
 ## Setup
@@ -38,54 +38,54 @@ npm run writecost   # ~1 minute
 ```
 
 Lab এর প্রতিটা variant শুরু হয় primary key ছাড়া **সব index মুছে**, তারপর শুধু সেই variant এর
-index বানিয়ে। শেষে আবার সব মুছে দেয় — তাই যতবার খুশি চালানো যায়।
+index বানিয়ে। শেষে আবার সব মুছে দেয় - তাই যতবার খুশি চালানো যায়।
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-**`npm run lab`** — আমার মেশিনে (Postgres 17, সব page buffer pool এ গরম অবস্থায়, ৫ বারের
+**`npm run lab`** - আমার মেশিনে (Postgres 17, সব page buffer pool এ গরম অবস্থায়, ৫ বারের
 median)। আপনার সময় ভিন্ন হবে; **plan এর আকার আর pages** প্রায় হুবহু মিলবে, কারণ data
 deterministic:
 
 ```
-1. "My open tasks" — an index on the foreign key
+1. "My open tasks" - an index on the foreign key
    index                                              time    pages  plan
    no index                                       25.76 ms    8,399  Gather → Seq Scan
    (assigneeId)                                    0.15 ms      203  Bitmap Heap Scan → Bitmap Index Scan [tasks_assignee]  (index: 6728 kB)
    (assigneeId) WHERE status <> done               0.07 ms       70  Bitmap Heap Scan → Bitmap Index Scan [tasks_assignee_open]  (index: 2072 kB)
 
-2. Project feed — column order in a composite index
+2. Project feed - column order in a composite index
    no index                                       20.46 ms    8,473  Limit → Gather Merge → Sort → Seq Scan
    (projectId)                                     0.42 ms      504  Limit → Sort → Bitmap Heap Scan → Bitmap Index Scan [tasks_project]
-   (createdAt, projectId) — reversed               0.47 ms      188  Limit → Index Scan Backward [tasks_created_project]
+   (createdAt, projectId) - reversed               0.47 ms      188  Limit → Index Scan Backward [tasks_created_project]
    (projectId, createdAt)                          0.04 ms       23  Limit → Index Scan Backward [tasks_project_created]
 
-3. Leftmost prefix — the second column of a composite index alone
+3. Leftmost prefix - the second column of a composite index alone
    (projectId, createdAt)                         25.11 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (createdAt)                                     0.15 ms        8  Aggregate → Index Only Scan [tasks_created]
 
-4. A function on the column — the index exists but does not help
+4. A function on the column - the index exists but does not help
    (createdAt) + createdAt::date = …              33.54 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (createdAt) + range                             0.16 ms        8  Aggregate → Index Only Scan [tasks_created]
    (title) + lower(title) = …                     67.23 ms    8,399  Gather → Seq Scan
-   (lower(title)) — expression index               0.03 ms        4  Index Scan [tasks_title_lower]
+   (lower(title)) - expression index               0.03 ms        4  Index Scan [tasks_title_lower]
 
-5. Selectivity — the index exists, but Postgres does not use it
+5. Selectivity - the index exists, but Postgres does not use it
    (status) + status = 'done'                     89.11 ms    8,399  Seq Scan
    (status) + status = 'blocked'                   5.60 ms    5,810  Bitmap Heap Scan → Bitmap Index Scan [tasks_status]
 
-6. Covering index — the answer without going to the table
+6. Covering index - the answer without going to the table
    (projectId, createdAt)                          0.04 ms       23  Limit → Index Scan Backward [tasks_project_created]
    (projectId, createdAt) INCLUDE (id, title)      0.04 ms        4  Limit → Index Only Scan Backward [tasks_project_created_cover]
 
-7. LIKE — the B-tree's limit
+7. LIKE - the B-tree's limit
    (title) + LIKE '%bug%'                         28.25 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (title) + LIKE 'Fix bug #1234%'                23.52 ms    8,399  Aggregate → Gather → Aggregate → Seq Scan
    (title text_pattern_ops) + same LIKE            0.03 ms        5  Aggregate → Index Only Scan [tasks_title_pattern]
 ```
 
-(পুরো table টা ৮,৩৯৯টা page — তাই যেখানে `pages` ৮,৩৯৯, সেখানে পুরো table পড়া হয়েছে।)
+(পুরো table টা ৮,৩৯৯টা page - তাই যেখানে `pages` ৮,৩৯৯, সেখানে পুরো table পড়া হয়েছে।)
 
-**`npm run writecost`** — আমার মেশিনে, দুবার চালিয়ে:
+**`npm run writecost`** - আমার মেশিনে, দুবার চালিয়ে:
 
 ```
   indexes (besides the PK)         time               WAL  index size
@@ -98,8 +98,8 @@ WAL আর আকার প্রতিবার একই আসে; সময�
 
 ## কী দেখার জন্য এটা বানানো
 
-1. **Index "আছে" আর "ব্যবহার হচ্ছে" এক জিনিস না।** ধাপ ৩, ৪, ৫, ৭ — প্রতিটায় একটা index আছে,
-   তবু plan এ `Seq Scan`। Index যোগ করে থেমে যাবেন না — `EXPLAIN` দিয়ে দেখুন।
+1. **Index "আছে" আর "ব্যবহার হচ্ছে" এক জিনিস না।** ধাপ ৩, ৪, ৫, ৭ - প্রতিটায় একটা index আছে,
+   তবু plan এ `Seq Scan`। Index যোগ করে থেমে যাবেন না - `EXPLAIN` দিয়ে দেখুন।
 2. **Composite index এ ক্রমই সব।** ধাপ ২ তে একই দুটো column, উল্টো ক্রমে ১০ গুণের বেশি ধীর,
    আর ধাপ ৩ এ দ্বিতীয় column একা কোনো কাজেই আসে না।
 3. **`pages` কলামটা সময়ের চেয়েও সৎ।** এখানে সব page memory তে গরম, তাই ২৩ আর ৪ page এর
@@ -110,7 +110,7 @@ WAL আর আকার প্রতিবার একই আসে; সময�
 ## নিজে ভেঙে দেখুন (Experiments)
 
 1. **উল্টো composite index এর "ভাগ্য"।** ধাপ ২ এ `(createdAt, projectId)` খুব খারাপ দেখায় না
-   (০.৪৭ ms)। কারণ project 7 এর task সময় জুড়ে সমানভাবে ছড়ানো — পেছন থেকে পড়তে শুরু করলে
+   (০.৪৭ ms)। কারণ project 7 এর task সময় জুড়ে সমানভাবে ছড়ানো - পেছন থেকে পড়তে শুরু করলে
    দ্রুতই ২০টা পাওয়া যায়। এবার `src/seed.ts` এ project 7 এর সব task কে এক বছর পুরনো বানান
    (seed এর পরে একটা `UPDATE tasks SET "createdAt" = "createdAt" - interval '365 days' WHERE "projectId" = 7`
    চালিয়ে `ANALYZE tasks`), তারপর `npm run lab -- 2`। উল্টো index এর pages আর সময় কী হলো? কেন?
@@ -155,8 +155,8 @@ lesson-5.4-indexing/
 
 এই মেশিনে চালিয়ে যাচাই করা হয়েছে (Node 26, Postgres 17, Sequelize 6.37):
 
-- `tsc --noEmit` — clean pass, কোনো type error নেই, কোথাও `any` নেই
-- `npm run lab` কয়েকবার চালানো — plan এর আকার আর pages প্রতিবার একই, সময় কাছাকাছি
-- `npm run writecost` দুবার চালানো — WAL আর index এর আকার হুবহু একই, সময় ±১০%
-- Database এর collation `en_US.utf8` (Docker এর `postgres` image এর default) — ধাপ ৭ এর ফল এর উপর
+- `tsc --noEmit` - clean pass, কোনো type error নেই, কোথাও `any` নেই
+- `npm run lab` কয়েকবার চালানো - plan এর আকার আর pages প্রতিবার একই, সময় কাছাকাছি
+- `npm run writecost` দুবার চালানো - WAL আর index এর আকার হুবহু একই, সময় ±১০%
+- Database এর collation `en_US.utf8` (Docker এর `postgres` image এর default) - ধাপ ৭ এর ফল এর উপর
   নির্ভর করে; `C` collation এর database এ সাধারণ `(title)` index দিয়েই `LIKE 'abc%'` চলত

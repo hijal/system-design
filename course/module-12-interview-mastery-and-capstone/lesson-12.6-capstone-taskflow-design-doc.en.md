@@ -1,6 +1,6 @@
-# Lesson 12.6 — Capstone: TaskFlow Complete Design Doc
+# Lesson 12.6 - Capstone: TaskFlow Complete Design Doc
 
-**Module 12 — Interview Mastery & Capstone**
+**Module 12 - Interview Mastery & Capstone**
 
 > **Spaced Repetition (Lesson 5.5):** What is a lost update? And does Postgres's default isolation level (READ COMMITTED) prevent it? If not, which level catches it, and when it does, what does the application have to do? Today's core piece's first test is exactly this question, with 50 people at once.
 
@@ -12,7 +12,7 @@
 2. Build and measure one of the doc's core pieces (TaskFlow's task write path) in real code to show that the doc's claims are true: nothing is silently lost on concurrent edits, no duplicates on retries, no lost or phantom emails on a crash
 3. Tie eleven modules' decisions into one coherent story, which becomes the strongest story in 12.5's story bank
 
-**Tier:** 1 — Runnable Code (the core piece: Postgres + Redis in Docker, Express + Sequelize + Zod + BullMQ; five scripts, real HTTP)
+**Tier:** 1 - Runnable Code (the core piece: Postgres + Redis in Docker, Express + Sequelize + Zod + BullMQ; five scripts, real HTTP)
 
 ---
 
@@ -24,16 +24,16 @@ But this whole picture still isn't **written down in one place.** When a new eng
 
 Today we write it: a TaskFlow design doc, the way a team takes one to its design review. The curriculum said we'd decide the scope together. You chose **the task write path** as the core piece: creating, moving and assigning a task, and a notification on assignment. TaskFlow's most central path, and where four of the course's biggest lessons (lost update, idempotency, dual write, at-least-once) come together. The rest of the doc is on paper. This part is in real code, with measured numbers.
 
-**Design Doc** — a written form of a proposed (or current) design, for the team's review: what the problem is, what the goals are and what they aren't, what the design is, from which numbers, which alternatives were rejected and why, what can break, what it costs, and what still isn't known. Its job is to catch mistakes before code is written, and afterwards to keep the answer to "why is it like this".
+**Design Doc** - a written form of a proposed (or current) design, for the team's review: what the problem is, what the goals are and what they aren't, what the design is, from which numbers, which alternatives were rejected and why, what can break, what it costs, and what still isn't known. Its job is to catch mistakes before code is written, and afterwards to keep the answer to "why is it like this".
 
 Section 1 below is itself the doc. I'm writing it the way it would go to a real review.
 
 ---
 
-## 1. Theory — TaskFlow Design Doc
+## 1. Theory - TaskFlow Design Doc
 
 ```
-Title:    TaskFlow — system design, the state in 2026 and the plan for the next 12 months
+Title:    TaskFlow - system design, the state in 2026 and the plan for the next 12 months
 Status:   Draft, for review
 Date:     2026-10-06
 Scope:    the whole platform's picture; detailed design and implementation of the core write path
@@ -51,7 +51,7 @@ TaskFlow is a team task management app: workspaces, boards, columns, tasks, comm
 - DR: if the home region (Singapore) is lost, RPO ~5 s, RTO ~40 minutes; in the EU cell RTO ~27 minutes (10.8)
 - All personal data of EU customers in the EU (10.8)
 
-**Non-Goal** — the things this design deliberately **doesn't** solve, written down clearly so nobody in the review assumes they're covered, and the scope doesn't creep. TaskFlow's non-goals:
+**Non-Goal** - the things this design deliberately **doesn't** solve, written down clearly so nobody in the review assumes they're covered, and the scope doesn't creep. TaskFlow's non-goals:
 
 - Writing together in a task's description like Google Docs (OT/CRDT). Two people changing the same task at the same moment is rare (measured in 1.8); a 409 on conflict is enough.
 - Writing in several regions at once (active-active). 10.8's pilot silently lost ~2,000 edits a day; all writes in one region.
@@ -147,7 +147,7 @@ Four decisions, each from an earlier lesson:
 
 ### 1.5 Scaling plan: by trigger, not by date
 
-**Scaling Trigger** — a measured number which, when it crosses a limit, starts a specific design change, written down in advance. Not "we'll shard next year", but "when the primary's CPU passes 60% at sustained peak writes, or ...". That way change comes when it's needed, not early (cost, complexity) and not late (an outage).
+**Scaling Trigger** - a measured number which, when it crosses a limit, starts a specific design change, written down in advance. Not "we'll shard next year", but "when the primary's CPU passes 60% at sustained peak writes, or ...". That way change comes when it's needed, not early (cost, complexity) and not late (an outage).
 
 | stage | trigger (measured)                                                                                    | change                                                                                                       | why in this order                                                                   |
 | ----- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
@@ -155,13 +155,13 @@ Four decisions, each from an earlier lesson:
 | 1     | replica CPU over 60% at peak for a week                                                               | another replica (one per AZ), review the board cache's TTL                                                   | the cheapest, no code change                                                        |
 | 2     | the primary's write p99 over half the SLO at peak, or the database so big that restore > half the RTO | a bigger machine (vertical); activity and outbox into a separate database                                    | vertical first (1.6): a day's work; separating keeps things small and restores fast |
 | 3     | one workspace alone over 10% of the primary's writes, or slowing others' p99                          | that workspace into its own cell (10.8's cell path, the same code)                                           | before hash sharding: the cell already exists, and a big tenant is the usual load   |
-| 4     | still at the primary's limit after stages 2-3, or too many cells in one region                        | more cells within a region by workspace — meaning workspace_id is the shard key, routing in the global layer | every query is within a workspace, so cross-shard queries barely exist              |
+| 4     | still at the primary's limit after stages 2-3, or too many cells in one region                        | more cells within a region by workspace - meaning workspace_id is the shard key, routing in the global layer | every query is within a workspace, so cross-shard queries barely exist              |
 
 Notice: TaskFlow's path to sharding isn't hash sharding, it's **cells.** The cell built for the EU in 10.8 is the same one for a big tenant, and later for everyone. One mechanism, three reasons (residency, a big tenant, size). And every trigger's number is a judgement, to be checked with a load test in production (1.10's open questions).
 
 ### 1.6 Failure modes
 
-**Failure Mode Table** — for each important part of the system: how it breaks, how we'll know, what the user sees, and what the design does. Most review questions land here, and every row is a test that should be run in CI or on a game day (10.3).
+**Failure Mode Table** - for each important part of the system: how it breaks, how we'll know, what the user sees, and what the design does. Most review questions land here, and every row is a test that should be run in CI or on a game day (10.3).
 
 | part                     | how it breaks                        | how we'll know                               | what the user sees                         | what the design does                                                                       |
 | ------------------------ | ------------------------------------ | -------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
@@ -209,7 +209,7 @@ This part of the doc isn't on paper, it's in code. The design:
 
 **The spaced repetition answer:** a lost update means two transactions read the same value, change it by their own calculation and write it back, and one's write is silently wiped out by the other's (5.5). Postgres's READ COMMITTED doesn't prevent it. REPEATABLE READ (and SERIALIZABLE) catch it, with a `40001` error, and then the application has to retry the whole transaction. We took a different path: staying on READ COMMITTED with an optimistic lock (`version`) at the application level, because here on a conflict the right behaviour is **telling the user, not retrying**: if two people assign the same task to two different people, the system "trying again" by itself and making the second one win is also a silent decision.
 
-`npm run concurrency` — 50 people assign the same task at the same moment, each to a different person:
+`npm run concurrency` - 50 people assign the same task at the same moment, each to a different person:
 
 ```
 strategy                                   200   409  silently lost  emails  to the wrong person
@@ -219,7 +219,7 @@ optimistic lock (WHERE version = ?)          1    49              0       1     
 
 With read-then-write all 50 see "success", 49 people's choices don't hold, and 49 emails go to people the task wasn't actually given to: each request built its event from the stale state it read. This is a lost update's second harm, which 5.5 didn't show: **side effects coming out of wrong data.** With the optimistic lock one wins and 49 know they lost. And on an ordinary day its price is nearly zero: in `load`, 20 clients changing their own tasks, 0 conflicts in 7,552 moves.
 
-`npm run idempotency` — 1,000 tasks created, 10% of responses lost on the way back (timeout), the client sends again:
+`npm run idempotency` - 1,000 tasks created, 10% of responses lost on the way back (timeout), the client sends again:
 
 ```
 client                                    requests   tasks  duplicates  replayed
@@ -231,7 +231,7 @@ responses 201: 200/200 · replayed: 100 · tasks in the database: 100
 
 The second part is subtle: the retry arrived **before** the first request finished, 100 pairs. Zero duplicates without any "in progress" state, because the second request's `INSERT ... ON CONFLICT DO NOTHING` waits on Postgres's unique index for the first one's commit, then reads its committed answer and returns it. The key, the task and the answer are in one transaction, so a half state is never visible.
 
-`npm run crash` — 1,000 assignments, a crash at 2% of the risky moments:
+`npm run crash` - 1,000 assignments, a crash at 2% of the risky moments:
 
 ```
 write order                          tasks  emails  no email  email, no task  crashes
@@ -249,7 +249,7 @@ outbox, on top of the relay crashes: 15 worker crashes after sending the email; 
 
 ### 1.9 Rejected alternatives
 
-**Alternatives Considered** — the part of the doc that records, for each big decision, the alternatives that were considered and **why they weren't taken**. It's the advance answer to "why not X?" in the review, and when someone proposes the same alternative two years later, the record of which condition would have to change for it to be reconsidered.
+**Alternatives Considered** - the part of the doc that records, for each big decision, the alternatives that were considered and **why they weren't taken**. It's the advance answer to "why not X?" in the review, and when someone proposes the same alternative two years later, the record of which condition would have to change for it to be reconsidered.
 
 | alternative                              | why not, now                                                                                          | when to reconsider                                                      |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
@@ -288,10 +288,10 @@ This doc helps in interviews in three ways:
 
 - **A design doc's job is to catch mistakes before the code and to keep the "why" afterwards:** goals, non-goals, estimation, architecture, schema, scaling triggers, failure modes, cost, rejected alternatives, open questions
 - **With non-goals and open questions written down, the review is honest:** it's clear what isn't covered and what isn't known
-- **Scale by trigger, not by date:** first replicas, then vertical and separating big data, then a big tenant into its own cell, finally cells by workspace — TaskFlow's path to sharding is cells
-- **Measured numbers make the doc strong:** a laptop does ~700 moves/s on this write path, the peak 12 months out is ~270 — so there's no question of sharding for writes
+- **Scale by trigger, not by date:** first replicas, then vertical and separating big data, then a big tenant into its own cell, finally cells by workspace - TaskFlow's path to sharding is cells
+- **Measured numbers make the doc strong:** a laptop does ~700 moves/s on this write path, the peak 12 months out is ~270 - so there's no question of sharding for writes
 - **A lost update's second harm is wrong side effects:** of 50 people 49's choices are silently lost **and** 49 emails go to the wrong person; with the optimistic lock one 200, 49 409s, 0 wrong emails
-- **The Idempotency-Key in one transaction:** from 104 duplicates on 10% lost responses down to zero, even for concurrent pairs — waiting on the unique index is the "in progress" state
+- **The Idempotency-Key in one transaction:** from 104 duplicates on 10% lost responses down to zero, even for concurrent pairs - waiting on the unique index is the "in progress" state
 - **Writing and sending in one transaction, and dedupe at every layer:** with a dual write 30 lost or 30 phantom emails, with the outbox zero; exactly 1,000 emails from 1,015 provider calls
 
 ---
@@ -300,11 +300,11 @@ This doc helps in interviews in three ways:
 
 | Term                        | Meaning                                                                                                                                                                                                               |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Design Doc**              | The written form of a design, for the team's review: problem, goals, non-goals, numbers, design, rejected alternatives, risks, cost, open questions — catching mistakes before the code, keeping the "why" afterwards |
-| **Non-Goal**                | What the design deliberately doesn't solve, written down clearly — prevents wrong assumptions in the review and scope creep                                                                                           |
-| **Scaling Trigger**         | A measured number which, when it crosses a limit, starts a specific design change, written in advance — change comes when needed, neither early nor late                                                              |
-| **Failure Mode Table**      | For each important part: how it breaks, how we'll know, what the user sees, what the design does — every row a test for CI or a game day                                                                              |
-| **Alternatives Considered** | The alternatives considered at each big decision, why they weren't taken, and which condition would have to change to reconsider — the advance answer to "why not X?" and a record for the future                     |
+| **Design Doc**              | The written form of a design, for the team's review: problem, goals, non-goals, numbers, design, rejected alternatives, risks, cost, open questions - catching mistakes before the code, keeping the "why" afterwards |
+| **Non-Goal**                | What the design deliberately doesn't solve, written down clearly - prevents wrong assumptions in the review and scope creep                                                                                           |
+| **Scaling Trigger**         | A measured number which, when it crosses a limit, starts a specific design change, written in advance - change comes when needed, neither early nor late                                                              |
+| **Failure Mode Table**      | For each important part: how it breaks, how we'll know, what the user sees, what the design does - every row a test for CI or a game day                                                                              |
+| **Alternatives Considered** | The alternatives considered at each big decision, why they weren't taken, and which condition would have to change to reconsider - the advance answer to "why not X?" and a record for the future                     |
 
 ---
 
@@ -312,20 +312,20 @@ This doc helps in interviews in three ways:
 
 Think before you look at the answers. Write at least two or three lines in your own words for each.
 
-1. In the review a senior engineer said: "With the optimistic lock a 409 means the user has to do it again. Changing a task's column (a move) is a drag-and-drop, users do it again and again. When two people work on the same board, won't the 409s be annoying?" (a) In which cases is a 409 needed and in which not — are a move and an assignment the same? (b) Give an alternative design for moves that reduces conflicts but silently loses nothing. (c) Which part of the doc does this decision go into?
+1. In the review a senior engineer said: "With the optimistic lock a 409 means the user has to do it again. Changing a task's column (a move) is a drag-and-drop, users do it again and again. When two people work on the same board, won't the 409s be annoying?" (a) In which cases is a 409 needed and in which not - are a move and an assignment the same? (b) Give an alternative design for moves that reduces conflicts but silently loses nothing. (c) Which part of the doc does this decision go into?
 
 2. 1.5's stage 3: "If one workspace alone is over 10% of the primary's writes, it goes into its own cell." (a) What metric is needed to measure this trigger, and how does 10.4's label-cardinality problem come up here? (b) What are the steps to move a running workspace from its home cell to a new cell, with no or little downtime? (c) What happens to that workspace's unpublished events in the outbox during the move?
 
-3. In `npm run crash`'s outbox row, 1,015 calls went to the provider for 1,000 emails. (a) If the provider **didn't** offer an idempotency key, how many people would get two emails, and in what situation? (b) Inside the worker, what's lost by changing the order ("send, then write sent" vs "write sent, then send")? (c) Without the provider's idempotency key, which would you choose, and why — which lesson's which decision does it resemble?
+3. In `npm run crash`'s outbox row, 1,015 calls went to the provider for 1,000 emails. (a) If the provider **didn't** offer an idempotency key, how many people would get two emails, and in what situation? (b) Inside the worker, what's lost by changing the order ("send, then write sent" vs "write sent, then send")? (c) Without the provider's idempotency key, which would you choose, and why - which lesson's which decision does it resemble?
 
 <details>
 <summary><strong>Answer Key</strong></summary>
 
 **Question 1:**
 
-(a) A 409 is needed for an assignment: giving a task to two different people is two conflicting decisions, and if one silently wins, the other stays under a false impression (and a wrong email goes out, 1.8). A move is different: two people taking the same task to two columns is a conflict, but moving **two different tasks on the same board** isn't, yet both may change `position`. If positions are dense integers (1, 2, 3 ...) and one move changes the positions of everything next to it, then moves of different tasks collide with each other too — that's where the annoying 409s come from.
+(a) A 409 is needed for an assignment: giving a task to two different people is two conflicting decisions, and if one silently wins, the other stays under a false impression (and a wrong email goes out, 1.8). A move is different: two people taking the same task to two columns is a conflict, but moving **two different tasks on the same board** isn't, yet both may change `position`. If positions are dense integers (1, 2, 3 ...) and one move changes the positions of everything next to it, then moves of different tasks collide with each other too - that's where the annoying 409s come from.
 
-(b) **Fractional positions:** each task's position is a number (or a string, lexicographic) between its two neighbours, so a move changes only that task's row, nobody else's. Then moves of different tasks never touch each other's version, and a 409 comes only when two people really change the same task at the same time. The price: now and then the room between two neighbours runs out (number precision or string length), and then a column's positions are re-laid out (rebalance) — a rare, background job. Another subtle path: a version per field (one for the column, another for the assignee), so one person's move and another's assignment don't block each other.
+(b) **Fractional positions:** each task's position is a number (or a string, lexicographic) between its two neighbours, so a move changes only that task's row, nobody else's. Then moves of different tasks never touch each other's version, and a 409 comes only when two people really change the same task at the same time. The price: now and then the room between two neighbours runs out (number precision or string length), and then a column's positions are re-laid out (rebalance) - a rare, background job. Another subtle path: a version per field (one for the column, another for the assignee), so one person's move and another's assignment don't block each other.
 
 (c) In two places: 1.4's data model (the kind of position and the `version` rule), and 1.9's rejected alternatives (dense integer positions, why not). And an open question in 1.10: how often a rebalance will be needed, to be measured.
 
@@ -333,15 +333,15 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 (a) The write rate per workspace. But making `workspace_id` a Prometheus metric label means thousands of workspaces, thousands of series (10.4's cardinality explosion). The path: not a label in the metric, but (1) counting the biggest N workspaces separately (top-K, with a structure like 10.2's count-min sketch), or (2) an hourly analytics query from the logs or the outbox's events ("writes per workspace in the last hour, top 20"). The trigger doesn't need minute-level precision; an hour is enough.
 
-(b) One possible order: (1) copy the workspace's data to the new cell (a snapshot, then replicating ongoing changes, by logical replication or the outbox's events); (2) when the lag shrinks to a few seconds, make the workspace read-only for a short while (a few seconds to a minute); (3) once the last changes have arrived, workspace → new cell in the global layer's routing table (10.8); (4) lift read-only; (5) keep the data in the old cell for a while, then delete it. Downtime isn't zero, but it's only for writes and short — and the customer is told in advance.
+(b) One possible order: (1) copy the workspace's data to the new cell (a snapshot, then replicating ongoing changes, by logical replication or the outbox's events); (2) when the lag shrinks to a few seconds, make the workspace read-only for a short while (a few seconds to a minute); (3) once the last changes have arrived, workspace → new cell in the global layer's routing table (10.8); (4) lift read-only; (5) keep the data in the old cell for a while, then delete it. Downtime isn't zero, but it's only for writes and short - and the customer is told in advance.
 
-(c) Before the move, wait until all of that workspace's unpublished events in the old cell have been sent (in the read-only state no new events arrive, so the outbox will empty). Then the new cell's relay takes over. The consumers are idempotent by event id, so even if an event goes twice at the boundary there's no harm — exactly 1.8's at-least-once principle.
+(c) Before the move, wait until all of that workspace's unpublished events in the old cell have been sent (in the read-only state no new events arrive, so the outbox will empty). Then the new cell's relay takes over. The consumers are idempotent by event id, so even if an event goes twice at the boundary there's no harm - exactly 1.8's at-least-once principle.
 
 **Question 3:**
 
 (a) 15 people, the ones whose jobs were retried after a worker crash: the worker sent the email, then crashed before writing "sent", and on the retry the notification's row was `pending`, so it sent again. Had the provider not deduplicated, these 15 would have got two emails. (The jobs the relay sent again usually stop at the consumer's dedupe, because by then the row is `sent`.)
 
-(b) "Send, then write sent" (ours): a crash in between means sending again on the retry — a **duplicate** is possible, not a loss. "Write sent, then send": a crash in between means the retry sees the row as `sent` and stops — the email is **lost**, not duplicated. The first is at-least-once, the second at-most-once.
+(b) "Send, then write sent" (ours): a crash in between means sending again on the retry - a **duplicate** is possible, not a loss. "Write sent, then send": a crash in between means the retry sees the row as `sent` and stops - the email is **lost**, not duplicated. The first is at-least-once, the second at-most-once.
 
 (c) Usually at-least-once (our order): getting a task assignment email twice is annoying, not getting it means someone doesn't know about the work. But it depends on the kind of email: for an email like an OTP or "your card has been charged", a duplicate is also bad, and then the provider's idempotency key or a unique message id in advance is almost mandatory. It's like 11.5's notification decision (duplicate vs loss on failover), and a light form of 11.7's payments' "a timeout means I don't know": with external systems there's no exactly-once, only at-least-once and dedupe.
 
@@ -351,25 +351,25 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (Postgres + Redis in Docker; Express + Sequelize + Zod + BullMQ, real HTTP)
+**Tier 1 - Runnable Code** (Postgres + Redis in Docker; Express + Sequelize + Zod + BullMQ, real HTTP)
 
-> **Ready to run in the repo:** [`exercises/lesson-12.6-capstone-taskflow/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-12.6-capstone-taskflow) — `docker compose up -d --wait`, `npm install`, then `npm run smoke`, `npm run concurrency`, `npm run idempotency`, `npm run crash`, `npm run load`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-12.6-capstone-taskflow/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-12.6-capstone-taskflow) - `docker compose up -d --wait`, `npm install`, then `npm run smoke`, `npm run concurrency`, `npm run idempotency`, `npm run crash`, `npm run load`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `smoke` runs the write path's 11 steps over real HTTP. `concurrency` compares read-then-write and the optimistic lock on 50 simultaneous assignments. `idempotency` measures lost responses and retries, including concurrent pairs. `crash` injects crashes into three write orders. `load` measures this write path's throughput and latency.
 
-**Honest notes:** Verified by running in the sandbox on Node 26 and Docker (`postgres:17-alpine`, `redis:8-alpine`): `tsc --noEmit`, ESLint and Prettier clean; `smoke`, `concurrency`, `idempotency` and `crash` twice each, output byte-for-byte identical; `load` twice (711 and 755 moves/s — machine-dependent, a laptop, Postgres in Docker, a pool of 10 connections). The README's experiments 1 and 2 were run, numbers above. A crash is a simulated exception (the relay's transaction rolls back, the worker's job retries), not a real `SIGKILL` (7.5's exercise had real crashes); the email provider is fake. The rest of the design doc (1.1-1.7, 1.9-1.10) is on paper, from the earlier lessons' numbers; 1.2's two numbers and 1.5's trigger limits are assumed, written as open questions in 1.10.
+**Honest notes:** Verified by running in the sandbox on Node 26 and Docker (`postgres:17-alpine`, `redis:8-alpine`): `tsc --noEmit`, ESLint and Prettier clean; `smoke`, `concurrency`, `idempotency` and `crash` twice each, output byte-for-byte identical; `load` twice (711 and 755 moves/s - machine-dependent, a laptop, Postgres in Docker, a pool of 10 connections). The README's experiments 1 and 2 were run, numbers above. A crash is a simulated exception (the relay's transaction rolls back, the worker's job retries), not a real `SIGKILL` (7.5's exercise had real crashes); the email provider is fake. The rest of the design doc (1.1-1.7, 1.9-1.10) is on paper, from the earlier lessons' numbers; 1.2's two numbers and 1.5's trigger limits are assumed, written as open questions in 1.10.
 
 **Once the setup checks out, do these five:**
 
 1. **Guess first:** **before** running `crash`, write down what the first two rows' damage will be at a 2% crash rate, and how many provider calls the outbox will make. Then run it and compare. If the provider call count differs from your guess, why?
 
-2. **Changing code — fractional positions:** question 1's (b). Make `position` a number between its two neighbours, and add a new part to `concurrency`: 50 people move 50 **different** tasks on the same board at once. With dense integers (where a move changes its neighbours' positions), how many 409s, and with fractional positions?
+2. **Changing code - fractional positions:** question 1's (b). Make `position` a number between its two neighbours, and add a new part to `concurrency`: 50 people move 50 **different** tasks on the same board at once. With dense integers (where a move changes its neighbours' positions), how many 409s, and with fractional positions?
 
-3. **Changing code — the README's experiments 4 and 5:** the client's retry on a 409, and the outbox cleanup job.
+3. **Changing code - the README's experiments 4 and 5:** the client's retry on a 409, and the outbox cleanup job.
 
-4. **Your own doc:** in this lesson's doc format (1.1-1.10), write a design doc for one of your own systems — the question from 12.1's exercise, or the project chosen in 12.5. At least: two non-goals, an estimation with three "so"s, a three-stage scaling trigger plan, a five-row failure mode table, three rejected alternatives, three open questions.
+4. **Your own doc:** in this lesson's doc format (1.1-1.10), write a design doc for one of your own systems - the question from 12.1's exercise, or the project chosen in 12.5. At least: two non-goals, an estimation with three "so"s, a three-stage scaling trigger plan, a five-row failure mode table, three rejected alternatives, three open questions.
 
-5. **Present the doc:** present this lesson's TaskFlow doc in 10 minutes to an imaginary reviewer, out loud, with a recording — practice for 12.5's 20-minute version. Then pick three rows from 1.6 and 1.9 where you think the reviewer will press hardest, and write a four-level depth ladder (12.5) for each.
+5. **Present the doc:** present this lesson's TaskFlow doc in 10 minutes to an imaginary reviewer, out loud, with a recording - practice for 12.5's 20-minute version. Then pick three rows from 1.6 and 1.9 where you think the reviewer will press hardest, and write a four-level depth ladder (12.5) for each.
 
 ---
 
@@ -378,8 +378,8 @@ Think before you look at the answers. Write at least two or three lines in your 
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1 – 11 (complete, with exit challenges), 12.1 – 12.5
-Current: 12.6 — Capstone: TaskFlow Complete Design Doc (core piece: the task write path, your choice)
-TaskFlow state: the whole picture in one design doc — CDN, gateway, web/mobile BFF, modular monolith (work, identity, files,
+Current: 12.6 - Capstone: TaskFlow Complete Design Doc (core piece: the task write path, your choice)
+TaskFlow state: the whole picture in one design doc - CDN, gateway, web/mobile BFF, modular monolith (work, identity, files,
 search) + billing + files processing; Postgres primary + 3 replicas (Patroni), cache ring, limiter Redis; outbox → Redis
 Streams → BullMQ; S3 + CDN; OpenTelemetry; DR in Mumbai (RPO ~5 s, RTO ~40 min); an EU cell in Frankfurt. Today ~300 req/s,
 peak ~90 writes/s; at ×3 in 12 months → ~270 writes/s. The bill ~$13,979/month (core + DR + EU cell). Scaling by trigger:
@@ -393,7 +393,7 @@ Powers-of-Ten Rounding, Active Window, Headroom, Unit Slip, Sanity Check, Sorted
 Composite Score, Time-Bucketed Key, Rank Histogram, Content-Addressed Block, Content-Defined Chunking, Change Journal,
 Namespace, Conflicted Copy, Dedupe Side Channel, Design Narrative, Impact Metric, Retrospective Insight, Depth Probe,
 Ownership Signal, Story Bank, Design Doc, Non-Goal, Scaling Trigger, Failure Mode Table, Alternatives Considered
-Weak spots: [where you got stuck — write it yourself]
+Weak spots: [where you got stuck - write it yourself]
 Next: Module 12 Exit Challenge
 =======================
 ```
@@ -402,6 +402,6 @@ Next: Module 12 Exit Challenge
 
 ## 8. Next Step
 
-Today's thread: **each of eleven modules' decisions came from a bad week; the design doc ties them into one picture, and next to each, its reason, its number, and the condition under which it will change.** And the doc's claims are strongest when a part of it is measured in code: 49 wrong emails from 50 people, 104 duplicates, 30 lost notifications — and next to each, zero.
+Today's thread: **each of eleven modules' decisions came from a bad week; the design doc ties them into one picture, and next to each, its reason, its number, and the condition under which it will change.** And the doc's claims are strongest when a part of it is measured in code: 49 wrong emails from 50 people, 104 duplicates, 30 lost notifications - and next to each, zero.
 
-When you are ready, write `next` — **Module 12 Exit Challenge,** the end of the whole course. There'll be one last mock: a new system, 60 minutes, without the help of any script or closed section, with follow-ups that each test a skill from one of this module's lessons; a self-check for the whole course; and what to read next, what to build, and what to do in the week before an interview.
+When you are ready, write `next` - **Module 12 Exit Challenge,** the end of the whole course. There'll be one last mock: a new system, 60 minutes, without the help of any script or closed section, with follow-ups that each test a skill from one of this module's lessons; a self-check for the whole course; and what to read next, what to build, and what to do in the week before an interview.

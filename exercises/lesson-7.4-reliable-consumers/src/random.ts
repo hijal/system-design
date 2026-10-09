@@ -1,4 +1,4 @@
-// Seeded PRNG (mulberry32) — the same "random" sequence every time, so simulation results match exactly.
+// Seeded PRNG (mulberry32) - the same "random" sequence every time, so simulation results match exactly.
 export function mulberry32(seed: number): () => number {
 	let a = seed;
 	return () => {

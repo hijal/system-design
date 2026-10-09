@@ -5,7 +5,7 @@ import { sequelize } from './db';
 import { Project } from './models/good';
 import { reconcile } from './reconcile';
 
-// Lesson 5.2 §1.4 — measuring denormalization's benefit.
+// Lesson 5.2 §1.4 - measuring denormalization's benefit.
 // The same question two ways: (a) counting from the tasks table every time, (b) reading projects.openTaskCount.
 
 const PROJECTS = 500;
@@ -21,7 +21,7 @@ type CountRow = z.infer<typeof countRows>[number];
 async function seed(): Promise<void> {
 	await sequelize.sync({ force: true });
 	// Inserting 400,000 rows with Sequelize's bulkCreate takes a long time (every row is a JS
-	// object). So the seed uses Postgres's generate_series — this only builds test data.
+	// object). So the seed uses Postgres's generate_series - this only builds test data.
 	await sequelize.query(
 		`INSERT INTO users (name, email)
 		 SELECT 'User ' || g, 'user' || g || '@taskflow.app' FROM generate_series(1, ${USERS}) g`
@@ -47,7 +47,7 @@ async function seed(): Promise<void> {
 	await sequelize.query('ANALYZE');
 }
 
-// (a) Normalized, a plain query — counting every time. Sequelize's include + group + limit together
+// (a) Normalized, a plain query - counting every time. Sequelize's include + group + limit together
 // build complicated SQL, so raw SQL for the aggregate report, with the result parsed by Zod.
 // The trap: even with LIMIT 20, Postgres first builds the count for **all** 500 projects, then takes 20.
 async function pageComputed(): Promise<CountRow[]> {
@@ -62,7 +62,7 @@ async function pageComputed(): Promise<CountRow[]> {
 	);
 }
 
-// (a2) Normalized, written well — pick 20 projects first, then count only their tasks.
+// (a2) Normalized, written well - pick 20 projects first, then count only their tasks.
 // LATERAL means "for every row on the left, run the subquery on the right".
 // With the (projectId, status) index every count is done by reading the index alone.
 async function pageComputedLateral(): Promise<CountRow[]> {
@@ -80,8 +80,8 @@ async function pageComputedLateral(): Promise<CountRow[]> {
 	);
 }
 
-// This trick does not work for the "busiest" question — to know which 10 are busiest
-// you have to count them all first. Sorting/filtering by a derived value — that is denormalization's real place.
+// This trick does not work for the "busiest" question - to know which 10 are busiest
+// you have to count them all first. Sorting/filtering by a derived value - that is denormalization's real place.
 async function busiestComputed(): Promise<CountRow[]> {
 	return countRows.parse(
 		await sequelize.query(
@@ -94,7 +94,7 @@ async function busiestComputed(): Promise<CountRow[]> {
 	);
 }
 
-// (b) Denormalized — reading only the projects table, no join or count
+// (b) Denormalized - reading only the projects table, no join or count
 async function pageStored(): Promise<CountRow[]> {
 	const rows = await Project.findAll({ order: [['name', 'ASC']], limit: 20 });
 	return rows.map((p) => ({ id: p.id, name: p.name, open: p.openTaskCount }));
@@ -112,7 +112,7 @@ async function busiestStored(): Promise<CountRow[]> {
 }
 
 async function medianMs(fn: () => Promise<CountRow[]>): Promise<number> {
-	for (let i = 0; i < 3; i++) await fn(); // warm-up — warming the buffer pool (Lesson 4.1)
+	for (let i = 0; i < 3; i++) await fn(); // warm-up - warming the buffer pool (Lesson 4.1)
 	const samples: number[] = [];
 	for (let i = 0; i < ROUNDS; i++) {
 		const started = performance.now();
@@ -134,7 +134,7 @@ async function main(): Promise<void> {
 		`\n  seeded         : ${PROJECTS} projects × ${TASKS_PER_PROJECT} tasks = ${(PROJECTS * TASKS_PER_PROJECT).toLocaleString('en-US')} tasks (${((performance.now() - seedStarted) / 1000).toFixed(1)}s)`
 	);
 
-	// correctness first — a fast but wrong answer is worth nothing
+	// correctness first - a fast but wrong answer is worth nothing
 	const pageStoredRows = await pageStored();
 	const pageSame =
 		sameResult(await pageComputed(), pageStoredRows) &&
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
 		`  page of 20 projects                ${ms(pageA)}          ${ms(pageL)}     ${ms(pageB)}`
 	);
 	console.log(
-		`  10 busiest projects                ${ms(busyA)}                —        ${ms(busyB)}`
+		`  10 busiest projects                ${ms(busyA)}                -        ${ms(busyB)}`
 	);
 	console.log(`\n  (median of ${ROUNDS} runs, including Sequelize overhead)\n`);
 

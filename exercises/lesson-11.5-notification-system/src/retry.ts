@@ -32,7 +32,7 @@ const policies: Policy[] = [
 ];
 
 heading(
-	`Part A — ${n(MESSAGES)} emails: ${FAIL * 100}% clearly failed (not sent), ${TIMEOUT * 100}% timed out (${SENT_ON_TIMEOUT * 100}% of those were actually sent)`
+	`Part A - ${n(MESSAGES)} emails: ${FAIL * 100}% clearly failed (not sent), ${TIMEOUT * 100}% timed out (${SENT_ON_TIMEOUT * 100}% of those were actually sent)`
 );
 console.log(
 	row([
@@ -81,7 +81,7 @@ for (const policy of policies) {
 }
 
 heading(
-	`Part B — the primary email provider down for ${OUTAGE_S / 60} minutes, ${n(RATE)} emails/s`
+	`Part B - the primary email provider down for ${OUTAGE_S / 60} minutes, ${n(RATE)} emails/s`
 );
 console.log(
 	row([

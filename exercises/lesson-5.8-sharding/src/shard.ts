@@ -4,12 +4,12 @@ import { z } from 'zod';
 import { closeAll, scalar, shardAt, shards } from './db';
 import { moduloShard } from './hash';
 
-// Lesson 5.8 §1.3–1.6 — splitting TaskFlow across 3 databases, shard key = workspaceId.
-// All of a workspace's data is on one shard — so all the work inside a workspace is in one place.
+// Lesson 5.8 §1.3–1.6 - splitting TaskFlow across 3 databases, shard key = workspaceId.
+// All of a workspace's data is on one shard - so all the work inside a workspace is in one place.
 
 const WORKSPACES = 300;
 const TASKS = 300_000;
-const BIG_WORKSPACE = 7; // a huge enterprise customer — 40% of all tasks
+const BIG_WORKSPACE = 7; // a huge enterprise customer - 40% of all tasks
 const BIG_SHARE = 0.4;
 
 function shardFor(workspaceId: number): Sequelize {
@@ -32,7 +32,7 @@ async function setup(): Promise<void> {
 		await shard.query('CREATE INDEX ON tasks ("workspaceId", status)');
 	}
 
-	// one project per workspace; tasks spread across workspaces — 40% in one
+	// one project per workspace; tasks spread across workspaces - 40% in one
 	const bigCount = Math.floor(TASKS * BIG_SHARE);
 	const perOther = Math.floor((TASKS - bigCount) / (WORKSPACES - 1));
 	const rowsByShard = new Map<number, { ws: number; from: number; count: number }[]>();
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
 	await setup();
 
 	console.log(
-		`\n1. ${WORKSPACES} workspaces, ${TASKS.toLocaleString('en-US')} tasks — shard key: hash(workspaceId) % ${shards.length}`
+		`\n1. ${WORKSPACES} workspaces, ${TASKS.toLocaleString('en-US')} tasks - shard key: hash(workspaceId) % ${shards.length}`
 	);
 	const bigShard = shardIndexFor(BIG_WORKSPACE);
 	for (const [i, shard] of shards.entries()) {
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
 		);
 	}
 
-	console.log('\n2. A query with the shard key — "how many open tasks in workspace 42?"');
+	console.log('\n2. A query with the shard key - "how many open tasks in workspace 42?"');
 	const single = await timed(() =>
 		scalar(
 			shardFor(42),
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
 	);
 
 	console.log(
-		'\n3. A query without the shard key — "which 10 workspaces have the most open tasks?"'
+		'\n3. A query without the shard key - "which 10 workspaces have the most open tasks?"'
 	);
 	const sql = `SELECT "workspaceId", count(*) AS open FROM tasks WHERE status = 'todo'
 	             GROUP BY "workspaceId" ORDER BY open DESC LIMIT 10`;
@@ -121,7 +121,7 @@ async function main(): Promise<void> {
 		`   → sent to all ${shards.length} shards at once (scatter), merged and sorted in the app (gather): ${gathered.ms.toFixed(1)} ms total`
 	);
 	console.log(
-		`     ${perShardMs.map((ms, i) => `shard${i}: ${ms.toFixed(1)} ms`).join(', ')} — the total equals the slowest one`
+		`     ${perShardMs.map((ms, i) => `shard${i}: ${ms.toFixed(1)} ms`).join(', ')} - the total equals the slowest one`
 	);
 	console.log(
 		`     top 3: ${gathered.value
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
 	);
 
 	console.log(
-		'\n4. Work across two shards — moving a project to another workspace (on a different shard)'
+		'\n4. Work across two shards - moving a project to another workspace (on a different shard)'
 	);
 	const from =
 		[...Array(WORKSPACES).keys()]
@@ -147,7 +147,7 @@ async function main(): Promise<void> {
 			{ transaction }
 		);
 	});
-	console.log('   step 1: project written to shard2 — COMMIT ✓');
+	console.log('   step 1: project written to shard2 - COMMIT ✓');
 	console.log('   step 2: the app crashed before deleting it from shard0 ✗');
 	const inShard0 = await scalar(
 		shardAt(0),
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
 		`SELECT count(*) AS v FROM projects WHERE id = ${from}`
 	);
 	console.log(
-		`   → project ${from} is now on shard0 (${inShard0}) and on shard2 (${inShard2}) — in both places! No single transaction could prevent it`
+		`   → project ${from} is now on shard0 (${inShard0}) and on shard2 (${inShard2}) - in both places! No single transaction could prevent it`
 	);
 	console.log('');
 	await closeAll();

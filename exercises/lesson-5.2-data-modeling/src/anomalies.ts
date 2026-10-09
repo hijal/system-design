@@ -4,12 +4,12 @@ import { sequelize } from './db';
 import { BadTask } from './models/bad';
 import { Project, Tag, Task, TaskTag, User } from './models/good';
 
-// Lesson 5.2 §1.2 — doing the same three things on two schemas:
+// Lesson 5.2 §1.2 - doing the same three things on two schemas:
 //   1. Rahim changed his name          (update anomaly)
 //   2. find every task with the "bug" tag   (1NF broken)
 //   3. deleted a project's last task   (delete anomaly)
 
-// The result of a raw query is runtime input — parsed with Zod (main.md §6)
+// The result of a raw query is runtime input - parsed with Zod (main.md §6)
 const nameRows = z.array(z.object({ assigneeName: z.string() }));
 const projectRows = z.array(z.object({ projectName: z.string() }));
 
@@ -18,7 +18,7 @@ function heading(text: string): void {
 }
 
 async function denormalized(): Promise<void> {
-	heading('Denormalized (bad_tasks) — everything in one table');
+	heading('Denormalized (bad_tasks) - everything in one table');
 
 	await BadTask.bulkCreate([
 		{
@@ -44,7 +44,7 @@ async function denormalized(): Promise<void> {
 		}
 	]);
 
-	// 1. Update anomaly — the profile page code updated only "this task",
+	// 1. Update anomaly - the profile page code updated only "this task",
 	// because nobody remembered the name is copied into many more rows.
 	await BadTask.update({ assigneeName: 'Rahim Uddin' }, { where: { id: 1 } });
 	const names = nameRows.parse(
@@ -57,14 +57,14 @@ async function denormalized(): Promise<void> {
 		`1. How many names does rahim@taskflow.app have?  ${names.length} → ${names.map((n) => `"${n.assigneeName}"`).join(', ')}`
 	);
 
-	// 2. 1NF broken — "bug,urgent" is one string, so searching needs LIKE.
+	// 2. 1NF broken - "bug,urgent" is one string, so searching needs LIKE.
 	// "debug" contains "bug" too.
 	const bugTasks = await BadTask.findAll({ where: { tags: { [Op.like]: '%bug%' } } });
 	console.log(
 		`2. How many tasks with the "bug" tag?            ${bugTasks.length} → ${bugTasks.map((t) => `"${t.title}"`).join(', ')}`
 	);
 
-	// 3. Delete anomaly — deleted the Marketing project's only task.
+	// 3. Delete anomaly - deleted the Marketing project's only task.
 	await BadTask.destroy({ where: { projectName: 'Marketing' } });
 	const projects = projectRows.parse(
 		await sequelize.query(`SELECT DISTINCT "projectName" FROM bad_tasks ORDER BY 1`, {
@@ -113,7 +113,7 @@ async function normalized(): Promise<void> {
 		assigneeId: karim.id
 	});
 	// With belongsToMany Sequelize adds methods like `task.addTag()` at runtime,
-	// but without declare they don't show in the type — so the junction table is written directly.
+	// but without declare they don't show in the type - so the junction table is written directly.
 	await TaskTag.bulkCreate([
 		{ taskId: login.id, tagId: bug.id },
 		{ taskId: login.id, tagId: urgent.id },
@@ -121,7 +121,7 @@ async function normalized(): Promise<void> {
 		{ taskId: campaign.id, tagId: planning.id }
 	]);
 
-	// 1. changing the name — in one place, one row
+	// 1. changing the name - in one place, one row
 	await User.update({ name: 'Rahim Uddin' }, { where: { id: rahim.id } });
 	const rahimTasks = await Task.findAll({
 		where: { assigneeId: rahim.id },
@@ -132,7 +132,7 @@ async function normalized(): Promise<void> {
 		`1. How many names does rahim@taskflow.app have?  ${seen.length} → ${seen.map((n) => `"${n}"`).join(', ')}`
 	);
 
-	// 2. searching by tag — an exact match through the junction table, not LIKE
+	// 2. searching by tag - an exact match through the junction table, not LIKE
 	const bugTasks = await Task.findAll({
 		include: [{ model: Tag, where: { name: 'bug' } }]
 	});
@@ -140,7 +140,7 @@ async function normalized(): Promise<void> {
 		`2. How many tasks with the "bug" tag?            ${bugTasks.length} → ${bugTasks.map((t) => `"${t.title}"`).join(', ')}`
 	);
 
-	// 3. deleted Marketing's only task — the project itself is a separate row, so it survives
+	// 3. deleted Marketing's only task - the project itself is a separate row, so it survives
 	await Task.destroy({ where: { id: campaign.id } });
 	const allProjects = await Project.findAll({ order: [['name', 'ASC']] });
 	console.log(

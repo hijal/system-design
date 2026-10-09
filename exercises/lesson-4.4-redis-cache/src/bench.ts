@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { invalidate, keys, redis } from './cache';
 
-// This script measures the cache's real benefit — measured, not claimed.
+// This script measures the cache's real benefit - measured, not claimed.
 // The key is deleted before every "cold" measurement, otherwise the warm cache from
 // the previous run would be measured and the number would be a lie.
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';

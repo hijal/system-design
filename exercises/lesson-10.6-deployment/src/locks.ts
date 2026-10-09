@@ -146,7 +146,7 @@ async function main(): Promise<void> {
 	);
 
 	heading(
-		'Part A — adding a column: which is instant, which locks the whole table, and the lock queue'
+		'Part A - adding a column: which is instant, which locks the whole table, and the lock queue'
 	);
 	const partA: Result[] = [];
 	partA.push(
@@ -169,7 +169,7 @@ async function main(): Promise<void> {
 				await sleep(300);
 				const took = await ddl('ALTER TABLE tasks ADD COLUMN priority int');
 				await longDone;
-				return `the ALTER itself waited ${ms(took)} — and everyone behind it`;
+				return `the ALTER itself waited ${ms(took)} - and everyone behind it`;
 			}
 		)
 	);
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
 	);
 	print(partA);
 
-	heading('Part B — building an index: on board_id');
+	heading('Part B - building an index: on board_id');
 	const partB: Result[] = [];
 	partB.push(
 		await measure('CREATE INDEX', async () => {
@@ -215,7 +215,7 @@ async function main(): Promise<void> {
 	);
 	print(partB);
 
-	heading(`Part C — backfill: priority = 0, ${n(ROWS)} rows`);
+	heading(`Part C - backfill: priority = 0, ${n(ROWS)} rows`);
 	const partC: Result[] = [];
 	partC.push(
 		await measure('all in one UPDATE', async () => {
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
 	);
 	print(partC);
 
-	heading('Part D — adding NOT NULL: priority');
+	heading('Part D - adding NOT NULL: priority');
 	const partD: Result[] = [];
 	partD.push(
 		await measure('SET NOT NULL (directly)', async () => {

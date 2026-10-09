@@ -1,17 +1,17 @@
 import { mulberry32 } from './random';
 
-// Lesson 6.3 §1.6 — even with R + W > N, time can go backwards: the ghost of a "failed" write.
+// Lesson 6.3 §1.6 - even with R + W > N, time can go backwards: the ghost of a "failed" write.
 //
-// A leaderless store (Lesson 5.9), N = 3 (A, B, C), W = 2, R = 2 — R + W > N on paper.
+// A leaderless store (Lesson 5.9), N = 3 (A, B, C), W = 2, R = 2 - R + W > N on paper.
 // One key of TaskFlow's notification counter has the value v0, on all three.
 //
-// A write v1 arrives. A gets it. B and C are busy at that moment — timeout. W = 2 is not met, so the client is told
-// "write failed". But v1 is **not deleted** from A — a leaderless store has no rollback.
+// A write v1 arrives. A gets it. B and C are busy at that moment - timeout. W = 2 is not met, so the client is told
+// "write failed". But v1 is **not deleted** from A - a leaderless store has no rollback.
 //
 // Then 100 users each read 5 times (taking turns). Each read asks 2 random replicas
 // and takes the newer version. Two ways:
-//   read repair off — just read
-//   read repair on  — during the read, write the new value to the replica that returned the old one
+//   read repair off - just read
+//   read repair on  - during the read, write the new value to the replica that returned the old one
 
 type Replica = 'A' | 'B' | 'C';
 const REPLICAS: Replica[] = ['A', 'B', 'C'];
@@ -57,7 +57,7 @@ function main(): void {
 		'\n   N = 3, W = 2, R = 2 (R + W > N). Write v1 reached only A → the client was told "failed".'
 	);
 	console.log(
-		`   then ${USERS} users × ${READS_EACH} reads each (seeded — the same result every time)\n`
+		`   then ${USERS} users × ${READS_EACH} reads each (seeded - the same result every time)\n`
 	);
 	console.log(
 		'   read repair    saw the "failed" v1      back to v0 after v1      users whose value flipped    final state'

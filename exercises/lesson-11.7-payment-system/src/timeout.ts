@@ -23,7 +23,7 @@ const policies: Policy[] = [
 ];
 
 heading(
-	`Part A — ${n(PAYMENTS)} payments: ${DECLINE * 100}% declined, ${TIMEOUT * 100}% time out (${CHARGED_ON_TIMEOUT * 100}% of those were actually charged)`
+	`Part A - ${n(PAYMENTS)} payments: ${DECLINE * 100}% declined, ${TIMEOUT * 100}% time out (${CHARGED_ON_TIMEOUT * 100}% of those were actually charged)`
 );
 console.log(
 	row([
@@ -68,15 +68,15 @@ for (const policy of policies) {
 			[policy.name, 52],
 			[n(doubles), 15],
 			[n(orphans), 19],
-			[waits.length === 0 ? '—' : `${percentile(waits, 99).toFixed(0)} s`, 13]
+			[waits.length === 0 ? '-' : `${percentile(waits, 99).toFixed(0)} s`, 13]
 		])
 	);
 }
 console.log(
-	'"charged, no order" = the customer\'s money was taken, but we treated the payment as failed — unless someone finds it, this is theft.'
+	'"charged, no order" = the customer\'s money was taken, but we treated the payment as failed - unless someone finds it, this is theft.'
 );
 
-heading(`Part B — the process dies (${CRASH * 100}% at each step): which order to write in`);
+heading(`Part B - the process dies (${CRASH * 100}% at each step): which order to write in`);
 console.log(
 	row([
 		['order', 60],
@@ -112,5 +112,5 @@ console.log(
 	'"recovery" = a job that asks the PSP, by idempotency key (payment id), about payments left in the "created" state.'
 );
 console.log(
-	'whatever is still left after that is caught by the end-of-day reconciliation — `npm run reconcile`.'
+	'whatever is still left after that is caught by the end-of-day reconciliation - `npm run reconcile`.'
 );

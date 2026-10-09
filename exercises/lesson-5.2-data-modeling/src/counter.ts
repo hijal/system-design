@@ -2,7 +2,7 @@ import { sequelize } from './db';
 import { Project, Task } from './models/good';
 import { reconcile } from './reconcile';
 
-// Lesson 5.2 §1.5 — why keeping a denormalized counter correct is hard.
+// Lesson 5.2 §1.5 - why keeping a denormalized counter correct is hard.
 // The same work ("create a new task, increment the counter") three ways, 200 at once.
 
 const CONCURRENT = 200;
@@ -25,9 +25,9 @@ async function report(label: string, projectId: number): Promise<void> {
 	);
 }
 
-// a. Plain read-modify-write — "read it, +1 in JS, write it back".
-// If two requests read the same value (say 41) both write 42 — one increment is lost.
-// This is called a lost update, and why a transaction alone doesn't prevent it — that is in Lesson 5.5.
+// a. Plain read-modify-write - "read it, +1 in JS, write it back".
+// If two requests read the same value (say 41) both write 42 - one increment is lost.
+// This is called a lost update, and why a transaction alone doesn't prevent it - that is in Lesson 5.5.
 async function naive(projectId: number): Promise<void> {
 	await Task.create({ title: 'naive', projectId, assigneeId: null });
 	const project = await Project.findByPk(projectId);
@@ -36,10 +36,10 @@ async function naive(projectId: number): Promise<void> {
 	await project.save();
 }
 
-// b. Transaction + atomic increment — here Sequelize builds
+// b. Transaction + atomic increment - here Sequelize builds
 //    UPDATE projects SET "openTaskCount" = "openTaskCount" + 1 WHERE id = ...
-// The DB does the arithmetic itself, holding the row's lock — so nobody can wipe out someone else's write.
-// And because of the transaction, creating the task and incrementing the counter — either both happen, or neither.
+// The DB does the arithmetic itself, holding the row's lock - so nobody can wipe out someone else's write.
+// And because of the transaction, creating the task and incrementing the counter - either both happen, or neither.
 async function atomic(projectId: number): Promise<void> {
 	await sequelize.transaction(async (transaction) => {
 		await Task.create({ title: 'atomic', projectId, assigneeId: null }, { transaction });
@@ -47,7 +47,7 @@ async function atomic(projectId: number): Promise<void> {
 	});
 }
 
-// c. Later someone wrote a new code path — bulk import from CSV — and forgot about
+// c. Later someone wrote a new code path - bulk import from CSV - and forgot about
 // the counter. Denormalization's most common real-world failure is this: not a race, forgetting.
 async function bulkImport(projectId: number, count: number): Promise<void> {
 	await Task.bulkCreate(
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
 	await report('c. 50 bulk imports after b', b.id);
 
 	const fixed = await reconcile();
-	console.log(`\n  ran reconcile() — ${fixed} projects had a wrong counter, fixed:\n`);
+	console.log(`\n  ran reconcile() - ${fixed} projects had a wrong counter, fixed:\n`);
 	await report('a. (after reconcile)', a.id);
 	await report('b+c. (after reconcile)', b.id);
 	console.log('');

@@ -1,10 +1,10 @@
-# Only PostgreSQL in a container — the scripts run as ordinary Node processes on your machine.
+# Only PostgreSQL in a container - the scripts run as ordinary Node processes on your machine.
 # Port 5437, so it doesn't clash with your machine's own Postgres (5432) or the earlier exercises
 # (4.4 → 5433, 5.2 → 5434, 5.4 → 5435, 5.5 → 5436).
 services:
   postgres:
     image: postgres:17-alpine
-    # The database server is deliberately limited to 2 CPU cores — so the pool size test
+    # The database server is deliberately limited to 2 CPU cores - so the pool size test
     # (npm run pool, step 2) gives the same kind of result on any machine. In production this number is
     # your database server's core count.
     cpus: '2'

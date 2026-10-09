@@ -1,14 +1,14 @@
 import { performance } from 'node:perf_hooks';
 import { Task, app, closeAll, replica, setApplyDelay, sleep, waitForCatchUp } from './db';
 
-// Lesson 5.7 §1.3 — TaskFlow's "I just saved it, but it doesn't show!" bug.
+// Lesson 5.7 §1.3 - TaskFlow's "I just saved it, but it doesn't show!" bug.
 // Task.create → goes to the primary. The very next Task.findByPk → Sequelize sends it to the replica.
 
 function percentile(sorted: number[], p: number): number {
 	return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))] ?? 0;
 }
 
-// How long until the row is visible on the replica — this is the replication lag, measured
+// How long until the row is visible on the replica - this is the replication lag, measured
 async function visibleAfter(id: number, started: number): Promise<number> {
 	for (;;) {
 		const found = await replica.query('SELECT 1 FROM tasks WHERE id = :id', {
@@ -40,7 +40,7 @@ async function run(label: string, delayMs: number, iterations: number): Promise<
 }
 
 async function main(): Promise<void> {
-	await app.sync({ force: true }); // the table on the primary — it reaches the replica through WAL by itself
+	await app.sync({ force: true }); // the table on the primary - it reaches the replica through WAL by itself
 	await waitForCatchUp();
 
 	console.log('\n   create (primary) → findByPk right away (replica)');

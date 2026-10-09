@@ -47,7 +47,7 @@ async function main(): Promise<void> {
 	console.log('Accepted: 70000, 70,000, 70k, 7e4, 20 GB. An empty line skips the drill.');
 
 	for (const drill of chosen) {
-		heading(`Drill ${drill.id} — ${drill.title}`);
+		heading(`Drill ${drill.id} - ${drill.title}`);
 		for (const given of drill.givens) console.log(`  • ${given}`);
 		console.log(`  ${drill.question}  [${drill.unit}]`);
 
@@ -98,8 +98,8 @@ async function main(): Promise<void> {
 	);
 	for (const attempt of attempts) {
 		const reference = answerOf(attempt.drill.exact);
-		const yours = attempt.kind === 'answered' ? num(attempt.value) : '—';
-		const off = attempt.kind === 'answered' ? times(factorOff(attempt.value, reference)) : '—';
+		const yours = attempt.kind === 'answered' ? num(attempt.value) : '-';
+		const off = attempt.kind === 'answered' ? times(factorOff(attempt.value, reference)) : '-';
 		console.log(
 			row([
 				[`${attempt.drill.id}. ${attempt.drill.title}`, 34],

@@ -1,10 +1,10 @@
 import { mulberry32 } from './random';
 import { Replica, shuffled, type LagModel } from './replica';
 
-// Lesson 6.3 §1.3–1.4 — one primary, three async replicas, and five kinds of read routing.
+// Lesson 6.3 §1.3–1.4 - one primary, three async replicas, and five kinds of read routing.
 //
 // A busy TaskFlow workspace: the whole team together makes ~200 writes a second (tasks, comments, statuses).
-// Every write gets an LSN on the primary (Lesson 5.7), and every replica receives it at its own lag —
+// Every write gets an LSN on the primary (Lesson 5.7), and every replica receives it at its own lag -
 // in order (when one stalls, everything behind it stalls).
 //
 // 400 users, each with two devices (phone, laptop). 2000 times a user creates a task, then
@@ -12,8 +12,8 @@ import { Replica, shuffled, type LagModel } from './replica';
 // half of the rest on the other device.
 //
 // Two questions on every read:
-//   read-your-writes — is the user's own last write in this read? (same device / other device counted separately)
-//   monotonic read   — is this read **older** than one of the user's earlier reads? (time went backwards)
+//   read-your-writes - is the user's own last write in this read? (same device / other device counted separately)
+//   monotonic read   - is this read **older** than one of the user's earlier reads? (time went backwards)
 
 const SIM_MS = 120_000;
 const BACKGROUND_WRITES_PER_S = 200;
@@ -22,9 +22,9 @@ const SESSIONS = 2000;
 const READ_OFFSETS_MS = [5, 30, 300, 1000, 3000];
 
 const REPLICAS: LagModel[] = [
-	{ base: 1, mean: 2, stallPerWrite: 0, stallMs: 0 }, // r1 — fast, never stalls
+	{ base: 1, mean: 2, stallPerWrite: 0, stallMs: 0 }, // r1 - fast, never stalls
 	{ base: 3, mean: 8, stallPerWrite: 0.00005, stallMs: 1500 }, // r2
-	{ base: 5, mean: 20, stallPerWrite: 0.0002, stallMs: 3000 } // r3 — slow, stalls for a few seconds now and then
+	{ base: 5, mean: 20, stallPerWrite: 0.0002, stallMs: 3000 } // r3 - slow, stalls for a few seconds now and then
 ];
 
 type Strategy = 'random' | 'sticky' | 'cookie' | 'token-device' | 'token-user';
@@ -168,13 +168,13 @@ function main(): void {
 		random: 'A. any replica (random)',
 		sticky: 'B. one fixed replica per device',
 		cookie: 'C. cookie: primary if written within 5 s',
-		'token-device': 'D. version token — on the device (cookie)',
-		'token-user': 'E. version token — per user (on the server)'
+		'token-device': 'D. version token - on the device (cookie)',
+		'token-user': 'E. version token - per user (on the server)'
 	};
 	console.log(
 		`\n   primary + ${REPLICAS.length} async replicas; ${SIM_MS / 1000} s, ~${BACKGROUND_WRITES_PER_S} writes a second; ${SESSIONS} times "write, then read ${READ_OFFSETS_MS.length} times"`
 	);
-	console.log('   (seeded — the same result every time; the lag numbers are an assumed model)\n');
+	console.log('   (seeded - the same result every time; the lag numbers are an assumed model)\n');
 	console.log(
 		"                                                  didn't see own write          time went     reads on primary"
 	);
@@ -182,7 +182,7 @@ function main(): void {
 		'   strategy                                       same device   other device    back'
 	);
 	for (const strategy of Object.keys(labels) as Strategy[]) {
-		// Object.keys has type string[] — the keys of labels are exactly Strategy, so the assertion is safe
+		// Object.keys has type string[] - the keys of labels are exactly Strategy, so the assertion is safe
 		const r = run(strategy, actions);
 		console.log(
 			`   ${labels[strategy].padEnd(44)}  ${pct(r.sameDeviceMissed, r.sameDeviceReads)}       ${pct(r.otherDeviceMissed, r.otherDeviceReads)}       ${pct(r.wentBack, r.reads)}       ${pct(r.onPrimary, r.reads)}`

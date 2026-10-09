@@ -16,7 +16,7 @@ export const sequelize = new Sequelize(DATABASE_URL, {
 	pool: { max: 10, min: 0, idle: 10_000 }
 });
 
-// main.md §6 — a Sequelize model must never be left untyped.
+// main.md §6 - a Sequelize model must never be left untyped.
 // With InferAttributes / InferCreationAttributes TypeScript knows the model's fields
 // by itself, with no separate interface to write.
 export class Task extends Model<InferAttributes<Task>, InferCreationAttributes<Task>> {

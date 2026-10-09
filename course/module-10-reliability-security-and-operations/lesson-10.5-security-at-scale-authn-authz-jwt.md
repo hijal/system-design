@@ -1,8 +1,8 @@
-# Lesson 10.5 — Security at Scale: AuthN vs AuthZ, OAuth/JWT, Secret Management, DDoS
+# Lesson 10.5 - Security at Scale: AuthN vs AuthZ, OAuth/JWT, Secret Management, DDoS
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 8.2):** Presigned URL এর মেয়াদ কেন কয়েক মিনিটে রাখা হয়, কয়েক দিন না? আর একবার বানিয়ে দেওয়ার পরে মেয়াদের আগে সেটা বাতিল করার কোনো উপায় আছে কি? আজ একই প্রশ্ন আরও বড় আকারে ফিরবে — TaskFlow এর প্রতিটা user এর হাতে এমন একটা জিনিস আছে, আর একজনকে চাকরি থেকে বের করে দেওয়ার পরেও সেটা প্রায় এক দিন কাজ করেছে।
+> **Spaced Repetition (Lesson 8.2):** Presigned URL এর মেয়াদ কেন কয়েক মিনিটে রাখা হয়, কয়েক দিন না? আর একবার বানিয়ে দেওয়ার পরে মেয়াদের আগে সেটা বাতিল করার কোনো উপায় আছে কি? আজ একই প্রশ্ন আরও বড় আকারে ফিরবে - TaskFlow এর প্রতিটা user এর হাতে এমন একটা জিনিস আছে, আর একজনকে চাকরি থেকে বের করে দেওয়ার পরেও সেটা প্রায় এক দিন কাজ করেছে।
 
 **Prerequisite:** Lesson 2.2 (TLS), Lesson 4.5 (CDN, anycast), Lesson 8.2 (Presigned URL), Lesson 9.2 (Gateway, edge authentication, internal token), Lesson 9.5 (Rate limiting), Lesson 10.3 (Static stability, JWKS), Lesson 10.4 (Structured log)
 
@@ -12,13 +12,13 @@
 2. Token এর মেয়াদ, refresh token rotation আর denylist এর trade-off বলতে পারবেন। কতক্ষণ পরে revoke কার্যকর হয়, identity service এ কত চাপ পড়ে, আর identity মরলে কী হয়। আর OAuth এর authorization code flow এ state, PKCE, exact redirect আর single-use এর প্রতিটা **কোন** আক্রমণ থামায় সেটা বলতে পারবেন
 3. একটা secret ফাঁস হলে কী করতে হয় আর কেন ফাঁসের ক্ষতি কমায় secret এর ছোট আয়ু, rotation এর ক্যালেন্ডার না, সেটা বলতে পারবেন। Credential stuffing আর DDoS এর সামনে কোন স্তর কাজ করে আর কোনটা শুধু কাজ করার ভান করে, সেটাও সংখ্যা দিয়ে আলাদা করতে পারবেন
 
-**Tier:** 1 — Runnable Code (পাঁচটা deterministic script। JWT, BOLA, session, OAuth, secret, credential stuffing আর DDoS। কোনো network, identity provider, CDN বা Docker লাগে না)
+**Tier:** 1 - Runnable Code (পাঁচটা deterministic script। JWT, BOLA, session, OAuth, secret, credential stuffing আর DDoS। কোনো network, identity provider, CDN বা Docker লাগে না)
 
 ---
 
 ## ০. TaskFlow এখন কোথায়
 
-10.4 এর পরে TaskFlow নিজেকে দেখতে পায়। প্রতিটা request এর trace আছে, log structured, alert burn rate এ। 9.2 থেকে সব বাইরের traffic একটা gateway দিয়ে আসে। Gateway user এর JWT যাচাই করে, client এর পাঠানো পরিচয়ের header ফেলে দেয়, আর ভেতরে একটা ৬০ s এর signed internal token বসায়। 9.5 থেকে login এ rate limit আছে: IP ধরে ঘণ্টায় ২০টা চেষ্টা, email ধরে ১০টা। Identity module এর access token JWT, মেয়াদ ২৪ ঘণ্টা, revoke এর কোনো ব্যবস্থা নেই — "stateless, তাই scale করে।"
+10.4 এর পরে TaskFlow নিজেকে দেখতে পায়। প্রতিটা request এর trace আছে, log structured, alert burn rate এ। 9.2 থেকে সব বাইরের traffic একটা gateway দিয়ে আসে। Gateway user এর JWT যাচাই করে, client এর পাঠানো পরিচয়ের header ফেলে দেয়, আর ভেতরে একটা ৬০ s এর signed internal token বসায়। 9.5 থেকে login এ rate limit আছে: IP ধরে ঘণ্টায় ২০টা চেষ্টা, email ধরে ১০টা। Identity module এর access token JWT, মেয়াদ ২৪ ঘণ্টা, revoke এর কোনো ব্যবস্থা নেই - "stateless, তাই scale করে।"
 
 TaskFlow এর এখন ২,০০০ workspace, ৬০,০০০ board। তারপর এলো এক সপ্তাহ।
 
@@ -32,34 +32,34 @@ TaskFlow এর এখন ২,০০০ workspace, ৬০,০০০ board। ত
 
 **রবিবার।** Public share page `/s/:token` এ সেকেন্ডে ৬০,০০০ request এলো, ২০,০০০ IP থেকে। CDN আছে (4.5), কিন্তু প্রতিটা URL এর শেষে `?x=` আর এলোমেলো একটা সংখ্যা। প্রতিটা request cache miss, সোজা origin এ। Origin এর ক্ষমতা সেকেন্ডে ২,০০০। চার ঘণ্টা TaskFlow প্রায় বন্ধ।
 
-Postmortem এ security এর দায়িত্বে থাকা engineer এর এক লাইন: "আমাদের login এ একটা দরজা ছিল, আর আমরা ভেবেছিলাম দরজাটাই নিরাপত্তা। প্রতিটা ঘটনা দরজার **পরে** ঘটেছে — অথবা দরজার পাশের দেয়াল দিয়ে।"
+Postmortem এ security এর দায়িত্বে থাকা engineer এর এক লাইন: "আমাদের login এ একটা দরজা ছিল, আর আমরা ভেবেছিলাম দরজাটাই নিরাপত্তা। প্রতিটা ঘটনা দরজার **পরে** ঘটেছে - অথবা দরজার পাশের দেয়াল দিয়ে।"
 
 ---
 
 ## ১. Theory
 
-### ১.১ দুটো আলাদা প্রশ্ন — "আপনি কে?" আর "আপনি কি এটা করতে পারেন?"
+### ১.১ দুটো আলাদা প্রশ্ন - "আপনি কে?" আর "আপনি কি এটা করতে পারেন?"
 
 সোমবারের ঘটনাটা ভালো করে দেখুন। Mallory এর token বৈধ ছিল। Gateway ঠিক বলেছিল "এটা mallory"। ভুলটা হয়েছিল পরের প্রশ্নে, যেটা কেউ করেনি।
 
-**Authentication (AuthN) / Authorization (AuthZ)** — Authentication প্রমাণ করে request টা **কে** পাঠিয়েছে (password, token, certificate দিয়ে); authorization ঠিক করে সেই পরিচয়ের **এই resource এ এই কাজ** করার অনুমতি আছে কিনা। AuthN একবার, সীমানায় হতে পারে; AuthZ প্রতিটা resource এর প্রতিটা কাজে, যেখানে data আছে সেখানে হতে হয়।
+**Authentication (AuthN) / Authorization (AuthZ)** - Authentication প্রমাণ করে request টা **কে** পাঠিয়েছে (password, token, certificate দিয়ে); authorization ঠিক করে সেই পরিচয়ের **এই resource এ এই কাজ** করার অনুমতি আছে কিনা। AuthN একবার, সীমানায় হতে পারে; AuthZ প্রতিটা resource এর প্রতিটা কাজে, যেখানে data আছে সেখানে হতে হয়।
 
 ```
-            AuthN — "আপনি কে?"                    AuthZ — "এটা কি আপনার?"
+            AuthN - "আপনি কে?"                    AuthZ - "এটা কি আপনার?"
 browser ──► gateway ─────────────────────► service ───────────────────────► DB
             token যাচাই: signature,              user 42 কি board 4821 এর
             মেয়াদ, iss, aud                       workspace এর member? কোন role?
             ফল: principal = user 42               ফল: 200 / 404
-            (একবার, এক জায়গায় — 9.2)             (প্রতিটা route, প্রতিটা object)
+            (একবার, এক জায়গায় - 9.2)             (প্রতিটা route, প্রতিটা object)
 ```
 
 9.2 এ AuthN কে সীমানায় এক জায়গায় আনা হয়েছিল। এতে ভুলের জায়গা একটা হয়ে গিয়েছিল। AuthZ কে এভাবে এক জায়গায় আনা যায় না। Gateway জানে না board 4821 কোন workspace এর, ওটা জানে database। তাই AuthZ এর ভুলের জায়গা হলো **প্রতিটা route**, আর প্রতিটা নতুন route একটা নতুন সুযোগ।
 
 এই lesson এর বাকিটা এই দুই প্রশ্নের চারপাশে ঘোরে। প্রথমে দেখব AuthN এর টুকরো ঠিক কী (JWT) আর সেটা কীভাবে ভুলভাবে যাচাই হয় (১.২)। তারপর AuthZ এর সবচেয়ে সাধারণ ভুল (১.৩)। তারপর AuthN কে **ফেরত নেওয়া** (১.৪), আর অন্য কারো হয়ে AuthN (OAuth, ১.৫)। শেষে তিনটা জিনিস যা দরজার পাশের দেয়াল: secret (১.৬), দরজায় ধাক্কা (১.৭), আর পুরো বাড়িতে বন্যা (১.৮)।
 
-### ১.২ JWT — signature মেলা মানেই বিশ্বাসযোগ্য না
+### ১.২ JWT - signature মেলা মানেই বিশ্বাসযোগ্য না
 
-**JWT (JSON Web Token)** — তিনটা base64url অংশ, বিন্দু দিয়ে জোড়া: `header.payload.signature`। Header বলে কোন algorithm দিয়ে sign হয়েছে (`alg`) আর কোন key দিয়ে (`kid`)। Payload এ **claim** থাকে: `sub` (কে), `iss` (কে বানিয়েছে), `aud` (কার জন্য), `exp` (কখন মরবে)। Signature প্রমাণ করে header আর payload কেউ বদলায়নি। JWT সাধারণত **signed, encrypted না** — যে কেউ payload পড়তে পারে।
+**JWT (JSON Web Token)** - তিনটা base64url অংশ, বিন্দু দিয়ে জোড়া: `header.payload.signature`। Header বলে কোন algorithm দিয়ে sign হয়েছে (`alg`) আর কোন key দিয়ে (`kid`)। Payload এ **claim** থাকে: `sub` (কে), `iss` (কে বানিয়েছে), `aud` (কার জন্য), `exp` (কখন মরবে)। Signature প্রমাণ করে header আর payload কেউ বদলায়নি। JWT সাধারণত **signed, encrypted না** - যে কেউ payload পড়তে পারে।
 
 ```
 eyJhbGciOiJSUzI1NiIsImtpZCI6IjIwMjYtMTAifQ . eyJzdWIiOiJhbGljZSIsImF1ZCI6InRhc2tmbG93LWFwaSIsImV4cCI6...} . kQ3x...
@@ -141,7 +141,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
 
 **আর 10.3 এর JWKS এর কথা।** `createRemoteJWKSet` key গুলো cache করে, অজানা `kid` এলে নতুন করে আনে। 10.3 এর reflection question এ দেখেছিলাম, identity মরলে key এর cache শেষ হয়ে গেলে কী হয়। সেখানকার statically stable নকশা এখানেও প্রযোজ্য: শেষ জানা key set ধরে রাখুন, আর নতুন key **আগে প্রকাশ** করুন, পুরনো key **পরে** সরান।
 
-### ১.৩ BOLA — একটা ফাঁকা route, পুরো database
+### ১.৩ BOLA - একটা ফাঁকা route, পুরো database
 
 এবার সোমবার। `npm run authz` অংশ খ এ ২,০০০ workspace × ৩০টা board = ৬০,০০০ board, id `1..60000`। Mallory নিজের free workspace এর admin, তার token বৈধ। আটটা route এর প্রতিটায় সে অন্যের সব board এর id দিয়ে চেষ্টা করে:
 
@@ -162,7 +162,7 @@ POST   /boards/:id/archive                 0          59,970
 - **`export` check ভুলে গেছে।** Token যাচাই হয়েছে (gateway এ), board টা load হয়েছে, পাঠিয়ে দেওয়া হয়েছে। মাঝখানে "এই board কি আপনার workspace এর?" প্রশ্নটা নেই। এটাই সোমবারের ঘটনা।
 - **`DELETE` ভুল জিনিস বিশ্বাস করেছে।** এর check হলো `role === 'admin' || member`, আর `role` আসে token থেকে। Mallory সত্যিই admin, কিন্তু **নিজের** workspace এর। Token এর একটা global `role: admin` বলে না সে কোথায় admin। Role একটা সম্পর্ক (user × workspace), আর সেটা থাকে database এ, token এ না।
 
-**BOLA (Broken Object Level Authorization)** — একটা API একটা object এর id নেয় (`/boards/:id`), user authenticated কিনা দেখে, কিন্তু **এই নির্দিষ্ট object** এ তার অনুমতি আছে কিনা দেখে না। ফলে যেকোনো বৈধ user id বদলে অন্যের data পড়তে বা বদলাতে পারে। পুরনো নাম IDOR (Insecure Direct Object Reference)। OWASP এর API Security Top 10 (২০২৩) এর এক নম্বর ঝুঁকি।
+**BOLA (Broken Object Level Authorization)** - একটা API একটা object এর id নেয় (`/boards/:id`), user authenticated কিনা দেখে, কিন্তু **এই নির্দিষ্ট object** এ তার অনুমতি আছে কিনা দেখে না। ফলে যেকোনো বৈধ user id বদলে অন্যের data পড়তে বা বদলাতে পারে। পুরনো নাম IDOR (Insecure Direct Object Reference)। OWASP এর API Security Top 10 (২০২৩) এর এক নম্বর ঝুঁকি।
 
 খেয়াল করুন, এটা AuthN এর ব্যর্থতা না। প্রতিটা request এ mallory সত্যিই mallory। আর তৃতীয় কলামটা দেখুন: ছয়টা "ঠিক" route ও প্রতিটা board এর **অস্তিত্ব** ফাঁস করে, কারণ "নেই" হলে 404 আর "আপনার না" হলে 403। Attacker কে এতটুকু জানানোও একটা তথ্য: কোন id আছে, কতগুলো board, কত দ্রুত বাড়ছে। তাই অন্যের object এর জন্য সাধারণত **404** ফেরত দেওয়া হয়, "এমন কিছু আপনার জন্য নেই"।
 
@@ -176,7 +176,7 @@ ids from a leaked support log          340               340
 
 দশ লাখ অনুমানে একটাও না। UUID v4 এর ১২২ bit এলোমেলো, অনুমান করে পাওয়ার কোনো আশা নেই। কিন্তু id **গোপন জিনিস না।** URL এ থাকে, browser history তে থাকে, screenshot এ, support ticket এ, log এ (10.4), share করা link এ। ৩৪০টা ফাঁস হওয়া id এর **৩৪০টাই** কাজ করেছে। UUID enumeration থামায়, আর সেটা ভালো জিনিস, রাখুন। কিন্তু এটা authorization না। Authorization মানে "id জানলেও আপনি পাবেন না।"
 
-**কীভাবে ঠিক করবেন — আর কীভাবে আবার না ঘটে।** একটা route ঠিক করা সহজ। কঠিন হলো পরের sprint এর নতুন route টা। দুটো কৌশল একসাথে লাগে:
+**কীভাবে ঠিক করবেন - আর কীভাবে আবার না ঘটে।** একটা route ঠিক করা সহজ। কঠিন হলো পরের sprint এর নতুন route টা। দুটো কৌশল একসাথে লাগে:
 
 **(ক) Authorization কে data পড়ার পথে বসান, route এর ভেতরে না।** কোনো route যেন permission না দেখে board load **করতেই না পারে**:
 
@@ -210,12 +210,12 @@ GET    /boards/:id/export       200       200 ✗               200 ✗         
 DELETE /boards/:id              204       404                 204 ✗              401           FAIL
 POST   /boards/:id/archive      200       404                 404                401           pass
 
-3 cells failed — with this test in CI it would have been caught before merge
+3 cells failed - with this test in CI it would have been caught before merge
 ```
 
 তিনটা ঘর, আর ঠিক সেই তিনটা যা সোমবারে আসল ক্ষতি করেছে। এই test এর শক্তি হলো এটা route এর তালিকা থেকে **নিজে** তৈরি হয়। নতুন route যোগ করলে সে matrix এ নিজেই ঢুকে যায়, আর কেউ প্রত্যাশিত ফল না লিখলে test ব্যর্থ হয়। 10.3 এর dependency matrix এর একই যুক্তি: যে প্রশ্ন সবাই ভুলে যায়, সেটা CI কে করতে দিন।
 
-### ১.৪ Session — একটা token কে ফেরত নেওয়া
+### ১.৪ Session - একটা token কে ফেরত নেওয়া
 
 বুধবারের দ্বিতীয় অর্ধেক। বরখাস্ত employee এর account সকালে disable হয়েছিল। কিন্তু তার হাতে একটা ২৪ ঘণ্টার JWT ছিল, আর API সেটা যাচাই করে signature আর মেয়াদ দিয়ে। Account disable হয়েছে কিনা, সেটা কেউ দেখে না। 8.2 এর presigned URL এর মতোই এটা একটা **bearer** অনুমতি: যার হাতে, সে-ই মালিক, মেয়াদ শেষ না হওয়া পর্যন্ত।
 
@@ -240,7 +240,7 @@ access 15 min + refresh + denylist            43.7         14.6%               5
 
 মাঝের সারিগুলো হলো আজকের সাধারণ নকশা। দুই রকম token:
 
-**Refresh Token Rotation** — একটা ছোট মেয়াদের **access token** (JWT, ৫–১৫ মিনিট; API প্রতিটা request এ যাচাই করে, কাউকে না জিজ্ঞেস করে) আর একটা লম্বা মেয়াদের **refresh token** (opaque, মানে ভেতরে কোনো অর্থ নেই এমন এলোমেলো string; দিন বা সপ্তাহ; শুধু identity কে দেখানো হয় নতুন access token পেতে)। প্রতিবার refresh এ পুরনো refresh token মরে আর নতুন একটা আসে (**rotation**)। আর একটা পুরনো, ব্যবহার হয়ে যাওয়া refresh token আবার এলে পুরো পরিবার (সেই login এর সব refresh token) বাতিল হয় (**reuse detection**)।
+**Refresh Token Rotation** - একটা ছোট মেয়াদের **access token** (JWT, ৫–১৫ মিনিট; API প্রতিটা request এ যাচাই করে, কাউকে না জিজ্ঞেস করে) আর একটা লম্বা মেয়াদের **refresh token** (opaque, মানে ভেতরে কোনো অর্থ নেই এমন এলোমেলো string; দিন বা সপ্তাহ; শুধু identity কে দেখানো হয় নতুন access token পেতে)। প্রতিবার refresh এ পুরনো refresh token মরে আর নতুন একটা আসে (**rotation**)। আর একটা পুরনো, ব্যবহার হয়ে যাওয়া refresh token আবার এলে পুরো পরিবার (সেই login এর সব refresh token) বাতিল হয় (**reuse detection**)।
 
 Access token এর মেয়াদ একটা knob। এটা ঘোরালে **তিনটা** জিনিস একসাথে ঘোরে। ১৫ মিনিট থেকে ৫ মিনিট করলে revoke এর দেরি ৪.৮ মিনিট থেকে ১.১ মিনিটে নামে, ভালো। Identity এর চাপ দ্বিগুণ (৪৩.৭ থেকে ৮৮ call/s), খারাপ। আর identity মরলে মানুষ কতক্ষণ কাজ চালাতে পারে, সেটা ১৫ মিনিট থেকে ৫ মিনিটে নামে, এটাও খারাপ। Revoke দ্রুত হওয়া আর outage সহ্য করা পরস্পরের শত্রু, যতক্ষণ একটা knob দিয়ে দুটো চালাচ্ছেন।
 
@@ -267,11 +267,11 @@ rotation + reuse detection             2.7 days                    1            
 
 **Browser এ token কোথায় রাখবেন।** JavaScript পড়তে পারে এমন জায়গায় (`localStorage`) রাখলে একটা XSS bug (অন্যের script page এ চালানো) সব token নিয়ে যায়। `HttpOnly; Secure; SameSite` cookie তে রাখলে JavaScript সেটা পড়তে পারে না। এজন্যই 9.2 এর BFF pattern এ (SvelteKit এর server route) access token browser এ যায়ই না। Browser এর কাছে শুধু একটা session cookie থাকে, আর token থাকে BFF এর কাছে। Cookie এর নিজের ঝুঁকি আছে: CSRF, মানে অন্য site থেকে আপনার নামে request। `SameSite=Lax` বা `Strict` আর state বদলানো request এ CSRF token দিয়ে সেটা সামলাতে হয়।
 
-### ১.৫ OAuth 2.0 আর OIDC — অন্য কারো হয়ে পরিচয়
+### ১.৫ OAuth 2.0 আর OIDC - অন্য কারো হয়ে পরিচয়
 
 TaskFlow এ দুটো নতুন চাওয়া এসেছে: "Google দিয়ে login" আর একটা public API, যাতে Slack এর মতো বাইরের app user এর হয়ে task পড়তে পারে। দুটোই একই প্রশ্ন: একটা app কীভাবে user এর password না জেনে user এর হয়ে কাজ করবে?
 
-**OAuth 2.0 / OIDC** — OAuth 2.0 হলো **delegated authorization** এর একটা framework: user একটা app কে (client) সীমিত অনুমতি (scope) দেয়, password না দিয়ে, আর app পায় একটা **access token**। OIDC (OpenID Connect) তার উপরে একটা পরিচয়ের স্তর: সাথে একটা **ID token** (JWT) দেয়, যা client কে বলে "কে login করেছে"। দুটোর সবচেয়ে প্রচলিত flow হলো **authorization code flow + PKCE**।
+**OAuth 2.0 / OIDC** - OAuth 2.0 হলো **delegated authorization** এর একটা framework: user একটা app কে (client) সীমিত অনুমতি (scope) দেয়, password না দিয়ে, আর app পায় একটা **access token**। OIDC (OpenID Connect) তার উপরে একটা পরিচয়ের স্তর: সাথে একটা **ID token** (JWT) দেয়, যা client কে বলে "কে login করেছে"। দুটোর সবচেয়ে প্রচলিত flow হলো **authorization code flow + PKCE**।
 
 ```
  browser                 TaskFlow (client)                   authorization server (identity)
@@ -318,7 +318,7 @@ access token (aud = taskflow-api)     API ignoring aud: 200   API checking aud: 
 
 ID token TaskFlow এর **web app** কে বলে "এটা alice"। তার `aud` হলো client (`taskflow-web`)। এটা API এর দরজা খোলার চাবি না। কোনো API যদি `aud` না দেখে, তাহলে যেকোনো app এর জন্য বানানো যেকোনো ID token তার দরজা খোলে। এর মধ্যে এমন app ও আছে যেটা একই identity provider ব্যবহার করে, কিন্তু অন্য কারো। ১.২ এর তৃতীয় নিয়মেরই একটা রূপ।
 
-### ১.৬ Secret — git এ যা গেছে, তা গেছে
+### ১.৬ Secret - git এ যা গেছে, তা গেছে
 
 মঙ্গলবার। `npm run secrets` অংশ ক তে একটা ছোট git history আর একটা secret scanner আছে। Scanner দুইভাবে চালানো হয়েছে, শুধু আজকের code এ আর পুরো history তে:
 
@@ -327,13 +327,13 @@ HEAD only (today's code):  2 findings
 whole git history:         5 findings
 
 commit    file                rule                            verdict
-7f20b4d   .env                tfsk key pattern                 real — live payment key
-7f20b4d   .env                SECRET/KEY = high entropy       real — the token signing secret
-7f20b4d   .env                password in a URL                real — production DB
+7f20b4d   .env                tfsk key pattern                 real - live payment key
+7f20b4d   .env                SECRET/KEY = high entropy       real - the token signing secret
+7f20b4d   .env                password in a URL                real - production DB
 c08a5f2   package-lock.json   any long high-entropy string  false positive (lockfile hash)
-c08a5f2   test/fixtures.ts    tfsk key pattern     test key — low risk, remove it anyway
+c08a5f2   test/fixtures.ts    tfsk key pattern     test key - low risk, remove it anyway
 
-real production secrets: 3 in history, 0 at HEAD — the "oops remove .env" commit deleted nothing
+real production secrets: 3 in history, 0 at HEAD - the "oops remove .env" commit deleted nothing
 ```
 
 তিনটা শিক্ষা:
@@ -374,11 +374,11 @@ worker                     10                   4  incl. DATABASE_URL
 
 **Secret manager** (HashiCorp Vault, AWS Secrets Manager, GCP Secret Manager) এই সব কিছুর জায়গা। Secret code এ বা image এ না, চালু হওয়ার সময় service এর পরিচয় দিয়ে আনা হয়। প্রতিটা পড়া audit log এ যায়। Rotation আর dynamic credential এক জায়গায় চলে। আর একটা সূক্ষ্মতা: secret manager নিজেই একটা hard dependency হয়ে যায়। 10.3 এর static stability এখানেও প্রযোজ্য: service চালু থাকা অবস্থায় শেষ পাওয়া secret ধরে রাখুন, যাতে secret manager এর পাঁচ মিনিটের outage পুরো TaskFlow না থামায়।
 
-### ১.৭ Credential Stuffing — দরজায় কোটি ধাক্কা, প্রতিটা আলাদা হাতে
+### ১.৭ Credential Stuffing - দরজায় কোটি ধাক্কা, প্রতিটা আলাদা হাতে
 
 শনিবার রাত। আক্রমণটা কেমন ছিল ভালো করে দেখুন, কারণ 9.5 এর rate limit ঠিক এই ধরনের আক্রমণের জন্য বানানো **মনে** হয়েছিল।
 
-**Credential Stuffing** — অন্য site এর data breach থেকে পাওয়া কোটি কোটি (email, password) জোড়া নিয়ে স্বয়ংক্রিয়ভাবে নিজের site এ login চেষ্টা করা। এটা কাজ করে কারণ মানুষ একই password অনেক জায়গায় ব্যবহার করে। Brute force এর মতো এক account এ অনেক password চেষ্টা করা হয় না, **অনেক account এ একটা করে** চেষ্টা হয়। আর হাজার হাজার IP থেকে আসে (botnet, residential proxy), তাই প্রতি IP আর প্রতি account এর সীমার অনেক নিচে থাকে।
+**Credential Stuffing** - অন্য site এর data breach থেকে পাওয়া কোটি কোটি (email, password) জোড়া নিয়ে স্বয়ংক্রিয়ভাবে নিজের site এ login চেষ্টা করা। এটা কাজ করে কারণ মানুষ একই password অনেক জায়গায় ব্যবহার করে। Brute force এর মতো এক account এ অনেক password চেষ্টা করা হয় না, **অনেক account এ একটা করে** চেষ্টা হয়। আর হাজার হাজার IP থেকে আসে (botnet, residential proxy), তাই প্রতি IP আর প্রতি account এর সীমার অনেক নিচে থাকে।
 
 `npm run abuse` অংশ ক তে ১২ লাখ চেষ্টা, ৩৮,০০০ IP, ৬ ঘণ্টা। তালিকার ৩% email TaskFlow এ আছে, আর তাদের ১০% একই password ব্যবহার করে। সাথে একই সময়ে ২০,০০০ বৈধ login, যার ৩০% আসে ৪০টা office এর NAT এর পেছন থেকে:
 
@@ -386,10 +386,10 @@ worker                     10                   4  incl. DATABASE_URL
 5.3 attempts per IP per hour on average, once per email on average; the password really matches for 3,547 accounts on the list
 
 policy                           bot reached password  takeovers     legit logins blocked  legit user friction  detected
-no limits                               1,200,000         3,547          0 (0.0%)                  0          —
-9.5: IP 20/h + email 10/h                     1,200,000         3,547        946 (4.7%)                  0          —
-strict: IP 5/h + email 10/h                    853,658         2,532     4,484 (22.4%)                  0          —
-9.5 + breached password check                1,200,000           531        946 (4.7%)              1,210          —
+no limits                               1,200,000         3,547          0 (0.0%)                  0          -
+9.5: IP 20/h + email 10/h                     1,200,000         3,547        946 (4.7%)                  0          -
+strict: IP 5/h + email 10/h                    853,658         2,532     4,484 (22.4%)                  0          -
+9.5 + breached password check                1,200,000           531        946 (4.7%)              1,210          -
 9.5 + failure ratio → challenge                123,183           395      1,104 (5.5%)              4,935     1 min
 all + MFA (25% of users)                       123,183            46      1,104 (5.5%)              6,137     1 min
 ```
@@ -404,9 +404,9 @@ all + MFA (25% of users)                       123,183            46      1,104 
 
 শিক্ষা: **প্রতি-key এর সীমা (IP, email) একটা আক্রমণকারী থামায়, একটা বিতরণ করা আক্রমণ না।** বিতরণ করা আক্রমণ ধরতে সামগ্রিক সংকেত লাগে (failure ratio, নতুন device এর অনুপাত, একই password এর অনেক email এ চেষ্টা)। আর তাকে অকেজো করতে লাগে credential এর গুণমান: breached check, MFA, আর সবচেয়ে ভালো, passkey। Passkey তে চুরি করার মতো কোনো password ই থাকে না। আর সবকিছুর শেষে একটা কাজ যা কোনো সারিতে নেই: নতুন device থেকে login হলে user কে email দিন। ৪৬ জনের অনেকে সকালে নিজেরাই জানাবে।
 
-### ১.৮ DDoS — কোন স্তর কোন বন্যা থামায়
+### ১.৮ DDoS - কোন স্তর কোন বন্যা থামায়
 
-**DDoS (Distributed Denial of Service)** — অনেক উৎস থেকে একসাথে traffic পাঠিয়ে একটা service কে বৈধ user দের জন্য অচল করা। দুটো মৌলিক ধরন আছে। **Volumetric** (network/L3–L4) আক্রমণ link এর bandwidth ভরে দেয় (যেমন UDP reflection, যেখানে খোলা DNS বা NTP server কে জাল উৎস দিয়ে প্রশ্ন করা হয়, আর তারা অনেক গুণ বড় উত্তর শিকারের কাছে পাঠায়)। **Application layer** (L7) আক্রমণ দেখতে বৈধ HTTP request এর মতো, কিন্তু server এর CPU, DB বা connection শেষ করে দেয়।
+**DDoS (Distributed Denial of Service)** - অনেক উৎস থেকে একসাথে traffic পাঠিয়ে একটা service কে বৈধ user দের জন্য অচল করা। দুটো মৌলিক ধরন আছে। **Volumetric** (network/L3–L4) আক্রমণ link এর bandwidth ভরে দেয় (যেমন UDP reflection, যেখানে খোলা DNS বা NTP server কে জাল উৎস দিয়ে প্রশ্ন করা হয়, আর তারা অনেক গুণ বড় উত্তর শিকারের কাছে পাঠায়)। **Application layer** (L7) আক্রমণ দেখতে বৈধ HTTP request এর মতো, কিন্তু server এর CPU, DB বা connection শেষ করে দেয়।
 
 দুটোর প্রতিরক্ষা সম্পূর্ণ আলাদা। এটাই মূল কথা।
 
@@ -449,11 +449,11 @@ challenge at the edge (5% of bots pass), no cache      3,400             58.8%
 
 ### ১.৯ TaskFlow এর সিদ্ধান্ত
 
-> **Trade-off Table — কোন আক্রমণ, কোন স্তর, কী দাম**
+> **Trade-off Table - কোন আক্রমণ, কোন স্তর, কী দাম**
 
 | আক্রমণ / ঝুঁকি          | যা কাজ করে                                                        | যা কাজ করার ভান করে                 | দাম                                                               |
 | ----------------------- | ----------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------- |
-| জাল / ভুল জায়গার JWT   | Algorithm allowlist, trusted key ring, `iss`/`aud`/`exp`, library | Signature মেলানো একা                | কিছুই না — শুধু শৃঙ্খলা                                           |
+| জাল / ভুল জায়গার JWT   | Algorithm allowlist, trusted key ring, `iss`/`aud`/`exp`, library | Signature মেলানো একা                | কিছুই না - শুধু শৃঙ্খলা                                           |
 | BOLA                    | Data পড়ার পথে authorization, route × actor matrix test           | UUID একা, token এর `role`           | প্রতিটা query তে membership এর শর্ত                               |
 | চুরি / revoke করা token | ছোট access token + refresh rotation + reuse detection + denylist  | লম্বা stateless JWT                 | Identity এর চাপ, denylist এর state                                |
 | OAuth code চুরি / টোপ   | State + PKCE (S256) + exact redirect + single-use, ছোট মেয়াদ     | যেকোনো একটা একা                     | ধীর callback ব্যর্থ                                               |
@@ -487,11 +487,11 @@ Security প্রায় কখনো আলাদা প্রশ্ন হ�
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"JWT নাকি session?"_ — দুটোই এক প্রশ্নের দুই প্রান্ত: revoke এর গতি বনাম প্রতি request এ lookup। বাস্তবে মাঝখানে: ছোট JWT + refresh + denylist। সংখ্যা দিন: ২৪ ঘণ্টার JWT revoke এর পরে গড়ে ১৯.৬ ঘণ্টা চলে, ১৫ মিনিটের টা ৪.৮ মিনিট, denylist দিয়ে ৫ সেকেন্ড।
-- _"JWT এ কী রাখবেন?"_ — পরিচয় (`sub`), মেয়াদ, `aud`। Permission না (বদলায়, আর tenant ধরে আলাদা), গোপন কিছু না (payload পড়া যায়)।
-- _"OAuth এ PKCE কেন?"_ — চুরি হওয়া code কে অকেজো করে। আর বলুন কী **থামায় না**: redirect URI এর টোপ। সেটার জন্য exact match।
-- _"Rate limit দিয়ে DDoS থামাবেন?"_ — না। Volumetric app এ পৌঁছানোর আগেই link ভরে দেয়। Edge এ (anycast CDN / scrubbing) আর লুকানো origin। L7 এ cache আর bot সংকেত। App এর rate limit ন্যায্যতার জন্য।
-- _"Password ফাঁস / credential stuffing?"_ — Per-IP সীমা বিতরণ করা আক্রমণে অন্ধ। সামগ্রিক failure ratio, breached password check, MFA / passkey।
+- _"JWT নাকি session?"_ - দুটোই এক প্রশ্নের দুই প্রান্ত: revoke এর গতি বনাম প্রতি request এ lookup। বাস্তবে মাঝখানে: ছোট JWT + refresh + denylist। সংখ্যা দিন: ২৪ ঘণ্টার JWT revoke এর পরে গড়ে ১৯.৬ ঘণ্টা চলে, ১৫ মিনিটের টা ৪.৮ মিনিট, denylist দিয়ে ৫ সেকেন্ড।
+- _"JWT এ কী রাখবেন?"_ - পরিচয় (`sub`), মেয়াদ, `aud`। Permission না (বদলায়, আর tenant ধরে আলাদা), গোপন কিছু না (payload পড়া যায়)।
+- _"OAuth এ PKCE কেন?"_ - চুরি হওয়া code কে অকেজো করে। আর বলুন কী **থামায় না**: redirect URI এর টোপ। সেটার জন্য exact match।
+- _"Rate limit দিয়ে DDoS থামাবেন?"_ - না। Volumetric app এ পৌঁছানোর আগেই link ভরে দেয়। Edge এ (anycast CDN / scrubbing) আর লুকানো origin। L7 এ cache আর bot সংকেত। App এর rate limit ন্যায্যতার জন্য।
+- _"Password ফাঁস / credential stuffing?"_ - Per-IP সীমা বিতরণ করা আক্রমণে অন্ধ। সামগ্রিক failure ratio, breached password check, MFA / passkey।
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ ভুলগুলো হলো নিজের লেখা JWT verifier, বা library কে algorithm না বলে দেওয়া। Authorization route এ, data এর পথে না, তাই নতুন route এ ভুলে যাওয়া। Token এর `role` বা client এর পাঠানো `tenant_id` বিশ্বাস করা। লম্বা মেয়াদের token, revoke নেই। Token আর secret log এ। `.env` কে "মুছে" ফেলা ভাবা, rotate না করা। সব service এর জন্য একটা `.env`। Login এ শুধু per-IP সীমা। CDN এর পেছনে থেকেও origin এর IP প্রকাশ্য। আর query string দিয়ে cache ভাঙতে দেওয়া।
 
@@ -598,9 +598,9 @@ Role token এ আসবে না, আর এখানে কারণটা �
 
 ## ৬. Practical Exercise
 
-**Tier 1 — Runnable Code** (পাঁচটা deterministic script; কোনো network, identity provider, CDN বা Docker লাগে না)
+**Tier 1 - Runnable Code** (পাঁচটা deterministic script; কোনো network, identity provider, CDN বা Docker লাগে না)
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-10.5-security-jwt-oauth-ddos/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.5-security-jwt-oauth-ddos) — `npm install`, তারপর `npm run authz`, `npm run sessions`, `npm run oauth`, `npm run secrets`, `npm run abuse`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-10.5-security-jwt-oauth-ddos/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.5-security-jwt-oauth-ddos) - `npm install`, তারপর `npm run authz`, `npm run sessions`, `npm run oauth`, `npm run secrets`, `npm run abuse`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
 
 `authz` এ আসল RS256 token দিয়ে naive আর strict verifier, ৬০,০০০ board এ BOLA এর scan, UUID বনাম ফাঁস হওয়া id, আর route × actor matrix test। `sessions` এ ৬০,০০০ session এর ৮ ঘণ্টা ছয়টা token নীতিতে চলে (revoke এর দেরি, identity এর চাপ, outage সহ্য করা), সাথে refresh token চুরির দুটো দৃশ্য। `oauth` এ একটা authorization server আর client আছে, চারটা আক্রমণ × পাঁচটা প্রতিরক্ষার সেট, আর ID token বনাম access token। `secrets` এ একটা ছোট git history এ secret scanner, ১,০০০টা ফাঁসের আয়ু চারটা নীতিতে, আর service ধরে secret এর ভাগ। `abuse` এ ১২ লাখ চেষ্টার credential stuffing ছয়টা নীতিতে, volumetric আর L7 flood।
 
@@ -625,7 +625,7 @@ Role token এ আসবে না, আর এখানে কারণটা �
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1, 2, 3, 4, 5, 6, 7, 8, 9 (সম্পূর্ণ, exit challenge সহ), 10.1, 10.2, 10.3, 10.4
-Current: 10.5 — Security at scale: authN vs authZ, OAuth/JWT, secret management, DDoS
+Current: 10.5 - Security at scale: authN vs authZ, OAuth/JWT, secret management, DDoS
 TaskFlow state: modular monolith + billing service; gateway + BFF; saga; breaker + bulkhead; rate limit
 দুই স্তরে; cache ring; Bloom/HLL; hard/soft dependency + fault injection; brownout; OpenTelemetry, structured
 log, histogram, tail sampling, burn rate alert। খারাপ সপ্তাহ: export route এ BOLA (sequential id, অন্যের
@@ -648,8 +648,8 @@ Hard / Soft Dependency, Graceful Degradation, Brownout, Static Stability, Chaos 
 Observability, Histogram, Label Cardinality, Structured Logging, Trace / Span, Tail Sampling, Burn Rate,
 Authentication / Authorization, JWT, BOLA, Refresh Token Rotation, OAuth 2.0 + PKCE / OIDC, Credential
 Stuffing, DDoS (Volumetric / L7)
-Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
-Next: 10.6 — Deployment: blue-green, canary, feature flag, zero-downtime migration
+Weak spots: [আপনি যেখানে আটকেছিলেন - নিজে লিখুন]
+Next: 10.6 - Deployment: blue-green, canary, feature flag, zero-downtime migration
 =======================
 ```
 
@@ -659,4 +659,4 @@ Next: 10.6 — Deployment: blue-green, canary, feature flag, zero-downtime migra
 
 আজকের সুতোটা: **দরজাটা নিরাপত্তা না।** TaskFlow এর login ঠিক ছিল, gateway ঠিক ছিল, আর সপ্তাহের প্রতিটা ঘটনা ঘটেছে তার পরে বা পাশ দিয়ে। একটা route প্রশ্ন করতে ভুলে গেছে "এটা কি আপনার?"। একটা token কে ফেরত নেওয়া যায়নি। একটা secret "মুছে" ফেলা হয়েছিল কিন্তু চলে যায়নি। আর আক্রমণ এসেছে হাজার হাতে, প্রতিটা সীমার নিচে। প্রতিটা প্রতিরক্ষার একটা নির্দিষ্ট হুমকি আছে, আর "আমরা X ব্যবহার করি" কখনো উত্তর না, যতক্ষণ না বলছেন X কোন আক্রমণ থামায় আর কোনটা থামায় **না**।
 
-খেয়াল করুন, এই সপ্তাহের অনেক সমাধান একটা কাজে আটকে আছে: **নিরাপদে বদলানো।** ছয়টা service এ একসাথে key rotate করা, যাতে কেউ কাউকে প্রত্যাখ্যান না করে। `findByPk` কে scoped loader এ বদলানো, চলমান system এ। `Membership` table এ নতুন `scope` column, ৬০,০০০ board এর উপর, কোনো downtime ছাড়া। রেডি হলে `next` লিখুন — **Lesson 10.6: Deployment — Blue-Green, Canary, Feature Flag, Zero-Downtime Migration** এ যাব। সেখানে প্রশ্নটা: একটা পরিবর্তনকে production এ কীভাবে আনবেন যাতে ভুল হলে তা অল্প মানুষকে, অল্প সময়ের জন্য ছোঁয়, আর এক click এ ফেরানো যায়। আর database এর schema কীভাবে বদলাবেন যখন পুরনো আর নতুন code একই সময়ে একই table পড়ছে।
+খেয়াল করুন, এই সপ্তাহের অনেক সমাধান একটা কাজে আটকে আছে: **নিরাপদে বদলানো।** ছয়টা service এ একসাথে key rotate করা, যাতে কেউ কাউকে প্রত্যাখ্যান না করে। `findByPk` কে scoped loader এ বদলানো, চলমান system এ। `Membership` table এ নতুন `scope` column, ৬০,০০০ board এর উপর, কোনো downtime ছাড়া। রেডি হলে `next` লিখুন - **Lesson 10.6: Deployment - Blue-Green, Canary, Feature Flag, Zero-Downtime Migration** এ যাব। সেখানে প্রশ্নটা: একটা পরিবর্তনকে production এ কীভাবে আনবেন যাতে ভুল হলে তা অল্প মানুষকে, অল্প সময়ের জন্য ছোঁয়, আর এক click এ ফেরানো যায়। আর database এর schema কীভাবে বদলাবেন যখন পুরনো আর নতুন code একই সময়ে একই table পড়ছে।

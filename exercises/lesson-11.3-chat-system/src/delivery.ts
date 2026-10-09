@@ -22,7 +22,7 @@ const policies: Policy[] = [
 ];
 
 heading(
-	`Part A — A → server → B, ${n(MESSAGES)} messages, each packet lost ${(DROP * 100).toFixed(0)}% of the time (mobile network)`
+	`Part A - A → server → B, ${n(MESSAGES)} messages, each packet lost ${(DROP * 100).toFixed(0)}% of the time (mobile network)`
 );
 console.log(
 	row([
@@ -78,7 +78,7 @@ for (const policy of policies) {
 }
 
 heading(
-	`Part B — ordering in a group: ${MEMBERS} people, phone clocks ±${CLOCK_SD_MS} ms (${(WRONG_CLOCK * 100).toFixed(0)}% of phones a minute or so off), ${SERVERS} chat servers (±${SERVER_SD_MS} ms)`
+	`Part B - ordering in a group: ${MEMBERS} people, phone clocks ±${CLOCK_SD_MS} ms (${(WRONG_CLOCK * 100).toFixed(0)}% of phones a minute or so off), ${SERVERS} chat servers (±${SERVER_SD_MS} ms)`
 );
 type Order = 'client' | 'arrival' | 'server' | 'seq';
 const orders: [Order, string][] = [

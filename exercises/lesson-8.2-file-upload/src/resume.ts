@@ -15,16 +15,16 @@ import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { emptyBucket, env, mb, mulberry32, prepareBucket, s3, sendPut } from './common';
 
-// Lesson 8.2 §1.3 — a big file, a broken network. A 200 MB screen recording, on a network where the connection
+// Lesson 8.2 §1.3 - a big file, a broken network. A 200 MB screen recording, on a network where the connection
 // tears on average after every DROP_EVERY_MB sent (a train, a lift, wifi to mobile data).
 //
 //   one PUT: when it tears, start the whole thing again from the beginning
 //   multipart: the file in PART_MB pieces; when it tears, only that piece again; if the tab closes midway,
 //              ListParts tells which ones exist and the rest are sent
 //
-// The uploads are real — presigned URLs, real object storage, and the connection really is cut midway. Which byte it
-// tears at is seeded — the same every time. "Time" is a calculation: bytes sent ÷ NET_MBPS + RTT_MS per
-// request (one round trip on mobile) — real time on a local network is meaninglessly fast.
+// The uploads are real - presigned URLs, real object storage, and the connection really is cut midway. Which byte it
+// tears at is seeded - the same every time. "Time" is a calculation: bytes sent ÷ NET_MBPS + RTT_MS per
+// request (one round trip on mobile) - real time on a local network is meaninglessly fast.
 
 const cfg = z
 	.object({
@@ -41,7 +41,7 @@ const cfg = z
 const B = env.BUCKET;
 const MB = 1024 * 1024;
 
-// the broken network: after how many bytes it tears next (exponential, mean DROP_EVERY_MB) — keeps going across requests
+// the broken network: after how many bytes it tears next (exponential, mean DROP_EVERY_MB) - keeps going across requests
 class FlakyNetwork {
 	private readonly random: () => number;
 	private untilDrop: number;
@@ -95,7 +95,7 @@ async function singlePut(name: string, file: Buffer, drops: boolean): Promise<Ro
 	const net = new FlakyNetwork(drops);
 	const key = `recordings/single-${drops ? 'flaky' : 'clean'}`;
 	for (let attempt = 1; attempt <= cfg.MAX_ATTEMPTS; attempt++) {
-		// a new URL every time (from the app) — when it tears, start again from the beginning, the whole file
+		// a new URL every time (from the app) - when it tears, start again from the beginning, the whole file
 		const url = await getSignedUrl(
 			s3,
 			new PutObjectCommand({ Bucket: B, Key: key, ContentLength: file.length }),
@@ -135,7 +135,7 @@ async function multipart(
 	const key = `recordings/multipart-${partMb}mb`;
 	const partSize = partMb * MB;
 	const count = Math.ceil(file.length / partSize);
-	// 1. app: start the upload — one UploadId (kept in the database's pending row)
+	// 1. app: start the upload - one UploadId (kept in the database's pending row)
 	const { UploadId } = await s3.send(
 		new CreateMultipartUploadCommand({ Bucket: B, Key: key, ContentType: 'video/mp4' })
 	);
@@ -145,7 +145,7 @@ async function multipart(
 	let resumedWith = 0;
 	for (let n = 1; n <= count; n++) {
 		if (closeTabAt !== null && n === Math.floor(count * closeTabAt) + 1 && resumedWith === 0) {
-			// the tab closed, the laptop slept — the browser's memory is gone. Coming back it asks the app: which ones arrived?
+			// the tab closed, the laptop slept - the browser's memory is gone. Coming back it asks the app: which ones arrived?
 			done = new Map();
 			const listed = await s3.send(new ListPartsCommand({ Bucket: B, Key: key, UploadId }));
 			for (const p of listed.Parts ?? [])
@@ -154,7 +154,7 @@ async function multipart(
 		}
 		if (done.has(n)) continue;
 		const body = file.subarray((n - 1) * partSize, Math.min(file.length, n * partSize));
-		// 2. each part gets its own presigned URL — the app signs, the browser sends directly
+		// 2. each part gets its own presigned URL - the app signs, the browser sends directly
 		const url = await getSignedUrl(
 			s3,
 			new UploadPartCommand({
@@ -222,7 +222,7 @@ async function abandoned(file: Buffer): Promise<void> {
 	console.log(`   unfinished uploads after AbortMultipartUpload: ${after.Uploads?.length ?? 0}\n`);
 }
 
-// the same broken-network model, without IO — on MODEL_RUNS different seeds, so you see the average, not one run's luck
+// the same broken-network model, without IO - on MODEL_RUNS different seeds, so you see the average, not one run's luck
 function modelRun(
 	seed: number,
 	partMb: number | null,
@@ -281,9 +281,9 @@ function modelTable(fileBytes: number): void {
 		const avg = (xs: number[]): number =>
 			xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
 		const p95 = secs[Math.min(secs.length - 1, Math.floor(0.95 * secs.length))] ?? 0;
-		const minutes = (x: number): string => (done.length ? `${(x / 60).toFixed(1)} min` : '—');
+		const minutes = (x: number): string => (done.length ? `${(x / 60).toFixed(1)} min` : '-');
 		console.log(
-			`   ${name.padEnd(25)} ${`${((100 * done.length) / runs.length).toFixed(0)}%`.padStart(7)} ${(done.length ? (avg(done.map((r) => r.sent)) / fileBytes).toFixed(2) : '—').padStart(26)} ${minutes(avg(secs)).padStart(12)} ${minutes(p95).padStart(12)} ${(done.length ? avg(done.map((r) => r.requests)).toFixed(0) : '—').padStart(12)}`
+			`   ${name.padEnd(25)} ${`${((100 * done.length) / runs.length).toFixed(0)}%`.padStart(7)} ${(done.length ? (avg(done.map((r) => r.sent)) / fileBytes).toFixed(2) : '-').padStart(26)} ${minutes(avg(secs)).padStart(12)} ${minutes(p95).padStart(12)} ${(done.length ? avg(done.map((r) => r.requests)).toFixed(0) : '-').padStart(12)}`
 		);
 	}
 	console.log(
@@ -311,7 +311,7 @@ async function main(): Promise<void> {
 	);
 	for (const r of rows) {
 		console.log(
-			`   ${r.name.padEnd(36)} ${(r.done ? 'yes' : 'no').padStart(8)} ${mb(r.net.sent).padStart(11)} ${(r.net.sent / file.length).toFixed(2).padStart(14)} ${String(r.net.requests).padStart(9)} ${String(r.net.drops).padStart(9)} ${`${(r.net.seconds() / 60).toFixed(1)} min`.padStart(14)} ${(r.done ? (r.intact ? 'yes' : 'no') : '—').padStart(11)}   ${r.etag}`
+			`   ${r.name.padEnd(36)} ${(r.done ? 'yes' : 'no').padStart(8)} ${mb(r.net.sent).padStart(11)} ${(r.net.sent / file.length).toFixed(2).padStart(14)} ${String(r.net.requests).padStart(9)} ${String(r.net.drops).padStart(9)} ${`${(r.net.seconds() / 60).toFixed(1)} min`.padStart(14)} ${(r.done ? (r.intact ? 'yes' : 'no') : '-').padStart(11)}   ${r.etag}`
 		);
 		console.log(`   ${''.padEnd(36)} ${r.note}`);
 	}

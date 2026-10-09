@@ -119,13 +119,13 @@ function detectionTable(title: string, bugHits: number): void {
 			summary
 				? [
 						[pct(summary.detectedShare, 1, 0), 17],
-						[summary.detectedShare > 0 ? duration(summary.medianTime) : '—', 10],
+						[summary.detectedShare > 0 ? duration(summary.medianTime) : '-', 10],
 						[n(summary.medianHarmed), 9]
 					]
 				: [
-						['—', 17],
-						['—', 10],
-						['—', 9]
+						['-', 17],
+						['-', 10],
+						['-', 9]
 					];
 		console.log(
 			row([
@@ -141,15 +141,15 @@ console.log(
 	`Injecting a 2 s billing delay into the board; ${RPS} req/s, normal error rate ${BASE_ERROR * 100}%, at most ${MAX_MINUTES} minutes. Global alarm: stop if total errors in the last 60 s > ${SLO_ALARM * 100}%. Control group: an untouched group of equal size, stop if the error difference has z > ${Z}. Checked every ${CHECK_EVERY} s, median of ${RUNS} runs. "harm" = user requests failed by the fault before stopping (all ${MAX_MINUTES} minutes if never caught)`
 );
 detectionTable(
-	`A. A loud bug — ${LOUD * 100}% of injected requests fail (plan badge on every paid board, no timeout)`,
+	`A. A loud bug - ${LOUD * 100}% of injected requests fail (plan badge on every paid board, no timeout)`,
 	LOUD
 );
 detectionTable(
-	`B. A subtle bug — ${SUBTLE * 100}% of injected requests fail (only on boards with 500+ tasks)`,
+	`B. A subtle bug - ${SUBTLE * 100}% of injected requests fail (only on boards with 500+ tasks)`,
 	SUBTLE
 );
 
-heading(`C. The code is fine, the fault harmless — yet stopped by mistake, in what % of runs`);
+heading(`C. The code is fine, the fault harmless - yet stopped by mistake, in what % of runs`);
 console.log(
 	row([
 		['blast radius', 14],
@@ -163,8 +163,8 @@ for (const radius of RADII) {
 	console.log(
 		row([
 			[radiusLabel(radius), 14],
-			[global ? pct(global.detectedShare, 1, 1) : '—', 20],
-			[control ? pct(control.detectedShare, 1, 1) : '—', 21]
+			[global ? pct(global.detectedShare, 1, 1) : '-', 20],
+			[control ? pct(control.detectedShare, 1, 1) : '-', 21]
 		])
 	);
 }

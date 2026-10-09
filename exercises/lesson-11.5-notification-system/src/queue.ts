@@ -143,5 +143,5 @@ for (const policy of policies) {
 	);
 }
 console.log(
-	'\ndelay in steps of 100 ms. With "separate accounts" each of the two accounts has the same limit, so total capacity doubles — that is a cost too.'
+	'\ndelay in steps of 100 ms. With "separate accounts" each of the two accounts has the same limit, so total capacity doubles - that is a cost too.'
 );

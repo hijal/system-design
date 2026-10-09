@@ -1,6 +1,6 @@
 #!/bin/sh
 # Replica: if the data directory is empty, take a full copy from the primary (pg_basebackup),
-# then start as a standby. The -R flag writes standby.signal and primary_conninfo —
+# then start as a standby. The -R flag writes standby.signal and primary_conninfo -
 # meaning "I am a replica, I have to fetch WAL from this primary".
 set -e
 if [ ! -s "$PGDATA/PG_VERSION" ]; then

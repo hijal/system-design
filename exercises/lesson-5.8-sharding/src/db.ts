@@ -17,7 +17,7 @@ function connect(port: number): Sequelize {
 	});
 }
 
-// every shard is a completely separate database — as it would be on separate machines
+// every shard is a completely separate database - as it would be on separate machines
 export const shards: Sequelize[] = PORTS.map(connect);
 
 export function shardAt(index: number): Sequelize {

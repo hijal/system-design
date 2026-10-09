@@ -1,10 +1,10 @@
-# TaskFlow Outbox Lab — Dual Write বনাম Transactional Outbox
+# TaskFlow Outbox Lab - Dual Write বনাম Transactional Outbox
 
-> Lesson 7.5 — Event-Driven Architecture basics · **Tier 1 — Runnable Code** (Docker এ Postgres + Redis, Node process গুলো আসলে crash করে)
+> Lesson 7.5 - Event-Driven Architecture basics · **Tier 1 - Runnable Code** (Docker এ Postgres + Redis, Node process গুলো আসলে crash করে)
 
 ## কী বানাচ্ছি
 
-"Comment তৈরি করুন, আর `comment.created` event পাঠান" — তিনভাবে, আর প্রতিটায় ঠিক সবচেয়ে খারাপ মুহূর্তে
+"Comment তৈরি করুন, আর `comment.created` event পাঠান" - তিনভাবে, আর প্রতিটায় ঠিক সবচেয়ে খারাপ মুহূর্তে
 process কে `SIGKILL` করা:
 
 | Mode            | Writer কী করে                                                                    | কোথায় মরে                    |
@@ -19,18 +19,18 @@ process কে `SIGKILL` করা:
 
 শেষে scenario Postgres এর `comments` আর Redis এর `events:comments` stream মেলায়, comment id ধরে:
 
-- **হারাল** — comment আছে, event নেই (consumer রা কখনো জানবে না)
-- **ভুতুড়ে** — event আছে, comment নেই (consumer রা এমন কিছুর খবর পেল যেটা ঘটেইনি)
-- **বাড়তি** — একই comment এর একাধিক event (একই `eventId` — consumer dedupe করতে পারে, Lesson 7.4)
+- **হারাল** - comment আছে, event নেই (consumer রা কখনো জানবে না)
+- **ভুতুড়ে** - event আছে, comment নেই (consumer রা এমন কিছুর খবর পেল যেটা ঘটেইনি)
+- **বাড়তি** - একই comment এর একাধিক event (একই `eventId` - consumer dedupe করতে পারে, Lesson 7.4)
 
 **সৎ নোট:**
 
-- Writer এর crash কোন comment এ হবে সেটা comment এর id থেকে ঠিক হয় — তাই writer এর crash সংখ্যা (৪১)
+- Writer এর crash কোন comment এ হবে সেটা comment এর id থেকে ঠিক হয় - তাই writer এর crash সংখ্যা (৪১)
   প্রতিবার একই। Relay এর crash কোন batch এ পড়বে সেটা timing এর উপর নির্ভর করে, তাই outbox এর "বাড়তি"
   আর relay crash এর সংখ্যা run ভেদে একটু বদলায় (এই মেশিনে ১০১ থেকে ১৬০)।
-- Writer crash করলে সেই request এর user error দেখে (connection ছিঁড়ে গেছে) — `commit-first` এ তবু
+- Writer crash করলে সেই request এর user error দেখে (connection ছিঁড়ে গেছে) - `commit-first` এ তবু
   comment টা database এ থাকে। "user error দেখল" কলামে শুধু যেগুলো code নিজে ফিরিয়েছে।
-- এখানে CDC (Debezium এর মতো WAL পড়া) নেই — polling relay। দুটোর তুলনা lesson এ।
+- এখানে CDC (Debezium এর মতো WAL পড়া) নেই - polling relay। দুটোর তুলনা lesson এ।
 
 ## Prerequisite
 
@@ -81,25 +81,25 @@ docker compose down -v
 
 ## কী দেখার জন্য এটা বানানো
 
-- **`commit-first` এর ৪১ আর `publish-first` এর ৪১ — একই crash, উল্টো দোষ।** প্রথমটায় comment আছে কিন্তু
+- **`commit-first` এর ৪১ আর `publish-first` এর ৪১ - একই crash, উল্টো দোষ।** প্রথমটায় comment আছে কিন্তু
   search index, notification কেউ জানে না। দ্বিতীয়টায় Postgres transaction টা connection ছিঁড়ে যাওয়ায়
-  নিজেই rollback করেছে — কিন্তু event আগেই বেরিয়ে গেছে; notification service এমন comment এর email
+  নিজেই rollback করেছে - কিন্তু event আগেই বেরিয়ে গেছে; notification service এমন comment এর email
   পাঠাবে যেটা নেই।
 - **`outbox` এর "আলাদা eventId 1959":** বাড়তি ১৬০টা event সবই আগের কোনো event এর হুবহু কপি, একই `eventId`
-  সহ — relay পাঠিয়েছিল, `publishedAt` লেখার আগে মরেছিল। Outbox at-least-once; consumer idempotent হলে
+  সহ - relay পাঠিয়েছিল, `publishedAt` লেখার আগে মরেছিল। Outbox at-least-once; consumer idempotent হলে
   (7.4) এটা নিরাপদ।
-- **Outbox এর দেরি:** commit থেকে stream এ পৌঁছাতে p50 ~১০০ ms — relay এর polling এর দাম। Event এখন আর
+- **Outbox এর দেরি:** commit থেকে stream এ পৌঁছাতে p50 ~১০০ ms - relay এর polling এর দাম। Event এখন আর
   commit এর মুহূর্তে যায় না, একটু পরে যায়।
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
 1. **Redis বন্ধ হলে:** `REDIS_OUTAGE_MS=3000 WRITE_DELAY_MS=5 CRASH_RATE=0 RELAY_CRASH_RATE=0 npm run scenario`
-   — চলার মাঝে scenario নিজে `docker compose stop redis` করে, ৩ সেকেন্ড পরে `start`। (এই মেশিনে:
-   `commit-first` এ ৪৪৯টা event নীরবে হারাল; `publish-first` এ ৫৩৪ জন user comment ই করতে পারল না;
-   `outbox` এ কেউ কিছু টের পেল না — হারাল ০, error ০, শুধু event এর দেরি p99 ৪.১ s।) কোনটার availability
-   Redis এর উপর নির্ভর করে, কোনটার করে না?
+   - চলার মাঝে scenario নিজে `docker compose stop redis` করে, ৩ সেকেন্ড পরে `start`। (এই মেশিনে:
+     `commit-first` এ ৪৪৯টা event নীরবে হারাল; `publish-first` এ ৫৩৪ জন user comment ই করতে পারল না;
+     `outbox` এ কেউ কিছু টের পেল না - হারাল ০, error ০, শুধু event এর দেরি p99 ৪.১ s।) কোনটার availability
+     Redis এর উপর নির্ভর করে, কোনটার করে না?
 2. **Polling এর দাম:** `MODE=outbox POLL_MS=1000 npm run scenario`। দেরি কত হলো? (এই মেশিনে p50 ~৮৪০ ms,
-   p99 ১.৫ s।) Relay যত ঘনঘন খোঁজে, database এ তত বেশি query — কীভাবে দুটোই কমানো যায়? (Lesson এ LISTEN/NOTIFY
+   p99 ১.৫ s।) Relay যত ঘনঘন খোঁজে, database এ তত বেশি query - কীভাবে দুটোই কমানো যায়? (Lesson এ LISTEN/NOTIFY
    আর CDC দেখুন।)
 3. **Batch আর crash:** `MODE=outbox CRASH_RATE=0 RELAY_CRASH_RATE=0.05 npm run scenario` (batch ৫০), তারপর
    একই সাথে `BATCH=5`। (এই মেশিনে: batch ৫০ এ ৬০ সেকেন্ড পরেও ১০৫০টা event পাঠানো বাকি; batch ৫ এ সব পৌঁছায়,
@@ -107,7 +107,7 @@ docker compose down -v
    এর কোন ধারণার মতো?
 4. **ক্রম:** `relay.ts` এ `ORDER BY id` আছে। দুটো writer একসাথে চললে id ১০ এর transaction id ১১ এর পরে commit
    হতে পারে। Relay যদি "`WHERE id > শেষ পাঠানো id`" দিয়ে খুঁজত (`publishedAt` এর বদলে), id ১০ এর কী হতো?
-   (Code বদলানোর দরকার নেই — হাতে একটা সময়ের রেখা আঁকুন।)
+   (Code বদলানোর দরকার নেই - হাতে একটা সময়ের রেখা আঁকুন।)
 5. **Outbox পরিষ্কার:** সব run এর পরে `outbox_events` এ কয়টা row আছে (`docker compose exec postgres psql -U
 taskflow -c 'select count(*) from outbox_events'`)? দিনে লাখ comment এ এটা কত বড় হবে, আর কীভাবে ছোট রাখবেন?
 

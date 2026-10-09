@@ -98,7 +98,7 @@ async function run(
 
 async function main(): Promise<void> {
 	console.log(
-		`\n=== Lesson 9.4 — Circuit Breaker ===\n` +
+		`\n=== Lesson 9.4 - Circuit Breaker ===\n` +
 			`   one billing instance · ${REQUESTS} "create task" · ${CONCURRENCY} at once\n` +
 			`   call timeout ${TIMEOUT_MS} ms · ${SLOW_MS} ms per response when billing is slow\n` +
 			`   breaker: open after ${THRESHOLD} failures in a row, one probe in half-open after ${OPEN_MS} ms\n`
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
 			`(${pad((((naiveReached - guardedReached) / Math.max(1, naiveReached)) * 100).toFixed(0), 2)}% less pressure on the dying service)\n`
 	);
 
-	console.log(`── b. billing recovered — how fast the breaker notices ──`);
+	console.log(`── b. billing recovered - how fast the breaker notices ──`);
 	billing.setMode('healthy');
 	const recoveryStart = performance.now();
 	let recoveredAfter = -1;
@@ -156,7 +156,7 @@ async function main(): Promise<void> {
 	}
 	console.log(
 		`   time for the breaker to close again after billing recovered: ${recoveredAfter < 0 ? 'never' : ms(recoveredAfter)}\n` +
-			`   (the rest of the open period + one probe — the period began in part a; in the worst case the full ${OPEN_MS} ms)\n` +
+			`   (the rest of the open period + one probe - the period began in part a; in the worst case the full ${OPEN_MS} ms)\n` +
 			`   half-open probes sent during this time: ${breaker.stats().probes} · total fail-fast: ${breaker.stats().rejected}\n`
 	);
 
@@ -173,7 +173,7 @@ async function main(): Promise<void> {
 	console.log(header('path', ['ok', 'failed', 'fast-fail', 'reached', 'ops/s', 'p50', 'p99']));
 	console.log(line('breaker + fallback', fallbackRun));
 	console.log(
-		`\n   a fallback means the user gets an answer (the task was created, the quota will be reconciled later) — ` +
+		`\n   a fallback means the user gets an answer (the task was created, the quota will be reconciled later) - ` +
 			`not an error.\n   Which one is safe is a business decision, not the breaker's.\n`
 	);
 

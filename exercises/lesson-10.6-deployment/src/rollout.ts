@@ -126,7 +126,7 @@ function simulate(strategy: Strategy, bug: Bug, seed: number): Outcome {
 	let canary = emptyCounts();
 	let baseline = emptyCounts();
 	let detectedAt: number | null = null;
-	let detectedBy = '—';
+	let detectedBy = '-';
 	let rollbackStart: number | null = null;
 	let rollbackFrom = 0;
 	let rolledBackAt: number | null = null;
@@ -218,7 +218,7 @@ function simulate(strategy: Strategy, bug: Bug, seed: number): Outcome {
 
 const totalRequests = RPS * HORIZON;
 heading(
-	`Part A — one bad version, six strategies (${RPS} req/s, ${n(USERS)} users, watched for ${HORIZON / 60} minutes; ${HUMAN_MINUTES} minutes for a human after the alert)`
+	`Part A - one bad version, six strategies (${RPS} req/s, ${n(USERS)} users, watched for ${HORIZON / 60} minutes; ${HUMAN_MINUTES} minutes for a human after the alert)`
 );
 for (const [index, bug] of BUGS.entries()) {
 	console.log(`\n${bug.name}`);
@@ -241,7 +241,7 @@ for (const [index, bug] of BUGS.entries()) {
 				[`${n(o.users)} (${pct(o.users, USERS, 0)})`, 16],
 				[o.detectedAt === null ? 'missed' : minutes(o.detectedAt + 1), 10],
 				[o.detectedBy, 18],
-				[o.rolledBackAt === null ? '—' : minutes(o.rolledBackAt), 12]
+				[o.rolledBackAt === null ? '-' : minutes(o.rolledBackAt), 12]
 			])
 		);
 	}
@@ -250,7 +250,7 @@ console.log(
 	`\n(total requests ${n(totalRequests)}; "bad requests" = requests that hit the new version's bug)`
 );
 
-heading('Part B — a good version: how long to 100%, how many extra instances');
+heading('Part B - a good version: how long to 100%, how many extra instances');
 console.log(
 	row([
 		['strategy', 42],
@@ -264,14 +264,14 @@ for (const strategy of STRATEGIES) {
 	console.log(
 		row([
 			[strategy.name, 42],
-			[o.reachedFullAt === null ? '—' : minutes(o.reachedFullAt), 16],
+			[o.reachedFullAt === null ? '-' : minutes(o.reachedFullAt), 16],
 			[strategy.extra, 16],
 			[o.detectedAt === null ? 'no' : `yes (${o.detectedBy})`, 14]
 		])
 	);
 }
 
-heading(`Part C — canary statistics: baseline error 0.1%, z > ${Z}, ${n(TRIALS)} runs per cell`);
+heading(`Part C - canary statistics: baseline error 0.1%, z > ${Z}, ${n(TRIALS)} runs per cell`);
 console.log(
 	row([
 		['canary', 8],
@@ -334,7 +334,7 @@ console.log(
 	'\n("hit" = checked once at the end, z > 3; "checked per minute" = checked every minute, z > 3 at any point, with no bug)'
 );
 
-heading('Part D — canary at 5% for an hour: random per request vs sticky per user');
+heading('Part D - canary at 5% for an hour: random per request vs sticky per user');
 console.log(
 	row([
 		['routing', 26],

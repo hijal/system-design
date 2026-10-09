@@ -8,12 +8,12 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { APP_ORIGIN, emptyBucket, env, prepareBucket, s3, s3Client } from './common';
 
-// Lesson 8.2 §1.2 — the rules of presigned URLs, with real requests. Every test is one question:
-// "what can someone do with this URL in hand, and what can't they?" At the end a confirm step — after the upload the app verifies itself.
+// Lesson 8.2 §1.2 - the rules of presigned URLs, with real requests. Every test is one question:
+// "what can someone do with this URL in hand, and what can't they?" At the end a confirm step - after the upload the app verifies itself.
 
 const B = env.BUCKET;
 
-// An attachment's state — a discriminated union, not a jungle of optional fields (main.md's rule)
+// An attachment's state - a discriminated union, not a jungle of optional fields (main.md's rule)
 type Attachment =
 	| { status: 'pending'; key: string; declaredSize: number; contentType: string }
 	| { status: 'ready'; key: string; size: number; etag: string }
@@ -39,13 +39,13 @@ async function presignUpload(
 	const url = await getSignedUrl(
 		s3,
 		new PutObjectCommand({ Bucket: B, Key: key, ContentType: contentType, ContentLength: size }),
-		// only what is signed is enforced — content-type and content-length explicitly in the signed list
+		// only what is signed is enforced - content-type and content-length explicitly in the signed list
 		{ expiresIn, signableHeaders: new Set(['content-type', 'content-length']) }
 	);
 	return { attachment: { status: 'pending', key, declaredSize: size, contentType }, url };
 }
 
-// the app's side: the browser said "upload done" — ask object storage instead of trusting it
+// the app's side: the browser said "upload done" - ask object storage instead of trusting it
 async function confirm(a: Attachment): Promise<Attachment> {
 	if (a.status !== 'pending') return a;
 	try {
@@ -55,12 +55,12 @@ async function confirm(a: Attachment): Promise<Attachment> {
 			return {
 				status: 'rejected',
 				key: a.key,
-				reason: `size ${head.ContentLength ?? '?'} (declared ${a.declaredSize}) — object deleted`
+				reason: `size ${head.ContentLength ?? '?'} (declared ${a.declaredSize}) - object deleted`
 			};
 		}
 		return { status: 'ready', key: a.key, size: head.ContentLength, etag: head.ETag ?? '' };
 	} catch {
-		return { status: 'rejected', key: a.key, reason: 'no object — not uploaded' };
+		return { status: 'rejected', key: a.key, reason: 'no object - not uploaded' };
 	}
 }
 
@@ -164,8 +164,8 @@ async function main(): Promise<void> {
 		new GetObjectCommand({
 			Bucket: B,
 			Key: readyKey,
-			// what name the download shows — can differ per URL (the user-given name from the database)
-			ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent('Release notes — v2.1.pdf')}`
+			// what name the download shows - can differ per URL (the user-given name from the database)
+			ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent('Release notes - v2.1.pdf')}`
 		}),
 		{ expiresIn: 60 }
 	);

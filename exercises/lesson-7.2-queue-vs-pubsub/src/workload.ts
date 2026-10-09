@@ -1,7 +1,7 @@
 import { uniform } from './random';
 
 // TaskFlow's event stream: every task is created, assigned, gets a few comments, then completed.
-// The events of the same task have an order (seq) — "assigned" should be processed before "completed".
+// The events of the same task have an order (seq) - "assigned" should be processed before "completed".
 
 export type EventType = 'task.created' | 'task.assigned' | 'comment.created' | 'task.completed';
 

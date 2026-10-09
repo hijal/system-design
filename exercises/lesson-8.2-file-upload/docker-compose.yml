@@ -1,7 +1,7 @@
-# SeaweedFS — an S3-compatible object store (like Lesson 8.1), but this time with authentication on: s3.json has
-# one identity, so every request's signature is really verified — essential for testing presigned URLs
+# SeaweedFS - an S3-compatible object store (like Lesson 8.1), but this time with authentication on: s3.json has
+# one identity, so every request's signature is really verified - essential for testing presigned URLs
 # (without authentication SeaweedFS doesn't even look at signatures). The scripts are ordinary Node processes on your machine.
-# Port 8336 — no clash with the earlier exercises.
+# Port 8336 - no clash with the earlier exercises.
 services:
   s3:
     image: chrislusf/seaweedfs:4.47

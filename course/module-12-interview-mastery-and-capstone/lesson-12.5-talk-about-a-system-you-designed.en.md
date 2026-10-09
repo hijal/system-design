@@ -1,6 +1,6 @@
-# Lesson 12.5 — "Tell Me About a System You Designed" — Preparation
+# Lesson 12.5 - "Tell Me About a System You Designed" - Preparation
 
-**Module 12 — Interview Mastery & Capstone**
+**Module 12 - Interview Mastery & Capstone**
 
 > **Spaced Repetition (Lesson 10.6):** A production table's column needs to be renamed, with no downtime, and with the option to step back at any stage. List the expand/contract steps in order. In one of today's examples, the interviewer will ask exactly this question, about your own project: "How would you roll this out to production?"
 
@@ -12,7 +12,7 @@
 2. Shape a project into a story of three lengths (30 seconds, 5 minutes, and a 20-minute deep version), each with a problem with a number, the alternatives considered, your decision, a measured result, and an honest mistake
 3. Stay honest on the interviewer's ladder of "why?" (going four or five levels deeper on the same thing): keeping "I" and "we" apart, admitting a decision that wasn't yours, and not making up a number you don't remember
 
-**Tier:** 3 — Design Exercise (no code; the deliverable is your "story bank": three-length stories for two projects, the depth ladder, and a 5-minute recording)
+**Tier:** 3 - Design Exercise (no code; the deliverable is your "story bank": three-length stories for two projects, the depth ladder, and a 5-minute recording)
 
 ---
 
@@ -67,11 +67,11 @@ Most people choose the biggest or the newest project. The criteria for a good ch
 | criterion                                         | why                                                                                                    |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | was at least one real decision yours?             | the only source of the ownership signal. Implementing someone else's decision is a story, not a design |
-| is there a number?                                | load, latency, cost, error rate — something measurable before and after                                |
+| is there a number?                                | load, latency, cost, error rate - something measurable before and after                                |
 | was there a trade-off?                            | an alternative you **didn't** take, with the reason                                                    |
 | did something go wrong?                           | an honest mistake and what you learned; "everything went fine" is a weak story                         |
 | can you draw it on a board, from memory?          | if not, the first follow-up will stop you there                                                        |
-| can you go three levels down into any box?        | "why Redis?" → "which eviction?" → "what happened when it filled up?" — 1.4's ladder                   |
+| can you go three levels down into any box?        | "why Redis?" → "which eviction?" → "what happened when it filled up?" - 1.4's ladder                   |
 | can you tell it without breaking confidentiality? | does the story hold without client names, internal numbers, security details?                          |
 
 Tell the project with the most "yes"es, even if it isn't big or new. A small system where you owned a decision, and know why you took it and what went wrong, is better than a huge system where you wrote one endpoint of one service.
@@ -80,7 +80,7 @@ Tell the project with the most "yes"es, even if it isn't big or new. A small sys
 
 ### 1.3 The story's structure
 
-**Design Narrative** — telling a project's design in a set order so that every part gives a signal: context → problem with a number → constraints → alternatives considered → the decision and why → measured result → what went wrong and what I'd change now. A relative of 12.1's five steps, only this time in the past tense, and with an extra part at the end: the learning.
+**Design Narrative** - telling a project's design in a set order so that every part gives a signal: context → problem with a number → constraints → alternatives considered → the decision and why → measured result → what went wrong and what I'd change now. A relative of 12.1's five steps, only this time in the past tense, and with an extra part at the end: the learning.
 
 ```
  context ──► problem ──► constraints ──► alternatives ──► decision ──► result ──► mistake and lesson
@@ -91,17 +91,17 @@ Tell the project with the most "yes"es, even if it isn't big or new. A small sys
 
 Have this structure ready in **three lengths**, because how much time you get depends on where the question comes:
 
-- **30 seconds** — the hiring manager's "tell me a bit about your project". Context, problem, decision, result, one sentence each. At the end leave a door open: "There was an interesting mistake here too, I can tell you about it if you like."
-- **5 minutes** — most of the time. The whole structure, with a picture, with a mistake. Then stop and let the interviewer choose where to go deeper.
-- **The 20-minute deep version** — a full "project deep dive" round. The 5-minute version, then going deeper into three or four boxes as the interviewer asks. The preparation for this isn't a story, it's a ladder (1.4).
+- **30 seconds** - the hiring manager's "tell me a bit about your project". Context, problem, decision, result, one sentence each. At the end leave a door open: "There was an interesting mistake here too, I can tell you about it if you like."
+- **5 minutes** - most of the time. The whole structure, with a picture, with a mistake. Then stop and let the interviewer choose where to go deeper.
+- **The 20-minute deep version** - a full "project deep dive" round. The 5-minute version, then going deeper into three or four boxes as the interviewer asks. The preparation for this isn't a story, it's a ladder (1.4).
 
-**Impact Metric** — a measured number showing what your decision changed: before and after, on the same measure, and how it was measured. "Performance got much better" isn't a metric; "p99 from 800 ms to 120 ms, at the peak hour, from APM" is. If you don't remember it, don't make it up: "I don't remember the exact number, but it dropped roughly six or seven times, and we measured it at the peak's p99" — honest, and credible.
+**Impact Metric** - a measured number showing what your decision changed: before and after, on the same measure, and how it was measured. "Performance got much better" isn't a metric; "p99 from 800 ms to 120 ms, at the peak hour, from APM" is. If you don't remember it, don't make it up: "I don't remember the exact number, but it dropped roughly six or seven times, and we measured it at the peak's p99" - honest, and credible.
 
-**Retrospective Insight** — "what I'd do differently if I did it again today", with the reason. This is the part of the story that gives the most senior signal, because it shows you can see your own work from the outside. There's only one rule: it has to be a real change, not something general like "I'd write better tests".
+**Retrospective Insight** - "what I'd do differently if I did it again today", with the reason. This is the part of the story that gives the most senior signal, because it shows you can see your own work from the outside. There's only one rule: it has to be a real change, not something general like "I'd write better tests".
 
 ### 1.4 The depth ladder
 
-**Depth Probe** — the interviewer's successive "why?"s or "and then?"s on the same subject, each one level below the last, until you reach the bottom of what you know. The goal isn't to trap you, it's to measure the depth of your knowledge: where "I know" turns into "I've heard".
+**Depth Probe** - the interviewer's successive "why?"s or "and then?"s on the same subject, each one level below the last, until you reach the bottom of what you know. The goal isn't to trap you, it's to measure the depth of your knowledge: where "I know" turns into "I've heard".
 
 An example, from TaskFlow's read-your-writes story:
 
@@ -118,7 +118,7 @@ Write this ladder for each big box in the story, at least four levels on three b
 
 ### 1.5 "I" and "we"
 
-**Ownership Signal** — the evidence, in what you say, of which work or decision was specifically yours. The main tool is the pronoun: "we decided" has no ownership; "I wrote up two options and put them in front of the team, and argued for this one because..." does.
+**Ownership Signal** - the evidence, in what you say, of which work or decision was specifically yours. The main tool is the pronoun: "we decided" has no ownership; "I wrote up two options and put them in front of the team, and argued for this one because..." does.
 
 Three rules:
 
@@ -150,17 +150,17 @@ Told honestly, its value isn't lower, just different. A production project's sto
 >
 > **The lesson.** "If I did it again today, I'd measure the primary's share of reads before implementing a fix, not just the number of tickets. The first fix wasn't wrong, but the metric on which it looked successful was the wrong metric."
 
-Notice: no list of technologies; where every number comes from is clear ("in my model"); and there's a real mistake, my own, with its reason. And after this the interviewer's almost certain question: _"How would you roll this out to production?"_ — the place for the spaced repetition.
+Notice: no list of technologies; where every number comes from is clear ("in my model"); and there's a real mistake, my own, with its reason. And after this the interviewer's almost certain question: _"How would you roll this out to production?"_ - the place for the spaced repetition.
 
-**The spaced repetition answer:** in expand/contract a breaking change is split into small, separate, reversible deploys (10.6). For renaming a column: (1) add the new column (expand), (2) the code writes to both, (3) backfill the old data into the new column, in small batches, (4) read from the new column, (5) stop writing to the old column, (6) a while later drop the old column (contract). After each step you can go back to the previous one, except the last. In the TaskFlow story the answer has the same shape: "the version-token routing behind a feature flag, a canary on 1% of users first, widened while watching the primary's read share and the 'didn't see own write' metric, and switching the flag off goes straight back to the old cookie path." This answer works even for a learning project, because the question is about design, not history — just say "this is how I'd roll it out", not "this is how I rolled it out".
+**The spaced repetition answer:** in expand/contract a breaking change is split into small, separate, reversible deploys (10.6). For renaming a column: (1) add the new column (expand), (2) the code writes to both, (3) backfill the old data into the new column, in small batches, (4) read from the new column, (5) stop writing to the old column, (6) a while later drop the old column (contract). After each step you can go back to the previous one, except the last. In the TaskFlow story the answer has the same shape: "the version-token routing behind a feature flag, a canary on 1% of users first, widened while watching the primary's read share and the 'didn't see own write' metric, and switching the flag off goes straight back to the old cookie path." This answer works even for a learning project, because the question is about design, not history - just say "this is how I'd roll it out", not "this is how I rolled it out".
 
 ### 1.7 Story bank
 
-**Story Bank** — a collection of a few projects' stories written down before the interview, each in three lengths, with the depth ladder and an honest mistake, so that whatever form the question takes ("the hardest", "the one you'd change", "your current system") there's a story ready.
+**Story Bank** - a collection of a few projects' stories written down before the interview, each in three lengths, with the depth ladder and an honest mistake, so that whatever form the question takes ("the hardest", "the one you'd change", "your current system") there's a story ready.
 
 Two stories are enough, one where your decision went well and one where it went wrong (or both in the same story, like the example above). Two fully prepared stories are far better than ten half-prepared ones, because the difference is made on the fourth and fifth levels' questions.
 
-> **Trade-off Table — storytelling decisions**
+> **Trade-off Table - storytelling decisions**
 
 | decision                           | one side                               | the other side                                               | when to use which                                                                                          |
 | ---------------------------------- | -------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
@@ -168,7 +168,7 @@ Two stories are enough, one where your decision went well and one where it went 
 | the whole system vs one problem    | whole: the big picture, but shallow    | one problem: deep, with numbers and a mistake                | the whole picture in 30 seconds, one problem in 5 minutes, the rest if the interviewer wants it            |
 | a success story vs a mistake story | success: feels safe                    | mistake: honest, shows learning                              | both together is best: a mistake, then the fix, then today's lesson                                        |
 | production vs learning project     | production: real pressure, more weight | learning (TaskFlow): every decision yours, all measured      | production if you had a real decision there; if not, a learning project, by that name                      |
-| exact numbers vs magnitudes        | exact: credible, if true               | magnitude ("a few thousand"): safe, protects confidentiality | exact if you remember and can say it; otherwise the magnitude and how it would be measured — never made up |
+| exact numbers vs magnitudes        | exact: credible, if true               | magnitude ("a few thousand"): safe, protects confidentiality | exact if you remember and can say it; otherwise the magnitude and how it would be measured - never made up |
 
 ---
 
@@ -176,7 +176,7 @@ Two stories are enough, one where your decision went well and one where it went 
 
 This lesson is itself a part of the interview, so here it's seen from the interviewer's side:
 
-- **The red flags interviewers look for:** starting with a list of technologies; the whole story in "we"; not a single number; "there were no problems"; not being able to draw a picture; and the biggest — blaming others for mistakes ("product didn't give us time", "the previous developer left bad code"). The last is sometimes true, but saying it in an interview means stepping away from your own role. Instead: "Time was short, so I gave up X, and the price of that was Y."
+- **The red flags interviewers look for:** starting with a list of technologies; the whole story in "we"; not a single number; "there were no problems"; not being able to draw a picture; and the biggest - blaming others for mistakes ("product didn't give us time", "the previous developer left bad code"). The last is sometimes true, but saying it in an interview means stepping away from your own role. Instead: "Time was short, so I gave up X, and the price of that was Y."
 - **Mid-level vs senior:** at mid-level, one problem, your own implementation, and a clear result are enough. At senior the interviewer looks for the comparison of alternatives, getting others on board (how you convinced the team, who objected), the system's evolution (what happened six months later), and a retrospective insight.
 - **"What would you do differently if you did it again?"** This question is almost certain, and the answer has to be ready. A specific change, with the reason, standing on something you now know.
 - **The interviewer turns one part into a design round:** "Okay, your system is now ten times bigger, what would you change?" Then it's 12.3-12.4's mock, only the system is one you know. Start from the numbers (12.2), as you would with an unknown system.
@@ -187,13 +187,13 @@ This lesson is itself a part of the interview, so here it's seen from the interv
 
 ## 3. Key Takeaway
 
-- **The question is a truth check on the CV:** ownership, depth, judgement, results, and honesty — a list of technologies earns points on none of them
+- **The question is a truth check on the CV:** ownership, depth, judgement, results, and honesty - a list of technologies earns points on none of them
 - **Choose the project on seven criteria, not size:** your real decision, a number, a trade-off, a mistake, drawable, three levels deep, tellable without breaking confidentiality
 - **The same story in three lengths:** 30 seconds, 5 minutes, 20 minutes; the structure: context → problem with a number → constraints → alternatives → decision → measured result → mistake and lesson
-- **Write the depth ladder in advance:** four levels on three boxes; at the bottom, "below this I'm not sure, this is how I'd check" — not a made-up answer
+- **Write the depth ladder in advance:** four levels on three boxes; at the bottom, "below this I'm not sure, this is how I'd check" - not a made-up answer
 - **"I" for decisions, "we" for context:** admit a decision that wasn't yours, then your view and what you'd do today
 - **If you don't remember a number, give the magnitude and how it would be measured:** never made up; a made-up number breaks on one question, and then everything is under suspicion
-- **TaskFlow is worth telling, if told by that name:** a learning project, simulation numbers — and there's a real mistake (73% of reads to the primary in the cookie's window), which makes the story stronger
+- **TaskFlow is worth telling, if told by that name:** a learning project, simulation numbers - and there's a real mistake (73% of reads to the primary in the cookie's window), which makes the story stronger
 
 ---
 
@@ -201,12 +201,12 @@ This lesson is itself a part of the interview, so here it's seen from the interv
 
 | Term                      | Meaning                                                                                                                                                                                                    |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Design Narrative**      | Telling a project's design in a set order: context → problem with a number → constraints → alternatives → decision → measured result → mistake and lesson — every part a signal                            |
-| **Impact Metric**         | The measured number of what your decision changed, before and after, on the same measure, with how it was measured — if you don't remember, the magnitude and the way to measure it, never made up         |
-| **Retrospective Insight** | "What I'd do differently if I did it again today", a specific change and its reason — seeing your own work from outside, the part that gives the most senior signal                                        |
-| **Depth Probe**           | Successive "why?"/"and then?"s on the same subject, each one level down — the goal is to find the bottom of your knowledge; an honest answer at the bottom is good, a made-up one breaks on the next level |
-| **Ownership Signal**      | Evidence of which work or decision was specifically yours — mainly "I" for decisions and "we" for context; if the whole story is "we", the interviewer can't give credit                                   |
-| **Story Bank**            | Two or three projects' stories written before the interview, each in three lengths, with the depth ladder and an honest mistake — ready for any form of the question                                       |
+| **Design Narrative**      | Telling a project's design in a set order: context → problem with a number → constraints → alternatives → decision → measured result → mistake and lesson - every part a signal                            |
+| **Impact Metric**         | The measured number of what your decision changed, before and after, on the same measure, with how it was measured - if you don't remember, the magnitude and the way to measure it, never made up         |
+| **Retrospective Insight** | "What I'd do differently if I did it again today", a specific change and its reason - seeing your own work from outside, the part that gives the most senior signal                                        |
+| **Depth Probe**           | Successive "why?"/"and then?"s on the same subject, each one level down - the goal is to find the bottom of your knowledge; an honest answer at the bottom is good, a made-up one breaks on the next level |
+| **Ownership Signal**      | Evidence of which work or decision was specifically yours - mainly "I" for decisions and "we" for context; if the whole story is "we", the interviewer can't give credit                                   |
+| **Story Bank**            | Two or three projects' stories written before the interview, each in three lengths, with the depth ladder and an honest mistake - ready for any form of the question                                       |
 
 ---
 
@@ -216,7 +216,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 1. The first part of a candidate's 5-minute story: _"We built a notification system, very scalable. We used Kafka because it's the industry standard, and a Redis cache because it's fast. The system performed very well, the latency was very low."_ (a) Which of 1.1's five things are here, and which aren't? (b) What are the interviewer's three likely next questions, and on which is this candidate in the most trouble? (c) Rewrite the first three sentences in 1.3's structure, without naming any technology.
 
-2. You're telling your project's story. The interviewer: _"Was the decision to split into microservices yours?"_ It wasn't; it predates your joining. And you think it was wrong. (a) What are the three parts of the answer? (b) What trap is easy to fall into when saying "it was wrong", and how do you avoid it? (c) The interviewer's next question: "So why didn't you try to change it?" — what could an honest answer be?
+2. You're telling your project's story. The interviewer: _"Was the decision to split into microservices yours?"_ It wasn't; it predates your joining. And you think it was wrong. (a) What are the three parts of the answer? (b) What trap is easy to fall into when saying "it was wrong", and how do you avoid it? (c) The interviewer's next question: "So why didn't you try to change it?" - what could an honest answer be?
 
 3. After you tell 1.6's TaskFlow story, the interviewer: _"Good. Now tell me, how credible is your model's 29%? What would it be in production?"_ (a) What's the honest answer? (b) Does this question weaken your story, or give you an opportunity? (c) If you had to measure the number in production, what would you measure?
 
@@ -225,7 +225,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 **Question 1:**
 
-(a) **Missing:** ownership (all "we"), judgement ("industry standard" and "fast" aren't reasons, and there are no alternatives), results ("performed very well", "latency was low" — no number, no before and after), honesty and learning (no mistake). **Partly:** depth — can't be told yet, because nothing deep has been said. Essentially none of the five is there.
+(a) **Missing:** ownership (all "we"), judgement ("industry standard" and "fast" aren't reasons, and there are no alternatives), results ("performed very well", "latency was low" - no number, no before and after), honesty and learning (no mistake). **Partly:** depth - can't be told yet, because nothing deep has been said. Essentially none of the five is there.
 
 (b) Likely: (1) "What was your role in this?" (2) "Why Kafka, and what alternatives did you consider?" (3) "What was the latency, how did you measure it?" The most trouble is on (2): if there's no real reason after "industry standard", the interviewer realises the decision was either not the candidate's, or taken without thought. And on (3), a made-up number will break at the next level ("p50 or p99?", "with which tool?").
 
@@ -233,7 +233,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 **Question 2:**
 
-(a) (1) **Admit:** "No, that decision predates my joining." (2) **Understand:** "As far as I know, the reason was letting separate teams deploy independently." — meaning you tried to understand the reasoning behind the decision. (3) **Your view, with evidence:** "In my experience the split between order and payment caused the most problems — a large share of our incidents were about consistency between those two. If I were making the decision today I'd keep those two together (9.1)."
+(a) (1) **Admit:** "No, that decision predates my joining." (2) **Understand:** "As far as I know, the reason was letting separate teams deploy independently." - meaning you tried to understand the reasoning behind the decision. (3) **Your view, with evidence:** "In my experience the split between order and payment caused the most problems - a large share of our incidents were about consistency between those two. If I were making the decision today I'd keep those two together (9.1)."
 
 (b) The trap: blaming the people before you ("the people who did this didn't understand"), or calling the whole decision wrong without any evidence. Both are a bad signal of working with people in the interviewer's eyes. The way to avoid it: talk about the decision's **consequences** (which incidents, which costs), not the people; and accept that with the information of their time the decision may have been reasonable.
 
@@ -245,7 +245,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 (b) An opportunity. It's a depth probe, and the honest answer gives exactly the signal the interviewer is looking for: you know which part of your numbers is assumed and which part holds. It only weakens the story if you try to defend 29% as a production number.
 
-(c) (1) The distribution of replica lag, not the average, the tail: the p99 of `replay_lag` and how often it exceeds a second; (2) the distribution of the time between a user's write and their next read (from request logs); (3) directly: at each read, the replica's replay position versus that user's last write position — how often the replica was behind. The third is the real metric, and with a version-token system it can be measured for free.
+(c) (1) The distribution of replica lag, not the average, the tail: the p99 of `replay_lag` and how often it exceeds a second; (2) the distribution of the time between a user's write and their next read (from request logs); (3) directly: at each read, the replica's replay position versus that user's last write position - how often the replica was behind. The third is the real metric, and with a version-token system it can be measured for free.
 
 </details>
 
@@ -253,7 +253,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 ## 6. Practical Exercise
 
-**Tier 3 — Design Exercise** (no code; the deliverable is your story bank and a 5-minute recording)
+**Tier 3 - Design Exercise** (no code; the deliverable is your story bank and a 5-minute recording)
 
 > **Task:**
 >
@@ -266,7 +266,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 Send the two stories' 5-minute write-ups, the depth ladders, and the counts from the recording. I'll look at where the interviewer's first follow-up will land, and how well your ladder holds there.
 
-**Honest notes:** the numbers in the TaskFlow story (29%, 73%, 0%, 3.4%) come from a model in Lesson 6.3's exercise, where the replica lag is assumed; they are not measured production numbers, and the story has to say so (question 3). What interviewers look for and what counts as a red flag is general observation gathered from published interview guides and interviewers' writing; the shape and weight of this round vary a lot between companies. What's said about confidentiality is general advice, not legal advice — check what your contract says.
+**Honest notes:** the numbers in the TaskFlow story (29%, 73%, 0%, 3.4%) come from a model in Lesson 6.3's exercise, where the replica lag is assumed; they are not measured production numbers, and the story has to say so (question 3). What interviewers look for and what counts as a red flag is general observation gathered from published interview guides and interviewers' writing; the shape and weight of this round vary a lot between companies. What's said about confidentiality is general advice, not legal advice - check what your contract says.
 
 ---
 
@@ -275,8 +275,8 @@ Send the two stories' 5-minute write-ups, the depth ladders, and the counts from
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1 – 11 (complete, with exit challenges), 12.1, 12.2, 12.3, 12.4
-Current: 12.5 — "Tell me about a system you designed"
-TaskFlow state: as at the end of Module 10; this time as the story of "a system I designed" — a learning project, by that name.
+Current: 12.5 - "Tell me about a system you designed"
+TaskFlow state: as at the end of Module 10; this time as the story of "a system I designed" - a learning project, by that name.
 What the question measures: ownership, depth, judgement, results, honesty (a truth check on the CV). Choosing a project on
 seven criteria (your own decision, a number, a trade-off, a mistake, drawable, three levels deep, confidentiality). The story:
 context → problem with a number → constraints → alternatives → decision → measured result → mistake and lesson; in three
@@ -289,8 +289,8 @@ Powers-of-Ten Rounding, Active Window, Headroom, Unit Slip, Sanity Check, Sorted
 Composite Score, Time-Bucketed Key, Rank Histogram, Content-Addressed Block, Content-Defined Chunking, Change Journal,
 Namespace, Conflicted Copy, Dedupe Side Channel, Design Narrative, Impact Metric, Retrospective Insight, Depth Probe,
 Ownership Signal, Story Bank
-Weak spots: [where you got stuck — write it yourself; at which level of the depth ladder you got stuck]
-Next: 12.6 — Capstone: TaskFlow's complete design doc + implementing one core piece
+Weak spots: [where you got stuck - write it yourself; at which level of the depth ladder you got stuck]
+Next: 12.6 - Capstone: TaskFlow's complete design doc + implementing one core piece
 =======================
 ```
 
@@ -300,4 +300,4 @@ Next: 12.6 — Capstone: TaskFlow's complete design doc + implementing one core 
 
 Today's thread: **this question doesn't test your system, it tests your relationship with the system.** Which decision was yours, why, what the alternatives were, what you measured, and what went wrong. And not one of these comes from a list of technology names. Stay honest at the bottom of the ladder, keep "I" and "we" apart, and don't be afraid to tell a real mistake: it's often the strongest part of the story.
 
-When you are ready, write `next` — **Lesson 12.6: Capstone.** Over eleven modules TaskFlow grew piece by piece, each lesson a problem. In the Capstone those pieces come together in one full design doc: requirements → estimation → architecture → DB schema → scaling plan → failure modes → cost, the way it goes to a real team's design review. With a real implementation of one core piece. Which one, the curriculum says we'll decide together: 12.6 will offer a few options, each with its price and what it teaches, and you'll pick one. And that doc will become the strongest story in this lesson's story bank.
+When you are ready, write `next` - **Lesson 12.6: Capstone.** Over eleven modules TaskFlow grew piece by piece, each lesson a problem. In the Capstone those pieces come together in one full design doc: requirements → estimation → architecture → DB schema → scaling plan → failure modes → cost, the way it goes to a real team's design review. With a real implementation of one core piece. Which one, the curriculum says we'll decide together: 12.6 will offer a few options, each with its price and what it teaches, and you'll pick one. And that doc will become the strongest story in this lesson's story bank.

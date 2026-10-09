@@ -1,4 +1,4 @@
-// Seeded PRNG (mulberry32) — the same "random" sequence every time, so which operation crashes is the same on every run.
+// Seeded PRNG (mulberry32) - the same "random" sequence every time, so which operation crashes is the same on every run.
 export function mulberry32(seed: number): () => number {
 	let a = seed;
 	return () => {

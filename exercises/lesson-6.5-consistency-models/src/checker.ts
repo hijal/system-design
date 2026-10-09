@@ -1,11 +1,11 @@
-// Lesson 6.5 — a small consistency checker (in the spirit of Jepsen's Knossos, much simpler).
+// Lesson 6.5 - a small consistency checker (in the spirit of Jepsen's Knossos, much simpler).
 //
 // History = a list of several processes' read/write operations, each with its start and end time.
-// Every key is a register with initial value 0; every write value is unique for that key — so which write
+// Every key is a register with initial value 0; every write value is unique for that key - so which write
 // a read got its value from ("reads-from") is known for certain.
 //
 // One question, under different rules: "is there some sequence (total order) in which, taking all operations
-// as happening one after another, every read gets the value of the write just before it — and does the sequence obey these rules?"
+// as happening one after another, every read gets the value of the write just before it - and does the sequence obey these rules?"
 
 export type Op = {
 	id: number;
@@ -31,7 +31,7 @@ export function r(process: string, key: string, value: number, start: number, en
 // Backtracking + memo (which ops are done, and the current values of the registers).
 function orderExists(ops: Op[], mustPrecede: (a: Op, b: Op) => boolean): boolean {
 	const n = ops.length;
-	if (n > 30) throw new Error('history too big — this checker handles up to 30 ops');
+	if (n > 30) throw new Error('history too big - this checker handles up to 30 ops');
 	const pred = ops.map((b) =>
 		ops.reduce((mask, a, i) => (a !== b && mustPrecede(a, b) ? mask | (1 << i) : mask), 0)
 	);
@@ -93,11 +93,11 @@ export function happensBefore(h: History): (a: Op, b: Op) => boolean {
 	return (a, b) => reach[index.get(a.id) ?? -1]?.[index.get(b.id) ?? -1] ?? false;
 }
 
-// Causal: separately for each process — all writes plus that process's own reads can be put in an order
+// Causal: separately for each process - all writes plus that process's own reads can be put in an order
 // that obeys happens-before. (Different processes may see concurrent writes in different orders.)
 export function causal(h: History): boolean {
 	const hb = happensBefore(h);
-	if (h.some((op) => hb(op, op))) return false; // a cycle — the causality itself is impossible
+	if (h.some((op) => hb(op, op))) return false; // a cycle - the causality itself is impossible
 	const processes = [...new Set(h.map((op) => op.process))];
 	return processes.every((p) =>
 		orderExists(
@@ -113,7 +113,7 @@ function source(h: History, read: Op): Op | null {
 	);
 }
 
-// Read-your-writes: a process's own read after its own write — not the initial value or a value older than its write
+// Read-your-writes: a process's own read after its own write - not the initial value or a value older than its write
 export function readYourWrites(h: History): boolean {
 	const hb = happensBefore(h);
 	return h.every((mine) => {
@@ -142,7 +142,7 @@ export function monotonicReads(h: History): boolean {
 				return true;
 			const a = source(h, first);
 			const b = source(h, second);
-			if (a === null) return true; // the first is the initial value — nothing is older than that
+			if (a === null) return true; // the first is the initial value - nothing is older than that
 			if (b === null) return false; // the initial value again after seeing a newer one
 			return b === a || !hb(b, a);
 		})
@@ -150,7 +150,7 @@ export function monotonicReads(h: History): boolean {
 }
 
 // Eventual (bounded form): do all reads that start after writes stop (settleMs later) get the same value?
-// With no such read there is no answer (null) — eventual consistency promises no bounded time.
+// With no such read there is no answer (null) - eventual consistency promises no bounded time.
 export function eventual(h: History, settleMs = 200): boolean | null {
 	const lastWrite = Math.max(0, ...h.filter((op) => op.kind === 'write').map((op) => op.end));
 	const late = h.filter((op) => op.kind === 'read' && op.start > lastWrite + settleMs);

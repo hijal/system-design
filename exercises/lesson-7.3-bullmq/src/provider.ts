@@ -1,13 +1,13 @@
 import express, { type Request, type Response } from 'express';
 import { z } from 'zod';
 
-// Lesson 7.3 — a fake email provider (like Lesson 7.1's), in a separate Node process.
+// Lesson 7.3 - a fake email provider (like Lesson 7.1's), in a separate Node process.
 //
-//   POST /send         — wait `latencyMs`, then 200; 503 in proportion to FAIL_RATE (a temporary failure)
-//   POST /admin/mode   — change the latency and failRate
-//   GET  /admin/stats  — how many times each key's email was delivered
+//   POST /send         - wait `latencyMs`, then 200; 503 in proportion to FAIL_RATE (a temporary failure)
+//   POST /admin/mode   - change the latency and failRate
+//   GET  /admin/stats  - how many times each key's email was delivered
 //
-// To the provider every email has a `key` (our job ID) — if the same key arrives twice it sends
+// To the provider every email has a `key` (our job ID) - if the same key arrives twice it sends
 // it twice, because it doesn't dedupe. The key is kept precisely to count duplicates.
 
 const env = z

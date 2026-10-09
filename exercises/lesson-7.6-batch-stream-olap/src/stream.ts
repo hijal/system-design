@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { mulberry32, percentile, uniform } from './random';
 
-// Lesson 7.6 §1.4–1.5 — "how many tasks were completed each hour" — batch vs stream, and late events.
+// Lesson 7.6 §1.4–1.5 - "how many tasks were completed each hour" - batch vs stream, and late events.
 //
 // Every event has two times: event time (when the task was really completed) and arrival time (when the news arrived).
 // Most news arrives almost immediately; some from the mobile app a few minutes later (when the network returns); and some
@@ -10,7 +10,7 @@ import { mulberry32, percentile, uniform } from './random';
 // (like Module 7's backlog).
 //
 // Two questions: **when** was each hour's count available, and **how accurate** was it.
-// Seeded — exactly the same numbers every time. SEED changes the randomness.
+// Seeded - exactly the same numbers every time. SEED changes the randomness.
 
 const env = z
 	.object({
@@ -35,7 +35,7 @@ const hourOf = (t: number): number => Math.floor(t / HOUR);
 function generate(): Event[] {
 	const random = mulberry32(env.SEED);
 	const events: Event[] = [];
-	// 26 hours of events — the last two hours only to push the watermark past the end of the day
+	// 26 hours of events - the last two hours only to push the watermark past the end of the day
 	const total = env.EVENTS_PER_HOUR * 26;
 	while (events.length < total) {
 		const eventTime = random() * 26 * HOUR;
@@ -123,7 +123,7 @@ function main(): void {
 
 	// 3. Stream, event time + watermark: watermark = the largest event time seen − L.
 	//    When the watermark passes the end of an hour, that hour's result goes out. If that hour's events arrive after that:
-	//    'drop' — dropped; 'update' — a corrected result sent again; 'batch' — dropped, but the nightly batch fixes it
+	//    'drop' - dropped; 'update' - a corrected result sent again; 'batch' - dropped, but the nightly batch fixes it
 	const watermark = (lateness: number, late: 'drop' | 'update' | 'batch', name: string): void => {
 		const counts = new Array<number>(DAY_HOURS).fill(0);
 		const first = new Array<number | null>(DAY_HOURS).fill(null);

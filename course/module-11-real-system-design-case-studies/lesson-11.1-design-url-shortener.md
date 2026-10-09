@@ -1,6 +1,6 @@
-# Lesson 11.1 — Case Study: Design a URL Shortener
+# Lesson 11.1 - Case Study: Design a URL Shortener
 
-**Module 11 — Real System Design Case Studies**
+**Module 11 - Real System Design Case Studies**
 
 > **Spaced Repetition (Lesson 1.3):** এক দিনে মোটামুটি কত সেকেন্ড, আর হিসাব সহজ করতে কত ধরি? মাসে ১০ কোটি নতুন জিনিস তৈরি হলে সেকেন্ডে গড়ে কতটা? আজ এই একটা ভাগ থেকেই ঠিক হবে নকশার অর্ধেক: কোন অংশে sharding লাগবে, আর কোন অংশে লাগবেই না।
 
@@ -12,7 +12,7 @@
 2. Short code বানানোর চারটা পথ (random, hash, counter, counter + গোপন permutation) সংখ্যা দিয়ে তুলনা করতে পারবেন: collision, database এ কতবার যেতে হয়, আর কেউ অনুমান করে অন্যের link খুঁজে পায় কিনা। Keyspace এর দৈর্ঘ্য কেন একটা সিদ্ধান্ত, আর birthday bound কেন hash এর পথ ভাঙে, সেটা বলতে পারবেন
 3. Redirect এর পথটা নকশা করতে পারবেন: cache কত দেয় আর কোথায় থামে, hot key, আর কেন 301 সস্তা কিন্তু analytics আর link বন্ধ করা দুটোই ভাঙে। আর click এর analytics কে redirect এর পথ থেকে আলাদা রাখতে পারবেন
 
-**Tier:** 1 — Runnable Code (তিনটা deterministic model আর একটা আসল Express + Zod shortener; Docker বা database লাগে না)
+**Tier:** 1 - Runnable Code (তিনটা deterministic model আর একটা আসল Express + Zod shortener; Docker বা database লাগে না)
 
 ---
 
@@ -41,7 +41,7 @@ URL shortener interview এর সবচেয়ে প্রচলিত প�
 
 ## ১. Theory
 
-### ১.১ Step 1 — Requirement: প্রশ্ন দিয়ে শুরু
+### ১.১ Step 1 - Requirement: প্রশ্ন দিয়ে শুরু
 
 1.2 এর প্রথম ধাপ: scope ঠিক করা। Interviewer কে এই প্রশ্নগুলো করুন, আর উত্তর না পেলে নিজে একটা যুক্তিসঙ্গত ধারণা বলে লিখে ফেলুন:
 
@@ -69,21 +69,21 @@ User account?                               আছে বলে ধরি, ক�
 
 **বাদ দিলাম:** login, billing, QR code, link এর preview page, গন্তব্য বদলানো। এক লাইনে বলে দেওয়া, যাতে বাকি সময় মূল জিনিসে যায়।
 
-### ১.২ Step 2 — Estimation: সংখ্যা কী বলে
+### ১.২ Step 2 - Estimation: সংখ্যা কী বলে
 
 **Spaced repetition এর উত্তর:** এক দিন ৮৬,৪০০ সেকেন্ড, হিসাবের সুবিধায় ~১ লাখ। এক মাস ~২৬ লাখ সেকেন্ড। মাসে ১০ কোটি মানে সেকেন্ডে ~৩৯টা।
 
 `npm run estimate`:
 
 ```
-── Part A — traffic: 100 million new links a month, read:write = 100:1, peak 3× the average ──
+── Part A - traffic: 100 million new links a month, read:write = 100:1, peak 3× the average ──
                                               average     peak
 new links (writes) / s                      38.6           116
 redirects (reads) / s                      3,858        11,574
 redirect bandwidth                      1.9 MB/s      5.8 MB/s
 click events / month                    10 billion      1.0 TB
 
-── Part B — storage: 10 years, 500 B per row ──
+── Part B - storage: 10 years, 500 B per row ──
 one year                               1.2 billion      600 GB
 10 years                                12 billion      6.0 TB
 ```
@@ -95,10 +95,10 @@ one year                               1.2 billion      600 GB
 3. **Storage দশ বছরে ~৬ TB।** একটা node এ রাখা যায়, কিন্তু আরাম করে না: backup থেকে ৬ TB restore করতে ~৬.৭ ঘণ্টা (10.8 এর RTO মনে করুন)। তাই পরে partition বা shard আসতে পারে, **কিন্তু কারণ storage আর recovery, লেখা না।** আর সেটা প্রথম দিনে না, বছর তিনেক পরে।
 4. **Click এর data link এর data এর চেয়ে অনেক বড়।** মাসে ১,০০০ কোটি event, ~১ TB। ছয় মাসেই link এর পুরো ১০ বছরের table (~৬ TB) কে ছাড়িয়ে যায়। এটা একটা আলাদা system (১.৭), redirect এর database এর ভেতরে না।
 
-এবার keyspace। **Keyspace** — code এর জন্য সম্ভাব্য সব মানের সংখ্যা; ৬২টা অক্ষর আর L দৈর্ঘ্য হলে ৬২^L। আর **Base62 Encoding** — একটা সংখ্যাকে ৬২টা অক্ষরে (`0-9`, `a-z`, `A-Z`) লেখা, ঠিক যেমন দশমিকে ১০টা অক্ষরে লিখি। URL এ বিশেষ অর্থ আছে এমন কোনো অক্ষর (`/`, `+`, `=`) নেই, তাই base64 এর চেয়ে নিরাপদ।
+এবার keyspace। **Keyspace** - code এর জন্য সম্ভাব্য সব মানের সংখ্যা; ৬২টা অক্ষর আর L দৈর্ঘ্য হলে ৬২^L। আর **Base62 Encoding** - একটা সংখ্যাকে ৬২টা অক্ষরে (`0-9`, `a-z`, `A-Z`) লেখা, ঠিক যেমন দশমিকে ১০টা অক্ষরে লিখি। URL এ বিশেষ অর্থ আছে এমন কোনো অক্ষর (`/`, `+`, `=`) নেই, তাই base64 এর চেয়ে নিরাপদ।
 
 ```
-── Part C — keyspace: base62, 1.2 billion new codes a year ──
+── Part C - keyspace: base62, 1.2 billion new codes a year ──
 length         total codes   years to fill  full in 10 yrs       random: retry    guess hits
 5              916 million        9 months          100.0%                full          100%
 6             56.8 billion              47           21.1%               21.1%         21.1%
@@ -111,7 +111,7 @@ length         total codes   years to fill  full in 10 yrs       random: retry  
 আর একটা তালিকা, যন্ত্রগুলোর দাম এই মাপে:
 
 ```
-── Part D — the tools that come to mind, and their price at this size ──
+── Part D - the tools that come to mind, and their price at this size ──
 Bloom filter, all 12 billion codes, 1% error               14.4 GB
 HyperLogLog (dense, 12 KB) per link                          147 TB
 Sharding: peak writes / one primary                           2.3%
@@ -155,7 +155,7 @@ CREATE SEQUENCE link_ids;
 
 Redirect এর পথে একটাই query: `code` দিয়ে primary key lookup (5.4 এর index, একটা B-tree এর কয়েকটা page)। মালিকের "আমার link গুলো" page এর জন্য `owner_id` এর index। Click গুলো এই table এ **নেই**। `UPDATE links SET clicks = clicks + 1` প্রতিটা redirect এ মানে প্রতিটা পড়া একটা লেখা হয়ে যাওয়া: জনপ্রিয় link এর row এ lock এর লড়াই (5.5), আর ১১৬ লেখা/s এর database এ হঠাৎ ১১,৬০০ লেখা/s। পড়ার পথকে লেখার পথ বানানো এই নকশার সবচেয়ে সাধারণ ভুল।
 
-### ১.৪ Step 3 — High-level design
+### ১.৪ Step 3 - High-level design
 
 ```
                       ┌─────────────────────────── redirect এর পথ (৯৯%, SLO কড়া) ───────────────────────────┐
@@ -175,11 +175,11 @@ Redirect এর পথে একটাই query: `code` দিয়ে primary 
 
 এই ছবিতে consistent hashing কোথায়? শুধু Redis cluster এর ভেতরে (10.1 এর hash slot), যেটা আমরা নিজে লিখি না। Database এর জন্য না, কারণ database একটা।
 
-### ১.৫ Deep dive ১ — Short code কীভাবে বানাব
+### ১.৫ Deep dive ১ - Short code কীভাবে বানাব
 
 এটাই এই system এর আসল engineering প্রশ্ন, আর 1.2 এর reflection এ ঠিক এটাকেই deep dive এর জায়গা বলা হয়েছিল। চারটা পথ, `npm run keygen` দিয়ে মাপা। Keyspace ছোট করে চালানো হয়েছে (৪ অক্ষর, ১.৪৮ কোটি ঘর), কারণ retry আর collision নির্ভর করে শুধু **কতটা ভরা** তার উপর, আর "০.৩৪১% ভরা" ঠিক ৭ অক্ষরে দশ বছরের সমান।
 
-**পথ ১ — Random code, তারপর "নেওয়া কিনা" দেখা।** ৭টা random অক্ষর, `INSERT ... ON CONFLICT DO NOTHING`, নেওয়া হলে আবার।
+**পথ ১ - Random code, তারপর "নেওয়া কিনা" দেখা।** ৭টা random অক্ষর, `INSERT ... ON CONFLICT DO NOTHING`, নেওয়া হলে আবার।
 
 ```
 full        avg attempts  needed retry   max attempts  when at 6 chars  when at 7 chars
@@ -193,7 +193,7 @@ Retry এর হার ঠিক যতটা ভরা, তত। ৭ অক্
 
 এখানে প্রথম Bloom filter এর চিন্তা আসে: "database এ যাওয়ার আগে Bloom filter এ দেখি code নেওয়া কিনা।" কিন্তু ১,২০০ কোটি code এর জন্য ১% ভুলে **১৪.৪ GB**, সব server এ, সবসময় নতুন code দিয়ে update রাখা। বাঁচায় কী? ৯৯.৬৫% insert প্রথমবারেই সফল, তাই Bloom filter শুধু ০.৩৫% এর একটা round trip বাঁচাত। আর "নেই" বললেও আমাদের insert করতেই হবে, তাই database এর কাজ কমে না। **দ্বিতীয় "না"।**
 
-**পথ ২ — URL এর hash, প্রথম ৭ অক্ষর।** আকর্ষণীয়, কারণ একই URL সবসময় একই code পায়, আর কোনো lookup ছাড়া dedupe হয়। কিন্তু আলাদা URL এর hash এর প্রথম ৭ অক্ষর মিলতে পারে:
+**পথ ২ - URL এর hash, প্রথম ৭ অক্ষর।** আকর্ষণীয়, কারণ একই URL সবসময় একই code পায়, আর কোনো lookup ছাড়া dedupe হয়। কিন্তু আলাদা URL এর hash এর প্রথম ৭ অক্ষর মিলতে পারে:
 
 ```
 full              link     collisions  % insert  birthday estimate  avg attempts
@@ -203,37 +203,37 @@ full              link     collisions  % insert  birthday estimate  avg attempts
 At 7 chars in 10 years (12,008,705,807 links): an estimated 20,474,843 links will hit a collision.
 ```
 
-**Birthday Bound** — N টা জিনিস এলোমেলো ভাবে K টা ঘরে ফেললে মোটামুটি N²/2K জোড়া একই ঘরে পড়ে। নামটা আসে "২৩ জনের একটা ঘরে দুজনের জন্মদিন এক হওয়ার সম্ভাবনা ৫০% এর বেশি" থেকে। ভাবনার চেয়ে অনেক আগে collision শুরু হয়। মাপা সংখ্যা আন্দাজের সাথে প্রায় হুবহু মেলে (৩,২৯,৩৬৬ বনাম ৩,২৮,৯২৯)। ৭ অক্ষরে দশ বছরে **~২ কোটি** link এ collision।
+**Birthday Bound** - N টা জিনিস এলোমেলো ভাবে K টা ঘরে ফেললে মোটামুটি N²/2K জোড়া একই ঘরে পড়ে। নামটা আসে "২৩ জনের একটা ঘরে দুজনের জন্মদিন এক হওয়ার সম্ভাবনা ৫০% এর বেশি" থেকে। ভাবনার চেয়ে অনেক আগে collision শুরু হয়। মাপা সংখ্যা আন্দাজের সাথে প্রায় হুবহু মেলে (৩,২৯,৩৬৬ বনাম ৩,২৮,৯২৯)। ৭ অক্ষরে দশ বছরে **~২ কোটি** link এ collision।
 
 তাহলে collision সামলাতে কী করবেন? URL এর সাথে একটা salt যোগ করে আবার hash। এখন hash এর পথের একমাত্র সুবিধা, "একই URL → একই code", ভেঙে গেল: কোন URL এর code salt সহ, সেটা database এ না দেখে জানা যায় না। আর প্রতিটা insert এর আগে "এই code কি অন্য URL এর?" দেখতে হয়, ঠিক random এর মতো। আরও দুটো সমস্যা: যে কেউ একটা URL এর hash হিসাব করে জানতে পারে কেউ সেটা ছোট করেছে কিনা (একটা private document এর URL জানলে)। আর দুজন আলাদা user একই URL দিলে একই code পায়, তাই আলাদা analytics বা আলাদা মেয়াদ দেওয়া যায় না। **Hash এর পথ random এর সব দাম দেয়, আর তার সুবিধাটা দিতে পারে না।**
 
-**পথ ৩ — Counter + base62।** একটা বাড়তে থাকা সংখ্যা (Postgres এর `SEQUENCE`), base62 এ লেখা। কোনো collision নেই, প্রতিটা তৈরিতে একবারই, আর code সবচেয়ে ছোট (১,২০০ কোটিতে মাত্র ৬ অক্ষর)। কিন্তু:
+**পথ ৩ - Counter + base62।** একটা বাড়তে থাকা সংখ্যা (Postgres এর `SEQUENCE`), base62 এ লেখা। কোনো collision নেই, প্রতিটা তৈরিতে একবারই, আর code সবচেয়ে ছোট (১,২০০ কোটিতে মাত্র ৬ অক্ষর)। কিন্তু:
 
 ```
-── Part C — finding by guessing: 0.341% full, the 10,000 codes before your own and 10,000 random attempts ──
+── Part C - finding by guessing: 0.341% full, the 10,000 codes before your own and 10,000 random attempts ──
 strategy                                                      last 5 codes      hits before    hits random
 counter → base62                                  0d6C 0d6D 0d6E 0d6F 0d6G          100.00%          0.34%
 random                                            DB0u rO8O ypzM aKdZ fKLX            0.32%          0.44%
 counter → secret permutation → base62             f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
 ```
 
-**Link Enumeration** — code গুনে গুনে বা অনুমান করে অন্যদের link খুঁজে বের করা। Counter এ নিজের একটা link বানান, পেছনে গুনুন: **১০০%** আসল link, অন্যদের সদ্য বানানো private document সহ। এটা তাত্ত্বিক না: ২০১৬ এর একটা গবেষণা ("Gone in Six Characters: Short URLs Considered Harmful for Cloud Services") জনপ্রিয় shortener এর ছোট code এর জায়গা scan করে cloud storage এর share link আর map এর ঠিকানা সহ ব্যক্তিগত তথ্য খুঁজে পেয়েছিল, কারণ তখনকার code ছিল মাত্র ৫-৬ অক্ষরের। Counter আরেকটা জিনিসও ফাঁস করে: আপনার ব্যবসার আকার। দুটো code এর পার্থক্য দেখে যে কেউ বলতে পারে আপনি দিনে কতগুলো link বানান।
+**Link Enumeration** - code গুনে গুনে বা অনুমান করে অন্যদের link খুঁজে বের করা। Counter এ নিজের একটা link বানান, পেছনে গুনুন: **১০০%** আসল link, অন্যদের সদ্য বানানো private document সহ। এটা তাত্ত্বিক না: ২০১৬ এর একটা গবেষণা ("Gone in Six Characters: Short URLs Considered Harmful for Cloud Services") জনপ্রিয় shortener এর ছোট code এর জায়গা scan করে cloud storage এর share link আর map এর ঠিকানা সহ ব্যক্তিগত তথ্য খুঁজে পেয়েছিল, কারণ তখনকার code ছিল মাত্র ৫-৬ অক্ষরের। Counter আরেকটা জিনিসও ফাঁস করে: আপনার ব্যবসার আকার। দুটো code এর পার্থক্য দেখে যে কেউ বলতে পারে আপনি দিনে কতগুলো link বানান।
 
-**পথ ৪ — Counter + গোপন permutation + base62।** Counter এর সব সুবিধা রেখে ক্রমটা লুকানো। Counter এর সংখ্যাকে একটা **গোপন, এক-এক (bijective) permutation** এর ভেতর দিয়ে পাঠান, যা [০, ৬২^৭) এর প্রতিটা সংখ্যাকে ওই একই পরিসরের একটা আলাদা সংখ্যায় নেয়। এক-এক, তাই collision অসম্ভব। গোপন key ছাড়া উল্টানো যায় না, তাই পরপর id এর code এলোমেলো দেখায়।
+**পথ ৪ - Counter + গোপন permutation + base62।** Counter এর সব সুবিধা রেখে ক্রমটা লুকানো। Counter এর সংখ্যাকে একটা **গোপন, এক-এক (bijective) permutation** এর ভেতর দিয়ে পাঠান, যা [০, ৬২^৭) এর প্রতিটা সংখ্যাকে ওই একই পরিসরের একটা আলাদা সংখ্যায় নেয়। এক-এক, তাই collision অসম্ভব। গোপন key ছাড়া উল্টানো যায় না, তাই পরপর id এর code এলোমেলো দেখায়।
 
-**Format-Preserving Permutation** — একটা নির্দিষ্ট পরিসরের ভেতরে এক-এক, key দেওয়া রূপান্তর, যাতে output ইনপুটের মতোই একই পরিসরে থাকে (এখানে ৭ অক্ষরের base62)। Exercise এ এটা একটা ছোট **Feistel network** দিয়ে বানানো: সংখ্যাকে দুই ভাগ করে কয়েকটা round এ একটা ভাগকে অন্য ভাগের keyed hash দিয়ে XOR করা। Feistel এর গঠনই এটাকে এক-এক রাখে, hash function যাই হোক। ৬২^৭ দুইয়ের ঘাত না, তাই ফল পরিসরের বাইরে গেলে আবার চালানো হয় (**cycle walking**), যতক্ষণ না ভেতরে আসে:
+**Format-Preserving Permutation** - একটা নির্দিষ্ট পরিসরের ভেতরে এক-এক, key দেওয়া রূপান্তর, যাতে output ইনপুটের মতোই একই পরিসরে থাকে (এখানে ৭ অক্ষরের base62)। Exercise এ এটা একটা ছোট **Feistel network** দিয়ে বানানো: সংখ্যাকে দুই ভাগ করে কয়েকটা round এ একটা ভাগকে অন্য ভাগের keyed hash দিয়ে XOR করা। Feistel এর গঠনই এটাকে এক-এক রাখে, hash function যাই হোক। ৬২^৭ দুইয়ের ঘাত না, তাই ফল পরিসরের বাইরে গেলে আবার চালানো হয় (**cycle walking**), যতক্ষণ না ভেতরে আসে:
 
 ```
-whole 3-char domain (238,328 ids): 238,328 distinct outputs — no collisions; extra rounds: 23,816 (10.0%)
+whole 3-char domain (238,328 ids): 238,328 distinct outputs - no collisions; extra rounds: 23,816 (10.0%)
 7 chars, ids 1–5:  0000001 → cOoEtMq   0000002 → BnqHDLC   0000003 → yhc3OjR   0000004 → NJcTAiA   0000005 → l3tBYTa
 ```
 
 ছোট domain এ প্রতিটা id চালিয়ে যাচাই করা: ২,৩৮,৩২৮টা id, ২,৩৮,৩২৮টা আলাদা code। আর অনুমানের পরীক্ষায় random এর মতো (০.৪৩%, ভরার হারের কাছে)। একটা সৎ সতর্কতা: এটা **গোপনতা না, শুধু অনুমান কঠিন করা।** ৪ round এর এই Feistel একটা প্রমাণিত cipher না, আর key ফাঁস হলে পুরো ক্রম উল্টানো যায়। সত্যিকারের private link এর উত্তর authentication (10.5), code এর আড়াল না। Production এ এই কাজের জন্য প্রমাণিত format-preserving encryption (যেমন NIST এর FF1) বা অন্তত একটা ভালো block cipher এর উপর cycle walking ব্যবহার করা উচিত।
 
-**Counter কে ভাগ করা।** একটা counter মানে প্রতিটা তৈরিতে counter এর কাছে যাওয়া, আর counter একটা single point। **Range Allocation (Ticket Server)** — প্রতিটা app server counter থেকে একবারে একটা block নেয় (ধরুন ১,০০০টা id), তারপর সেগুলো নিজের memory থেকে দেয়; শেষ হলে আরেকটা block। "Ticket server" নামটা Flickr এর একটা প্রকাশিত নকশা থেকে, যেখানে একটা আলাদা ছোট database এর একমাত্র কাজ ছিল id দেওয়া। একবারে একটা block নেওয়া তার উপরে একটা পুরনো, প্রচলিত উন্নতি (ORM এর জগতে এর নাম hi/lo)।
+**Counter কে ভাগ করা।** একটা counter মানে প্রতিটা তৈরিতে counter এর কাছে যাওয়া, আর counter একটা single point। **Range Allocation (Ticket Server)** - প্রতিটা app server counter থেকে একবারে একটা block নেয় (ধরুন ১,০০০টা id), তারপর সেগুলো নিজের memory থেকে দেয়; শেষ হলে আরেকটা block। "Ticket server" নামটা Flickr এর একটা প্রকাশিত নকশা থেকে, যেখানে একটা আলাদা ছোট database এর একমাত্র কাজ ছিল id দেওয়া। একবারে একটা block নেওয়া তার উপরে একটা পুরনো, প্রচলিত উন্নতি (ORM এর জগতে এর নাম hi/lo)।
 
 ```
-── Part D — sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts 1× a day ──
+── Part D - sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts 1× a day ──
 block     sequence calls / day  wasted ids / day  wasted / year, 7 chars  out of time order
 1                   3,333,333               0                0.00000%              0.0%
 1,000                   3,354          10,161                0.00011%             47.5%
@@ -244,7 +244,7 @@ Block ১,০০০ এ counter এর কাছে যাওয়া হাজ
 
 সৎ কথা: peak এ ১১৬ link/s এ Postgres এর `nextval()` সরাসরি ডাকলেও কোনো সমস্যা নেই। Range allocation দরকার হয় যখন counter একটা আলাদা service, বা একাধিক region (10.8) এ link বানাতে হয় (প্রতিটা region কে একটা বড় range দিন, তারা কখনো ধাক্কা খায় না)। Interview এ এটা বলা, আর বলা যে আজকের সংখ্যায় এটা ঐচ্ছিক, দুটোই senior এর লক্ষণ।
 
-> **Trade-off Table — short code এর চার পথ**
+> **Trade-off Table - short code এর চার পথ**
 
 | পথ                         | Collision                          | তৈরিতে database এ   | একই URL → একই code | অনুমান করা যায়?               | Coordination                 |
 | -------------------------- | ---------------------------------- | ------------------- | ------------------ | ------------------------------ | ---------------------------- |
@@ -257,7 +257,7 @@ Block ১,০০০ এ counter এর কাছে যাওয়া হাজ
 
 **Custom alias আর generated code এর ধাক্কা।** একটা সূক্ষ্ম ফাঁদ: কেউ alias হিসেবে `abcDEF1` চাইল, যেটা ৭ অক্ষরের base62। আজ সেটা খালি। কিন্তু কোনো একদিন permutation ঠিক ওই code টা বানাবে, আর insert ব্যর্থ হবে। Exercise এর app এ তাই ৭ অক্ষরের base62 alias নিষিদ্ধ (`alias_reserved`), আর alias এ `-` বা `_` রাখা যায়, যা generated code এ কখনো থাকে না। দুটো namespace আলাদা, ধাক্কা অসম্ভব। (Generator এর loop এ `taken` হলে পরের id নেওয়ার ব্যবস্থাও রাখা, শুধু নিরাপত্তার জাল হিসেবে।)
 
-### ১.৬ Deep dive ২ — Redirect এর পথ
+### ১.৬ Deep dive ২ - Redirect এর পথ
 
 Redirect প্রতি সেকেন্ডে ~১১,৬০০ বার, আর প্রায় সব একটা primary key lookup। প্রশ্ন দুটো: কতটা cache, আর browser কে কী বলব।
 
@@ -281,7 +281,7 @@ local 0.1% on each app server (10)             2,000      43.1%                 
 
 **না থাকা code।** কেউ code scan করলে (link enumeration) প্রায় সব request এর উত্তর "নেই", আর cache এ কিছু থাকে না, তাই সব database এ যায়: 10.2 এর cache penetration। এখানে আবার Bloom filter এর কথা মনে আসে, ১৪.৪ GB। সস্তা স্তরগুলো আগে: (১) negative cache (৪০৪ এর উত্তর ছোট TTL এ cache), (২) IP আর ASN ধরে ৪০৪ এর হারের উপর rate limit (9.5), কারণ সাধারণ user প্রায় কখনো ৪০৪ পায় না, আর একটা scanner এর প্রায় সব ৪০৪। আর permutation এর জন্য scan এর ফলও তেমন কিছু দেয় না। Bloom filter তখনই যখন এগুলো যথেষ্ট না প্রমাণিত হয়।
 
-**301 না 302।** **301 / 302 Redirect** — দুটোই browser কে `Location` header এর ঠিকানায় পাঠায়। 301 মানে "স্থায়ীভাবে সরে গেছে": browser এটা cache করতে পারে আর পরের বার server কে জিজ্ঞেস না করেই সরাসরি গন্তব্যে যায়। 302 মানে "আপাতত": প্রতিবার server কে জিজ্ঞেস করে (যদি না `Cache-Control` অন্য কিছু বলে)। 301 এর লোভ: server এর load কমে। অংশ খ: ১ লাখ মানুষ একটা link এ click করে, গড়ে আরও দুবার ফেরে, ৮৫% browser cache রাখে, আর সপ্তম দিনে link টা phishing বলে বন্ধ করা হলো:
+**301 না 302।** **301 / 302 Redirect** - দুটোই browser কে `Location` header এর ঠিকানায় পাঠায়। 301 মানে "স্থায়ীভাবে সরে গেছে": browser এটা cache করতে পারে আর পরের বার server কে জিজ্ঞেস না করেই সরাসরি গন্তব্যে যায়। 302 মানে "আপাতত": প্রতিবার server কে জিজ্ঞেস করে (যদি না `Cache-Control` অন্য কিছু বলে)। 301 এর লোভ: server এর load কমে। অংশ খ: ১ লাখ মানুষ একটা link এ click করে, গড়ে আরও দুবার ফেরে, ৮৫% browser cache রাখে, আর সপ্তম দিনে link টা phishing বলে বন্ধ করা হলো:
 
 ```
 policy                                   click   server saw  not in analytics  clicks after off  still reached dest
@@ -297,7 +297,7 @@ policy                                   click   server saw  not in analytics  c
 
 তাই **302 + `Cache-Control: private, no-store`।** Server এর load এর দাম আমরা cache এ দিয়েছি (উপরে), browser এ না। মাঝের পথ (`max-age=3600`): ২% কম load, আর বন্ধের পরে এক ঘণ্টা পর্যন্ত চলা। কিছু product এটা বাছে। কিন্তু abuse এর link বন্ধ করা যে system এর দায়িত্ব, সেখানে "এক ঘণ্টা phishing চলতে দেওয়া" একটা সচেতন সিদ্ধান্ত হতে হবে।
 
-### ১.৭ Analytics — redirect এর পথ থেকে আলাদা
+### ১.৭ Analytics - redirect এর পথ থেকে আলাদা
 
 Requirement: মালিক click আর unique visitor দেখবে, কয়েক মিনিট দেরিতে। Redirect এর পথে কাজ একটাই: একটা ছোট event (code, সময়, visitor এর একটা hash, referrer, দেশ) একটা buffer এ দেওয়া, অপেক্ষা না করে। বাকিটা আলাদা pipeline এ (7.2 এর log, 7.6 এর batch বা stream)।
 
@@ -306,7 +306,7 @@ Unique visitor গোনার প্রথম চিন্তা: "প্রত
 ```
 method                                                    memory   note
 exact set per link (visitor hash, 16 B)                  96.0 GB   exact; big on popular links
-dense HLL (12 KB) per clicked link                        8.1 TB   656 million links clicked — most of them small
+dense HLL (12 KB) per clicked link                        8.1 TB   656 million links clicked - most of them small
 set when small, HLL when big (Redis sparse → dense)       40.2 GB   only 369,858 links have more than 768 unique
 collect click events, count in a nightly batch (7.6)         0 RAM   ~1.0 TB/month of raw events on disk; hours of delay
 ```
@@ -341,7 +341,7 @@ Exercise এর app এ এটা ছোট করে আছে: redirect `Click
 - **বন্ধ করা মানে সাথে সাথে বন্ধ** (ধাপ ১৫, ১৬)। 302 আর no-store এর জন্যই সম্ভব। Cache এর স্তরে বন্ধ করার সময় key টা মুছে দেওয়া (4.3 এর invalidation), আর local cache এর TTL কয়েক সেকেন্ড।
 - **বাকি স্তরগুলো (exercise এ নেই):** তৈরির উপর account আর IP ধরে rate limit (9.5); গন্তব্যের URL কে জানা খারাপ URL এর তালিকার সাথে মেলানো, async ভাবে, আর পরে আবার (কারণ ভালো URL পরে খারাপ হয়); report করার একটা পথ।
 
-### ১.৯ Step 5 — Trade-off আর wrap-up
+### ১.৯ Step 5 - Trade-off আর wrap-up
 
 চূড়ান্ত নকশা, এক পাতায়:
 
@@ -356,7 +356,7 @@ Exercise এর app এ এটা ছোট করে আছে: redirect `Click
 - **দশ গুণ বড় হলে** (experiment ৪): peak লেখা primary এর ~২৩%, এখনো একটা primary। ৬ অক্ষর পাঁচ বছরে শেষ হতো, ৭ অক্ষরে দশ বছরে ৩.৪%, তাই ৭ ঠিক থাকে। পড়া সেকেন্ডে ~১.১৬ লাখ: cache এর স্তর বড় হয়, আর CDN এর edge এ redirect রাখার কথা আসে (নিচে reflection ২)।
 - **একাধিক region:** range allocation এখানে কাজে লাগে, প্রতিটা region এর নিজের range। পড়ার পথে replica এর lag মানে নতুন link দূরের region এ কিছুক্ষণ ৪০৪ (6.3)।
 
-> **Trade-off Table — redirect এর পথের সিদ্ধান্ত**
+> **Trade-off Table - redirect এর পথের সিদ্ধান্ত**
 
 | সিদ্ধান্ত       | বেছে নিলাম                               | বিকল্প               | কী দিলাম                                       | কী পেলাম                                                        |
 | --------------- | ---------------------------------------- | -------------------- | ---------------------------------------------- | --------------------------------------------------------------- |
@@ -379,12 +379,12 @@ URL shortener প্রায়ই প্রথম বা দ্বিতীয
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"MD5 নিয়ে প্রথম ৭ অক্ষর নিলে কী সমস্যা?"_ — Birthday bound: N²/2K, ৭ অক্ষরে দশ বছরে ~২ কোটি collision। সামলাতে salt আর check লাগে, তখন "একই URL → একই code" এর সুবিধাও যায়। আর URL থেকে code হিসাব করা যায়।
-- _"Counter একটা single point of failure না?"_ — Range allocation: প্রতিটা server একটা block নেয়, counter মিনিটে কয়েকবার ডাকা হয়। Counter কয়েক মিনিট বন্ধ থাকলেও server গুলো তাদের block থেকে চালাতে পারে। আর redirect এর পথ counter ছোঁয়ই না।
-- _"Sequential code কেন খারাপ?"_ — Enumeration (নিজের code থেকে পিছনে গুনলে ১০০% আসল link) আর ব্যবসার আকার ফাঁস। গোপন permutation বা random। আর সত্যিকারের private link এর জন্য authentication, অনুমান কঠিন করা না।
-- _"Hot link এ কী হবে?"_ — একটা key একটা Redis node এ যায়। Redirect service এ local cache, ছোট TTL। গন্তব্য বদলায় না, তাই পুরনো data এর ঝুঁকি ছোট।
-- _"Database কীভাবে scale করবেন?"_ — আগে সংখ্যা: লেখার জন্য দরকার নেই, পড়ার জন্য cache আর replica। Storage বড় হলে `code` এর hash ধরে shard (code এলোমেলো, তাই সমান ভাগ, আর প্রতিটা redirect এক shard এ)।
-- _"Expired link মুছবেন কখন?"_ — পড়ার সময় মেয়াদ দেখা (সাথে সাথে 410), মুছে ফেলা আলাদা background job এ। আর code আবার ব্যবহার না করা।
+- _"MD5 নিয়ে প্রথম ৭ অক্ষর নিলে কী সমস্যা?"_ - Birthday bound: N²/2K, ৭ অক্ষরে দশ বছরে ~২ কোটি collision। সামলাতে salt আর check লাগে, তখন "একই URL → একই code" এর সুবিধাও যায়। আর URL থেকে code হিসাব করা যায়।
+- _"Counter একটা single point of failure না?"_ - Range allocation: প্রতিটা server একটা block নেয়, counter মিনিটে কয়েকবার ডাকা হয়। Counter কয়েক মিনিট বন্ধ থাকলেও server গুলো তাদের block থেকে চালাতে পারে। আর redirect এর পথ counter ছোঁয়ই না।
+- _"Sequential code কেন খারাপ?"_ - Enumeration (নিজের code থেকে পিছনে গুনলে ১০০% আসল link) আর ব্যবসার আকার ফাঁস। গোপন permutation বা random। আর সত্যিকারের private link এর জন্য authentication, অনুমান কঠিন করা না।
+- _"Hot link এ কী হবে?"_ - একটা key একটা Redis node এ যায়। Redirect service এ local cache, ছোট TTL। গন্তব্য বদলায় না, তাই পুরনো data এর ঝুঁকি ছোট।
+- _"Database কীভাবে scale করবেন?"_ - আগে সংখ্যা: লেখার জন্য দরকার নেই, পড়ার জন্য cache আর replica। Storage বড় হলে `code` এর hash ধরে shard (code এলোমেলো, তাই সমান ভাগ, আর প্রতিটা redirect এক shard এ)।
+- _"Expired link মুছবেন কখন?"_ - পড়ার সময় মেয়াদ দেখা (সাথে সাথে 410), মুছে ফেলা আলাদা background job এ। আর code আবার ব্যবহার না করা।
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ সমস্যাগুলো code generation না, বরং abuse (phishing আর spam এর ঢেউ, আর তার জন্য domain টা blocklist এ চলে যাওয়া), প্রতিটা redirect এ database এ লেখা করে বানানো click counter যা জনপ্রিয় link এ lock এর লড়াই বাঁধায়, 301 দিয়ে শুরু করে পরে analytics বা takedown এর জন্য আফসোস (আর ফেরার উপায় নেই, পুরনো browser এর cache থেকে যায়), আর shortener এর domain টাই হারানো বা মেয়াদ শেষ হওয়া, যার সাথে সব link একসাথে মরে।
 
@@ -408,10 +408,10 @@ URL shortener প্রায়ই প্রথম বা দ্বিতীয
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Base62 Encoding**                  | সংখ্যাকে ৬২টা অক্ষরে (`0-9`, `a-z`, `A-Z`) লেখা; URL এ বিশেষ অর্থের কোনো অক্ষর নেই, তাই short code এর জন্য base64 এর চেয়ে নিরাপদ                                                         |
 | **Keyspace**                         | সম্ভাব্য সব code এর সংখ্যা (৬২^L); কতটা ভরা সেটাই random এ retry এর হার আর অনুমানে আসল link পাওয়ার সম্ভাবনা ঠিক করে                                                                      |
-| **Birthday Bound**                   | N টা জিনিস এলোমেলো ভাবে K টা ঘরে ফেললে ~N²/2K জোড়া একই ঘরে পড়ে — তাই hash কেটে ছোট করলে ভাবনার অনেক আগে collision শুরু হয়                                                              |
+| **Birthday Bound**                   | N টা জিনিস এলোমেলো ভাবে K টা ঘরে ফেললে ~N²/2K জোড়া একই ঘরে পড়ে - তাই hash কেটে ছোট করলে ভাবনার অনেক আগে collision শুরু হয়                                                              |
 | **Range Allocation (Ticket Server)** | প্রতিটা server counter থেকে একবারে id এর একটা block নেয় আর memory থেকে দেয়; counter এর কাছে যাওয়া block এর আকারের ভাগে কমে, দাম restart এ নষ্ট id আর সময়ের ক্রম হারানো                |
-| **Format-Preserving Permutation**    | একটা নির্দিষ্ট পরিসরের ভেতরে key দেওয়া, এক-এক রূপান্তর (যেমন Feistel + cycle walking) — counter কে collision ছাড়া এলোমেলো দেখানো code বানায়; গোপনতা না, key ফাঁস হলে ক্রম উল্টানো যায় |
-| **301 / 302 Redirect**               | 301 "স্থায়ী" — browser cache করে আর server কে আর জিজ্ঞেস করে না; 302 "আপাতত" — প্রতিবার server এ আসে। Shortener এ 302 + no-store, যাতে analytics সঠিক আর link বন্ধ করা যায়              |
+| **Format-Preserving Permutation**    | একটা নির্দিষ্ট পরিসরের ভেতরে key দেওয়া, এক-এক রূপান্তর (যেমন Feistel + cycle walking) - counter কে collision ছাড়া এলোমেলো দেখানো code বানায়; গোপনতা না, key ফাঁস হলে ক্রম উল্টানো যায় |
+| **301 / 302 Redirect**               | 301 "স্থায়ী" - browser cache করে আর server কে আর জিজ্ঞেস করে না; 302 "আপাতত" - প্রতিবার server এ আসে। Shortener এ 302 + no-store, যাতে analytics সঠিক আর link বন্ধ করা যায়              |
 | **Link Enumeration**                 | Code গুনে বা অনুমান করে অন্যের link খুঁজে বের করা; sequential code এ ১০০%, এলোমেলো code এ keyspace কতটা ভরা তার সমান                                                                      |
 
 ---
@@ -472,9 +472,9 @@ URL shortener প্রায়ই প্রথম বা দ্বিতীয
 
 ## ৬. Practical Exercise
 
-**Tier 1 — Runnable Code** (তিনটা deterministic model আর একটা আসল Express + Zod shortener; Docker বা database লাগে না)
+**Tier 1 - Runnable Code** (তিনটা deterministic model আর একটা আসল Express + Zod shortener; Docker বা database লাগে না)
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-11.1-url-shortener/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.1-url-shortener) — `npm install`, তারপর `npm run estimate`, `npm run keygen`, `npm run redirect`, `npm run smoke` (আর নিজে খেলতে `npm run serve`)। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-11.1-url-shortener/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.1-url-shortener) - `npm install`, তারপর `npm run estimate`, `npm run keygen`, `npm run redirect`, `npm run smoke` (আর নিজে খেলতে `npm run serve`)। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
 
 `estimate` traffic, storage, keyspace আর যন্ত্রগুলোর দাম হিসাব করে। `keygen` code বানানোর চারটা পথ আর range allocation চালায়: retry, collision (birthday এর আন্দাজের সাথে), অনুমান করে খোঁজা, আর permutation এক-এক কিনা তার পুরো যাচাই। `redirect` Zipf traffic এ LRU cache, hot key, 301 বনাম 302 (analytics আর link বন্ধ করা), আর unique visitor এর memory মাপে। `smoke` একটা আসল Express server চালায় (Zod দিয়ে validation, range allocator, Feistel permutation, click এর buffer) আর ১৮টা ধাপ আর ১০,০০০ link এর একটা যাচাই করে।
 
@@ -499,8 +499,8 @@ URL shortener প্রায়ই প্রথম বা দ্বিতীয
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1 – 10 (সম্পূর্ণ, exit challenge সহ)
-Current: 11.1 — Case Study: Design a URL Shortener
-TaskFlow state: Module 10 এর শেষ অবস্থায় রাখা (Module 11 এ পাশে)। Case study ১ — URL shortener: মাসে ১০ কোটি
+Current: 11.1 - Case Study: Design a URL Shortener
+TaskFlow state: Module 10 এর শেষ অবস্থায় রাখা (Module 11 এ পাশে)। Case study ১ - URL shortener: মাসে ১০ কোটি
 link, ১০০:১, ১০ বছর। লেখা peak ১১৬/s (একটা Postgres primary এর ~২%), পড়া ১১,৬০০/s, ১০ বছরে ~৬ TB। Code:
 range allocation (block ১,০০০) + গোপন Feistel permutation + ৭ অক্ষরের base62 (১০ বছরে keyspace এর ০.৩৪%);
 alias আলাদা namespace (৭ অক্ষরের base62 alias নিষিদ্ধ)। Redirect: আলাদা stateless service → local LRU
@@ -510,8 +510,8 @@ alias আলাদা namespace (৭ অক্ষরের base62 alias নি�
 (১৪.৪ GB), নিজের consistent hashing। পরে: storage এর জন্য code এর hash ধরে shard বা created_at ধরে partition।
 Terms learned (Module 11): Base62 Encoding, Keyspace, Birthday Bound, Range Allocation (Ticket Server),
 Format-Preserving Permutation, 301 / 302 Redirect, Link Enumeration
-Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
-Next: 11.2 — Case Study: Design a Rate Limiter service
+Weak spots: [আপনি যেখানে আটকেছিলেন - নিজে লিখুন]
+Next: 11.2 - Case Study: Design a Rate Limiter service
 =======================
 ```
 
@@ -521,4 +521,4 @@ Next: 11.2 — Case Study: Design a Rate Limiter service
 
 আজকের সুতোটা: **সহজ দেখানো system এ প্রতিটা সিদ্ধান্তের পেছনে একটা সংখ্যা, আর সংখ্যাটা প্রায়ই বলে কী লাগবে না।** লেখা এত কম যে sharding এর প্রশ্নই নেই, পড়া এত skewed যে প্রথম ১% cache অর্ধেকের বেশি কাজ করে। Code এর প্রশ্নে চারটা পথ, আর প্রতিটা একটা আলাদা জিনিসে দাম দেয়: hash collision এ, counter গোপনতায়, random retry তে। আর 301 বনাম 302 এর মতো ছোট একটা header ঠিক করে link টা কার নিয়ন্ত্রণে।
 
-রেডি হলে `next` লিখুন — **Lesson 11.2: Design a Rate Limiter service** এ যাব। 9.5 এ rate limiting এর algorithm গুলো শিখেছিলাম একটা Express middleware হিসেবে, একটা process এর ভেতরে। এবার প্রশ্নটা বড়: একটা **আলাদা service**, যা কয়েকশো API server এর সব request এর সিদ্ধান্ত দেয়, প্রতিটায় এক ms এর কম যোগ করে, আর নিজে মরলে সব API কে মেরে ফেলে না। সেখানে আজকের দুটো জিনিস ফিরে আসবে: hot key (একজন customer এর সব request একটা counter এ), আর সেই প্রশ্ন যা আজ 301 এ উঠেছিল: সিদ্ধান্ত কে নেয়, আর সে ভুল করলে কী হয়।
+রেডি হলে `next` লিখুন - **Lesson 11.2: Design a Rate Limiter service** এ যাব। 9.5 এ rate limiting এর algorithm গুলো শিখেছিলাম একটা Express middleware হিসেবে, একটা process এর ভেতরে। এবার প্রশ্নটা বড়: একটা **আলাদা service**, যা কয়েকশো API server এর সব request এর সিদ্ধান্ত দেয়, প্রতিটায় এক ms এর কম যোগ করে, আর নিজে মরলে সব API কে মেরে ফেলে না। সেখানে আজকের দুটো জিনিস ফিরে আসবে: hot key (একজন customer এর সব request একটা counter এ), আর সেই প্রশ্ন যা আজ 301 এ উঠেছিল: সিদ্ধান্ত কে নেয়, আর সে ভুল করলে কী হয়।

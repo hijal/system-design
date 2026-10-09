@@ -90,7 +90,7 @@ function simulate(mode: Mode): Outcome {
 }
 
 heading(
-	`Part A — ${n(ACCOUNTS)} wallets (${n(START)} cents in each), ${n(TRANSFERS)} transfers, ${n(RATE)} a second, ${HOT_SHARE * 100}% to one big merchant's wallet, DB round trip ~${DB_MS} ms, ${CRASH * 100}% crash midway`
+	`Part A - ${n(ACCOUNTS)} wallets (${n(START)} cents in each), ${n(TRANSFERS)} transfers, ${n(RATE)} a second, ${HOT_SHARE * 100}% to one big merchant's wallet, DB round trip ~${DB_MS} ms, ${CRASH * 100}% crash midway`
 );
 console.log(
 	row([
@@ -120,9 +120,9 @@ for (const [mode, name] of [
 		])
 	);
 }
-console.log('"total change" should be zero — money only moves from one wallet to another.');
+console.log('"total change" should be zero - money only moves from one wallet to another.');
 
-heading(`Part B — summing ${n(PRICES)} prices: dollars in float vs cents in integers`);
+heading(`Part B - summing ${n(PRICES)} prices: dollars in float vs cents in integers`);
 {
 	const random = mulberry32(SEED + 7);
 	let dollars = 0;
@@ -157,9 +157,9 @@ heading(`Part B — summing ${n(PRICES)} prices: dollars in float vs cents in in
 	);
 	console.log(`0.1 + 0.2 = ${0.1 + 0.2}; 0.029 * 100 = ${0.029 * 100}`);
 	console.log(
-		`\nfee 2.9%: rounding each then summing ${n(feePerItem)} cents, rounding once on the total ${n(feeOnce)} cents — difference ${n(feePerItem - feeOnce)} cents`
+		`\nfee 2.9%: rounding each then summing ${n(feePerItem)} cents, rounding once on the total ${n(feeOnce)} cents - difference ${n(feePerItem - feeOnce)} cents`
 	);
 	console.log(
-		'both are "right" — but which one is the rule has to be written down, or two systems\' books never match.'
+		'both are "right" - but which one is the rule has to be written down, or two systems\' books never match.'
 	);
 }

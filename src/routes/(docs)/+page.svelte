@@ -130,7 +130,7 @@
 						><Icon name="arrow" size={18} />
 					</div>
 					<h3>{module.title}</h3>
-					<p>{descriptions[module.id] ?? 'Concept, practice আর design trade-off—ধাপে ধাপে।'}</p>
+					<p>{descriptions[module.id] ?? 'Concept, practice আর design trade-off-ধাপে ধাপে।'}</p>
 					<div class="card-bottom">
 						<span><Icon name="book" size={14} />{count} lessons</span><span
 							class:ready={ready > 0}

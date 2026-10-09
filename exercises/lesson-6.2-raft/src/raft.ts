@@ -1,6 +1,6 @@
 import type { Network, Sim, Timer } from './sim';
 
-// Lesson 6.2 — the core of Raft: leader election, log replication, commit, the election restriction.
+// Lesson 6.2 - the core of Raft: leader election, log replication, commit, the election restriction.
 // The rules of Figure 2 of the Raft paper (Ongaro & Ousterhout, 2014), as faithfully as possible.
 // Left out: membership changes, snapshots, persistence (crash-recovery), PreVote, client sessions.
 //
@@ -21,7 +21,7 @@ export type Message =
 	  }
 	| { type: 'AppendEntriesReply'; term: number; success: boolean; matchIndex: number };
 
-// Role is a discriminated union — only a leader has nextIndex/matchIndex,
+// Role is a discriminated union - only a leader has nextIndex/matchIndex,
 // only a candidate has votes. Not a jungle of optional fields.
 type Role =
 	| { kind: 'follower'; leaderId: string | null }
@@ -42,7 +42,7 @@ export interface RaftConfig {
 	electionMinMs: number;
 	electionMaxMs: number;
 	heartbeatMs: number;
-	// when false the "election restriction" is off: votes are granted however old the log — deliberately broken
+	// when false the "election restriction" is off: votes are granted however old the log - deliberately broken
 	electionRestriction: boolean;
 	onEvent: (event: RaftEvent) => void;
 }
@@ -183,7 +183,7 @@ export class RaftNode {
 	}
 
 	private onRequestVote(message: Extract<Message, { type: 'RequestVote' }>, from: string): void {
-		// Election restriction: the candidate's log must be at least as up to date as mine —
+		// Election restriction: the candidate's log must be at least as up to date as mine -
 		// a bigger term on its last entry, or the same term and a log at least as long
 		const upToDate =
 			message.lastLogTerm > this.lastLogTerm() ||
@@ -225,13 +225,13 @@ export class RaftNode {
 		const reply = (success: boolean, matchIndex: number): void =>
 			this.send(from, { type: 'AppendEntriesReply', term: this.term, success, matchIndex });
 
-		if (message.term < this.term) return reply(false, 0); // an old leader — reject, with my term
+		if (message.term < this.term) return reply(false, 0); // an old leader - reject, with my term
 
 		// a valid leader for this term: step back if candidate, restart the election timer
 		this.role = { kind: 'follower', leaderId: from };
 		this.resetElectionTimer();
 
-		// does the previous entry match — if not, the leader will step back one and send again
+		// does the previous entry match - if not, the leader will step back one and send again
 		if (this.termAt(message.prevLogIndex) !== message.prevLogTerm) return reply(false, 0);
 
 		message.entries.forEach((entry, offset) => {
@@ -278,7 +278,7 @@ export class RaftNode {
 		});
 	}
 
-	// Commit rule: it has reached a majority, and the entry is **from this term** — committing an old term's entry
+	// Commit rule: it has reached a majority, and the entry is **from this term** - committing an old term's entry
 	// just by counting is not safe (the paper's Figure 8); those get committed along with an entry from this term
 	private advanceCommit(): void {
 		if (this.role.kind !== 'leader') return;

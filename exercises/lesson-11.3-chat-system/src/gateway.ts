@@ -15,7 +15,7 @@ const FIRST_SPREAD_MS = env('FIRST_SPREAD_MS', 10_000);
 const REJECT_COST = env('REJECT_COST', 0.2);
 
 heading(
-	`Part A — which gateway to send a message to: ${n(DELIVERIES)} deliveries/s at peak, ${GATEWAYS} gateways`
+	`Part A - which gateway to send a message to: ${n(DELIVERIES)} deliveries/s at peak, ${GATEWAYS} gateways`
 );
 console.log(
 	row([
@@ -47,7 +47,7 @@ for (const [name, received, middle] of routes) {
 	);
 }
 console.log(
-	'"op/s in the middle layer" — with broadcast every delivery reaches every gateway; with the registry one lookup + one send.'
+	'"op/s in the middle layer" - with broadcast every delivery reaches every gateway; with the registry one lookup + one send.'
 );
 
 type Policy = {
@@ -136,7 +136,7 @@ function storm(policy: Policy): Storm {
 }
 
 heading(
-	`Part B — a gateway died: ${n(CLIENTS)} connections reconnect at once, the rest of the fleet's handshake + auth + sync capacity ${n(CAPACITY)}/s, cost of a rejected attempt ${REJECT_COST}`
+	`Part B - a gateway died: ${n(CLIENTS)} connections reconnect at once, the rest of the fleet's handshake + auth + sync capacity ${n(CAPACITY)}/s, cost of a rejected attempt ${REJECT_COST}`
 );
 console.log(
 	row([
@@ -154,7 +154,7 @@ const show = (value: number): string =>
 const results = policies.map((policy) => ({ policy, result: storm(policy) }));
 for (const { policy, result } of results) {
 	const at = (p: number): string =>
-		result.reconnected.length >= CLIENTS * (p / 100) ? ms(percentile(result.reconnected, p)) : '—';
+		result.reconnected.length >= CLIENTS * (p / 100) ? ms(percentile(result.reconnected, p)) : '-';
 	console.log(
 		row([
 			[policy.name, 46],
@@ -176,7 +176,7 @@ console.log(
 	`best possible: ${n(CLIENTS)} ÷ ${n(CAPACITY)}/s = ${ms((CLIENTS / CAPACITY) * 1_000)}.`
 );
 
-heading('Part C — messages to those users during the reconnect window');
+heading('Part C - messages to those users during the reconnect window');
 const perUser = DELIVERIES / ONLINE;
 console.log(
 	`${perUser.toFixed(4)} deliveries/s per user → ${n(perUser * CLIENTS)}/s to these ${n(CLIENTS)} people. The registry still points at the dead gateway.\n`
@@ -217,5 +217,5 @@ for (const { policy, result } of results) {
 	);
 }
 console.log(
-	'messages sent in the first 30 s. With "push only" they go to the registry\'s stale gateway and are lost; with "store first" they stay in the inbox and arrive by sync after the reconnect — late.'
+	'messages sent in the first 30 s. With "push only" they go to the registry\'s stale gateway and are lost; with "store first" they stay in the inbox and arrive by sync after the reconnect - late.'
 );

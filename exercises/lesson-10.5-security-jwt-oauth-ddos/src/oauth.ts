@@ -156,7 +156,7 @@ const CONFIGS: [string, Defenses][] = [
 	['all (+exact, single-use)', { state: true, pkce: true, exactRedirect: true, singleUse: true }]
 ];
 
-heading('Part A — Authorization code flow: four attacks × five sets of defences');
+heading('Part A - Authorization code flow: four attacks × five sets of defences');
 console.log(padEnd('attack', 60) + CONFIGS.map(([name]) => padEnd(name, 26)).join(''));
 for (const attack of ATTACKS) {
 	let line = padEnd(attack.name, 60);
@@ -168,7 +168,7 @@ for (const attack of ATTACKS) {
 	console.log(line);
 }
 
-heading('Part B — one legitimate login, with each set');
+heading('Part B - one legitimate login, with each set');
 for (const [name, defenses] of CONFIGS) {
 	const server = new AuthorizationServer(defenses);
 	const client = new TaskFlowClient(server, defenses);
@@ -183,7 +183,7 @@ for (const [name, defenses] of CONFIGS) {
 	);
 }
 
-heading('Part C — sending an OIDC ID token to the API as an access token');
+heading('Part C - sending an OIDC ID token to the API as an access token');
 const now = 1_790_000_000;
 const key = newSigningKey('2026-10');
 const idToken = signRs256(claimsFor('alice', 'member', now, { aud: CLIENT_ID }), key);

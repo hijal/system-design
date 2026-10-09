@@ -3,14 +3,14 @@ import { Client } from 'pg';
 import { z } from 'zod';
 import { primary, replica, scalarText, sleep, waitForCatchUp } from './db';
 
-// Lesson 5.7 §1.5 — failover, and exactly which data is lost with async replication.
+// Lesson 5.7 §1.5 - failover, and exactly which data is lost with async replication.
 //
 //   1. all is well: 10 events written, they reached the replica
 //   2. a network problem: the replica is cut off from the primary
-//   3. 20 more async events on the primary — the user was told "saved"
-//   4. one sync (remote_apply) event — the commit is stuck
+//   3. 20 more async events on the primary - the user was told "saved"
+//   4. one sync (remote_apply) event - the commit is stuck
 //   5. the primary dies
-//   6. the replica is promoted — now it is the new primary
+//   6. the replica is promoted - now it is the new primary
 //   7. counting: which events are there?
 //
 // ⚠️ After running this the cluster is left broken (the primary dead, the replica promoted).
@@ -40,17 +40,17 @@ async function main(): Promise<void> {
 		replicaId
 	);
 
-	step('1.', 'normal state — 10 events, waiting until they reach the replica');
+	step('1.', 'normal state - 10 events, waiting until they reach the replica');
 	await primary.query('DROP TABLE IF EXISTS events');
 	await primary.query('CREATE TABLE events (id serial PRIMARY KEY, kind text NOT NULL)');
 	await primary.query(`INSERT INTO events (kind) SELECT 'before' FROM generate_series(1, 10)`);
 	await waitForCatchUp();
 	console.log('      ✓ the replica caught up');
 
-	step('2.', 'Network problem — cutting the replica off from the primary');
+	step('2.', 'Network problem - cutting the replica off from the primary');
 	docker('network', 'disconnect', network, replicaId);
 
-	step('3.', '20 events (async) on the primary — every commit succeeds, the user sees "saved"');
+	step('3.', '20 events (async) on the primary - every commit succeeds, the user sees "saved"');
 	for (let i = 0; i < 20; i++) await primary.query(`INSERT INTO events (kind) VALUES ('async')`);
 	console.log('      ✓ 20 commits succeeded');
 
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
 	const client = new Client({ connectionString: PRIMARY_URL });
 	const notices: string[] = [];
 	client.on('notice', (msg) =>
-		notices.push(`${msg.message}${msg.detail ? ` — ${msg.detail}` : ''}`)
+		notices.push(`${msg.message}${msg.detail ? ` - ${msg.detail}` : ''}`)
 	);
 	await client.connect();
 	const started = Date.now();
@@ -94,12 +94,12 @@ async function main(): Promise<void> {
 		);
 	}
 
-	step('6.', 'Failover — promoting the replica (pg_promote)');
+	step('6.', 'Failover - promoting the replica (pg_promote)');
 	docker('network', 'connect', '--alias', 'replica', network, replicaId);
 	await replica.query('SELECT pg_promote()');
 	const inRecovery = await scalarText(replica, 'SELECT pg_is_in_recovery()::text AS v');
 	console.log(
-		`      is the replica still a read-only standby? ${inRecovery === 'true' ? 'yes' : 'no — it is the new primary now, it takes writes'}`
+		`      is the replica still a read-only standby? ${inRecovery === 'true' ? 'yes' : 'no - it is the new primary now, it takes writes'}`
 	);
 	await replica.query(`INSERT INTO events (kind) VALUES ('after-failover')`);
 	console.log(
@@ -115,8 +115,8 @@ async function main(): Promise<void> {
 	const have = new Map(rows.map((r) => [r.kind, r.n]));
 	const report: [string, number, string][] = [
 		['before', 10, ''],
-		['async', 20, 'lost — even though the user was told "saved"'],
-		['sync', 1, 'lost — the app got a timeout, but it had been committed on the old primary'],
+		['async', 20, 'lost - even though the user was told "saved"'],
+		['sync', 1, 'lost - the app got a timeout, but it had been committed on the old primary'],
 		['after-failover', 1, '']
 	];
 	for (const [kind, expected, lostNote] of report) {

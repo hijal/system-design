@@ -99,8 +99,8 @@ for (const plan of plans) {
 	);
 }
 console.log(
-	`\nA big tenant's lease: the ${BURST_SECONDS} s burst of its limit ÷ ${API_SERVERS} servers — ${leaseSize(top)} tokens for the biggest tenant.`
+	`\nA big tenant's lease: the ${BURST_SECONDS} s burst of its limit ÷ ${API_SERVERS} servers - ${leaseSize(top)} tokens for the biggest tenant.`
 );
 console.log(
-	`key splitting: limit / ${SPLIT} in each part, and the server picks a part at random for each request — so the parts get even traffic.`
+	`key splitting: limit / ${SPLIT} in each part, and the server picks a part at random for each request - so the parts get even traffic.`
 );

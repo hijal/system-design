@@ -1,6 +1,6 @@
-# Lesson 11.4 — Case Study: Design a News Feed (Facebook/Twitter-style)
+# Lesson 11.4 - Case Study: Design a News Feed (Facebook/Twitter-style)
 
-**Module 11 — Real System Design Case Studies**
+**Module 11 - Real System Design Case Studies**
 
 > **Spaced Repetition (Lesson 2.5):** Offset pagination বড় table এ কেন ধীর, আর cursor pagination সেটা কীভাবে এড়ায়? সেখানে প্রশ্নটা ছিল **গতির**। আজ একটা feed এ দেখবেন offset এর আরেকটা সমস্যা, যেটা ছোট table এও হয়: user যখন পড়ছে তখন উপরে নতুন post জমে, আর দ্বিতীয় page এ ৪১% session এ আগে দেখা post আবার আসে।
 
@@ -12,7 +12,7 @@
 2. Hybrid fan-out নকশা করতে পারবেন, আর বলতে পারবেন তার আসল লাভ কোথায় (গড় লেখা প্রায় একই, কিন্তু celebrity এর spike নেই), fan-out এর queue কে কীভাবে ভাগ করবেন যাতে একজন celebrity বাকিদের আটকে না দেয়, আর তার দাম পড়ার দিকে কোথায়
 3. পড়ার পথের দুটো সূক্ষ্ম সমস্যা ধরতে পারবেন: অনেক জায়গা থেকে একসাথে আনলে p99 এর বিস্ফোরণ (আর hedged request), আর চলমান feed এ offset pagination এর ভুল; সাথে ranking কোথায় বসে
 
-**Tier:** 1 — Runnable Code (তিনটা deterministic model আর একটা আসল Express + Zod hybrid feed service; Docker লাগে না)
+**Tier:** 1 - Runnable Code (তিনটা deterministic model আর একটা আসল Express + Zod hybrid feed service; Docker লাগে না)
 
 ---
 
@@ -38,7 +38,7 @@ Interviewer:
 
 ## ১. Theory
 
-### ১.১ Step 1 — Requirement
+### ১.১ Step 1 - Requirement
 
 ```
 প্রশ্ন                                       ধরে নিলাম
@@ -53,14 +53,14 @@ Feed এর ক্রম?                                 আজ সময়ে
 
 Non-functional: feed খোলা দ্রুত (p99 ~১০০ ms server এ), feed পড়া প্রায় সবসময় চলে (একটা অংশ ধীর হলে বাকিটা দেখান, 10.3), নতুন post কয়েক সেকেন্ডে, আর **eventual consistency চলে**: আমার post আমার follower রা কয়েক সেকেন্ড পরে দেখলে কেউ টের পায় না। কিন্তু **আমি নিজে** আমার post সাথে সাথে দেখব (6.3 এর read-your-writes)।
 
-### ১.২ Step 2 — Estimation, আর গড় কেন মিথ্যা বলে
+### ১.২ Step 2 - Estimation, আর গড় কেন মিথ্যা বলে
 
-**Fan-out on Write (Push)** — একটা post তৈরির সময়ই সেটা লেখকের প্রতিটা follower এর তৈরি করা timeline এ বসানো; পড়া মানে নিজের timeline এর একটা list পড়া। **Fan-out on Read (Pull)** — post শুধু লেখকের নিজের list এ; পড়ার সময় যাদের follow করি তাদের সবার সাম্প্রতিক post এনে জোড়া লাগানো।
+**Fan-out on Write (Push)** - একটা post তৈরির সময়ই সেটা লেখকের প্রতিটা follower এর তৈরি করা timeline এ বসানো; পড়া মানে নিজের timeline এর একটা list পড়া। **Fan-out on Read (Pull)** - post শুধু লেখকের নিজের list এ; পড়ার সময় যাদের follow করি তাদের সবার সাম্প্রতিক post এনে জোড়া লাগানো।
 
 দুটোর খরচ নির্ভর করে একটা সংখ্যার উপর: একটা post এ কতজন follower। আর সেই সংখ্যা সমান না। Social network এ follower এর সংখ্যা মোটামুটি power law মানে: বেশিরভাগ মানুষের অল্প, অল্প কয়েকজনের বিশাল। `npm run estimate` একটা power law (α = ১.২) কে গড় ২০০ তে মিলিয়ে নেয়:
 
 ```
-── Part A — the follower distribution: 500 million accounts, following 200 on average, power law (α = 1.2), max 150 million ──
+── Part A - the follower distribution: 500 million accounts, following 200 on average, power law (α = 1.2), max 150 million ──
 median account (p50)                                      62
 p99                                                    1,613
 p99.99                                                74,850
@@ -68,7 +68,7 @@ biggest account                                  150,000,000
 the top 0.01% of accounts (50,000) hold 18.2% of all follows
 the top 1% of accounts (5,000,000) hold 44.3% of all follows
 
-── Part B — traffic ──
+── Part B - traffic ──
                                                  average/s        peak/s
 feed reads                                          34,722       104,167
 new posts                                              579         1,736
@@ -98,16 +98,16 @@ home_timeline: user → [post id, …] (সর্বোচ্চ ৮০০)     
 
 - **Timeline এ শুধু id।** Post এর লেখা, ছবি, লেখকের নাম আলাদা cache থেকে (hydration)। একটা জনপ্রিয় post এর লেখা একবার cache এ, ১৫ কোটি timeline এ না। আর post edit হলে একটা জায়গায় বদল।
 - **Post id নিজেই সময়ের ক্রম।** Snowflake এর মতো id (সময় + machine + ক্রমিক সংখ্যা) যা মোটামুটি সময়ের সাথে বাড়ে। তাহলে "id ধরে উল্টো সাজান" মানে "নতুন আগে", আর cursor মানে "এই id এর চেয়ে ছোট"। 11.1 এর range allocation এর আত্মীয়, কিন্তু এখানে ইচ্ছা করেই সময়ের ক্রম রাখা, কারণ এটা গোপন কিছু না।
-- **Timeline Cache** — প্রতিটা সক্রিয় user এর home timeline এর একটা সীমিত list (এখানে ৮০০ id), memory তে (Redis এর list বা sorted set)। সীমা কারণ কেউ ৮০০ এর বেশি নিচে যায় না, আর যে যায় তার জন্য pull এ ফেরা যায়। নিষ্ক্রিয় user এর timeline রাখা হয় না; সে ফিরলে একবার pull করে বানানো হয়। Twitter এর প্রকাশিত timeline এর নকশা (২০১২-১৩ এর আলোচনা) প্রায় এরকম: Redis এ ~৮০০টা id এর list, fan-out service, আর বড় account এর post পড়ার সময় মেশানো।
+- **Timeline Cache** - প্রতিটা সক্রিয় user এর home timeline এর একটা সীমিত list (এখানে ৮০০ id), memory তে (Redis এর list বা sorted set)। সীমা কারণ কেউ ৮০০ এর বেশি নিচে যায় না, আর যে যায় তার জন্য pull এ ফেরা যায়। নিষ্ক্রিয় user এর timeline রাখা হয় না; সে ফিরলে একবার pull করে বানানো হয়। Twitter এর প্রকাশিত timeline এর নকশা (২০১২-১৩ এর আলোচনা) প্রায় এরকম: Redis এ ~৮০০টা id এর list, fan-out service, আর বড় account এর post পড়ার সময় মেশানো।
 
-### ১.৪ Step 3 — Push, pull, hybrid: সংখ্যায়
+### ১.৪ Step 3 - Push, pull, hybrid: সংখ্যায়
 
 ```
-── Part C — three paths (40% of followers active; 800 ids × 16 B in a timeline) ──
+── Part C - three paths (40% of followers active; 800 ids × 16 B in a timeline) ──
 path                                      timeline writes/s    biggest post  fetch per read  fetch/s (peak)     cache
 fan-out on write (push to everyone)                 115,741     150,000,000             1.0         104,167    3.8 TB
 push, active followers only                          46,296      60,000,000             1.0         104,167    3.8 TB
-fan-out on read (pull from everyone)                      0               0           200.0      20,833,333         —
+fan-out on read (pull from everyone)                      0               0           200.0      20,833,333         -
 hybrid: over 1,000,000 → pull                        42,091         400,000            19.2       1,996,773    3.8 TB
 hybrid: over 100,000 → pull                          38,446          40,000            34.9       3,636,764    3.8 TB
 hybrid: over 10,000 → pull                           32,660           4,000            59.9       6,240,577    3.8 TB
@@ -116,7 +116,7 @@ over 1,000,000 followers: 2,178 accounts, 9.1% of all follows
 
 - **Push:** পড়া একটা fetch, কিন্তু লেখা সেকেন্ডে ১.১৬ লাখ, আর একটা post এ ১৫ কোটি। শুধু সক্রিয় follower দের (গত মাসে এসেছে এমন, ৪০%) push করলে আড়াই গুণ কম; বাকিরা ফিরলে একবার pull। এটা প্রায় বিনা মূল্যের প্রথম উন্নতি।
 - **Pull:** লেখা শূন্য, কিন্তু প্রতিটা feed পড়ায় ২০০টা জায়গা: peak এ সেকেন্ডে ২ কোটি fetch। আর তার latency (১.৬)।
-- **Hybrid Fan-out** — সাধারণ account এর post push হয়, আর একটা সীমার বেশি follower এর account (celebrity) এর post শুধু তার নিজের list এ থাকে; পড়ার সময় user এর তৈরি timeline আর সে যে কয়জন celebrity কে follow করে তাদের সাম্প্রতিক post মেশানো হয়।
+- **Hybrid Fan-out** - সাধারণ account এর post push হয়, আর একটা সীমার বেশি follower এর account (celebrity) এর post শুধু তার নিজের list এ থাকে; পড়ার সময় user এর তৈরি timeline আর সে যে কয়জন celebrity কে follow করে তাদের সাম্প্রতিক post মেশানো হয়।
 
 Hybrid এর সারি গুলোয় একটা অপ্রত্যাশিত জিনিস: **গড় লেখা প্রায় কমে না** (৪৬k থেকে ৪২k, ১০ লাখের সীমায়)। কারণ ১০ লাখের বেশি follower এর account মাত্র ২,১৭৮টা, আর তারা সব follow এর ৯%। Hybrid এর লাভ গড়ে না, **লাভ spike এ:** সবচেয়ে বড় একটা post এর লেখা ৬ কোটি থেকে ৪ লাখ। সেটা কেন এত জরুরি, পরের অংশে।
 
@@ -152,9 +152,9 @@ pull: posts from all 200                               200     52 ms     54 ms  
 pull, with hedging                                     200     12 ms     52 ms              86.8%
 ```
 
-**Tail Amplification** — একটা request যদি K টা অংশের উপর নির্ভর করে আর প্রতিটার ধীর হওয়ার সম্ভাবনা p, তাহলে অন্তত একটা ধীর হওয়ার সম্ভাবনা 1 − (1 − p)^K। K = ২০০ আর p = ১% এ **৮৭%**: pull এর **মাঝের** feed পড়াই (p50) ৫২ ms, কারণ প্রায় প্রতিটা পড়ায় কোনো একটা অংশ ধীর। একটা অংশের "বিরল" লেজ পুরো system এর "সাধারণ" অবস্থা হয়ে যায়। (Google এর "The Tail at Scale" লেখার মূল কথা এটাই।) Experiment ৩: ধীর মাত্র ০.১% হলেও pull এ ১৮% পড়ায় একটা ধীর, p99 তখনও ৫৩ ms।
+**Tail Amplification** - একটা request যদি K টা অংশের উপর নির্ভর করে আর প্রতিটার ধীর হওয়ার সম্ভাবনা p, তাহলে অন্তত একটা ধীর হওয়ার সম্ভাবনা 1 − (1 − p)^K। K = ২০০ আর p = ১% এ **৮৭%**: pull এর **মাঝের** feed পড়াই (p50) ৫২ ms, কারণ প্রায় প্রতিটা পড়ায় কোনো একটা অংশ ধীর। একটা অংশের "বিরল" লেজ পুরো system এর "সাধারণ" অবস্থা হয়ে যায়। (Google এর "The Tail at Scale" লেখার মূল কথা এটাই।) Experiment ৩: ধীর মাত্র ০.১% হলেও pull এ ১৮% পড়ায় একটা ধীর, p99 তখনও ৫৩ ms।
 
-**Hedged Request** — একটা অংশ একটা নির্দিষ্ট সময়ের মধ্যে (এখানে ১০ ms, স্বাভাবিকের p95 এর কাছে) উত্তর না দিলে একই অনুরোধ আরেকটা replica তে পাঠানো, আর যেটা আগে আসে সেটা নেওয়া। ধীর হওয়া প্রায়ই সাময়িক আর একটা machine এর, তাই দ্বিতীয় চেষ্টা প্রায়ই দ্রুত। Hybrid এ p99 ৫৩ থেকে **১৪ ms**। দাম: ১০ ms এর বেশি নেওয়া অংশ গুলোর জন্য বাড়তি একটা request (এখানে কয়েক %)। কিন্তু pull এ hedge p50 বাঁচায় (৫২ থেকে ১২) অথচ p99 না (৫২): ২০০টা অংশে hedge এর দ্বিতীয় চেষ্টাও কোথাও না কোথাও ধীর। K ছোট রাখা hedge এর চেয়ে শক্তিশালী উপায়।
+**Hedged Request** - একটা অংশ একটা নির্দিষ্ট সময়ের মধ্যে (এখানে ১০ ms, স্বাভাবিকের p95 এর কাছে) উত্তর না দিলে একই অনুরোধ আরেকটা replica তে পাঠানো, আর যেটা আগে আসে সেটা নেওয়া। ধীর হওয়া প্রায়ই সাময়িক আর একটা machine এর, তাই দ্বিতীয় চেষ্টা প্রায়ই দ্রুত। Hybrid এ p99 ৫৩ থেকে **১৪ ms**। দাম: ১০ ms এর বেশি নেওয়া অংশ গুলোর জন্য বাড়তি একটা request (এখানে কয়েক %)। কিন্তু pull এ hedge p50 বাঁচায় (৫২ থেকে ১২) অথচ p99 না (৫২): ২০০টা অংশে hedge এর দ্বিতীয় চেষ্টাও কোথাও না কোথাও ধীর। K ছোট রাখা hedge এর চেয়ে শক্তিশালী উপায়।
 
 এখানে push এর পড়ার পক্ষে আসল যুক্তি: একটা fetch, একটা লেজ। আর hybrid এর celebrity অংশ local memory তে হলে সেটা আসলে K এ যোগই হয় না।
 
@@ -174,7 +174,7 @@ Offset ২০ মানে "এখনকার তালিকার প্র�
 
 আজকের feed সময়ের ক্রমে। Facebook বা Instagram এর feed ranked: সবচেয়ে "প্রাসঙ্গিক" আগে। কাঠামোটা আজকের নকশার উপরেই বসে, তিন ধাপে:
 
-1. **Candidate Generation** — হাজারো সম্ভাব্য post থেকে কয়েকশো প্রার্থী বাছা, সস্তায়: user এর timeline cache (push), celebrity দের সাম্প্রতিক post (pull), আর follow এর বাইরের কিছু উৎস (জনপ্রিয় post, "আপনার বন্ধুরা যা পছন্দ করেছে")। আজকের পুরো নকশা আসলে এই ধাপ।
+1. **Candidate Generation** - হাজারো সম্ভাব্য post থেকে কয়েকশো প্রার্থী বাছা, সস্তায়: user এর timeline cache (push), celebrity দের সাম্প্রতিক post (pull), আর follow এর বাইরের কিছু উৎস (জনপ্রিয় post, "আপনার বন্ধুরা যা পছন্দ করেছে")। আজকের পুরো নকশা আসলে এই ধাপ।
 2. **Scoring:** প্রতিটা প্রার্থীর জন্য feature (লেখকের সাথে কত interaction, post এর বয়স, ধরন, কতজন like করেছে) এনে একটা model দিয়ে score। এখানে latency এর বাজেট সবচেয়ে টাইট: কয়েকশো প্রার্থী × feature এর lookup, তাই feature গুলো আগে থেকে হিসাব করে একটা দ্রুত store এ (7.6 এর stream বা batch থেকে)।
 3. **মিশ্রণ আর নিয়ম:** একই লেখকের পরপর তিনটা না, বিজ্ঞাপনের জায়গা, আগে দেখানো বাদ।
 
@@ -203,7 +203,7 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 - ধাপ ৬-৭: ১.৭ এর সংখ্যা, চোখে: offset এ a6, a5 আবার, cursor এ ঠিক পরের গুলো।
 - ধাপ ৮-৯: **Unfollow আর delete পড়ার সময় ছাঁকা হয়।** Bob এর timeline cache এ alice এর id গুলো এখনও আছে, কিন্তু পড়ার সময় "আমি কি এখনও এই লেখককে follow করি" আর "post কি মুছে গেছে" দেখে বাদ। ১৫ কোটি timeline থেকে একটা post মুছে ফেলার fan-out (আরেকটা celebrity spike) এর চেয়ে এটা অনেক সস্তা। Cache এ পড়ে থাকা মরা id গুলো ধীরে ধীরে ৮০০ এর সীমায় নিজে থেকে বেরিয়ে যায়।
 
-### ১.১০ Step 5 — Trade-off আর wrap-up
+### ১.১০ Step 5 - Trade-off আর wrap-up
 
 **চূড়ান্ত নকশা:**
 
@@ -212,14 +212,14 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 - **Pagination:** cursor (শেষ দেখা id), নতুনের জন্য "এর চেয়ে নতুন"।
 - **Tail:** K ছোট রাখা (hybrid এ celebrity অংশ local), বাকি fetch এ hedge।
 
-> **Trade-off Table — কখন জোড়া লাগাব**
+> **Trade-off Table - কখন জোড়া লাগাব**
 
 | পথ                      | লেখার খরচ                                         | পড়ার খরচ                             | নতুন post দেখাতে দেরি                 | কোথায় ভালো                                      |
 | ----------------------- | ------------------------------------------------- | ------------------------------------- | ------------------------------------- | ------------------------------------------------ |
 | Push (সব follower)      | গড় ১.১৬ লাখ/s, একটা post এ ১৫ কোটি পর্যন্ত       | ১ fetch, ছোট লেজ                      | Fan-out শেষ হলে (FIFO এ মিনিট)        | পড়া বেশি, follower কম আর সমান                   |
 | Push (শুধু সক্রিয়)     | আড়াই গুণ কম                                      | ১ fetch; ফেরা user এর জন্য একবার pull | একই                                   | প্রায় সবসময় push এর চেয়ে ভালো                 |
 | Pull                    | শূন্য                                             | ২০০ fetch, p50 ই লেজে (৫২ ms)         | সাথে সাথে                             | লেখা বেশি, পড়া কম; বা খুব ছোট system            |
-| Hybrid (১০ লাখ+ → pull) | গড় প্রায় একই, কিন্তু spike নেই (৪ লাখ সর্বোচ্চ) | ১ + local memory এর celebrity         | সাধারণ: সেকেন্ড; celebrity: সাথে সাথে | বড় social network — power law এর লেজ আছে যেখানে |
+| Hybrid (১০ লাখ+ → pull) | গড় প্রায় একই, কিন্তু spike নেই (৪ লাখ সর্বোচ্চ) | ১ + local memory এর celebrity         | সাধারণ: সেকেন্ড; celebrity: সাথে সাথে | বড় social network - power law এর লেজ আছে যেখানে |
 
 **কী আগে ভাঙবে:** সীমার কাছের account (follower ১০ লাখের কাছে ওঠানামা করলে push আর pull এর মাঝে দোলে; সীমায় একটা hysteresis রাখুন, যেমন ১০ লাখে উঠলে pull, ৮ লাখে নামলে push); একটা viral post এর hydration (একটা post id সবার feed এ, তার লেখা আর like এর সংখ্যার cache এ hot key, 4.6); আর ranking যোগ হলে feature store এর latency।
 
@@ -236,12 +236,12 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Celebrity কে কীভাবে সামলাবেন?"_ — Hybrid: সীমার উপরে pull, তাদের post একটা ছোট গরম cache এ (কয়েক হাজার account)। সংখ্যা: ১০ লাখের উপরে ২,১৭৮টা account, সব follow এর ৯%।
-- _"Fan-out চলতে কতক্ষণ? ততক্ষণ কী হয়?"_ — একটা FIFO তে celebrity এর পেছনে সবাই আটকায় (p99 ১৪২ s)। Hybrid, বা অন্তত বড় আর ছোট job এর আলাদা queue।
-- _"Unfollow করলে timeline থেকে মুছবেন?"_ — না, পড়ার সময় ছাঁকুন; cache এর সীমায় নিজে থেকে বেরিয়ে যায়। Delete একই।
-- _"নিষ্ক্রিয় user এর timeline?"_ — রাখবেন না। ফিরলে একবার pull করে বানান।
-- _"Pagination?"_ — Cursor (id < শেষ দেখা)। Offset চলমান feed এ পুনরাবৃত্তি আর বাদ দেয় (৪১%, ১৮%)। Ranked feed এ session এর তালিকা একবার বানিয়ে রাখুন।
-- _"Feed server এর latency?"_ — Push এ একটা fetch। Pull এ K বাড়লে p99 সবচেয়ে ধীরটার, এমনকি p50 ও। K ছোট রাখুন, hedge করুন।
+- _"Celebrity কে কীভাবে সামলাবেন?"_ - Hybrid: সীমার উপরে pull, তাদের post একটা ছোট গরম cache এ (কয়েক হাজার account)। সংখ্যা: ১০ লাখের উপরে ২,১৭৮টা account, সব follow এর ৯%।
+- _"Fan-out চলতে কতক্ষণ? ততক্ষণ কী হয়?"_ - একটা FIFO তে celebrity এর পেছনে সবাই আটকায় (p99 ১৪২ s)। Hybrid, বা অন্তত বড় আর ছোট job এর আলাদা queue।
+- _"Unfollow করলে timeline থেকে মুছবেন?"_ - না, পড়ার সময় ছাঁকুন; cache এর সীমায় নিজে থেকে বেরিয়ে যায়। Delete একই।
+- _"নিষ্ক্রিয় user এর timeline?"_ - রাখবেন না। ফিরলে একবার pull করে বানান।
+- _"Pagination?"_ - Cursor (id < শেষ দেখা)। Offset চলমান feed এ পুনরাবৃত্তি আর বাদ দেয় (৪১%, ১৮%)। Ranked feed এ session এর তালিকা একবার বানিয়ে রাখুন।
+- _"Feed server এর latency?"_ - Push এ একটা fetch। Pull এ K বাড়লে p99 সবচেয়ে ধীরটার, এমনকি p50 ও। K ছোট রাখুন, hedge করুন।
 
 **Production এ বাস্তবে:** সবচেয়ে প্রচলিত ঘটনা: একটা বড় ঘটনার পরে (খেলা, নির্বাচন) celebrity দের post এ fan-out এর backlog আর সবার feed কয়েক মিনিট পুরনো; timeline cache হারানো (Redis এর failover) আর একসাথে লাখ লাখ timeline আবার বানানোর চাপ (11.3 এর reconnect storm এর মতো, database এর উপর); offset pagination এ "একই post দুবার" এর অভিযোগ; আর ranking এর feature store ধীর হলে পুরো feed ধীর, যেখানে একটা সময়ের ক্রমের fallback (10.3 এর degradation) বাঁচাতে পারত।
 
@@ -249,13 +249,13 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 
 ## ৩. Key Takeaway
 
-- **Feed এর মূল প্রশ্ন: কখন জোড়া লাগাব — লেখায় (push) না পড়ায় (pull)।** পড়া লেখার ৬০ গুণ, তাই push এর দিকে ঝোঁক, কিন্তু উত্তর আসে বণ্টনের লেজ থেকে
+- **Feed এর মূল প্রশ্ন: কখন জোড়া লাগাব - লেখায় (push) না পড়ায় (pull)।** পড়া লেখার ৬০ গুণ, তাই push এর দিকে ঝোঁক, কিন্তু উত্তর আসে বণ্টনের লেজ থেকে
 - **Follower এর সংখ্যা power law, গড় মিথ্যা বলে:** গড় ২০০, মাঝের ৬২, সবচেয়ে বড় ১৫ কোটি; ০.০১% account এর কাছে সব follow এর ১৮%
 - **Hybrid এর লাভ গড়ে না, spike এ:** গড় লেখা ৪৬k থেকে ৪২k, কিন্তু সবচেয়ে বড় post ৬ কোটি থেকে ৪ লাখ। Celebrity দের post একটা ছোট, গরম, local cache এ, তাই পড়ার দাম প্রায় নেই
 - **এক queue তে বড় আর ছোট কাজ মেশালে ছোটরা মরে:** FIFO তে celebrity এর পেছনে ৩ লাখ post ৫ s এর বেশি আটকায় (p99 ১৪২ s)। আলাদা queue বা hybrid
 - **অনেক জায়গা থেকে একসাথে আনলে লেজ গুণ হয়:** K = ২০০ আর ১% ধীরে ৮৭% পড়ায় একটা ধীর, pull এর p50 ই ৫২ ms। K ছোট রাখুন; hedge (hybrid এ p99 ৫৩ → ১৪ ms)
 - **চলমান feed এ offset ভুল দেখায়:** ৪১% session এ আগে দেখা post আবার, ১৮% এ একটা বাদ। Cursor এ শূন্য
-- **শুধু সক্রিয়দের push, timeline এ শুধু id, unfollow আর delete পড়ার সময় ছাঁকা** — প্রতিটা একটা fan-out বাঁচায়
+- **শুধু সক্রিয়দের push, timeline এ শুধু id, unfollow আর delete পড়ার সময় ছাঁকা** - প্রতিটা একটা fan-out বাঁচায়
 
 ---
 
@@ -263,12 +263,12 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 
 | Term                        | অর্থ                                                                                                                                                                        |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Fan-out on Write (Push)** | Post তৈরির সময় সেটা লেখকের প্রতিটা (সক্রিয়) follower এর timeline এ বসানো; পড়া সস্তা (একটা list), লেখা follower সংখ্যার সমান — celebrity তে একটা post এ কোটি লেখা         |
-| **Fan-out on Read (Pull)**  | Post শুধু লেখকের list এ; পড়ার সময় সবার সাম্প্রতিক post এনে মেশানো — লেখা সস্তা, পড়া follow সংখ্যার সমান fetch, আর তার লেজ                                                |
-| **Hybrid Fan-out**          | সীমার নিচের account push, উপরের (celebrity) pull, পড়ার সময় মেশানো — গড় খরচ প্রায় একই, কিন্তু একটা post এর সবচেয়ে খারাপ খরচ বাঁধা আর fan-out queue আটকায় না            |
+| **Fan-out on Write (Push)** | Post তৈরির সময় সেটা লেখকের প্রতিটা (সক্রিয়) follower এর timeline এ বসানো; পড়া সস্তা (একটা list), লেখা follower সংখ্যার সমান - celebrity তে একটা post এ কোটি লেখা         |
+| **Fan-out on Read (Pull)**  | Post শুধু লেখকের list এ; পড়ার সময় সবার সাম্প্রতিক post এনে মেশানো - লেখা সস্তা, পড়া follow সংখ্যার সমান fetch, আর তার লেজ                                                |
+| **Hybrid Fan-out**          | সীমার নিচের account push, উপরের (celebrity) pull, পড়ার সময় মেশানো - গড় খরচ প্রায় একই, কিন্তু একটা post এর সবচেয়ে খারাপ খরচ বাঁধা আর fan-out queue আটকায় না            |
 | **Timeline Cache**          | প্রতিটা সক্রিয় user এর home timeline এর সীমিত (যেমন ৮০০) post id এর list, memory তে; শুধু id, লেখা আলাদা cache এ; নিষ্ক্রিয় user এর নেই, ফিরলে একবার pull করে বানানো      |
-| **Tail Amplification**      | K টা অংশের উপর নির্ভর করা request এ অন্তত একটা ধীর হওয়ার সম্ভাবনা 1 − (1 − p)^K — একটা অংশের বিরল লেজ পুরো request এর সাধারণ অবস্থা হয়ে যায়                              |
-| **Hedged Request**          | একটা অংশ নির্দিষ্ট সময়ে (স্বাভাবিকের p95 এর কাছে) উত্তর না দিলে একই অনুরোধ আরেকটা replica তে, যেটা আগে আসে সেটা — অল্প বাড়তি request এ p99 অনেক কমে, যদি K ছোট হয়        |
+| **Tail Amplification**      | K টা অংশের উপর নির্ভর করা request এ অন্তত একটা ধীর হওয়ার সম্ভাবনা 1 − (1 − p)^K - একটা অংশের বিরল লেজ পুরো request এর সাধারণ অবস্থা হয়ে যায়                              |
+| **Hedged Request**          | একটা অংশ নির্দিষ্ট সময়ে (স্বাভাবিকের p95 এর কাছে) উত্তর না দিলে একই অনুরোধ আরেকটা replica তে, যেটা আগে আসে সেটা - অল্প বাড়তি request এ p99 অনেক কমে, যদি K ছোট হয়        |
 | **Candidate Generation**    | Ranked feed এর প্রথম ধাপ: হাজারো সম্ভাব্য post থেকে সস্তায় কয়েকশো প্রার্থী বাছা (timeline, celebrity, অন্য উৎস); তারপর feature আর model দিয়ে score, তারপর মিশ্রণের নিয়ম |
 
 ---
@@ -288,19 +288,19 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 
 **প্রশ্ন ১:**
 
-(ক) **একই থাকে:** hybrid এর মূল কাঠামো (influencer দের কয়েক কোটি follower, তাই তাদের post pull), timeline এ শুধু id, শুধু সক্রিয়দের push, cursor, ছাঁকা। **বদলায়:** (১) connection দুই দিকের আর সর্বোচ্চ ৩০,০০০, তাই সাধারণ সম্পর্কের লেজ ছোট আর বাঁধা — push এর সবচেয়ে খারাপ খরচ জানা; (২) feed ranked, তাই ১.৮ এর তিন ধাপ বাধ্যতামূলক, আর pagination session এর তালিকা দিয়ে; (৩) ranking এর জন্য প্রার্থী আরও বড় জায়গা থেকে (connection এর like আর comment করা post — "আপনার connection X এটা পছন্দ করেছে"), মানে আরেকটা fan-out: একটা like ও এখন একটা ঘটনা যা connection দের feed এ যেতে পারে।
+(ক) **একই থাকে:** hybrid এর মূল কাঠামো (influencer দের কয়েক কোটি follower, তাই তাদের post pull), timeline এ শুধু id, শুধু সক্রিয়দের push, cursor, ছাঁকা। **বদলায়:** (১) connection দুই দিকের আর সর্বোচ্চ ৩০,০০০, তাই সাধারণ সম্পর্কের লেজ ছোট আর বাঁধা - push এর সবচেয়ে খারাপ খরচ জানা; (২) feed ranked, তাই ১.৮ এর তিন ধাপ বাধ্যতামূলক, আর pagination session এর তালিকা দিয়ে; (৩) ranking এর জন্য প্রার্থী আরও বড় জায়গা থেকে (connection এর like আর comment করা post - "আপনার connection X এটা পছন্দ করেছে"), মানে আরেকটা fan-out: একটা like ও এখন একটা ঘটনা যা connection দের feed এ যেতে পারে।
 
 (খ) Push এর সীমা দুটো আলাদা সম্পর্কে: connection (সর্বোচ্চ ৩০,০০০) সবসময় push করা যায় কারণ সবচেয়ে খারাপ খরচ বাঁধা; follow (influencer) এ Twitter এর মতো সীমা। আর ranked feed এ "নতুন post সাথে সাথে" কম জরুরি, তাই সীমা নিচে নামানো যায় (বেশি pull), কারণ ranking এর জন্য প্রার্থী এমনিতেই পড়ার সময় জোগাড় হয়, আর কয়েক সেকেন্ডের বাড়তি কাজ ranking এর কাজের তুলনায় ছোট।
 
-(গ) Like এর সংখ্যা: প্রতিটা feed পড়ায় প্রতিটা post এর সংখ্যা দেখাতে হয়। একটা viral post কোটি feed এ, তাই তার counter একটা hot key (4.6) — পড়ায় আর লেখায় দুটোতেই। লেখায়: প্রতিটা like এ `UPDATE … SET likes = likes + 1` একটা row lock এর লড়াই (11.1 এর click counter এর মতো); তাই counter ভাগ করা (কয়েকটা sub-counter, যোগফল পড়ায়, 11.2 এর key splitting) বা event থেকে জমিয়ে গোনা। পড়ায়: সংখ্যাটা কয়েক সেকেন্ডের পুরনো হলে কেউ টের পায় না, তাই ছোট TTL এর cache আর local cache।
+(গ) Like এর সংখ্যা: প্রতিটা feed পড়ায় প্রতিটা post এর সংখ্যা দেখাতে হয়। একটা viral post কোটি feed এ, তাই তার counter একটা hot key (4.6) - পড়ায় আর লেখায় দুটোতেই। লেখায়: প্রতিটা like এ `UPDATE … SET likes = likes + 1` একটা row lock এর লড়াই (11.1 এর click counter এর মতো); তাই counter ভাগ করা (কয়েকটা sub-counter, যোগফল পড়ায়, 11.2 এর key splitting) বা event থেকে জমিয়ে গোনা। পড়ায়: সংখ্যাটা কয়েক সেকেন্ডের পুরনো হলে কেউ টের পায় না, তাই ছোট TTL এর cache আর local cache।
 
 **প্রশ্ন ২:**
 
 (ক) ৩ কোটি user এর timeline নেই। তারা পরের বার feed খুললে সিস্টেম "নিষ্ক্রিয় user ফিরল" এর পথ নেয়: pull করে বানানো, মানে প্রতিজনের জন্য ২০০ জনের সাম্প্রতিক post। ১.২ এ peak এ সেকেন্ডে ১,০৪,০০০ feed পড়া, তার ১০% এই shard এর (৩ কোটি / ৩০ কোটি) = ~১০,০০০ পড়া/s, প্রতিটা ২০০ fetch = **২০ লাখ fetch/s**, ঠিক ১.৪ এর pull এর সারির মতো, কিন্তু হঠাৎ, আগে থেকে প্রস্তুতি ছাড়া। আর বেশিরভাগ fetch author list এর cache এ গেলেও, miss গুলো post এর database এ।
 
-(খ) একই আকার: একটা stateful অংশ হারাল, আর তার সব client একসাথে "আবার বানান" চায়। 11.3 এ handshake, এখানে timeline rebuild। আর একই ঝুঁকি: rebuild এর চাপে database ধীর, ধীর database এ rebuild ব্যর্থ, ব্যর্থ rebuild আবার চেষ্টা — congestion collapse এর দিকে।
+(খ) একই আকার: একটা stateful অংশ হারাল, আর তার সব client একসাথে "আবার বানান" চায়। 11.3 এ handshake, এখানে timeline rebuild। আর একই ঝুঁকি: rebuild এর চাপে database ধীর, ধীর database এ rebuild ব্যর্থ, ব্যর্থ rebuild আবার চেষ্টা - congestion collapse এর দিকে।
 
-(গ) (১) **Rebuild এর হারে সীমা আর আংশিক উত্তর:** timeline না থাকলে প্রথম feed এ শুধু celebrity আর সবচেয়ে কাছের কয়েকজনের post দেখান (সস্তা, ১০.৩ এর degradation), আর পুরো rebuild একটা queue তে, নিয়ন্ত্রিত হারে। (২) **Replica:** timeline cache এর shard এর একটা replica (Redis এর replication), যাতে একটা node হারালে data না হারায় — memory দ্বিগুণ, কিন্তু এই ঘটনা ঘণ্টার বদলে সেকেন্ডের। (৩) **Request coalescing আর author list এর cache গরম রাখা:** অনেক user একই author দের post চায়, তাই author list এর cache এর hit rate উঁচু রাখা আর একই author এর একসাথে আসা অনুরোধ একটায় মেশানো (4.6 এর stampede প্রতিরোধ)।
+(গ) (১) **Rebuild এর হারে সীমা আর আংশিক উত্তর:** timeline না থাকলে প্রথম feed এ শুধু celebrity আর সবচেয়ে কাছের কয়েকজনের post দেখান (সস্তা, ১০.৩ এর degradation), আর পুরো rebuild একটা queue তে, নিয়ন্ত্রিত হারে। (২) **Replica:** timeline cache এর shard এর একটা replica (Redis এর replication), যাতে একটা node হারালে data না হারায় - memory দ্বিগুণ, কিন্তু এই ঘটনা ঘণ্টার বদলে সেকেন্ডের। (৩) **Request coalescing আর author list এর cache গরম রাখা:** অনেক user একই author দের post চায়, তাই author list এর cache এর hit rate উঁচু রাখা আর একই author এর একসাথে আসা অনুরোধ একটায় মেশানো (4.6 এর stampede প্রতিরোধ)।
 
 **প্রশ্ন ৩:**
 
@@ -316,9 +316,9 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 
 ## ৬. Practical Exercise
 
-**Tier 1 — Runnable Code** (তিনটা deterministic model আর একটা আসল Express + Zod hybrid feed service; Docker লাগে না)
+**Tier 1 - Runnable Code** (তিনটা deterministic model আর একটা আসল Express + Zod hybrid feed service; Docker লাগে না)
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-11.4-news-feed/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.4-news-feed) — `npm install`, তারপর `npm run estimate`, `npm run fanout`, `npm run read`, `npm run smoke`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-11.4-news-feed/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.4-news-feed) - `npm install`, তারপর `npm run estimate`, `npm run fanout`, `npm run read`, `npm run smoke`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
 
 `estimate` follower এর power law বণ্টন (গড় ২০০ তে মেলানো) থেকে traffic আর push, pull আর hybrid এর লেখা, পড়া আর cache হিসাব করে। `fanout` ১০ মিনিটের fan-out queue চালায়, celebrity দের post সহ, তিনটা নীতিতে। `read` একটা feed পড়ায় K টা fetch এর tail (hedge সহ) আর চলমান feed এ offset বনাম cursor মাপে। `smoke` একটা আসল hybrid feed service চালিয়ে ১০টা ধাপ দেখায়।
 
@@ -343,9 +343,9 @@ Ranking এর একটা নকশাগত প্রভাব: cursor আর
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1 – 10 (সম্পূর্ণ, exit challenge সহ), 11.1 – 11.3
-Current: 11.4 — Case Study: Design a News Feed (Facebook/Twitter-style)
-TaskFlow state: Module 10 এর শেষ অবস্থায় রাখা (Module 11 এ পাশে)। Case study ১ — URL shortener (11.1);
-২ — rate limiter service (11.2); ৩ — chat (11.3)। Case study ৪ — news feed: ৫০ কোটি account, ৩০ কোটি DAU,
+Current: 11.4 - Case Study: Design a News Feed (Facebook/Twitter-style)
+TaskFlow state: Module 10 এর শেষ অবস্থায় রাখা (Module 11 এ পাশে)। Case study ১ - URL shortener (11.1);
+২ - rate limiter service (11.2); ৩ - chat (11.3)। Case study ৪ - news feed: ৫০ কোটি account, ৩০ কোটি DAU,
 পড়া ১,০৪,০০০/s বনাম post ১,৭০০/s (peak)। Follower power law (গড় ২০০, মাঝের ৬২, সর্বোচ্চ ১৫ কোটি; ০.০১%
 account এ সব follow এর ১৮%)। Hybrid: ১০ লাখের বেশি follower → pull (২,১৭৮টা account, তাদের post local
 cache এ), বাকি push শুধু সক্রিয় follower কে; গড় লেখা প্রায় একই (৪৬k → ৪২k), কিন্তু সবচেয়ে বড় post ৬ কোটি → ৪ লাখ।
@@ -359,8 +359,8 @@ Approximate Sync, Token Lease, Key Splitting, Degraded Mode (Local Fallback Limi
 Session Registry, Congestion Collapse (Reconnect Storm), Store-then-Push (Inbox + Sync), Delivery Receipt,
 Per-Conversation Sequence (Sequencer), Presence, Fan-out on Write (Push), Fan-out on Read (Pull),
 Hybrid Fan-out, Timeline Cache, Tail Amplification, Hedged Request, Candidate Generation
-Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
-Next: 11.5 — Case Study: Design a Notification System
+Weak spots: [আপনি যেখানে আটকেছিলেন - নিজে লিখুন]
+Next: 11.5 - Case Study: Design a Notification System
 =======================
 ```
 
@@ -370,4 +370,4 @@ Next: 11.5 — Case Study: Design a Notification System
 
 আজকের সুতোটা: **জোড়া লাগানোর কাজটা লেখায় করবেন না পড়ায়, সেটা ঠিক করে বণ্টনের লেজ, গড় না।** পড়া বেশি বলে push স্বাভাবিক, কিন্তু power law এর লেজের কয়েক হাজার account একটা post এ কোটি লেখা চায় আর বাকি সবার queue আটকায়। Hybrid সেই লেজ কেটে দেয়, গড় না বদলে। আর পড়ার পথে একটা নিয়ম যা আরও অনেক জায়গায় ফিরবে: যত বেশি জায়গা থেকে একসাথে আনবেন, তত বেশি আপনার p99 সবচেয়ে ধীর জায়গাটার।
 
-রেডি হলে `next` লিখুন — **Lesson 11.5: Design a Notification System** এ যাব। আজ বারবার "notification (11.5)" বলে পাশে রেখেছি: offline user কে জাগানো (11.3), নতুন post এর খবর, password reset এর email। প্রশ্নগুলো নতুন: একটা ঘটনা কোন channel এ যাবে (push, email, SMS), user এর পছন্দ আর রাতের নীরবতা কোথায় দেখা হয়, বাইরের provider (APNs, FCM, email এর service) ধীর বা বন্ধ হলে কী, একই notification দুবার না যায় কীভাবে, আর একটা "সবাইকে জানান" campaign কীভাবে বাকি সব notification কে আটকে না দেয়।
+রেডি হলে `next` লিখুন - **Lesson 11.5: Design a Notification System** এ যাব। আজ বারবার "notification (11.5)" বলে পাশে রেখেছি: offline user কে জাগানো (11.3), নতুন post এর খবর, password reset এর email। প্রশ্নগুলো নতুন: একটা ঘটনা কোন channel এ যাবে (push, email, SMS), user এর পছন্দ আর রাতের নীরবতা কোথায় দেখা হয়, বাইরের provider (APNs, FCM, email এর service) ধীর বা বন্ধ হলে কী, একই notification দুবার না যায় কীভাবে, আর একটা "সবাইকে জানান" campaign কীভাবে বাকি সব notification কে আটকে না দেয়।

@@ -7,12 +7,12 @@ import {
 } from 'sequelize';
 import { sequelize } from '../db';
 
-// A table built badly on purpose — an "everything in one place" schema, which
+// A table built badly on purpose - an "everything in one place" schema, which
 // feels easy on day one. Lesson 5.2 §1.2's three anomalies are born here.
 //
 //   projectName  → project data copied into the task (delete anomaly)
 //   assigneeName → user data copied into the task (update anomaly)
-//   tags         → "bug,urgent" — several values in one cell (1NF broken)
+//   tags         → "bug,urgent" - several values in one cell (1NF broken)
 export class BadTask extends Model<InferAttributes<BadTask>, InferCreationAttributes<BadTask>> {
 	declare id: CreationOptional<number>;
 	declare title: string;

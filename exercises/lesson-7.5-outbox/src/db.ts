@@ -16,22 +16,22 @@ export const sequelize = new Sequelize(DATABASE_URL, {
 });
 
 export class Comment extends Model<InferAttributes<Comment>, InferCreationAttributes<Comment>> {
-	declare id: number; // the writer provides it — so that even after a crash we can match what happened to which comment
+	declare id: number; // the writer provides it - so that even after a crash we can match what happened to which comment
 	declare taskId: number;
 	declare body: string;
 	declare createdAt: CreationOptional<Date>;
 }
 
-// Transactional outbox: "this event has to be sent" — written in the same transaction as the comment.
+// Transactional outbox: "this event has to be sent" - written in the same transaction as the comment.
 // The relay later reads from here and sends it to the broker, then sets publishedAt.
 export class OutboxEvent extends Model<
 	InferAttributes<OutboxEvent>,
 	InferCreationAttributes<OutboxEvent>
 > {
-	declare id: CreationOptional<number>; // sequential — the relay sends in this order
+	declare id: CreationOptional<number>; // sequential - the relay sends in this order
 	declare eventId: string;
 	declare type: string;
-	declare aggregateId: number; // which task the event is about — the partition/order key (Lesson 7.2)
+	declare aggregateId: number; // which task the event is about - the partition/order key (Lesson 7.2)
 	declare payload: object;
 	declare createdAt: CreationOptional<Date>;
 	declare publishedAt: Date | null;
@@ -61,7 +61,7 @@ OutboxEvent.init(
 		sequelize,
 		tableName: 'outbox_events',
 		updatedAt: false,
-		// the relay only looks for unsent rows — a partial index keeps that search small, however big the table gets
+		// the relay only looks for unsent rows - a partial index keeps that search small, however big the table gets
 		indexes: [{ fields: ['id'], where: { publishedAt: null }, name: 'outbox_unpublished' }]
 	}
 );

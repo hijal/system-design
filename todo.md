@@ -1,6 +1,6 @@
-# TODO — recall.hijal.dev audit
+# TODO - recall.hijal.dev audit
 
-Audit date: 2026-10-05. Live site `https://recall.hijal.dev` এ চালানো হয়েছে — Chrome headless + axe-core (WCAG 2.1 AA + best-practice), desktop 1440px / mobile 375px / dark mode, ১২৬টা page এর link + anchor crawl, `curl` দিয়ে header আর route check।
+Audit date: 2026-10-05. Live site `https://recall.hijal.dev` এ চালানো হয়েছে - Chrome headless + axe-core (WCAG 2.1 AA + best-practice), desktop 1440px / mobile 375px / dark mode, ১২৬টা page এর link + anchor crawl, `curl` দিয়ে header আর route check।
 
 যা ঠিক আছে: কোনো broken internal link, missing anchor, বা dead external link নেই (১২৬ page, ৩৪টা external link); কোনো console error নেই; mobile এ horizontal overflow নেই; static asset `immutable` cache + brotli পায়।
 
@@ -22,21 +22,21 @@ Audit date: 2026-10-05. Live site `https://recall.hijal.dev` এ চালান
 
 ---
 
-## Round 2 — deep audit (2026-10-05)
+## Round 2 - deep audit (2026-10-05)
 
 Round 1 এর ১৬টা issue বাদে। Local production build (`wrangler dev`) এ চালানো হয়েছে, কারণ live site এ তখনো round 1 deploy হয়নি। যা দেখা হয়েছে: interactive অবস্থায় axe (সব sidebar module খোলা, mobile nav খোলা, search খোলা, TOC/menu/answer-key `<details>` খোলা, light + dark, WCAG 2.2 AA সহ), keyboard/focus flow, Lighthouse, font loading, CLS/LCP, print, nested route, cache header, ১৪২টা lesson এর heading structure, duplicate id, code highlighting।
 
-যা ঠিক আছে: Lighthouse (`/lesson-5.4`) — Performance ৯৮, Accessibility ১০০, Best Practices ১০০, SEO ১০০; heading level skip ০, duplicate id ০; সব code fence language এর Prism grammar আছে; CLS ০.০১৪ এর নিচে; skip link কাজ করে; deep link এ heading sticky header এর নিচে লুকায় না।
+যা ঠিক আছে: Lighthouse (`/lesson-5.4`) - Performance ৯৮, Accessibility ১০০, Best Practices ১০০, SEO ১০০; heading level skip ০, duplicate id ০; সব code fence language এর Prism grammar আছে; CLS ০.০১৪ এর নিচে; skip link কাজ করে; deep link এ heading sticky header এর নিচে লুকায় না।
 
 Round 2 এর ১১টাই ঠিক হয়ে `todo_done.md` এ গেছে।
 
-## Round 3 — বাইরের audit report যাচাই (2026-10-05)
+## Round 3 - বাইরের audit report যাচাই (2026-10-05)
 
-একটা বাইরের audit report এর প্রতিটা দাবি live site এ মিলিয়ে দেখা হয়েছে, সাথে নিজের কিছু নতুন check (সব focusable element এর focus ring, placeholder contrast pixel মেপে, ৩২০px reflow, WCAG text-spacing, forced-colors, reduced motion)। যেসব আগে থেকেই ঠিক আছে বা report এর দাবি ভুল, সেগুলো এখানে নেই — শুধু আসল ঘাটতি। Round 4 এর ১৫টাই ঠিক হয়ে `todo_done.md` এ গেছে।
+একটা বাইরের audit report এর প্রতিটা দাবি live site এ মিলিয়ে দেখা হয়েছে, সাথে নিজের কিছু নতুন check (সব focusable element এর focus ring, placeholder contrast pixel মেপে, ৩২০px reflow, WCAG text-spacing, forced-colors, reduced motion)। যেসব আগে থেকেই ঠিক আছে বা report এর দাবি ভুল, সেগুলো এখানে নেই - শুধু আসল ঘাটতি। Round 4 এর ১৫টাই ঠিক হয়ে `todo_done.md` এ গেছে।
 
 Round 3 এর ৩টাই ঠিক হয়ে `todo_done.md` এ গেছে।
 
-## Round 4 — action, form আর edge case audit (2026-10-05)
+## Round 4 - action, form আর edge case audit (2026-10-05)
 
 Live site এ (commit `3238959` deploy হওয়ার পরে) চালানো হয়েছে। এবার নজর ছিল আগের round গুলো যেসব অবস্থা ছোঁয়নি সেগুলোতে: progress থাকা অবস্থা (sidebar এ ✓, homepage progress strip), একাধিক tab, English edition এর "Coming soon" lesson, "আরও উপায়ে পড়ো" menu, mobile TOC, search এর edge case (১ অক্ষর, ৫০০০ অক্ষর, `<script>`, বাংলা query, Tab/Escape), theme toggle + reload, language switch, Markdown/code copy, `.md` route, alias route, HTTP method, HTTP→HTTPS, Cloudflare edge cache আর cookie এর আচরণ। Tool: Playwright (Chromium) + axe-core 4.13 (WCAG 2.2 AA + best-practice), `curl`, sitemap এর ১৪৪টা URL crawl।
 
@@ -46,12 +46,12 @@ Live site এ (commit `3238959` deploy হওয়ার পরে) চাল�
 
 Round 4 এর ১৫টাই ঠিক হয়ে `todo_done.md` এ গেছে।
 
-## Round 5 — Module 12 এর নতুন page audit (2026-10-06)
+## Round 5 - Module 12 এর নতুন page audit (2026-10-06)
 
 Live site এ (commit `f28cdfa` deploy হওয়ার পরে) চালানো হয়েছে। নজর ছিল Round 4 এর পরে যোগ হওয়া জিনিসে: Module 12 এর ১৪টা page (৬টা lesson আর exit challenge, bn + en), দুটো নতুন exercise, আর mock interview এর একটার ভেতরে আরেকটা `<details>` (push-back)। Tool: Playwright (Chromium) + axe-core (WCAG 2.2 AA + best-practice), Node `fetch` দিয়ে sitemap এর ১৬৬টা URL crawl, `curl`।
 
 যা ঠিক আছে: ১৬৬টা page এর সবগুলো 200; ৪,৩৫৪টা internal link আর ২,৬১০টা anchor এর একটাও ভাঙা না; chatgpt.com আর claude.ai এর link বাদে সব external link চলে, দুটো নতুন exercise এর GitHub link সহ; Module 12 এর ১৪টা page × চার অবস্থা (desktop light, desktop dark, mobile 375, mobile 320) = ৫৬টায় axe ০ violation, সব `<details>` খোলা অবস্থায় (12.4 এ ১৩টা, ভেতরের push-back সহ); horizontal overflow ০ (চওড়া table আর code block নিজের ভেতরে scroll করে, page না); heading level skip ০, duplicate id ০; console error বা CSP violation ০; sitemap, `llms.txt` আর `.md` route এ Module 12 আছে; সব page এর `<title>` ঠিক (en এর title `i18n.ts` থেকে); কোনো edition এ আর "Coming soon" নেই; search এ নতুন term (Scaling Trigger, Conflicted Copy, Story Bank, Estimation Chain) দুই ভাষায় ঠিক lesson দেয়।
 
-ইচ্ছা করে বাদ: chatgpt.com আর claude.ai এর "lesson নিয়ে প্রশ্ন করো" link এ ৪০৩ (bot আটকায়, browser এ খোলে — broken link না)।
+ইচ্ছা করে বাদ: chatgpt.com আর claude.ai এর "lesson নিয়ে প্রশ্ন করো" link এ ৪০৩ (bot আটকায়, browser এ খোলে - broken link না)।
 
 Round 5 এর ১টাই ঠিক হয়ে `todo_done.md` এ গেছে।

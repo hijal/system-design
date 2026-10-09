@@ -10,7 +10,7 @@ import {
 	waitForReplay
 } from './db';
 
-// Lesson 5.7 §1.4 — three solutions for read-your-writes, and the price of each.
+// Lesson 5.7 §1.4 - three solutions for read-your-writes, and the price of each.
 // The replica is kept 200 ms behind, so the prices are visible.
 
 const DELAY_MS = 200;
@@ -38,7 +38,7 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		// the read right after your own write goes to the primary — Sequelize's useMaster
+		// the read right after your own write goes to the primary - Sequelize's useMaster
 		label: 'b. useMaster: true (from the primary)',
 		writeThenRead: async () => {
 			const w = await timed(() => Task.create({ title: 'use-master' }));
@@ -50,7 +50,7 @@ const strategies: Strategy[] = [
 		// after writing, remember the primary's WAL position (LSN); wait until the replica reaches it
 		// and then read from the replica. In production this LSN can be given to the client as a token
 		// (cookie/header), so that its next request honours it too.
-		label: 'c. LSN token — wait for the replica',
+		label: 'c. LSN token - wait for the replica',
 		writeThenRead: async () => {
 			const w = await timed(async () => {
 				const task = await Task.create({ title: 'lsn-wait' });
@@ -66,7 +66,7 @@ const strategies: Strategy[] = [
 	},
 	{
 		// The commit itself waits until the replica applies it (synchronous replication).
-		// Only for this transaction — SET LOCAL.
+		// Only for this transaction - SET LOCAL.
 		label: 'd. synchronous_commit = remote_apply',
 		writeThenRead: async () => {
 			const w = await timed(() =>

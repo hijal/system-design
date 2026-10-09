@@ -1,6 +1,6 @@
-# Lesson 11.1 — Case Study: Design a URL Shortener
+# Lesson 11.1 - Case Study: Design a URL Shortener
 
-**Module 11 — Real System Design Case Studies**
+**Module 11 - Real System Design Case Studies**
 
 > **Spaced Repetition (Lesson 1.3):** Roughly how many seconds are in a day, and what do we round it to for easy maths? If 100 million new things are created a month, how many is that per second on average? Today, this one division decides half the design: which part needs sharding, and which part never will.
 
@@ -12,7 +12,7 @@
 2. Compare the four ways of making a short code (random, hash, counter, counter + secret permutation) with numbers: collisions, how many trips to the database, and whether someone can find other people's links by guessing. Say why the length of the keyspace is a decision, and why the birthday bound breaks the hash approach
 3. Design the redirect path: how much the cache gives and where it stops, the hot key, and why 301 is cheap but breaks both analytics and taking a link down. And keep click analytics off the redirect path
 
-**Tier:** 1 — Runnable Code (three deterministic models and a real Express + Zod shortener; no Docker or database needed)
+**Tier:** 1 - Runnable Code (three deterministic models and a real Express + Zod shortener; no Docker or database needed)
 
 ---
 
@@ -41,7 +41,7 @@ The URL shortener is one of the most common interview questions, because it look
 
 ## 1. Theory
 
-### 1.1 Step 1 — Requirements: start with questions
+### 1.1 Step 1 - Requirements: start with questions
 
 1.2's first step: fix the scope. Ask the interviewer these questions, and when you get no answer, state a reasonable assumption yourself and write it down:
 
@@ -69,21 +69,21 @@ User accounts?                              Assume they exist, but login is out 
 
 **Left out:** login, billing, QR codes, link preview pages, changing the destination. Say it in one line, so the rest of the time goes to the core.
 
-### 1.2 Step 2 — Estimation: what the numbers say
+### 1.2 Step 2 - Estimation: what the numbers say
 
 **The spaced repetition answer:** a day is 86,400 seconds, ~100,000 for easy maths. A month is ~2.6 million seconds. 100 million a month is ~39 a second.
 
 `npm run estimate`:
 
 ```
-── Part A — traffic: 100 million new links a month, read:write = 100:1, peak 3× the average ──
+── Part A - traffic: 100 million new links a month, read:write = 100:1, peak 3× the average ──
                                               average     peak
 new links (writes) / s                      38.6           116
 redirects (reads) / s                      3,858        11,574
 redirect bandwidth                      1.9 MB/s      5.8 MB/s
 click events / month                    10 billion      1.0 TB
 
-── Part B — storage: 10 years, 500 B per row ──
+── Part B - storage: 10 years, 500 B per row ──
 one year                               1.2 billion      600 GB
 10 years                                12 billion      6.0 TB
 ```
@@ -95,10 +95,10 @@ These few numbers lead to four decisions, and some of them are a "no":
 3. **Storage is ~6 TB in ten years.** It fits on one node, but not comfortably: restoring 6 TB from a backup takes ~6.7 hours (remember 10.8's RTO). So partitioning or sharding may come later, **but the reason is storage and recovery, not writes.** And not on day one, but three years or so in.
 4. **Click data is much bigger than link data.** 10 billion events a month, ~1 TB. In six months it passes the links' whole ten-year table (~6 TB). It is a separate system (1.7), not inside the redirect database.
 
-Now the keyspace. **Keyspace** — the number of all possible values for a code; with 62 characters and length L, 62^L. And **Base62 Encoding** — writing a number with 62 characters (`0-9`, `a-z`, `A-Z`), exactly as decimal writes it with 10. It has no character with a special meaning in a URL (`/`, `+`, `=`), so it is safer than base64.
+Now the keyspace. **Keyspace** - the number of all possible values for a code; with 62 characters and length L, 62^L. And **Base62 Encoding** - writing a number with 62 characters (`0-9`, `a-z`, `A-Z`), exactly as decimal writes it with 10. It has no character with a special meaning in a URL (`/`, `+`, `=`), so it is safer than base64.
 
 ```
-── Part C — keyspace: base62, 1.2 billion new codes a year ──
+── Part C - keyspace: base62, 1.2 billion new codes a year ──
 length         total codes   years to fill  full in 10 yrs       random: retry    guess hits
 5              916 million        9 months          100.0%                full          100%
 6             56.8 billion              47           21.1%               21.1%         21.1%
@@ -111,7 +111,7 @@ length         total codes   years to fill  full in 10 yrs       random: retry  
 And one more list, the price of the tools at this size:
 
 ```
-── Part D — the tools that come to mind, and their price at this size ──
+── Part D - the tools that come to mind, and their price at this size ──
 Bloom filter, all 12 billion codes, 1% error               14.4 GB
 HyperLogLog (dense, 12 KB) per link                          147 TB
 Sharding: peak writes / one primary                           2.3%
@@ -155,7 +155,7 @@ CREATE SEQUENCE link_ids;
 
 The redirect path has one query: a primary key lookup by `code` (5.4's index, a few pages of a B-tree). An index on `owner_id` for the owner's "my links" page. Clicks are **not** in this table. `UPDATE links SET clicks = clicks + 1` on every redirect means every read becomes a write: a fight over locks on the rows of popular links (5.5), and a database built for 116 writes/s suddenly getting 11,600 writes/s. Turning the read path into a write path is the most common mistake in this design.
 
-### 1.4 Step 3 — High-level design
+### 1.4 Step 3 - High-level design
 
 ```
                       ┌─────────────────────────── redirect path (99%, strict SLO) ──────────────────────────┐
@@ -175,11 +175,11 @@ The redirect path has one query: a primary key lookup by `code` (5.4's index, a 
 
 Where is consistent hashing in this picture? Only inside the Redis cluster (10.1's hash slots), which we do not write ourselves. Not for the database, because there is one database.
 
-### 1.5 Deep dive 1 — How to make the short code
+### 1.5 Deep dive 1 - How to make the short code
 
 This is the real engineering question of this system, and 1.2's reflection named exactly this as the place for a deep dive. Four approaches, measured with `npm run keygen`. It runs with a smaller keyspace (4 characters, 14.8 million slots), because retries and collisions depend only on **how full** it is, and "0.341% full" is exactly ten years at 7 characters.
 
-**Approach 1 — A random code, then check whether it is taken.** 7 random characters, `INSERT ... ON CONFLICT DO NOTHING`, and again if taken.
+**Approach 1 - A random code, then check whether it is taken.** 7 random characters, `INSERT ... ON CONFLICT DO NOTHING`, and again if taken.
 
 ```
 full        avg attempts  needed retry   max attempts  when at 6 chars  when at 7 chars
@@ -193,7 +193,7 @@ The retry rate is exactly how full it is. At 7 characters, 0.35% in ten years: o
 
 Here comes the first thought of a Bloom filter: "check the Bloom filter for whether the code is taken before going to the database." But for 12 billion codes at 1% error, that is **14.4 GB**, on every server, always kept updated with new codes. What does it save? 99.65% of inserts succeed the first time, so the Bloom filter would only save the 0.35%'s one round trip. And even when it says "not there", we still have to insert, so the database's work does not shrink. **The second "no".**
 
-**Approach 2 — The URL's hash, first 7 characters.** Attractive, because the same URL always gets the same code, and it dedupes with no lookup. But the first 7 characters of the hashes of different URLs can match:
+**Approach 2 - The URL's hash, first 7 characters.** Attractive, because the same URL always gets the same code, and it dedupes with no lookup. But the first 7 characters of the hashes of different URLs can match:
 
 ```
 full              link     collisions  % insert  birthday estimate  avg attempts
@@ -203,37 +203,37 @@ full              link     collisions  % insert  birthday estimate  avg attempts
 At 7 chars in 10 years (12,008,705,807 links): an estimated 20,474,843 links will hit a collision.
 ```
 
-**Birthday Bound** — throw N things at random into K slots and roughly N²/2K pairs land in the same slot. The name comes from "in a room of 23 people, the chance that two share a birthday is over 50%". Collisions start much earlier than you would think. The measured numbers match the estimate almost exactly (329,366 vs 328,929). At 7 characters in ten years, **~20 million** links collide.
+**Birthday Bound** - throw N things at random into K slots and roughly N²/2K pairs land in the same slot. The name comes from "in a room of 23 people, the chance that two share a birthday is over 50%". Collisions start much earlier than you would think. The measured numbers match the estimate almost exactly (329,366 vs 328,929). At 7 characters in ten years, **~20 million** links collide.
 
 So how will you handle a collision? Add a salt to the URL and hash again. Now the hash approach's only advantage, "same URL → same code", is broken: you cannot know which URL's code was salted without looking in the database. And before every insert you have to check "is this code another URL's?", just like random. Two more problems: anyone can compute the hash of a URL and find out whether someone has shortened it (if they know the URL of a private document). And two different users giving the same URL get the same code, so they cannot have separate analytics or separate expiries. **The hash approach pays all of random's costs, and cannot deliver its own advantage.**
 
-**Approach 3 — Counter + base62.** An increasing number (a Postgres `SEQUENCE`), written in base62. No collisions, one trip per creation, and the shortest codes (only 6 characters at 12 billion). But:
+**Approach 3 - Counter + base62.** An increasing number (a Postgres `SEQUENCE`), written in base62. No collisions, one trip per creation, and the shortest codes (only 6 characters at 12 billion). But:
 
 ```
-── Part C — finding by guessing: 0.341% full, the 10,000 codes before your own and 10,000 random attempts ──
+── Part C - finding by guessing: 0.341% full, the 10,000 codes before your own and 10,000 random attempts ──
 strategy                                                      last 5 codes      hits before    hits random
 counter → base62                                  0d6C 0d6D 0d6E 0d6F 0d6G          100.00%          0.34%
 random                                            DB0u rO8O ypzM aKdZ fKLX            0.32%          0.44%
 counter → secret permutation → base62             f6sF 5OVy JR1Y iGCX HIx8            0.43%          0.27%
 ```
 
-**Link Enumeration** — finding other people's links by counting through or guessing codes. With a counter, make one link of your own and count backwards: **100%** real links, including others' freshly created private documents. This is not theoretical: a 2016 study ("Gone in Six Characters: Short URLs Considered Harmful for Cloud Services") scanned the short code space of popular shorteners and found personal information, including cloud storage share links and map addresses, because the codes of the time were only 5–6 characters. A counter leaks one more thing: the size of your business. From the difference between two codes, anyone can tell how many links you make a day.
+**Link Enumeration** - finding other people's links by counting through or guessing codes. With a counter, make one link of your own and count backwards: **100%** real links, including others' freshly created private documents. This is not theoretical: a 2016 study ("Gone in Six Characters: Short URLs Considered Harmful for Cloud Services") scanned the short code space of popular shorteners and found personal information, including cloud storage share links and map addresses, because the codes of the time were only 5–6 characters. A counter leaks one more thing: the size of your business. From the difference between two codes, anyone can tell how many links you make a day.
 
-**Approach 4 — Counter + secret permutation + base62.** Keep all the counter's advantages and hide the order. Pass the counter's number through a **secret, one-to-one (bijective) permutation**, which takes every number in [0, 62^7) to a distinct number in that same range. One-to-one, so collisions are impossible. It cannot be reversed without the secret key, so the codes of consecutive ids look random.
+**Approach 4 - Counter + secret permutation + base62.** Keep all the counter's advantages and hide the order. Pass the counter's number through a **secret, one-to-one (bijective) permutation**, which takes every number in [0, 62^7) to a distinct number in that same range. One-to-one, so collisions are impossible. It cannot be reversed without the secret key, so the codes of consecutive ids look random.
 
-**Format-Preserving Permutation** — a keyed, one-to-one transformation inside a fixed range, so the output stays in the same range as the input (here, 7-character base62). In the exercise it is built with a small **Feistel network**: split the number in two, and over a few rounds XOR one half with a keyed hash of the other. The Feistel structure itself keeps it one-to-one, whatever the hash function. 62^7 is not a power of two, so when the result falls outside the range it is run again (**cycle walking**) until it lands inside:
+**Format-Preserving Permutation** - a keyed, one-to-one transformation inside a fixed range, so the output stays in the same range as the input (here, 7-character base62). In the exercise it is built with a small **Feistel network**: split the number in two, and over a few rounds XOR one half with a keyed hash of the other. The Feistel structure itself keeps it one-to-one, whatever the hash function. 62^7 is not a power of two, so when the result falls outside the range it is run again (**cycle walking**) until it lands inside:
 
 ```
-whole 3-char domain (238,328 ids): 238,328 distinct outputs — no collisions; extra rounds: 23,816 (10.0%)
+whole 3-char domain (238,328 ids): 238,328 distinct outputs - no collisions; extra rounds: 23,816 (10.0%)
 7 chars, ids 1–5:  0000001 → cOoEtMq   0000002 → BnqHDLC   0000003 → yhc3OjR   0000004 → NJcTAiA   0000005 → l3tBYTa
 ```
 
 Verified by running every id in a small domain: 238,328 ids, 238,328 distinct codes. And in the guessing test it behaves like random (0.43%, close to the fill rate). An honest caveat: this is **not secrecy, only making guessing hard.** This 4-round Feistel is not a proven cipher, and if the key leaks the whole order can be reversed. The answer for truly private links is authentication (10.5), not hiding the code. In production this job should use proven format-preserving encryption (like NIST's FF1), or at least cycle walking over a good block cipher.
 
-**Sharing out the counter.** One counter means going to the counter on every creation, and the counter is a single point. **Range Allocation (Ticket Server)** — each app server takes a block from the counter at once (say 1,000 ids) and hands them out from its own memory; when they run out, another block. The name "ticket server" comes from a published Flickr design, where a separate small database's only job was handing out ids. Taking a block at a time is an old, common improvement on top of that (in the ORM world it is called hi/lo).
+**Sharing out the counter.** One counter means going to the counter on every creation, and the counter is a single point. **Range Allocation (Ticket Server)** - each app server takes a block from the counter at once (say 1,000 ids) and hands them out from its own memory; when they run out, another block. The name "ticket server" comes from a published Flickr design, where a separate small database's only job was handing out ids. Taking a block at a time is an old, common improvement on top of that (in the ORM world it is called hi/lo).
 
 ```
-── Part D — sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts 1× a day ──
+── Part D - sharing out the counter: 20 app servers, 3,333,333 links a day, each server restarts 1× a day ──
 block     sequence calls / day  wasted ids / day  wasted / year, 7 chars  out of time order
 1                   3,333,333               0                0.00000%              0.0%
 1,000                   3,354          10,161                0.00011%             47.5%
@@ -244,7 +244,7 @@ With a block of 1,000, trips to the counter drop a thousandfold. Two prices. (1)
 
 The honest bit: at a peak of 116 links/s, calling Postgres's `nextval()` directly is no problem at all. Range allocation is needed when the counter is a separate service, or when links have to be created in several regions (10.8) (give each region a big range, and they never collide). Saying this in an interview, and saying that at today's numbers it is optional, are both signs of a senior.
 
-> **Trade-off Table — four ways to make a short code**
+> **Trade-off Table - four ways to make a short code**
 
 | Approach                     | Collisions                               | DB trips to create    | Same URL → same code | Guessable?                    | Coordination                |
 | ---------------------------- | ---------------------------------------- | --------------------- | -------------------- | ----------------------------- | --------------------------- |
@@ -257,7 +257,7 @@ The honest bit: at a peak of 116 links/s, calling Postgres's `nextval()` directl
 
 **Custom aliases colliding with generated codes.** A subtle trap: someone asks for `abcDEF1` as an alias, which is 7-character base62. It is free today. But some day the permutation will produce exactly that code, and the insert will fail. So the exercise's app forbids 7-character base62 aliases (`alias_reserved`), and aliases may contain `-` or `_`, which generated codes never do. The two namespaces are separate, so a collision is impossible. (The generator's loop also takes the next id if a code is `taken`, purely as a safety net.)
 
-### 1.6 Deep dive 2 — The redirect path
+### 1.6 Deep dive 2 - The redirect path
 
 Redirects happen ~11,600 times a second, and almost all are a primary key lookup. Two questions: how much to cache, and what to tell the browser.
 
@@ -281,7 +281,7 @@ local 0.1% on each app server (10)             2,000      43.1%                 
 
 **Codes that don't exist.** When someone scans codes (link enumeration), almost every request's answer is "not there", and nothing is in the cache, so everything goes to the database: 10.2's cache penetration. Here the Bloom filter comes to mind again, 14.4 GB. The cheap layers first: (1) a negative cache (cache the 404 answer with a short TTL), (2) a rate limit on the 404 rate by IP and ASN (9.5), because ordinary users almost never get a 404, and a scanner gets almost nothing but. And because of the permutation, the scan's results give little anyway. A Bloom filter only when these are shown not to be enough.
 
-**301 or 302.** **301 / 302 Redirect** — both send the browser to the address in the `Location` header. 301 means "moved permanently": the browser may cache it and next time go straight to the destination without asking the server. 302 means "for now": it asks the server every time (unless `Cache-Control` says otherwise). 301's temptation: less load on the server. Part B: 100,000 people click a link, come back twice more on average, 85% of browsers keep the cache, and on the seventh day the link is disabled as phishing:
+**301 or 302.** **301 / 302 Redirect** - both send the browser to the address in the `Location` header. 301 means "moved permanently": the browser may cache it and next time go straight to the destination without asking the server. 302 means "for now": it asks the server every time (unless `Cache-Control` says otherwise). 301's temptation: less load on the server. Part B: 100,000 people click a link, come back twice more on average, 85% of browsers keep the cache, and on the seventh day the link is disabled as phishing:
 
 ```
 policy                                   click   server saw  not in analytics  clicks after off  still reached dest
@@ -297,7 +297,7 @@ policy                                   click   server saw  not in analytics  c
 
 So **302 + `Cache-Control: private, no-store`.** We paid for the server's load in the cache (above), not in the browser. The middle road (`max-age=3600`): 2% less load, and up to an hour of working after being disabled. Some products choose it. But in a system whose responsibility is taking abusive links down, "letting phishing run for an hour" has to be a conscious decision.
 
-### 1.7 Analytics — off the redirect path
+### 1.7 Analytics - off the redirect path
 
 The requirement: the owner sees clicks and unique visitors, a few minutes late. The redirect path has one job: hand a small event (code, time, a hash of the visitor, referrer, country) to a buffer, without waiting. The rest is in a separate pipeline (7.2's log, 7.6's batch or stream).
 
@@ -306,7 +306,7 @@ The first thought for counting unique visitors: "one HyperLogLog per link, we le
 ```
 method                                                    memory   note
 exact set per link (visitor hash, 16 B)                  96.0 GB   exact; big on popular links
-dense HLL (12 KB) per clicked link                        8.1 TB   656 million links clicked — most of them small
+dense HLL (12 KB) per clicked link                        8.1 TB   656 million links clicked - most of them small
 set when small, HLL when big (Redis sparse → dense)       40.2 GB   only 369,858 links have more than 768 unique
 collect click events, count in a nightly batch (7.6)         0 RAM   ~1.0 TB/month of raw events on disk; hours of delay
 ```
@@ -341,7 +341,7 @@ An open shortener is a favourite tool of phishing and malware: it hides the real
 - **Disabled means disabled at once** (steps 15, 16). Possible only because of 302 and no-store. At the cache layer, delete the key when disabling (4.3's invalidation), and the local cache's TTL is a few seconds.
 - **The other layers (not in the exercise):** a rate limit on creation by account and IP (9.5); checking the destination URL against lists of known bad URLs, asynchronously, and again later (because good URLs go bad); a way to report.
 
-### 1.9 Step 5 — Trade-offs and wrap-up
+### 1.9 Step 5 - Trade-offs and wrap-up
 
 The final design, on one page:
 
@@ -356,7 +356,7 @@ The final design, on one page:
 - **Ten times bigger** (experiment 4): peak writes are ~23% of the primary, still one primary. 6 characters would run out in five years; at 7 characters, 3.4% in ten years, so 7 holds. Reads ~116,000 a second: the cache layer grows, and keeping redirects at the CDN's edge comes up (reflection 2 below).
 - **Several regions:** range allocation earns its keep here, each region with its own range. On the read path, replica lag means a new link is a 404 in a far region for a while (6.3).
 
-> **Trade-off Table — decisions on the redirect path**
+> **Trade-off Table - decisions on the redirect path**
 
 | Decision           | Chose                                     | Alternative          | What I gave                                        | What I got                                                         |
 | ------------------ | ----------------------------------------- | -------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
@@ -379,12 +379,12 @@ The URL shortener is often the first or second system design interview question,
 
 **Follow-ups that are almost certain:**
 
-- _"What's wrong with taking MD5 and keeping the first 7 characters?"_ — The birthday bound: N²/2K, ~20 million collisions in ten years at 7 characters. Handling them needs a salt and a check, and then the "same URL → same code" advantage is gone too. And the code can be computed from the URL.
-- _"Isn't the counter a single point of failure?"_ — Range allocation: each server takes a block, and the counter is called a few times a minute. Even if the counter is down for a few minutes, the servers can run on their blocks. And the redirect path never touches the counter.
-- _"Why are sequential codes bad?"_ — Enumeration (counting back from your own code gives 100% real links) and leaking the size of the business. A secret permutation or random. And for truly private links, authentication, not harder guessing.
-- _"What happens on a hot link?"_ — One key goes to one Redis node. A local cache in the redirect service, with a short TTL. The destination does not change, so the stale-data risk is small.
-- _"How will you scale the database?"_ — Numbers first: writes don't need it, reads get a cache and replicas. When storage grows, shard by the hash of `code` (codes are random, so the split is even, and each redirect hits one shard).
-- _"When will you delete expired links?"_ — Check expiry at read time (410 at once), delete separately in a background job. And never reuse codes.
+- _"What's wrong with taking MD5 and keeping the first 7 characters?"_ - The birthday bound: N²/2K, ~20 million collisions in ten years at 7 characters. Handling them needs a salt and a check, and then the "same URL → same code" advantage is gone too. And the code can be computed from the URL.
+- _"Isn't the counter a single point of failure?"_ - Range allocation: each server takes a block, and the counter is called a few times a minute. Even if the counter is down for a few minutes, the servers can run on their blocks. And the redirect path never touches the counter.
+- _"Why are sequential codes bad?"_ - Enumeration (counting back from your own code gives 100% real links) and leaking the size of the business. A secret permutation or random. And for truly private links, authentication, not harder guessing.
+- _"What happens on a hot link?"_ - One key goes to one Redis node. A local cache in the redirect service, with a short TTL. The destination does not change, so the stale-data risk is small.
+- _"How will you scale the database?"_ - Numbers first: writes don't need it, reads get a cache and replicas. When storage grows, shard by the hash of `code` (codes are random, so the split is even, and each redirect hits one shard).
+- _"When will you delete expired links?"_ - Check expiry at read time (410 at once), delete separately in a background job. And never reuse codes.
 
 **In real production:** the most common problems are not code generation but abuse (waves of phishing and spam, and the domain landing on blocklists because of it), click counters built by writing to the database on every redirect that start lock fights on popular links, starting with 301 and later regretting it for analytics or takedowns (with no way back, because old browsers' caches remain), and losing the shortener's domain itself or letting it expire, which kills every link at once.
 
@@ -408,10 +408,10 @@ The URL shortener is often the first or second system design interview question,
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Base62 Encoding**                  | Writing a number with 62 characters (`0-9`, `a-z`, `A-Z`); no character has a special meaning in a URL, so it is safer than base64 for short codes                                                                 |
 | **Keyspace**                         | The number of all possible codes (62^L); how full it is sets random's retry rate and the chance of hitting a real link by guessing                                                                                 |
-| **Birthday Bound**                   | Throw N things at random into K slots and ~N²/2K pairs land in the same slot — so a hash cut short starts colliding much earlier than you would think                                                              |
+| **Birthday Bound**                   | Throw N things at random into K slots and ~N²/2K pairs land in the same slot - so a hash cut short starts colliding much earlier than you would think                                                              |
 | **Range Allocation (Ticket Server)** | Each server takes a block of ids from the counter at once and hands them out from memory; trips to the counter fall by the block size, at the price of ids wasted on restart and losing time order                 |
-| **Format-Preserving Permutation**    | A keyed, one-to-one transformation inside a fixed range (like Feistel + cycle walking) — makes random-looking codes from a counter with no collisions; not secrecy, the order can be reversed if the key leaks     |
-| **301 / 302 Redirect**               | 301 is "permanent" — the browser caches it and stops asking the server; 302 is "for now" — it comes to the server every time. A shortener uses 302 + no-store, so analytics stay correct and links can be disabled |
+| **Format-Preserving Permutation**    | A keyed, one-to-one transformation inside a fixed range (like Feistel + cycle walking) - makes random-looking codes from a counter with no collisions; not secrecy, the order can be reversed if the key leaks     |
+| **301 / 302 Redirect**               | 301 is "permanent" - the browser caches it and stops asking the server; 302 is "for now" - it comes to the server every time. A shortener uses 302 + no-store, so analytics stay correct and links can be disabled |
 | **Link Enumeration**                 | Finding other people's links by counting through or guessing codes; 100% with sequential codes, and equal to how full the keyspace is with random-looking codes                                                    |
 
 ---
@@ -472,9 +472,9 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (three deterministic models and a real Express + Zod shortener; no Docker or database needed)
+**Tier 1 - Runnable Code** (three deterministic models and a real Express + Zod shortener; no Docker or database needed)
 
-> **Ready to run in the repo:** [`exercises/lesson-11.1-url-shortener/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.1-url-shortener) — `npm install`, then `npm run estimate`, `npm run keygen`, `npm run redirect`, `npm run smoke` (and `npm run serve` to play with it yourself). The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-11.1-url-shortener/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.1-url-shortener) - `npm install`, then `npm run estimate`, `npm run keygen`, `npm run redirect`, `npm run smoke` (and `npm run serve` to play with it yourself). The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `estimate` works out traffic, storage, the keyspace and the price of the tools. `keygen` runs the four ways of making codes and range allocation: retries, collisions (against the birthday estimate), finding by guessing, and a full check that the permutation is one-to-one. `redirect` measures an LRU cache under Zipf traffic, the hot key, 301 vs 302 (analytics and disabling links), and the memory for unique visitors. `smoke` runs a real Express server (validation with Zod, the range allocator, the Feistel permutation, the click buffer) and checks 18 steps and 10,000 links.
 
@@ -499,8 +499,8 @@ Think for yourself before looking at the answers. Write at least two or three li
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1 – 10 (complete, with exit challenges)
-Current: 11.1 — Case Study: Design a URL Shortener
-TaskFlow state: kept as it was at the end of Module 10 (set aside in Module 11). Case study 1 — URL shortener:
+Current: 11.1 - Case Study: Design a URL Shortener
+TaskFlow state: kept as it was at the end of Module 10 (set aside in Module 11). Case study 1 - URL shortener:
 100 million links a month, 100:1, 10 years. Writes peak at 116/s (~2% of one Postgres primary), reads 11,600/s,
 ~6 TB in 10 years. Codes: range allocation (block of 1,000) + secret Feistel permutation + 7-character base62
 (0.34% of the keyspace in 10 years); aliases in a separate namespace (7-character base62 aliases forbidden).
@@ -512,8 +512,8 @@ stream/batch; no HLL per link (8.1 TB vs 96 GB exact). Deliberately absent: writ
 created_at, for storage.
 Terms learned (Module 11): Base62 Encoding, Keyspace, Birthday Bound, Range Allocation (Ticket Server),
 Format-Preserving Permutation, 301 / 302 Redirect, Link Enumeration
-Weak spots: [where you got stuck — write it yourself]
-Next: 11.2 — Case Study: Design a Rate Limiter service
+Weak spots: [where you got stuck - write it yourself]
+Next: 11.2 - Case Study: Design a Rate Limiter service
 =======================
 ```
 
@@ -523,4 +523,4 @@ Next: 11.2 — Case Study: Design a Rate Limiter service
 
 Today's thread: **in a system that looks simple, every decision has a number behind it, and the number often tells you what you won't need.** Writes are so few that sharding is not even a question, and reads are so skewed that the first 1% of cache does more than half the work. The code question has four approaches, and each pays in a different place: hash in collisions, counter in secrecy, random in retries. And one small header, 301 vs 302, decides who controls the link.
 
-When you are ready, write `next` — we go to **Lesson 11.2: Design a Rate Limiter service**. In 9.5 we learned the rate limiting algorithms as an Express middleware, inside one process. This time the question is bigger: a **separate service** that decides on every request from hundreds of API servers, adds under a ms to each, and does not take every API down with it when it dies. Two things from today come back there: the hot key (all of one customer's requests on one counter), and the question that came up today with 301: who makes the decision, and what happens when they are wrong.
+When you are ready, write `next` - we go to **Lesson 11.2: Design a Rate Limiter service**. In 9.5 we learned the rate limiting algorithms as an Express middleware, inside one process. This time the question is bigger: a **separate service** that decides on every request from hundreds of API servers, adds under a ms to each, and does not take every API down with it when it dies. Two things from today come back there: the hot key (all of one customer's requests on one counter), and the question that came up today with 301: who makes the decision, and what happens when they are wrong.

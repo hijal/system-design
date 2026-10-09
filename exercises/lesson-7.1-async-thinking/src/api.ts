@@ -4,14 +4,14 @@ import { AcquireTimeoutError, Pool } from './pool';
 import { modes, type Mode } from './modes';
 import { JobQueue } from './queue';
 
-// Lesson 7.1 — TaskFlow's API, four versions of a single route (chosen with the MODE env):
+// Lesson 7.1 - TaskFlow's API, four versions of a single route (chosen with the MODE env):
 //
-//   sync-in-tx         — send the email inside the transaction, then commit (the real code from §0)
-//   sync-after-commit  — commit first, return the connection, then wait for the email (§1.4)
-//   fire-and-forget    — commit, then `void sendEmail()` — respond without waiting (§1.4)
-//   queue              — commit, write to the job queue, respond; a worker sends it later (§1.5)
+//   sync-in-tx         - send the email inside the transaction, then commit (the real code from §0)
+//   sync-after-commit  - commit first, return the connection, then wait for the email (§1.4)
+//   fire-and-forget    - commit, then `void sendEmail()` - respond without waiting (§1.4)
+//   queue              - commit, write to the job queue, respond; a worker sends it later (§1.5)
 //
-// GET /api/tasks has nothing to do with email — just one small query from the pool. This is the thing to watch:
+// GET /api/tasks has nothing to do with email - just one small query from the pool. This is the thing to watch:
 // what happens to this route when another route's dependency gets slow.
 
 const env = z
@@ -31,7 +31,7 @@ const QUERY_MS = 5; // an ordinary indexed query (Lesson 5.4)
 
 const pool = new Pool(env.POOL_MAX, env.ACQUIRE_TIMEOUT_MS);
 
-// Work where "the email has not gone yet" — in this process's memory. What happens to it when the process dies
+// Work where "the email has not gone yet" - in this process's memory. What happens to it when the process dies
 // is experiment 2 in the README.
 let pendingEmails = 0;
 let peakPendingEmails = 0;
@@ -41,7 +41,7 @@ const emailDelaysMs: number[] = [];
 type EmailJob = { taskId: number; to: string; acceptedAt: number };
 
 async function sendEmail(job: EmailJob): Promise<void> {
-	// Deliberately no timeout — that is the default in `fetch`, axios, and most SDKs
+	// Deliberately no timeout - that is the default in `fetch`, axios, and most SDKs
 	const res = await fetch(`${env.PROVIDER_URL}/send`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
@@ -76,7 +76,7 @@ async function assign(mode: Mode, job: EmailJob): Promise<void> {
 	const connection = await pool.acquire();
 	switch (mode) {
 		case 'sync-in-tx':
-			// BEGIN … UPDATE tasks … INSERT activity … [email] … COMMIT — the connection is held the whole time
+			// BEGIN … UPDATE tasks … INSERT activity … [email] … COMMIT - the connection is held the whole time
 			try {
 				await connection.query(QUERY_MS);
 				markPending();
@@ -101,7 +101,7 @@ async function assign(mode: Mode, job: EmailJob): Promise<void> {
 			} finally {
 				connection.release();
 			}
-			// nobody is waiting — on failure it is only counted, nobody is told
+			// nobody is waiting - on failure it is only counted, nobody is told
 			markPending();
 			deliver(job).catch(() => {});
 			return;
@@ -161,7 +161,7 @@ app.get('/api/tasks', async (_req: Request, res: Response): Promise<void> => {
 	}
 });
 
-// Doesn't use the pool — so the scenario can see the internal state even when the pool is exhausted
+// Doesn't use the pool - so the scenario can see the internal state even when the pool is exhausted
 app.get('/internal/stats', (_req: Request, res: Response): void => {
 	res.json({
 		pool: pool.stats(),

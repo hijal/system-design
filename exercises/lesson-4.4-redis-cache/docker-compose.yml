@@ -1,4 +1,4 @@
-# In this exercise only the two datastores run in containers — the app itself
+# In this exercise only the two datastores run in containers - the app itself
 # runs as an ordinary Node process on your machine.
 # 5433/6380 are used instead of the default ports, so they do not clash with any
 # Postgres/Redis already running on your machine.
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:8-alpine
-    # maxmemory-policy is Lesson 4.3's decision — a pure cache, so allkeys-lru
+    # maxmemory-policy is Lesson 4.3's decision - a pure cache, so allkeys-lru
     command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - '6380:6379'

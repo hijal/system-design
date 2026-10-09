@@ -24,7 +24,7 @@ const READ_S = env('READ_S', 30);
 const DELETE_SHARE = env('DELETE_SHARE', 0.02);
 
 heading(
-	`Part A — fetching from K places at once in one feed read: each median ${FETCH_MS} ms, ${SLOW_SHARE * 100}% slow (${SLOW_MS} ms)`
+	`Part A - fetching from K places at once in one feed read: each median ${FETCH_MS} ms, ${SLOW_SHARE * 100}% slow (${SLOW_MS} ms)`
 );
 console.log(
 	row([
@@ -75,7 +75,7 @@ for (const [name, k, hedge] of cases) {
 }
 
 heading(
-	`Part B — the second page: ${NEW_PER_MIN} new posts a minute in the feed, ${READ_S} s on average to read a page, ${DELETE_SHARE * 100}% of the first page deleted`
+	`Part B - the second page: ${NEW_PER_MIN} new posts a minute in the feed, ${READ_S} s on average to read a page, ${DELETE_SHARE * 100}% of the first page deleted`
 );
 console.log(
 	row([

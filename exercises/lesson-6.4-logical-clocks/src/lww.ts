@@ -1,18 +1,18 @@
 import { mulberry32 } from './random';
 
-// Lesson 6.4 §1.3, 1.5–1.6 — the title of one task, three replicas, three kinds of "which one wins" rule.
+// Lesson 6.4 §1.3, 1.5–1.6 - the title of one task, three replicas, three kinds of "which one wins" rule.
 //
 // TaskFlow's multi-leader setup (Lesson 5.7): three replicas, each takes writes, then sends them
-// to the others (10–50 ms later). n3's NTP is broken — its clock is 400 ms behind. n2 is 30 ms ahead.
+// to the others (10–50 ms later). n3's NTP is broken - its clock is 400 ms behind. n2 is 30 ms ahead.
 //
 // 6 people (thinking 3 s on average, 15 s between two edits on average) and 2 bots (like "when the status changes, put
-// [DONE] in the title" — reacting in 50–300 ms) edit the same title for 2 minutes: read from one replica, think a little, then
-// write to a (maybe different) replica. Every write knows which versions it saw when it was written — that is the real
+// [DONE] in the title" - reacting in 50–300 ms) edit the same title for 2 minutes: read from one replica, think a little, then
+// write to a (maybe different) replica. Every write knows which versions it saw when it was written - that is the real
 // causality (ground truth), which we use to measure what each rule got wrong.
 //
-//   wall     — last-write-wins, by the replica clock's timestamp (like Cassandra's default)
-//   lamport  — last-write-wins, by a Lamport clock
-//   vector   — dotted version vector: with causality drop the older one, without it keep both (siblings)
+//   wall     - last-write-wins, by the replica clock's timestamp (like Cassandra's default)
+//   lamport  - last-write-wins, by a Lamport clock
+//   vector   - dotted version vector: with causality drop the older one, without it keep both (siblings)
 //              and the next reader sees both and writes a merge
 
 const NODES = ['n1', 'n2', 'n3'] as const;
@@ -25,7 +25,7 @@ const BOTS = 2;
 type Strategy = 'wall' | 'lamport' | 'vector';
 type Clock = Record<NodeId, number>;
 
-// the real history of a write — no rule sees this, only we do, for measuring
+// the real history of a write - no rule sees this, only we do, for measuring
 type Write = { id: number; ancestors: Set<number> };
 
 // a version kept on a replica
@@ -65,7 +65,7 @@ class Queue {
 const emptyClock = (): Clock => ({ n1: 0, n2: 0, n3: 0 });
 
 function covers(a: Version, b: Version): boolean {
-	// whether b is in a's history — b's dot falls within the context a saw
+	// whether b is in a's history - b's dot falls within the context a saw
 	return a.writeId === b.writeId || a.ctx[b.dot[0]] >= b.dot[1];
 }
 
@@ -91,7 +91,7 @@ function run(strategy: Strategy): Result {
 
 	const ancestorsOf = (id: number): Set<number> => writes[id]?.ancestors ?? new Set();
 
-	// LWW dropped a version — classify it by real causality
+	// LWW dropped a version - classify it by real causality
 	function discarded(loser: Version, winner: Version): void {
 		if (ancestorsOf(winner.writeId).has(loser.writeId)) return; // fine: the winner came later, written after seeing the loser
 		const key = `${loser.writeId}<${winner.writeId}`;
@@ -174,7 +174,7 @@ function run(strategy: Strategy): Result {
 	for (let i = 0; i < BOTS; i++) client(true);
 	q.run();
 
-	// all replication done — which writes left no trace (neither surviving, nor in a surviving write's history)?
+	// all replication done - which writes left no trace (neither surviving, nor in a surviving write's history)?
 	const survivors = new Set<number>();
 	for (const n of NODES) for (const v of state[n]) survivors.add(v.writeId);
 	const remembered = new Set<number>(survivors);
@@ -200,7 +200,7 @@ function main(): void {
 		`\n   3 replicas (n3's clock 400 ms behind, n2 30 ms ahead), ${HUMANS} people + ${BOTS} bots, ${SIM_MS / 1000} s`
 	);
 	console.log(
-		'   everyone edits the title of the same task (seeded — the same result every time)\n'
+		'   everyone edits the title of the same task (seeded - the same result every time)\n'
 	);
 	console.log(
 		'   rule                   total edits   later edit lost to   concurrent edit   app asked to   not in final     replicas'
@@ -209,8 +209,8 @@ function main(): void {
 		'                                       the earlier one       silently dropped  merge           title history    agree?'
 	);
 	const labels: Record<Strategy, string> = {
-		wall: 'LWW — wall clock',
-		lamport: 'LWW — Lamport clock',
+		wall: 'LWW - wall clock',
+		lamport: 'LWW - Lamport clock',
 		vector: 'Vector clock (sibling)'
 	};
 	for (const strategy of ['wall', 'lamport', 'vector'] as const) {

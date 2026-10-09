@@ -50,7 +50,7 @@ function algorithms(): void {
 		(list) => new RendezvousRouter(list),
 		(list) => new JumpRouter(list)
 	];
-	heading(`A. ${NODES} nodes, ${KEYS.toLocaleString('en-US')} keys — three methods side by side`);
+	heading(`A. ${NODES} nodes, ${KEYS.toLocaleString('en-US')} keys - three methods side by side`);
 	console.log(
 		row([
 			['method', 20],
@@ -130,7 +130,7 @@ function hotKeys(): void {
 		hottestShare += Math.max(...counts.values()) / BATCH;
 	}
 	heading(
-		`B. Hot key: Zipf ${ZIPF}, ${BATCH.toLocaleString('en-US')} requests at once, ${BATCHES} times — the hottest key alone is ~${pct(hottestShare, BATCHES)} of traffic`
+		`B. Hot key: Zipf ${ZIPF}, ${BATCH.toLocaleString('en-US')} requests at once, ${BATCHES} times - the hottest key alone is ~${pct(hottestShare, BATCHES)} of traffic`
 	);
 	console.log(
 		row([

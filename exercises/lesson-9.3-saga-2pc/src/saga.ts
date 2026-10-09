@@ -14,15 +14,15 @@ import {
 } from './db';
 import { mulberry32, ms, pad, percentile, sleep } from './random';
 
-// Lesson 9.3 §1.4–1.7 — Saga: every step a small local transaction in its own database, and on failure
+// Lesson 9.3 §1.4–1.7 - Saga: every step a small local transaction in its own database, and on failure
 // the reverse of the earlier steps (compensation).
 //
-// The "create task" saga — the orchestrator is the work service (tasks_svc), which keeps the saga's log in its own database:
-//   1. billing.reserve  — task_count + 1 if within the workspace's limit (a reservation); otherwise "limit reached"
-//   2. work.createTask  — fails if the project is archived (a business reason) → compensation: billing.release
-//   a. crash (after writing to billing, before writing the log) and archived projects — without a saga, a saga, with recovery,
+// The "create task" saga - the orchestrator is the work service (tasks_svc), which keeps the saga's log in its own database:
+//   1. billing.reserve  - task_count + 1 if within the workspace's limit (a reservation); otherwise "limit reached"
+//   2. work.createTask  - fails if the project is archived (a business reason) → compensation: billing.release
+//   a. crash (after writing to billing, before writing the log) and archived projects - without a saga, a saga, with recovery,
 //      and what recovery does when the steps aren't idempotent
-//   b. a saga has no isolation: many "create task" at once near the limit — what goes wrong under two rules
+//   b. a saga has no isolation: many "create task" at once near the limit - what goes wrong under two rules
 
 const cfg = z
 	.object({
@@ -55,7 +55,7 @@ async function reset(
 ): Promise<void> {
 	await clearPrepared();
 	const work = pool('tasks_svc', 1);
-	// sagas — the orchestrator's log: which step each saga is at. tasks.saga_id UNIQUE — the same saga can't create a task twice.
+	// sagas - the orchestrator's log: which step each saga is at. tasks.saga_id UNIQUE - the same saga can't create a task twice.
 	await work.query(`
 		DROP TABLE IF EXISTS tasks; DROP TABLE IF EXISTS sagas; DROP TABLE IF EXISTS projects; DROP TABLE IF EXISTS twopc_log;
 		CREATE TABLE projects (id int PRIMARY KEY, archived boolean NOT NULL);
@@ -68,7 +68,7 @@ async function reset(
 		'INSERT INTO projects (id, archived) SELECT * FROM unnest($1::int[], $2::boolean[])',
 		[ids, ids.map(archived)]
 	);
-	// pre-existing tasks (to sit near the limit) — project 0, not archived
+	// pre-existing tasks (to sit near the limit) - project 0, not archived
 	if (used > 0)
 		await work.query(
 			`INSERT INTO tasks (workspace_id, project_id, title)
@@ -77,8 +77,8 @@ async function reset(
 		);
 	await work.end();
 	const billing = pool('billing_svc', 1);
-	// reservations — billing's own ledger: reservations for which saga, and their state. This is what makes reserve and release
-	// idempotent — when the same saga_id comes a second time, the earlier answer.
+	// reservations - billing's own ledger: reservations for which saga, and their state. This is what makes reserve and release
+	// idempotent - when the same saga_id comes a second time, the earlier answer.
 	await billing.query(`
 		DROP TABLE IF EXISTS workspaces; DROP TABLE IF EXISTS reservations;
 		CREATE TABLE workspaces (id int PRIMARY KEY, plan text NOT NULL, task_limit int NOT NULL, task_count int NOT NULL);
@@ -108,7 +108,7 @@ const closeServices = async (s: Services): Promise<void> => {
 
 const statusRow = z.object({ status: z.enum(['reserved', 'rejected', 'released']) });
 
-// step 1: task_count + 1 if within the limit. The idempotent form: write to the ledger by saga_id — if the same saga comes
+// step 1: task_count + 1 if within the limit. The idempotent form: write to the ledger by saga_id - if the same saga comes
 // again (recovery, retry) return the earlier answer, never count it twice.
 async function reserve(
 	s: Services,
@@ -147,7 +147,7 @@ async function reserve(
 	}
 }
 
-// Compensation: return the reservation. The idempotent form: only from 'reserved' to 'released' — called twice, it decreases once.
+// Compensation: return the reservation. The idempotent form: only from 'reserved' to 'released' - called twice, it decreases once.
 async function release(s: Services, sagaId: string, workspaceId: number): Promise<void> {
 	if (!s.idempotent) {
 		await s.billing.query('UPDATE workspaces SET task_count = task_count - 1 WHERE id = $1', [
@@ -167,7 +167,7 @@ async function release(s: Services, sagaId: string, workspaceId: number): Promis
 const archivedRow = z.object({ archived: z.boolean() });
 type NewTask = { sagaId: string | null; workspaceId: number; projectId: number; title: string };
 
-// step 2: create the task — and the saga's state 'done', in the same local transaction (work's own database).
+// step 2: create the task - and the saga's state 'done', in the same local transaction (work's own database).
 async function createTask(s: Services, t: NewTask): Promise<'done' | 'archived'> {
 	if (s.stepMs > 0) await sleep(s.stepMs); // the service's work and the network time
 	const c = await s.work.connect();
@@ -224,7 +224,7 @@ async function startSaga(s: Services, op: Op): Promise<Result> {
 		title: op.title,
 		state: 'started'
 	};
-	// the log first — "this saga started". After this, whenever it dies, recovery knows where to pick up.
+	// the log first - "this saga started". After this, whenever it dies, recovery knows where to pick up.
 	await s.work.query(
 		'INSERT INTO sagas (id, workspace_id, project_id, title, state) VALUES ($1, $2, $3, $4, $5)',
 		[saga.id, saga.workspace_id, saga.project_id, saga.title, saga.state]
@@ -232,7 +232,7 @@ async function startSaga(s: Services, op: Op): Promise<Result> {
 	return advance(s, saga, op.crash);
 }
 
-// Take a saga from its current state to the end — both new sagas and recovery use this
+// Take a saga from its current state to the end - both new sagas and recovery use this
 async function advance(s: Services, saga: SagaRow, crashAfterReserve: boolean): Promise<Result> {
 	let state: SagaState = saga.state;
 	if (state === 'started') {
@@ -337,7 +337,7 @@ async function withoutSaga(ops: Op[]): Promise<void> {
 	let done = 0;
 	let archived = 0;
 	let crashed = 0;
-	// Without a saga: billing first (check the limit and count), then the task — no log, no reverse action
+	// Without a saga: billing first (check the limit and count), then the task - no log, no reverse action
 	const time = await timed(ops, async (op) => {
 		await reserve(s, `x${op.i}`, op.workspaceId);
 		if (op.crash) {
@@ -354,7 +354,7 @@ async function withoutSaga(ops: Op[]): Promise<void> {
 			done,
 			archived,
 			crashed: String(crashed),
-			unfinished: '—',
+			unfinished: '-',
 			...time
 		},
 		s
@@ -395,17 +395,17 @@ async function withSaga(ops: Op[], idempotent: boolean): Promise<void> {
 			name: `  … recovery from the log (${took})`,
 			done: after.done,
 			archived: after.compensated,
-			crashed: '—',
+			crashed: '-',
 			unfinished: String(after.started + after.reserved + after.compensating),
-			opsPerSec: '—',
-			p50: '—'
+			opsPerSec: '-',
+			p50: '-'
 		},
 		s
 	);
 	await closeServices(s);
 }
 
-// ── b. near the limit — no isolation ──
+// ── b. near the limit - no isolation ──
 
 async function nearLimit(
 	policy: 'reserve' | 'check',
@@ -420,7 +420,7 @@ async function nearLimit(
 	const no = (ws: number): void => {
 		rejected.set(ws, (rejected.get(ws) ?? 0) + 1);
 	};
-	// the same workspace's ATTEMPTS operations side by side in the list — so they run together
+	// the same workspace's ATTEMPTS operations side by side in the list - so they run together
 	await runWorkers(ops, cfg.ATTEMPTS * 4, async (op) => {
 		if (policy === 'reserve') {
 			// Saga: reserve first (counted in billing, before the task exists) → task → return it if archived
@@ -430,7 +430,7 @@ async function nearLimit(
 			else no(op.workspaceId);
 			return;
 		}
-		// check first ("is there room?"), then the task, then increment usage at the end — nothing is held in between
+		// check first ("is there room?"), then the task, then increment usage at the end - nothing is held in between
 		const r = await s.billing.query(
 			'SELECT task_count < task_limit AS ok FROM workspaces WHERE id = $1',
 			[op.workspaceId]
@@ -462,7 +462,7 @@ async function nearLimit(
 	const label =
 		policy === 'reserve' ? 'reserve → task → release (saga)' : 'check → task → count usage at end';
 	console.log(
-		`   ${label.padEnd(40)} ${pad(created, 5)} ${pad(policy === 'reserve' ? compensated : '—', 7)} ${pad(saidNo, 11)} ${pad(overWs, 14)} ${pad(extra, 11)} ${pad(falseNo, 15)}`
+		`   ${label.padEnd(40)} ${pad(created, 5)} ${pad(policy === 'reserve' ? compensated : '-', 7)} ${pad(saidNo, 11)} ${pad(overWs, 14)} ${pad(extra, 11)} ${pad(falseNo, 15)}`
 	);
 	await closeServices(s);
 }
@@ -480,7 +480,7 @@ async function main(): Promise<void> {
 	const archivedOps = ops.filter((o) => !o.crash && archivedIn(o.projectId)).length;
 
 	console.log(
-		`\n── A. ${cfg.OPS} "create task" — crash after writing to billing in ${crashes} (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${archivedOps} with an archived project, ${cfg.CONCURRENCY} concurrent ──`
+		`\n── A. ${cfg.OPS} "create task" - crash after writing to billing in ${crashes} (${(cfg.CRASH_RATE * 100).toFixed(0)}%), ${archivedOps} with an archived project, ${cfg.CONCURRENCY} concurrent ──`
 	);
 	console.log(
 		'   path                                       done  archived  crash   pending    tasks  counter   bad ws   result                  ops/s      p50'
@@ -501,7 +501,7 @@ async function main(): Promise<void> {
 			.map((o) => o.projectId)
 	);
 	console.log(
-		`\n── B. Near the limit: ${cfg.NEAR_WORKSPACES} workspaces, limit ${cfg.LIMIT}, ${cfg.USED} tasks already — ${cfg.ATTEMPTS} concurrent "create task" in each, ${archivedNear.size} with an archived project ──`
+		`\n── B. Near the limit: ${cfg.NEAR_WORKSPACES} workspaces, limit ${cfg.LIMIT}, ${cfg.USED} tasks already - ${cfg.ATTEMPTS} concurrent "create task" in each, ${archivedNear.size} with an archived project ──`
 	);
 	console.log(
 		'   rule                                      made  undone     refused  ws over limit       extra  false refusals'
@@ -509,7 +509,7 @@ async function main(): Promise<void> {
 	await nearLimit('reserve', near, archivedNear);
 	await nearLimit('check', near, archivedNear);
 	console.log(
-		'\n   (false refusals = at the end the workspace had room, yet it was told no — the room was held by a saga that later gave it back.)\n'
+		'\n   (false refusals = at the end the workspace had room, yet it was told no - the room was held by a saga that later gave it back.)\n'
 	);
 }
 

@@ -10,7 +10,7 @@ export class Sim {
 
 	at(time: number, run: () => void): void {
 		const item: Scheduled = { at: Math.max(time, this.now), seq: this.#seq++, run };
-		// binary search insert — thousands of events wait here at once
+		// binary search insert - thousands of events wait here at once
 		let lo = 0;
 		let hi = this.#queue.length;
 		while (lo < hi) {

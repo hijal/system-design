@@ -1,8 +1,8 @@
-# Lesson 10.7 — Cost & Cloud Economics
+# Lesson 10.7 - Cost & Cloud Economics
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
-> **Spaced Repetition (Lesson 1.3):** একটা system এর দিনের মোট request থেকে গড় QPS কীভাবে বের করুন, আর peak QPS এর আন্দাজ কীভাবে করুন? Server এর সংখ্যা কোনটা দিয়ে ঠিক হয় — গড় না peak? আজ দেখবেন, এই প্রশ্নের "peak" উত্তরটা সত্যি, কিন্তু সেটা ২৪ ঘণ্টা ধরে কিনে রাখলে একটা দাম আছে। TaskFlow এর ক্ষেত্রে সেই দামে কেনা capacity এর ৮০% পড়ে থাকে।
+> **Spaced Repetition (Lesson 1.3):** একটা system এর দিনের মোট request থেকে গড় QPS কীভাবে বের করুন, আর peak QPS এর আন্দাজ কীভাবে করুন? Server এর সংখ্যা কোনটা দিয়ে ঠিক হয় - গড় না peak? আজ দেখবেন, এই প্রশ্নের "peak" উত্তরটা সত্যি, কিন্তু সেটা ২৪ ঘণ্টা ধরে কিনে রাখলে একটা দাম আছে। TaskFlow এর ক্ষেত্রে সেই দামে কেনা capacity এর ৮০% পড়ে থাকে।
 
 **Prerequisite:** Lesson 1.3 (Estimation, peak বনাম গড়), Lesson 4.5 (CDN), Lesson 7.4 (Idempotent job), Lesson 7.6 (OLTP বনাম OLAP), Lesson 8.1 (Object storage এর দাম), Lesson 8.2 (Preview, CDN), Lesson 9.1 (Monolith বনাম service), Lesson 10.3 (AZ, static stability), Lesson 10.4 (Log আর metric এর আয়তন), Lesson 10.5 (DDoS), Lesson 10.6 (Blue-green, canary)
 
@@ -12,7 +12,7 @@
 2. Compute এর তিনটা হাতল আলাদা করে ব্যবহার করতে পারবেন: autoscale (ওঠানামার অংশ), commitment (সবসময় চলা অংশ, আর কতটা commit করবেন তার অঙ্ক), আর spot (বাধা সহ্য করতে পারা অংশ)। সাথে বলতে পারবেন একটা DDoS এর বিল কোথায় থামালে কত
 3. Data কোথায় থাকে আর কোথায় নড়ে, সেটা দিয়ে খরচ নকশা করতে পারবেন: storage tier আর lifecycle (ছোট object এর ফাঁদ সহ), log এর দাম কোথায়, NAT বনাম VPC endpoint, AZ জুড়ে traffic। আর cost কে একটা নজরদারির জিনিস বানাতে পারবেন, যাতে একটা ভুল মাসের শেষে না, পরের দিন ধরা পড়ে
 
-**Tier:** 1 — Runnable Code (চারটা deterministic cost model; cloud account বা Docker লাগে না)
+**Tier:** 1 - Runnable Code (চারটা deterministic cost model; cloud account বা Docker লাগে না)
 
 ---
 
@@ -40,15 +40,15 @@ Postmortem এ CTO এর এক লাইন: "আমরা latency এর budg
 
 ## ১. Theory
 
-### ১.১ বিলটা পড়া — cost এর চারটা চালক
+### ১.১ বিলটা পড়া - cost এর চারটা চালক
 
 Cloud এর প্রায় প্রতিটা দাম চারটা জিনিসের একটায় বাড়ে:
 
 ```
-সময়          instance-ঘণ্টা, NAT/LB/endpoint এর ঘণ্টা     — চালু থাকলেই, ব্যবহার হোক বা না হোক
-জমা          GB-মাস (disk, object, backup, log)          — যতদিন রাখুন
-নড়াচড়া      GB transfer (internet, AZ জুড়ে, NAT দিয়ে)   — যত bytes, যত বার, যে পথে
-ঘটনা         request (S3 GET/PUT, CDN, lifecycle)        — যত বার
+সময়          instance-ঘণ্টা, NAT/LB/endpoint এর ঘণ্টা     - চালু থাকলেই, ব্যবহার হোক বা না হোক
+জমা          GB-মাস (disk, object, backup, log)          - যতদিন রাখুন
+নড়াচড়া      GB transfer (internet, AZ জুড়ে, NAT দিয়ে)   - যত bytes, যত বার, যে পথে
+ঘটনা         request (S3 GET/PUT, CDN, lifecycle)        - যত বার
 ```
 
 Design এর প্রতিটা সিদ্ধান্ত এই চারটার কোনো একটা বা একাধিক সংখ্যা বদলায়। Exercise এর `npm run bill` TaskFlow এর পরিমাণ (৩০০ req/s, ৬০,০০০ MAU, ১৮ TB attachment, আগের lesson গুলোর সংখ্যা) আর একটা বড় public cloud এর আনুমানিক তালিকা মূল্য দিয়ে মাসিক বিল বানায়। দাম গুলো 8.1 এর সংখ্যার সাথে মেলানো, আর env দিয়ে বদলানো যায়। দাম বদলায়, তাই ডলারের চেয়ে লাইনগুলোর **অনুপাত** দেখুন:
@@ -74,9 +74,9 @@ backup snapshot                                 $570    2.2%      $285      $285
 background worker                               $561    2.1%      $196      $364                        spot (job idempotent, 7.4)
 cross-AZ: app → database                        $415    1.6%    $82.94      $332                        a read replica in every AZ
 trace collector                                 $280    1.1%      $140      $140                                       right-sized
-load balancer                                   $200    0.8%      $200        $0                                                 —
-S3 request                                    $45.00    0.2%    $45.00        $0                                                 —
-trace storage (tail sampling)                  $9.00    0.0%     $9.00        $0                                                 —
+load balancer                                   $200    0.8%      $200        $0                                                 -
+S3 request                                    $45.00    0.2%    $45.00        $0                                                 -
+trace storage (tail sampling)                  $9.00    0.0%     $9.00        $0                                                 -
 VPC interface endpoint (image pull)               $0    0.0%    $57.90   −$57.90                                    instead of NAT
 total                                        $26,290    100%    $8,276   $18,014                                          69% less
 
@@ -92,20 +92,20 @@ per unit:  per workspace $13.15 → $4.14 · per MAU $0.438 → $0.138 · per 1 
 
 আর "পরে" কলামের প্রতিটা সংখ্যার পেছনে একটা trade-off আছে। সেটা ১.৭ এ।
 
-### ১.২ Unit economics — কে কত খরচ করে
+### ১.২ Unit economics - কে কত খরচ করে
 
 $২৬,২৯০ একটা সংখ্যা। সিদ্ধান্ত নেওয়ার জন্য সেটাকে ভাগ করতে হয়।
 
-**Unit Economics** — মোট খরচকে ব্যবসার একটা একক দিয়ে ভাগ করা: প্রতি customer, প্রতি workspace, প্রতি seat, প্রতি request, প্রতি GB। তারপর সেই এককের আয়ের সাথে তুলনা। মোট বিল বলে "কত", unit cost বলে "এটা কি টেকসই, আর বাড়লে কী হবে"। বিল দ্বিগুণ হলো কিন্তু প্রতি workspace এর খরচ একই থাকল মানে ব্যবসা বেড়েছে। প্রতি workspace এর খরচ দ্বিগুণ হলো মানে কিছু একটা ভেঙেছে।
+**Unit Economics** - মোট খরচকে ব্যবসার একটা একক দিয়ে ভাগ করা: প্রতি customer, প্রতি workspace, প্রতি seat, প্রতি request, প্রতি GB। তারপর সেই এককের আয়ের সাথে তুলনা। মোট বিল বলে "কত", unit cost বলে "এটা কি টেকসই, আর বাড়লে কী হবে"। বিল দ্বিগুণ হলো কিন্তু প্রতি workspace এর খরচ একই থাকল মানে ব্যবসা বেড়েছে। প্রতি workspace এর খরচ দ্বিগুণ হলো মানে কিছু একটা ভেঙেছে।
 
 TaskFlow এর প্রতি workspace মাসে $১৩.১৫। কিন্তু workspace গুলো এক না। `npm run bill` অংশ খ এ বিলটা plan ধরে ভাগ করা হয়েছে। কোনো খরচ সরাসরি plan এ লেখা থাকে না, তাই প্রতিটা লাইন ভাগ হয় তার **চালক** ধরে: compute, DB আর cache request এর অনুপাতে; storage আর backup GB এর অনুপাতে; attachment এর egress GB এ; staging আর load balancer seat এ।
 
-**Cost Allocation** — যে খরচ ভাগ করা (shared) আর কোনো একজনের নামে লেখা না, তাকে চালক ধরে দল, product, plan বা customer এর মধ্যে ভাগ করা। Cloud এ resource এর tag (`team=billing`, `env=staging`) এর ভিত্তি। ভাগ দেখানো হলে **showback**, আসলে টাকা কাটা হলে **chargeback**।
+**Cost Allocation** - যে খরচ ভাগ করা (shared) আর কোনো একজনের নামে লেখা না, তাকে চালক ধরে দল, product, plan বা customer এর মধ্যে ভাগ করা। Cloud এ resource এর tag (`team=billing`, `env=staging`) এর ভিত্তি। ভাগ দেখানো হলে **showback**, আসলে টাকা কাটা হলে **chargeback**।
 
 ```
 plan                          workspace    seat   revenue      cost    margin  cost / seat  cost / workspace
-free                             1,399  25,000        $0    $8,161         —      $0.326             $5.83
-free: one school district            1   3,000        $0    $1,528         —      $0.509            $1,528
+free                             1,399  25,000        $0    $8,161         -      $0.326             $5.83
+free: one school district            1   3,000        $0    $1,528         -      $0.509            $1,528
 pro                                500  15,000   $90,000    $7,695       91%      $0.513            $15.39
 business                           100  17,000  $170,000    $8,907       95%      $0.524            $89.07
 ```
@@ -128,7 +128,7 @@ POST /boards/:id/export           60,000      $0.011       $10,920      $655    
 
 Export: call এর ০.০১৩%, পরিবর্তনশীল খরচের ২৫%। একটা export এর খরচ একটা board খোলার **২,৩০০ গুণ**, কারণ সে ২০০টা file S3 থেকে NAT দিয়ে আনে, zip করে, আর ৮০ MB বাইরে পাঠায়। এর মানে এই না যে export খারাপ। এর মানে export এর জন্য আলাদা নিয়ম লাগে: rate limit (9.5 এ export ছিল দিনে ৩টা), background job (7.3), আর NAT এর বদলে endpoint (১.৫)। আর interview এ "এই feature এর দাম কত হবে" প্রশ্নের উত্তর এভাবেই শুরু হয়: একটা call এর resource, গুণ call এর সংখ্যা।
 
-### ১.৩ Compute — peak, গড়, আর তিনটা হাতল
+### ১.৩ Compute - peak, গড়, আর তিনটা হাতল
 
 **Spaced repetition এর উত্তর:** গড় QPS = দিনের request ÷ ৮৬,৪০০। Peak সাধারণত গড়ের ২–৩ গুণ ধরে নেওয়া হয় (1.3), আর server এর সংখ্যা ঠিক হয় **peak** দিয়ে, কারণ peak এ capacity না থাকলে user রা ভোগে। কথাটা ঠিক। কিন্তু peak থাকে দিনের কয়েক ঘণ্টা, আর সপ্তাহের পাঁচ দিন। বাকি সময় সেই capacity এর দাম দিয়ে যাচ্ছেন।
 
@@ -147,13 +147,13 @@ reactive, 70% spot                                  7.6          $942         53
 - **Scheduled + reactive:** জানা ছক (দুপুরের চূড়া) আগে থেকে ৫ মিনিট এগিয়ে চালু করা। চাপ প্রায় অর্ধেক (৮,৭১৩ বনাম ১৫,২৫২টা উপচানো request), খরচ ৫% বেশি। Marketing email টা জানা ছিল (marketing team জানত!)। Calendar এ রাখলে সেটাও scheduled হতো। Cost আর reliability এর মাঝে একটা সস্তা সেতু: team গুলোর মধ্যে কথা।
 - **Spot:** একই autoscale, কিন্তু ৭০% instance spot।
 
-**Spot Instance** — cloud provider এর অব্যবহৃত capacity, অনেক কম দামে (প্রায়ই on-demand এর ২০–৪০%), এই শর্তে যে provider সেটা অল্প নোটিশে (AWS এ ২ মিনিট) ফেরত নিতে পারে। ফেরত নেওয়া সহ্য করতে পারে এমন কাজের জন্য: stateless, idempotent, ছোট কাজ (7.4 এর worker, batch, CI)। একটা দাম বা একটা AZ এর উপর পুরো নির্ভর করা চলে না, তাই কয়েক ধরনের instance আর কয়েকটা AZ এ ছড়ানো হয়।
+**Spot Instance** - cloud provider এর অব্যবহৃত capacity, অনেক কম দামে (প্রায়ই on-demand এর ২০–৪০%), এই শর্তে যে provider সেটা অল্প নোটিশে (AWS এ ২ মিনিট) ফেরত নিতে পারে। ফেরত নেওয়া সহ্য করতে পারে এমন কাজের জন্য: stateless, idempotent, ছোট কাজ (7.4 এর worker, batch, CI)। একটা দাম বা একটা AZ এর উপর পুরো নির্ভর করা চলে না, তাই কয়েক ধরনের instance আর কয়েকটা AZ এ ছড়ানো হয়।
 
 Spot এ খরচ আরও ১২% কম। Experiment ২ এ interruption এর হার ১৫ গুণ করলে (ঘণ্টায় প্রতি instance ৩০%) সপ্তাহে ৮৩বার instance হারায়, কিন্তু চাপের মিনিট একই, ৪। আবার সেই ৪০% headroom, আর ৩টা on-demand এর ভিত। Spot নিরাপদ হয় headroom আর stateless নকশা থেকে, ভাগ্য থেকে না।
 
 **Commitment।** Autoscale এর পরেও একটা অংশ সবসময় চলে: রাত ৩টাতেও কয়েকটা instance। এই অংশে দ্বিতীয় হাতল:
 
-**Commitment Discount** — এক বা তিন বছরের জন্য একটা নির্দিষ্ট পরিমাণ ব্যবহারের (ঘণ্টায় এত instance, বা ঘণ্টায় এত ডলার) প্রতিশ্রুতি দিয়ে ছাড় পাওয়া। AWS এ Reserved Instance আর Savings Plan, অন্য cloud এ committed use discount, সাধারণত ৩০–৬০%। ব্যবহার হোক বা না হোক, দাম দিতে হয়। তাই প্রশ্ন হলো **কতটা** commit করবেন।
+**Commitment Discount** - এক বা তিন বছরের জন্য একটা নির্দিষ্ট পরিমাণ ব্যবহারের (ঘণ্টায় এত instance, বা ঘণ্টায় এত ডলার) প্রতিশ্রুতি দিয়ে ছাড় পাওয়া। AWS এ Reserved Instance আর Savings Plan, অন্য cloud এ committed use discount, সাধারণত ৩০–৬০%। ব্যবহার হোক বা না হোক, দাম দিতে হয়। তাই প্রশ্ন হলো **কতটা** commit করবেন।
 
 অংশ খ তে reactive এর ঘণ্টা ধরে ব্যবহার, ছাড় ৩৫% (এক বছরের আন্দাজ):
 
@@ -176,16 +176,16 @@ commit (instance)   cost / month  vs on-demand        % of hours with use ≥ co
 instance
   ▲         ╭╮ spike
   │        ╭╯╰╮              ← on-demand (autoscale এর ওঠানামা)
-  │   ╭───╯   ╰───╮          ← spot (worker, batch — বাধা সহ্য করে)
+  │   ╭───╯   ╰───╮          ← spot (worker, batch - বাধা সহ্য করে)
   │──╯────────────╰────── ← commitment (সবসময় চলা ভিত, "ব্যবহার ≥ c সময়ের > ১ − ছাড়")
   └──────────────────────► সময়
 ```
 
-### ১.৪ Storage — tier, lifecycle, আর "সস্তা" এর ফাঁদ
+### ১.৪ Storage - tier, lifecycle, আর "সস্তা" এর ফাঁদ
 
 8.1 এ দেখেছিলেন, object storage database এর disk এর চেয়ে অনেক সস্তা। এবার object storage এর ভেতরেও tier আছে।
 
-**Storage Tiering** — data কে তার বয়স আর ব্যবহার ধরে আলাদা দামের class এ রাখা। ঘন ঘন পড়া data দামি-দ্রুত class এ (S3 Standard), কম পড়া data সস্তা class এ (Infrequent Access, Glacier)। আর সরানোটা **lifecycle rule** দিয়ে স্বয়ংক্রিয়। সস্তা class এর প্রতি GB-মাস কম, কিন্তু তারা পড়ার জন্য (retrieval), সরানোর জন্য (transition request), আর ছোট বা স্বল্পায়ু object এর জন্য (ন্যূনতম আকার আর মেয়াদ) আলাদা দাম নেয়।
+**Storage Tiering** - data কে তার বয়স আর ব্যবহার ধরে আলাদা দামের class এ রাখা। ঘন ঘন পড়া data দামি-দ্রুত class এ (S3 Standard), কম পড়া data সস্তা class এ (Infrequent Access, Glacier)। আর সরানোটা **lifecycle rule** দিয়ে স্বয়ংক্রিয়। সস্তা class এর প্রতি GB-মাস কম, কিন্তু তারা পড়ার জন্য (retrieval), সরানোর জন্য (transition request), আর ছোট বা স্বল্পায়ু object এর জন্য (ন্যূনতম আকার আর মেয়াদ) আলাদা দাম নেয়।
 
 `npm run storage` অংশ ক, ২৪ মাস: শুরুতে ১৮ TB attachment আর ১৪ TB পুরনো version (8.1 এর versioning, lifecycle ছাড়া), মাসে ১.২ TB নতুন (+৩%/মাস)। File গুলো প্রথম মাসে অনেক পড়া হয়, তারপর প্রায় না। গুনতিতে ৬০% ছোট object (thumbnail, avatar, ~৪০ KB), কিন্তু bytes এ মাত্র ২.৯%:
 
@@ -230,9 +230,9 @@ all in Postgres (4 copies + backup)                 $644    $1,410           $24
 
 ৫.৮ এর partition আর ৭.৬ এর OLAP এর যুক্তি, এবার টাকায়: ৯০ দিনের পুরনো partition `DETACH` করে Parquet এ (৬ গুণ সংকুচিত) S3 এ, আর DuckDB বা Athena এর মতো কিছু দিয়ে পড়া। দাম দশ ভাগের এক ভাগ, আর database ছোট থাকে। ছোট database মানে দ্রুত backup, দ্রুত restore, দ্রুত replica তৈরি (10.3)। Cost আর reliability এখানে একই দিকে।
 
-### ১.৫ Data Transfer — bytes কোথায় নড়ে
+### ১.৫ Data Transfer - bytes কোথায় নড়ে
 
-**Data Transfer Cost** — bytes এক জায়গা থেকে আরেক জায়গায় যাওয়ার দাম, পথ ধরে আলাদা। Internet এ যাওয়া (egress) সবচেয়ে দামি। একই region এ AZ পেরোনো (প্রতি GB দুই দিকেই), NAT gateway দিয়ে যাওয়া (প্রতি GB processing), region পেরোনো (10.8) — প্রতিটার আলাদা দাম। Region এর ভেতরে আসা (ingress) আর একই AZ এর ভেতরে সাধারণত বিনা মূল্যে। বিলে এগুলো প্রায়ই বিভিন্ন নামে ছড়িয়ে থাকে, তাই চোখে পড়ে না।
+**Data Transfer Cost** - bytes এক জায়গা থেকে আরেক জায়গায় যাওয়ার দাম, পথ ধরে আলাদা। Internet এ যাওয়া (egress) সবচেয়ে দামি। একই region এ AZ পেরোনো (প্রতি GB দুই দিকেই), NAT gateway দিয়ে যাওয়া (প্রতি GB processing), region পেরোনো (10.8) - প্রতিটার আলাদা দাম। Region এর ভেতরে আসা (ingress) আর একই AZ এর ভেতরে সাধারণত বিনা মূল্যে। বিলে এগুলো প্রায়ই বিভিন্ন নামে ছড়িয়ে থাকে, তাই চোখে পড়ে না।
 
 `npm run traffic` অংশ ক, egress:
 
@@ -258,7 +258,7 @@ everything through NAT, one NAT per AZ    64.5 TB     $3,001  today's TaskFlow
 + an interface endpoint for images               900 GB       $197  hourly + per GB, less than NAT
 + smaller images (500 → 150 MB)                 900 GB       $172  multi-stage build, runtime only
 everything through NAT, but one NAT for three AZs  64.5 TB     $3,795  fewer NAT hours, more cross-AZ, a SPOF in one AZ
-with endpoints, one NAT for three AZs           900 GB       $143  cheap — but if that AZ dies, nothing gets out
+with endpoints, one NAT for three AZs           900 GB       $143  cheap - but if that AZ dies, nothing gets out
 ```
 
 S3 এর জন্য একটা **gateway endpoint** (VPC এর route table এ একটা লাইন, বিনা মূল্যে) মাসে ~$২,৭০০ বাঁচায়। TaskFlow এর বিলের সবচেয়ে সস্তা জয়। আর শেষ দুটো সারি একটা ফাঁদ দেখায়। "তিনটা NAT এর বদলে একটা" শুনতে সাশ্রয়ী, কিন্তু অন্য দুই AZ এর traffic কে NAT এর AZ এ যেতে হয় (cross-AZ এর দাম), তাই বেশি traffic এ সেটা **বেশি** দামি ($৩,৭৯৫)। Endpoint এর পরে traffic কম, তখন একটা NAT সত্যিই সস্তা ($১৪৩ বনাম $১৯৭)। কিন্তু 10.3 এর ভাষায়, সেই AZ মরলে বাকি দুই AZ এর বাইরে যাওয়ার পথ বন্ধ: Stripe, email provider, সব। মাসে $৫৪ বাঁচাতে একটা AZ এর outage কে পুরো system এর outage বানানো। এটা cost আর reliability এর একটা খাঁটি বিনিময়, আর উত্তর নির্ভর করে বাইরের call গুলো hard না soft dependency কিনা তার উপর।
@@ -275,7 +275,7 @@ services, same AZ first (AZ-aware)       34.7 TB       $695  10% to another AZ (
 
 9.1 এর "network call function call না" এর আরেকটা মাত্রা: সে টাকাও নেয়। Load balancer যদি AZ না দেখে পাঠায়, তিনটা AZ এ দুই-তৃতীয়াংশ call অন্য AZ এ যায়, আর প্রতি GB দুই দিকেই দাম। Experiment ৪: প্রতি request এ ২০টা call হলে $৬,৬৩৬, monolith এর ১৬ গুণ। **AZ-aware routing** (একই AZ এর instance আগে, না থাকলে অন্য AZ) এটা দুই-তৃতীয়াংশ কাটে। Kubernetes এ topology-aware routing, service mesh এ locality-weighted load balancing। আর এর একটা reliability এর দামও আছে: এক AZ এ traffic বেশি এলে সেই AZ এর instance গুলো চাপে পড়ে, যদিও অন্য AZ খালি। তাই এই routing এর সাথে প্রতিটা AZ এর আলাদা autoscale আর একটা সীমা লাগে ("নিজের AZ এর instance ৮০% এর বেশি ব্যস্ত হলে অন্য AZ এ পাঠান")। (Latency ও কমে, কারণ একই AZ এর ভেতরে round trip সাধারণত কম। এখানে মাপা না।)
 
-### ১.৬ নিরাপত্তা আর দৃশ্যমানতার দাম — আর একটা DDoS এর বিল
+### ১.৬ নিরাপত্তা আর দৃশ্যমানতার দাম - আর একটা DDoS এর বিল
 
 10.4 আর 10.5 এ বেশ কয়েকবার বলেছিলাম "এর দাম আছে"। এবার সংখ্যায়।
 
@@ -293,7 +293,7 @@ block / challenge at the edge (1 KB answer)                   0        $0       
 
 একটা চার ঘণ্টার আক্রমণ, বিল $৭২১ থেকে $৩,৩৫৭, নির্ভর করে কোথায় থামালে। Autoscale এর সীমা ছাড়া system টা আক্রমণকে **খুশি মনে সেবা দেয়**, আর বিল পাঠায়। (বাস্তবে database অনেক আগেই ভেঙে পড়ত, 10.3।) সীমা ৪০ এ বিল $১৪৭, কিন্তু origin আক্রমণে ভরা, তাই বৈধ user দের বেশিরভাগ request ও ব্যর্থ (10.5 এর অংশ গ)। CDN cache থেকে উত্তর দিলে origin বাঁচে, কিন্তু CDN এর egress আর request এর fee দিতে হয়। সবচেয়ে সস্তা হলো আক্রমণকে **ছোট** উত্তর দেওয়া, edge এ। আর একটা জিনিস এখানে তালিকা মূল্যে ধরা নেই: অনেক CDN আর DDoS সুরক্ষার service আক্রমণের traffic এর বিল মাফ করে বা আলাদা চুক্তিতে রাখে। তাদের শর্ত দেখুন (এখানে যাচাই করা না)। শিক্ষা: **autoscaling এর একটা উপরের সীমা একটা cost এর নিয়ন্ত্রণ**, যেমন 10.3 এর bulkhead একটা reliability এর নিয়ন্ত্রণ।
 
-### ১.৭ Cost কে নজরে রাখা — anomaly, মালিক, আর trade-off
+### ১.৭ Cost কে নজরে রাখা - anomaly, মালিক, আর trade-off
 
 TaskFlow এর budget alert ছিল: মাসের বিল $৩০,০০০ ছাড়ালে email। সেটা ছয় মাসে একবারও বাজেনি। অথচ বিল আড়াই গুণ হয়েছে। কেন?
 
@@ -307,7 +307,7 @@ total daily > 7-day average × 1.2               missed      1 day later        
 each category daily > its own 7-day average × 1.5  1 day later     1 day later                    0
 ```
 
-**Cost Anomaly Detection** — বিলকে মাসের শেষে একটা সংখ্যা হিসেবে না দেখে, দৈনিক (বা ঘণ্টায়) একটা সময়-সারি হিসেবে দেখা, ভাগ ধরে (service, team, লাইন), আর প্রতিটাকে তার নিজের ইতিহাসের সাথে তুলনা করা। মোট বিলে ছোট একটা লাফ হারিয়ে যায়; তার নিজের ভাগে সেটা দশ গুণ।
+**Cost Anomaly Detection** - বিলকে মাসের শেষে একটা সংখ্যা হিসেবে না দেখে, দৈনিক (বা ঘণ্টায়) একটা সময়-সারি হিসেবে দেখা, ভাগ ধরে (service, team, লাইন), আর প্রতিটাকে তার নিজের ইতিহাসের সাথে তুলনা করা। মোট বিলে ছোট একটা লাফ হারিয়ে যায়; তার নিজের ভাগে সেটা দশ গুণ।
 
 চেনা লাগছে? 10.4 এ গড় latency p99 লুকিয়েছিল। 10.6 এ মোট error rate segment এর bug লুকিয়েছিল। এখানে মোট বিল একটা লাইনের দশ গুণ বৃদ্ধি লুকায়। Debug log মোট বিলে ৮%, মাসের budget এ কখনো ধরা পড়ে না। কিন্তু log এর নিজের লাইনে সে **৩০ গুণ** (দিনে $০.৭৭ থেকে $২৩), আর ভাগ ধরে দেখা detector পরের দিনই ধরে। আর বড় ঘটনাটাও (export loop) মাসিক budget এ ধরা পড়ে **৬ দিন** পরে, মানে $১,৬০০ পরে। যে alert মাসে একবার একটা সংখ্যা দেখে, সে আসলে একটা হিসাব, নজরদারি না।
 
@@ -320,8 +320,8 @@ each category daily > its own 7-day average × 1.5  1 day later     1 day later 
 | Staging ¼ মাপে, শুধু কাজের সময় | $৪,২৮১       | Load test আর বাস্তবের মিল; রাতের job এর পরীক্ষা                 | প্রায় সবসময়; load test এর জন্য আলাদা, অস্থায়ী env |
 | S3 gateway endpoint             | ~$২,৭০০      | প্রায় কিছুই না                                                 | সবসময়                                               |
 | Autoscale (স্থিরের বদলে)        | $১,৯৩৪       | Spike এর শুরুতে কয়েক মিনিট চাপ; নতুন instance এর boot এর ঝুঁকি | যখন traffic ওঠানামা করে আর boot দ্রুত                |
-| Commitment                      | ~১৯% compute | নমনীয়তা — ১–৩ বছর বাঁধা                                        | সবসময় চলা ভিতে, একটু কম commit                      |
-| Spot (worker)                   | $৩৬৪         | Interruption — idempotent, ছোট job না হলে ক্ষতি                 | 7.4 এর worker, batch, CI                             |
+| Commitment                      | ~১৯% compute | নমনীয়তা - ১–৩ বছর বাঁধা                                        | সবসময় চলা ভিতে, একটু কম commit                      |
+| Spot (worker)                   | $৩৬৪         | Interruption - idempotent, ছোট job না হলে ক্ষতি                 | 7.4 এর worker, batch, CI                             |
 | AZ-aware routing                | $১,৫৮৬       | AZ এর মধ্যে ভারসাম্য; একটা AZ এ চাপ জমতে পারে                   | যখন ভেতরের call বেশি                                 |
 | একটাই NAT                       | $৫৪          | এক AZ মরলে সবার বাইরে যাওয়া বন্ধ                               | প্রায় কখনো না, production এ                         |
 | Log sample, ১৪ দিন              | $৮২৩         | পুরনো আর বিরল ঘটনার log                                         | error আর ধীর সবসময় রাখলে                            |
@@ -331,7 +331,7 @@ each category daily > its own 7-day average × 1.5  1 day later     1 day later 
 
 ### ১.৮ TaskFlow এর সিদ্ধান্ত
 
-> **Trade-off Table — cost এর তিনটা প্রশ্ন, প্রতিটা নকশায়**
+> **Trade-off Table - cost এর তিনটা প্রশ্ন, প্রতিটা নকশায়**
 
 | প্রশ্ন                     | কোথায় দেখবেন                        | TaskFlow এ কী বদলাল                                    |
 | -------------------------- | ------------------------------------ | ------------------------------------------------------ |
@@ -362,11 +362,11 @@ Cost প্রায় কখনো আলাদা প্রশ্ন হয�
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Reserved/savings plan কতটা কিনবেন?"_ — সবসময় চলা ভিতের জন্য। নিয়ম: যেখানে ব্যবহার `(১ − ছাড়)` এর বেশি সময় থাকে। TaskFlow এ ৩৫% ছাড়ে ৫টা, যেখানে গড় ৭.৬। আর নমনীয় ধরন বাছুন।
-- _"Spot কোথায়?"_ — Stateless, idempotent, বাধা সহ্য করে এমন কাজে: worker, batch, CI। Headroom আর কয়েক ধরনের instance এর সাথে। Database বা একমাত্র instance এ না।
-- _"Microservices কি দামি?"_ — প্রতিটা ভেতরের call এর network এর দাম আছে, AZ পেরোলে আরও। AZ-aware routing, কম আর মোটা call। আর প্রতিটা service এর ন্যূনতম capacity, monitoring আর মানুষের দাম।
-- _"Data কোথায় রাখবেন?"_ — বয়স আর ব্যবহার ধরে tier, lifecycle দিয়ে। আর তিনটা লুকানো দাম জানেন: ন্যূনতম object আকার, transition request, retrieval।
-- _"Serverless কি সস্তা?"_ — কম বা অনিয়মিত traffic এ হ্যাঁ, কারণ অলস সময়ের দাম নেই। স্থির, বেশি traffic এ প্রায়ই না, কারণ প্রতি request এর দাম instance এর চেয়ে বেশি। দুটো রেখা আঁকুন আর কোথায় কাটে বলুন। (এখানে মাপা না।)
+- _"Reserved/savings plan কতটা কিনবেন?"_ - সবসময় চলা ভিতের জন্য। নিয়ম: যেখানে ব্যবহার `(১ − ছাড়)` এর বেশি সময় থাকে। TaskFlow এ ৩৫% ছাড়ে ৫টা, যেখানে গড় ৭.৬। আর নমনীয় ধরন বাছুন।
+- _"Spot কোথায়?"_ - Stateless, idempotent, বাধা সহ্য করে এমন কাজে: worker, batch, CI। Headroom আর কয়েক ধরনের instance এর সাথে। Database বা একমাত্র instance এ না।
+- _"Microservices কি দামি?"_ - প্রতিটা ভেতরের call এর network এর দাম আছে, AZ পেরোলে আরও। AZ-aware routing, কম আর মোটা call। আর প্রতিটা service এর ন্যূনতম capacity, monitoring আর মানুষের দাম।
+- _"Data কোথায় রাখবেন?"_ - বয়স আর ব্যবহার ধরে tier, lifecycle দিয়ে। আর তিনটা লুকানো দাম জানেন: ন্যূনতম object আকার, transition request, retrieval।
+- _"Serverless কি সস্তা?"_ - কম বা অনিয়মিত traffic এ হ্যাঁ, কারণ অলস সময়ের দাম নেই। স্থির, বেশি traffic এ প্রায়ই না, কারণ প্রতি request এর দাম instance এর চেয়ে বেশি। দুটো রেখা আঁকুন আর কোথায় কাটে বলুন। (এখানে মাপা না।)
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ ঘটনাগুলো: prod এর মাপের staging, ২৪/৭। NAT দিয়ে S3 বা container image এর traffic। Cross-AZ এর call যা কেউ জানে না। Lifecycle ছাড়া versioning। Debug log আর অপ্রয়োজনীয় metric label। মোছা হয়নি এমন snapshot, volume, load balancer, IP (মোছা instance এর উচ্ছিষ্ট)। Autoscale এর সর্বোচ্চ সীমা ছাড়া একটা loop। আর মাসিক budget alert, যা একমাত্র নজরদারি।
 
@@ -394,7 +394,7 @@ Cost প্রায় কখনো আলাদা প্রশ্ন হয�
 | **Spot Instance**          | Provider এর অব্যবহৃত capacity, অনেক কম দামে, অল্প নোটিশে ফেরত নেওয়া যায়; stateless, idempotent, বাধা সহ্য করে এমন কাজে (worker, batch, CI), headroom আর কয়েক ধরনের instance সহ         |
 | **Data Transfer Cost**     | Bytes এর পথ ধরে দাম: internet এ egress সবচেয়ে দামি, AZ পেরোনো দুই দিকেই, NAT দিয়ে প্রতি GB processing, region পেরোনো আলাদা; ingress আর একই AZ সাধারণত বিনা মূল্যে                       |
 | **Storage Tiering**        | Data কে বয়স আর ব্যবহার ধরে দামি-দ্রুত থেকে সস্তা-ধীর class এ সরানো, lifecycle rule দিয়ে; সস্তা class এর লুকানো দাম: ন্যূনতম object আকার আর মেয়াদ, transition request, retrieval        |
-| **Cost Anomaly Detection** | বিলকে দৈনিক সময়-সারি হিসেবে, ভাগ ধরে (service, team, লাইন) দেখা, প্রতিটাকে নিজের ইতিহাসের সাথে তুলনা; মোট বিলে হারানো ছোট লাফ নিজের ভাগে বড় — মাসিক budget alert নজরদারি না, হিসাব      |
+| **Cost Anomaly Detection** | বিলকে দৈনিক সময়-সারি হিসেবে, ভাগ ধরে (service, team, লাইন) দেখা, প্রতিটাকে নিজের ইতিহাসের সাথে তুলনা; মোট বিলে হারানো ছোট লাফ নিজের ভাগে বড় - মাসিক budget alert নজরদারি না, হিসাব      |
 
 ---
 
@@ -417,12 +417,12 @@ Cost প্রায় কখনো আলাদা প্রশ্ন হয�
 
 ```
 email provider:   1.8M ÷ 1,000 × $0.10                          = $180
-DB (replica):     1.8M × 50 ms = 90,000 s CPU-ish ≈ 25 ঘণ্টা — replica তে আগে থেকেই খালি ক্ষমতা থাকলে ~$0;
+DB (replica):     1.8M × 50 ms = 90,000 s CPU-ish ≈ 25 ঘণ্টা - replica তে আগে থেকেই খালি ক্ষমতা থাকলে ~$0;
                   না থাকলে সকালে একটা চূড়া: 60,000 query কে ১ ঘণ্টায় ছড়ালে ~17 query/s, সহজ
 render (worker):  1.8M × 20 ms = 10 ঘণ্টা worker → spot এ ~$1
 egress:           email provider এ পাঠানো 1.8M × 20 KB = 36 GB × $0.09 (NAT দিয়ে গেলে +$0.045) ≈ $5
 log:              প্রতি email এ একটা লাইন, 1.8M × 350 B = 0.6 GB × $0.5 ≈ $0.3
-মোট ≈ $190 / মাস — প্রায় পুরোটা email provider
+মোট ≈ $190 / মাস - প্রায় পুরোটা email provider
 ```
 
 সবচেয়ে বড় চালক **ঘটনা** (email এর সংখ্যা), compute না। এটা একটা সাধারণ ছবি: বাইরের API (email, SMS, push, LLM) প্রতি call এর দাম নেয়, আর সেটাই খরচের আকৃতি ঠিক করে।
@@ -433,7 +433,7 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 - Free plan এ সাপ্তাহিক digest, paid এ দৈনিক। খরচ free এ ৭ ভাগের এক ভাগ, আর upgrade এর একটা কারণ।
 - User নিজে বন্ধ করতে পারে (আর না খোলা email ৩০ দিন পরে নিজে বন্ধ)।
 
-(গ) Alert: digest এর দৈনিক সংখ্যা, আর email provider এর দৈনিক খরচ, নিজের ৭ দিনের গড়ের সাথে (১.৭ এর detector)। একটা ভালো alert হলো "পাঠানো email ÷ MAU > ১.১" — প্রতি user এ একটার বেশি মানে কিছু ভুল। রাতারাতি দশ গুণ করার bug: **retry এ duplicate** — job টা ব্যর্থ হয়ে আবার চলে, আর idempotency ছাড়া (7.4) প্রতিটা retry আবার সবাইকে পাঠায়। বা একটা loop যা প্রতি workspace এর প্রতি member কে প্রতি board এর জন্য আলাদা email পাঠায়। Idempotency key (`digest:{userId}:{date}`) আর একটা দৈনিক উপরের সীমা ("আজ ১,০০,০০০ এর বেশি না") দুটোই লাগে।
+(গ) Alert: digest এর দৈনিক সংখ্যা, আর email provider এর দৈনিক খরচ, নিজের ৭ দিনের গড়ের সাথে (১.৭ এর detector)। একটা ভালো alert হলো "পাঠানো email ÷ MAU > ১.১" - প্রতি user এ একটার বেশি মানে কিছু ভুল। রাতারাতি দশ গুণ করার bug: **retry এ duplicate** - job টা ব্যর্থ হয়ে আবার চলে, আর idempotency ছাড়া (7.4) প্রতিটা retry আবার সবাইকে পাঠায়। বা একটা loop যা প্রতি workspace এর প্রতি member কে প্রতি board এর জন্য আলাদা email পাঠায়। Idempotency key (`digest:{userId}:{date}`) আর একটা দৈনিক উপরের সীমা ("আজ ১,০০,০০০ এর বেশি না") দুটোই লাগে।
 
 **প্রশ্ন ২:**
 
@@ -461,9 +461,9 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 
 ## ৬. Practical Exercise
 
-**Tier 1 — Runnable Code** (চারটা deterministic cost model; cloud account বা Docker লাগে না)
+**Tier 1 - Runnable Code** (চারটা deterministic cost model; cloud account বা Docker লাগে না)
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-10.7-cost/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.7-cost) — `npm install`, তারপর `npm run bill`, `npm run capacity`, `npm run storage`, `npm run traffic`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-10.7-cost/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.7-cost) - `npm install`, তারপর `npm run bill`, `npm run capacity`, `npm run storage`, `npm run traffic`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
 
 `bill` TaskFlow এর মাসিক বিল ২৩টা লাইনে বানায় (আগে আর পরে), plan আর endpoint ধরে ভাগ করে, আর ৬০ দিনের দৈনিক বিলে চারটা anomaly detector চালায়। `capacity` এক সপ্তাহের traffic এক মিনিট করে চালায় চারটা নীতিতে, commitment এর পরিমাণ খোঁজে, আর একটা DDoS এর বিল চার জায়গায় থামিয়ে মাপে। `storage` ২৪ মাসে attachment এর lifecycle, ছোট object এর ফাঁদ, log এর ঢোকানো বনাম রাখা, আর activity এর offload মাপে। `traffic` egress, NAT বনাম endpoint আর AZ জুড়ে traffic এর নকশা তুলনা করে। `bill` এর app এর লাইন `capacity` এর একই model থেকে আসে (`src/fleet.ts`)।
 
@@ -488,7 +488,7 @@ log:              প্রতি email এ একটা লাইন, 1.8M × 3
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1, 2, 3, 4, 5, 6, 7, 8, 9 (সম্পূর্ণ, exit challenge সহ), 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
-Current: 10.7 — Cost & cloud economics
+Current: 10.7 - Cost & cloud economics
 TaskFlow state: modular monolith + billing; gateway + BFF; saga; breaker + bulkhead; rate limit; cache ring;
 Bloom/HLL; hard/soft dependency + brownout; OpenTelemetry, burn rate alert; AuthN/AuthZ, OAuth PKCE, secret
 manager, DDoS এর স্তর; graceful shutdown, canary + gate, flag, expand/contract। বিল ছয় মাসে ~$১১k → $২৬,২৯০
@@ -501,7 +501,7 @@ S3 gateway endpoint + image endpoint, প্রতি AZ এ NAT রাখা; c
 ১৮০ দিন); activity ৯০ দিনের পরে Parquet এ S3; backup ১৪ দিন; log sample + ১৪ দিন; metric label পরিষ্কার।
 নজরদারি: team/service/env tag (CI তে বাধ্য), plan আর endpoint ধরে unit cost, ভাগ ধরে দৈনিক anomaly (নিজের
 ৭ দিনের গড় × ১.৫), budget forecast, autoscale এর সর্বোচ্চ সীমা, design review এ "মাসিক দাম আর চালক"।
-Free plan: school district একাই $১,৫২৮/মাস — storage আর seat এর সীমা product এর সিদ্ধান্ত।
+Free plan: school district একাই $১,৫২৮/মাস - storage আর seat এর সীমা product এর সিদ্ধান্ত।
 Terms learned (Module 10): Hash Ring, Virtual Node, Preference List, Rendezvous Hashing (HRW), Jump
 Consistent Hash, Bounded-Load Consistent Hashing, Hash Slot, Probabilistic Data Structure, Bloom Filter,
 False Positive Rate, Counting Bloom Filter, Cardinality, HyperLogLog, Count-Min Sketch, Fault Tolerance,
@@ -511,8 +511,8 @@ Authentication / Authorization, JWT, BOLA, Refresh Token Rotation, OAuth 2.0 + P
 Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canary Release, Feature Flag,
 Version Skew, Lock Queue, Expand / Contract, Unit Economics, Cost Allocation, Commitment Discount, Spot
 Instance, Data Transfer Cost, Storage Tiering, Cost Anomaly Detection
-Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
-Next: 10.8 — Multi-region & geo-distribution
+Weak spots: [আপনি যেখানে আটকেছিলেন - নিজে লিখুন]
+Next: 10.8 - Multi-region & geo-distribution
 =======================
 ```
 
@@ -522,4 +522,4 @@ Next: 10.8 — Multi-region & geo-distribution
 
 আজকের সুতোটা: **cost একটা requirement, আর বিলের প্রতিটা লাইন একটা design এর সিদ্ধান্ত যার দাম কেউ লেখেনি।** সবচেয়ে বড় লাইনগুলো আসে default আর অভ্যাস থেকে: staging, NAT, AZ জুড়ে call। খরচকে একক ধরে ভাগ করলে সিদ্ধান্ত নেওয়া যায়। Compute এর তিনটা হাতল তিনটা আলাদা অংশের জন্য। "সস্তা" class এর লুকানো দাম আছে। Bytes কোথায় নড়ে সেটাই প্রায়ই সবচেয়ে বড় বিস্ময়। আর মাসের শেষের একটা সংখ্যা নজরদারি না।
 
-আজ একটা দাম বারবার এসেছে কিন্তু আমরা তার পুরোটা দেখিনি: AZ পেরোনোর দাম। এক region এর তিনটা AZ এর মধ্যে, কয়েক মাইল দূরে, এক মিলিসেকেন্ডের round trip। এবার ভাবুন দুটো region, Dhaka আর Frankfurt, হাজার কিলোমিটার দূরে, প্রতি round trip এ ১৫০ ms। TaskFlow এর ইউরোপের একজন বড় customer বলেছে তাদের data ইউরোপের বাইরে যেতে পারবে না। আর Singapore এর user রা অভিযোগ করছে board খুলতে ৮০০ ms। রেডি হলে `next` লিখুন — **Lesson 10.8: Multi-Region & Geo-Distribution** এ যাব। সেখানে প্রশ্নটা: একটা system কে একাধিক region এ চালালে কী কী আবার কঠিন হয়ে যায় (consistency, লেখা কোথায় যাবে, failover, data কোথায় থাকবে), আর কখন সেটা দাম আর জটিলতার যোগ্য। আর কখন না।
+আজ একটা দাম বারবার এসেছে কিন্তু আমরা তার পুরোটা দেখিনি: AZ পেরোনোর দাম। এক region এর তিনটা AZ এর মধ্যে, কয়েক মাইল দূরে, এক মিলিসেকেন্ডের round trip। এবার ভাবুন দুটো region, Dhaka আর Frankfurt, হাজার কিলোমিটার দূরে, প্রতি round trip এ ১৫০ ms। TaskFlow এর ইউরোপের একজন বড় customer বলেছে তাদের data ইউরোপের বাইরে যেতে পারবে না। আর Singapore এর user রা অভিযোগ করছে board খুলতে ৮০০ ms। রেডি হলে `next` লিখুন - **Lesson 10.8: Multi-Region & Geo-Distribution** এ যাব। সেখানে প্রশ্নটা: একটা system কে একাধিক region এ চালালে কী কী আবার কঠিন হয়ে যায় (consistency, লেখা কোথায় যাবে, failover, data কোথায় থাকবে), আর কখন সেটা দাম আর জটিলতার যোগ্য। আর কখন না।

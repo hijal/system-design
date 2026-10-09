@@ -10,9 +10,9 @@ const base = `## ৯. Curriculum
 - 2.1 DNS
 ## ১০. Interaction Commands`;
 const sources = {
-	'/course/module-01/lesson-1.1-topic.md': '# Lesson 1.1 — Topic\n\nবাংলায় lesson content।',
-	'/course/module-01/lesson-1.1-topic.en.md': '# Lesson 1.1 — Topic\n\nEnglish lesson content.',
-	'/course/module-01/lesson-1.2-framework.md': '# Lesson 1.2 — Placeholder',
+	'/course/module-01/lesson-1.1-topic.md': '# Lesson 1.1 - Topic\n\nবাংলায় lesson content।',
+	'/course/module-01/lesson-1.1-topic.en.md': '# Lesson 1.1 - Topic\n\nEnglish lesson content.',
+	'/course/module-01/lesson-1.2-framework.md': '# Lesson 1.2 - Placeholder',
 	'/course/module-01/module-1-exit-challenge.md': '# Challenge\n\nDesign a system.'
 };
 describe('course discovery', () => {
@@ -101,32 +101,32 @@ describe('lesson rendering', () => {
 		const course = createCatalog(base, {
 			...sources,
 			'/course/module-01/lesson-1.1-topic.md':
-				'# Lesson 1.1 — Topic\n\n**আপনি এই lesson শেষে পারবেন:**\n\n1. **Trade-off** নিয়ে `কথা` বলতে পারবেন।\n2. দ্বিতীয়টা।',
+				'# Lesson 1.1 - Topic\n\n**আপনি এই lesson শেষে পারবেন:**\n\n1. **Trade-off** নিয়ে `কথা` বলতে পারবেন।\n2. দ্বিতীয়টা।',
 			'/course/module-01/lesson-1.1-topic.en.md':
-				'# Lesson 1.1 — Topic\n\n**By the end of this lesson you will be able to:**\n\n1. Explain [trade-offs](x.md) clearly\n2. Second',
+				'# Lesson 1.1 - Topic\n\n**By the end of this lesson you will be able to:**\n\n1. Explain [trade-offs](x.md) clearly\n2. Second',
 			'/course/module-01/module-1-exit-challenge.md':
-				'# Challenge\n\n**Module 1 — Fundamentals**\n\n---\n\nসব lesson শেষ, এবার **একসাথে** design।\n\n## ১. Task'
+				'# Challenge\n\n**Module 1 - Fundamentals**\n\n---\n\nসব lesson শেষ, এবার **একসাথে** design।\n\n## ১. Task'
 		});
 		const [lesson, upcoming, challenge] = course.lessons;
 		expect(lessonDescription(lesson, 'M', course.contents.get('1.1:bn') ?? '')).toBe(
-			'System Design আসলে কী — Trade-off নিয়ে কথা বলতে পারবেন।'
+			'System Design আসলে কী - Trade-off নিয়ে কথা বলতে পারবেন।'
 		);
 		expect(lessonDescription(challenge, 'M', course.contents.get('1-challenge:bn') ?? '')).toBe(
-			'Module 1 Exit Challenge — সব lesson শেষ, এবার একসাথে design।'
+			'Module 1 Exit Challenge - সব lesson শেষ, এবার একসাথে design।'
 		);
 		expect(lessonDescription(upcoming, 'Fundamentals', '')).toBe(
-			'The Design Framework (Fundamentals) — System Design Handbook'
+			'The Design Framework (Fundamentals) - System Design Handbook'
 		);
 		const english = createCatalog(
 			base,
 			{
 				'/course/module-01/lesson-1.1-topic.en.md':
-					'# Lesson 1.1 — Topic\n\n**By the end of this lesson you will be able to:**\n\n1. Explain [trade-offs](x.md) clearly'
+					'# Lesson 1.1 - Topic\n\n**By the end of this lesson you will be able to:**\n\n1. Explain [trade-offs](x.md) clearly'
 			},
 			'en'
 		);
 		expect(lessonDescription(english.lessons[0], 'M', english.contents.get('1.1:en') ?? '')).toBe(
-			'What is System Design? — Explain trade-offs clearly'
+			'What is System Design? - Explain trade-offs clearly'
 		);
 	});
 	it('cuts a long description at a word boundary within 160 characters', () => {

@@ -8,15 +8,15 @@ import { messageSchema } from './downloader';
 import { checkServices, emptyBucket, env, getObject, pgPool, putObject } from './storage';
 import { mb, ms, mulberry32, percentile } from './random';
 
-// Lesson 8.1 §1.2 — where to keep TaskFlow's attachments: in a Postgres bytea column, or in object
+// Lesson 8.1 §1.2 - where to keep TaskFlow's attachments: in a Postgres bytea column, or in object
 // storage (with only a metadata row in the database)?
 //
-//   step 1: the same FILES files kept in both places — time, how much WAL was written, how much the database grew
-//   step 2: pg_dump — a backup of the database with the files, and without them (metadata only)
-//   step 3: the board's OLTP queries are running; alongside, DOWNLOADERS people download files — from Postgres, then
+//   step 1: the same FILES files kept in both places - time, how much WAL was written, how much the database grew
+//   step 2: pg_dump - a backup of the database with the files, and without them (metadata only)
+//   step 3: the board's OLTP queries are running; alongside, DOWNLOADERS people download files - from Postgres, then
 //          from object storage. What happens to OLTP's p99?
 //
-// A real database, real time — the numbers will vary between machines, the shape should stay the same.
+// A real database, real time - the numbers will vary between machines, the shape should stay the same.
 
 const cfg = z
 	.object({
@@ -25,7 +25,7 @@ const cfg = z
 		CLIENTS: z.coerce.number().int().positive().default(8),
 		DOWNLOADERS: z.coerce.number().int().nonnegative().default(8),
 		POOL_MAX: z.coerce.number().int().positive().default(10),
-		// 1 = one more step: object storage files also go through the app (proxy) — experiment 2
+		// 1 = one more step: object storage files also go through the app (proxy) - experiment 2
 		PROXY_S3: z.enum(['0', '1']).default('0'),
 		SEED: z.coerce.number().int().default(7)
 	})
@@ -37,8 +37,8 @@ const OLTP_SQL = `
 
 type FileSpec = { id: number; taskId: number; name: string; size: number };
 
-// File sizes fixed by a seed: 70% small (50 KB–1 MB), 25% medium (1–5 MB), 5% large (5–10 MB) —
-// screenshots, PDFs, and now and then a design file. The content is random bytes — like real PDFs/images/zips,
+// File sizes fixed by a seed: 70% small (50 KB–1 MB), 25% medium (1–5 MB), 5% large (5–10 MB) -
+// screenshots, PDFs, and now and then a design file. The content is random bytes - like real PDFs/images/zips,
 // it doesn't compress (those are already compressed themselves).
 function fileSpecs(): FileSpec[] {
 	const random = mulberry32(cfg.SEED);
@@ -92,7 +92,7 @@ async function relationSize(pool: Pool, table: string): Promise<number> {
 	return z.object({ bytes: z.coerce.number() }).parse(res.rows[0]).bytes;
 }
 
-// running pg_dump inside the container — the size and time of the output
+// running pg_dump inside the container - the size and time of the output
 async function dump(excludeFiles: boolean): Promise<{ bytes: number; ms: number }> {
 	const exclude = excludeFiles ? '-T attachments_blob' : '';
 	const t = performance.now();
@@ -193,7 +193,7 @@ async function servePhase(pool: Pool, name: string, source: Source): Promise<Pha
 			oltp.push(performance.now() - t);
 		}
 	};
-	// serving the file through the app: the same process (and for the database, the same pool) — when the file is in the database,
+	// serving the file through the app: the same process (and for the database, the same pool) - when the file is in the database,
 	// the app has to serve it this way; for object storage this is optional (a proxy)
 	const appDownloader = async (): Promise<void> => {
 		while (Date.now() < deadline) {
@@ -251,7 +251,7 @@ async function main(): Promise<void> {
 		inParallel(files, 4, async (f) => {
 			const body = contents.get(f.id);
 			if (!body) return;
-			// object first, then the metadata row — why this order is in §1.8 (dual write, 7.5)
+			// object first, then the metadata row - why this order is in §1.8 (dual write, 7.5)
 			const etag = await putObject(env.BUCKET, storageKey(f), body, 'application/pdf');
 			await pool.query(
 				'INSERT INTO attachments (id, task_id, name, content_type, size, storage_key, etag) VALUES ($1, $2, $3, $4, $5, $6, $7)',
@@ -270,7 +270,7 @@ async function main(): Promise<void> {
 		'   where                               time         WAL         DB growth    object storage'
 	);
 	console.log(
-		`   Postgres (bytea)              ${ms(dbMs).padStart(10)}  ${mb(dbWal).padStart(10)}  ${mb(blobTable).padStart(16)}  ${'—'.padStart(16)}`
+		`   Postgres (bytea)              ${ms(dbMs).padStart(10)}  ${mb(dbWal).padStart(10)}  ${mb(blobTable).padStart(16)}  ${'-'.padStart(16)}`
 	);
 	console.log(
 		`   object storage + metadata row ${ms(s3Ms).padStart(10)}  ${mb(s3Wal).padStart(10)}  ${mb(metaTable).padStart(16)}  ${mb(total).padStart(16)}`
@@ -311,7 +311,7 @@ async function main(): Promise<void> {
 		const secs = cfg.PHASE_MS / 1000;
 		const dl = p.downloads.length
 			? `${ms(percentile(p.downloads, 50))} / ${ms(percentile(p.downloads, 99))}`
-			: '—';
+			: '-';
 		console.log(
 			`   ${p.name.padEnd(43)} ${String(Math.round(p.oltp.length / secs)).padStart(8)} ${ms(percentile(p.oltp, 50)).padStart(10)} ${ms(percentile(p.oltp, 99)).padStart(10)} ${String(Math.round(p.downloads.length / secs)).padStart(8)} ${(p.bytes / 1024 / 1024 / secs).toFixed(0).padStart(8)}   ${dl}`
 		);

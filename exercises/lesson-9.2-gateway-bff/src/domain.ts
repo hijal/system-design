@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-// Lesson 9.2 — the data of TaskFlow's three services, in memory, from a fixed formula.
-// Every service returns its **whole** object — because it has many callers, and it doesn't know who needs what.
-// (Settings, notification preferences, checklists, custom fields — the board or mobile app needs most of it not at all.)
+// Lesson 9.2 - the data of TaskFlow's three services, in memory, from a fixed formula.
+// Every service returns its **whole** object - because it has many callers, and it doesn't know who needs what.
+// (Settings, notification preferences, checklists, custom fields - the board or mobile app needs most of it not at all.)
 
 const words = [
 	'deploy',
@@ -143,7 +143,7 @@ export function commentsFor(taskId: number): Comment[] {
 	});
 }
 
-// The page's shape — what the BFF returns. Web shows more, mobile less.
+// The page's shape - what the BFF returns. Web shows more, mobile less.
 export type PageComment = {
 	id: number;
 	body: string;

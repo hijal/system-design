@@ -2,14 +2,14 @@ import { mulberry32, percentile } from './random';
 import { RaftNode, type Message } from './raft';
 import { Network, Sim } from './sim';
 
-// Lesson 6.2 §1.4 — why is Raft's election timeout random?
+// Lesson 6.2 §1.4 - why is Raft's election timeout random?
 //
 // 5 nodes start together, nobody is leader. Each node becomes candidate once its own election timeout passes.
 // 1000 runs for each timeout range: how long until there is a leader, and how many terms are spent
-// (every extra term means one failed election — a split vote).
+// (every extra term means one failed election - a split vote).
 //
 // One-way network trip: a minimum of 2 ms + 2 ms more on average (like different data centers in one region).
-// ±0.5 ms of jitter on every timer — real timers never fire at exactly the right time.
+// ±0.5 ms of jitter on every timer - real timers never fire at exactly the right time.
 
 const NODES = ['n1', 'n2', 'n3', 'n4', 'n5'];
 const TRIALS = 1000;
@@ -54,9 +54,9 @@ function trial(min: number, max: number, seed: number): Trial {
 
 function main(): void {
 	console.log(
-		`\n   ${NODES.length} nodes start together, nobody is leader — ${TRIALS} runs for each range`
+		`\n   ${NODES.length} nodes start together, nobody is leader - ${TRIALS} runs for each range`
 	);
-	console.log('   (seeded simulation — exactly the same result every time)\n');
+	console.log('   (seeded simulation - exactly the same result every time)\n');
 	console.log(
 		'   election timeout     leader found          time p50 / p99          avg terms (1 = first try)'
 	);
@@ -68,11 +68,11 @@ function main(): void {
 		const times = elected.map((r) => r.electedAt);
 		const avgTerms = elected.length
 			? (elected.reduce((sum, r) => sum + r.terms, 0) / elected.length).toFixed(2)
-			: '—';
+			: '-';
 		const label = min === max ? `${min} ms (fixed)` : `${min}–${max} ms`;
 		const timeCol = elected.length
 			? `${percentile(times, 50).toFixed(0).padStart(5)} / ${percentile(times, 99).toFixed(0).padStart(5)} ms`
-			: '        —         ';
+			: '        -         ';
 		console.log(
 			`   ${label.padEnd(18)}   ${`${elected.length}/${TRIALS}`.padStart(9)}          ${timeCol}         ${avgTerms}`
 		);

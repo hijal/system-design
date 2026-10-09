@@ -4,15 +4,15 @@ import path from 'node:path';
 import { z } from 'zod';
 import { assignJobId, QUEUE_NAME, redisAddress, type AssignEmail } from './config';
 
-// Lesson 7.3 — real BullMQ on top of real Redis (Docker), and three kinds of Node process:
+// Lesson 7.3 - real BullMQ on top of real Redis (Docker), and three kinds of Node process:
 // a fake email provider, the TaskFlow API (producer), one or more workers (consumer).
 //
 // The same three phases as Lesson 7.1: provider normal (150 ms) → slow → normal again, and the whole
 // time ASSIGN_RPS assigns per second. With CRASH a process dies in the middle of the slow phase:
 //
-//   CRASH=api          — the API process SIGKILLed, a new API right away     (7.1's experiment 2 again)
-//   CRASH=worker-kill  — one worker SIGKILLed, a new worker right away  (what happens to the running jobs?)
-//   CRASH=worker-term  — one worker SIGTERMed (graceful), a new worker  (how a deploy should go)
+//   CRASH=api          - the API process SIGKILLed, a new API right away     (7.1's experiment 2 again)
+//   CRASH=worker-kill  - one worker SIGKILLed, a new worker right away  (what happens to the running jobs?)
+//   CRASH=worker-term  - one worker SIGTERMed (graceful), a new worker  (how a deploy should go)
 
 const config = z
 	.object({
@@ -28,7 +28,7 @@ const config = z
 		// Production default 30 s / 30 s; lowered to keep the scenario short (see the README's honest note)
 		LOCK_MS: z.coerce.number().int().positive().default(10_000),
 		STALLED_MS: z.coerce.number().int().positive().default(5000),
-		// every assign sent twice — like a double click, or a client's retry after a timeout
+		// every assign sent twice - like a double click, or a client's retry after a timeout
 		DOUBLE_SUBMIT: z.enum(['0', '1']).default('0')
 	})
 	.parse(process.env);
@@ -75,14 +75,14 @@ function start(
 }
 
 async function main(): Promise<void> {
-	// The scenario itself isn't a worker — without Redis, fail fast instead of waiting forever
+	// The scenario itself isn't a worker - without Redis, fail fast instead of waiting forever
 	const queue = new Queue(QUEUE_NAME, { connection: { ...redisAddress, maxRetriesPerRequest: 1 } });
 	try {
 		await queue.waitUntilReady();
 		// clear the previous run's jobs for a clean start
 		await queue.obliterate({ force: true });
 	} catch (error: unknown) {
-		console.error('Redis cannot be reached — run `docker compose up -d --wait` first.');
+		console.error('Redis cannot be reached - run `docker compose up -d --wait` first.');
 		console.error(error instanceof Error ? error.message : error);
 		process.exit(1);
 	}
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
 			sleep(config.CRASH_AT_MS).then(async () => {
 				if (config.CRASH === 'api') {
 					api.child.kill('SIGKILL');
-					log('API process SIGKILL — a new API is starting');
+					log('API process SIGKILL - a new API is starting');
 					api = await start('api.js', apiEnv);
 					return;
 				}
@@ -189,7 +189,7 @@ async function main(): Promise<void> {
 				const counts = await queue.getJobCounts('active');
 				victim.kill(config.CRASH === 'worker-kill' ? 'SIGKILL' : 'SIGTERM');
 				log(
-					`worker ${config.CRASH === 'worker-kill' ? 'SIGKILL' : 'SIGTERM'} (active in the queue at the time: ${counts['active'] ?? 0}) — a new worker is starting`
+					`worker ${config.CRASH === 'worker-kill' ? 'SIGKILL' : 'SIGTERM'} (active in the queue at the time: ${counts['active'] ?? 0}) - a new worker is starting`
 				);
 				workers.push((await start('worker.js', workerEnv)).child);
 			})
@@ -198,7 +198,7 @@ async function main(): Promise<void> {
 	await Promise.all(events);
 	await sleep(config.PHASE_MS);
 	clearInterval(load);
-	log('load stopped — waiting for the queue to empty');
+	log('load stopped - waiting for the queue to empty');
 	await Promise.all([...inFlight]);
 
 	for (let waited = 0; waited < 120_000; waited += 500) {

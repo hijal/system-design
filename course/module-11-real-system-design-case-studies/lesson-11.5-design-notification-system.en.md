@@ -1,6 +1,6 @@
-# Lesson 11.5 — Case Study: Design a Notification System
+# Lesson 11.5 - Case Study: Design a Notification System
 
-**Module 11 — Real System Design Case Studies**
+**Module 11 - Real System Design Case Studies**
 
 > **Spaced Repetition (Lesson 2.5):** A client sent a payment request, got a timeout, and sent it again. How does the server make sure the money was not taken twice? And does the client that got the timeout know whether the first request worked? Today the roles are reversed: **we** are the client, and the email or SMS provider is the server. We will measure how many emails go out twice when we resend after a timeout.
 
@@ -12,7 +12,7 @@
 2. Talk to external providers reliably: a timeout does not mean failure, retries and idempotency keys, why failover loses the key, backoff vs a breaker in an outage, and pacing a campaign below the provider's limit
 3. Send notifications without annoying the user: aggregation and collapse keys, the price of a cap, quiet hours and their morning wave, and keeping dead device tokens cleaned out
 
-**Tier:** 1 — Runnable Code (four deterministic models and a real Express + Zod notification service, with a fake provider; no Docker needed)
+**Tier:** 1 - Runnable Code (four deterministic models and a real Express + Zod notification service, with a fake provider; no Docker needed)
 
 ---
 
@@ -36,7 +36,7 @@ This system's real character: it does almost nothing itself; it gets a few exter
 
 ## 1. Theory
 
-### 1.1 Step 1 — Requirements
+### 1.1 Step 1 - Requirements
 
 ```
 Question                                   Assumed
@@ -51,26 +51,26 @@ Left out                                   the template editor, A/B tests, the c
 
 Two **non-functional** things that are rarer in other systems: **the user's attention is a resource** (too many notifications and the user turns notifications off, and then even the urgent one doesn't get through), and **legal obligations** (an unsubscribe link in marketing and honouring it, time limits on SMS in some countries; which applies where is a question for a lawyer, not verified here).
 
-### 1.2 Step 2 — Estimation: where the cost is
+### 1.2 Step 2 - Estimation: where the cost is
 
 `npm run estimate`:
 
 ```
-── Part A — load: 300 million DAU, 10 notifications a day per user ──
+── Part A - load: 300 million DAU, 10 notifications a day per user ──
 all notifications                                     34,722         104,167
 one campaign: 100 million people, in 1 h              27,778    0.8× the average
 
-── Part B — channels and monthly cost (approximate prices) ──
+── Part B - channels and monthly cost (approximate prices) ──
 channel              share         per day        each       monthly  share of cost
 push (APNs/FCM)        80%     2.4 billion          $0            $0           0.0%
 email                  17%     510 million     $0.0001    $1,530,000          17.5%
 SMS                     1%      30 million      $0.008    $7,200,000          82.5%
 in-app                  2%      60 million          $0            $0           0.0%
 
-── Part C — device tokens: 900 million tokens, 30% dead ──
+── Part C - device tokens: 900 million tokens, 30% dead ──
 sending to every token of every user is 7.2 billion pushes a day, 2.16 billion of them to dead tokens
 
-── Part D — the history of every notification (500 B, 90 days) ──
+── Part D - the history of every notification (500 B, 90 days) ──
 1.5 TB a day, 135 TB over 90 days
 ```
 
@@ -79,7 +79,7 @@ sending to every token of every user is 7.2 billion pushes a day, 2.16 billion o
 3. **Dead tokens are a hidden waste.** A user has three tokens on average (an old phone, a tablet, a reinstalled app), 30% of which are dead (app deleted, phone changed). 2.16 billion pushes a day go nowhere. The price is not in money (push is free), but in workers' time, the provider's throughput limit, and a false "delivered" count.
 4. **History has to be kept.** For answering "I didn't get the OTP" tickets ("handed to the SMS provider at 12:03:05, the provider says it was delivered") and for dedupe. 135 TB over 90 days, so the recent part in a fast store and the old part in cheap storage (10.7's tiering).
 
-### 1.3 Step 3 — High-level design
+### 1.3 Step 3 - High-level design
 
 ```
  services ──► POST /notify { userId, type, data, idempotencyKey }
@@ -100,15 +100,15 @@ sending to every token of every user is 7.2 billion pushes a day, 2.16 billion o
 
 Three core ideas, each with a new term:
 
-**Priority Tier (Transactional vs Bulk)** — splitting notifications into separate tiers by urgency (OTP and security; orders and social; marketing), each with its own queue, workers and share of the provider, so one tier's wave doesn't hold up another. The tier is decided by the system from the type, not by the calling service (otherwise everyone calls themselves "urgent").
+**Priority Tier (Transactional vs Bulk)** - splitting notifications into separate tiers by urgency (OTP and security; orders and social; marketing), each with its own queue, workers and share of the provider, so one tier's wave doesn't hold up another. The tier is decided by the system from the type, not by the calling service (otherwise everyone calls themselves "urgent").
 
 **Channel Plan:** an order of channels for each type. OTP: push, else SMS. Social: push only (and in-app). Orders: email (a receipt, findable later). Marketing: email. This is config, not code.
 
 **Preferences and rules are checked just before sending,** not when the request is accepted. The reason: while a notification sits in the queue, the user may turn marketing off, or quiet hours may begin.
 
-### 1.4 Deep dive 1 — The provider's limit: campaign vs OTP
+### 1.4 Deep dive 1 - The provider's limit: campaign vs OTP
 
-**Provider Throughput Limit** — the limit on how many per second an external provider will take from one account (for SMS often a few hundred a second, depending on the kind of sender and the country), above which it rejects (429) or silently delays. It is not our decision, but our design is built around it.
+**Provider Throughput Limit** - the limit on how many per second an external provider will take from one account (for SMS often a few hundred a second, depending on the kind of sender and the country), above which it rejects (429) or silently delays. It is not our decision, but our design is built around it.
 
 `npm run queue`: the SMS provider's limit is 100/s, OTPs arrive at 20/s, and at the one-minute mark a campaign of 300,000 marketing SMS enters the queue. OTPs expire after 5 minutes:
 
@@ -121,13 +121,13 @@ separate accounts: separate limits for OTP and campaign       100 ms    100 ms  
 ```
 
 - **One FIFO:** 300,000 SMS at 100/s is 50 minutes. Every OTP is behind it. p50 two minutes, p99 49 minutes, and **67,500 OTPs arrive after expiring.** Each one is a person who couldn't log in, and probably pressed "send code" again, adding another one to the queue. 11.4's fan-out queue lesson, this time with a harder limit, because it isn't ours: more workers don't raise the provider's limit.
-- **Pacing** — releasing a big job not all at once into the queue but at a fixed rate (with 11.2's token bucket), so part of the provider's capacity is always free for everyone else. Released at 50% of the limit, OTPs no longer get stuck, but the campaign takes twice as long (100 minutes). And the headroom maths matters: in experiment 1, releasing at 90% gives 90 + the OTPs' 20 = 110%, the queue builds up again, and **7,503 OTPs expire.** Pacing rate = limit − peak of urgent load − safety margin.
+- **Pacing** - releasing a big job not all at once into the queue but at a fixed rate (with 11.2's token bucket), so part of the provider's capacity is always free for everyone else. Released at 50% of the limit, OTPs no longer get stuck, but the campaign takes twice as long (100 minutes). And the headroom maths matters: in experiment 1, releasing at 90% gives 90 + the OTPs' 20 = 110%, the queue builds up again, and **7,503 OTPs expire.** Pacing rate = limit − peak of urgent load − safety margin.
 - **A priority queue:** OTPs always first, the campaign in the remaining space. Zero problems for OTPs, 63 minutes for the campaign. The campaign pays, and in experiment 2, with OTPs at 90/s, the campaign doesn't finish even in two hours (starvation). But here that is the right price.
 - **Separate provider accounts** (or separate senders, for transactional and marketing): each with its own limit. The cleanest, and the campaign runs at full speed too. Price: the second account's cost and management. And one more gain: when spam complaints come in about marketing, the provider or the email receivers lower that sender's reputation; with a separate sender for transactional, OTPs don't get that punishment. In email this is almost a mandatory habit.
 
 In the design: three priority queues, separate provider accounts (or senders) for transactional and marketing, and campaigns always paced.
 
-### 1.5 Deep dive 2 — Provider failures: timeouts, duplicates, failover
+### 1.5 Deep dive 2 - Provider failures: timeouts, duplicates, failover
 
 **The spaced repetition answer:** an idempotency key on the server: the client sends a key for each separate piece of work, and the same key on retry; the server sees the key and returns the earlier result instead of doing the work again. And a client that got a timeout **does not know** whether the first one happened; that is exactly why the key exists.
 
@@ -144,7 +144,7 @@ on timeout to a second provider (the key is not shared)             0.00%       
 - **Without retries, 2% is lost,** half of it actually timeouts (we don't know whether they went).
 - **With retries nothing is lost, but 1% goes twice:** the ones that timed out but were actually sent. Out of 1 million, 10,000 people get two "your order has shipped" messages. An OTP arriving twice is a small problem; "5,000 taka has been charged" arriving twice is a big one.
 - **If the provider honours an idempotency key, zero and zero.** On a second request with the same key, the provider doesn't send again. But not every provider offers this. If not, the ways out: a durable "sent" record on our own side, and after a timeout asking the provider's status API (if there is one), or accepting the risk by type (OTP: send again; money news: not without asking).
-- **Provider Failover** — sending the same notification through a backup provider when the primary fails or is down. But look at the table's last row: sending to a second provider after a timeout gives **1% twice** again, because the second provider doesn't know the first one's key. Failover and idempotency are hard together. So the condition for failover should be "the primary has **certainly** failed" (a clear error, or an open breaker), not "one timeout".
+- **Provider Failover** - sending the same notification through a backup provider when the primary fails or is down. But look at the table's last row: sending to a second provider after a timeout gives **1% twice** again, because the second provider doesn't know the first one's key. Failover and idempotency are hard together. So the condition for failover should be "the primary has **certainly** failed" (a clear error, or an open breaker), not "one timeout".
 
 Part B, the primary email provider down for ten minutes, 1,000 emails a second:
 
@@ -158,7 +158,7 @@ Backoff (7.4) saves the dead provider from load, but doesn't save the emails: p5
 
 And the ones that don't go out after every attempt go to a DLQ (7.4), with an alert, because somebody needs to know "an order email didn't go out".
 
-### 1.6 Deep dive 3 — The user's attention: aggregation, caps, quiet hours
+### 1.6 Deep dive 3 - The user's attention: aggregation, caps, quiet hours
 
 Someone's post went viral, 500 likes in ten minutes. `npm run aggregate`:
 
@@ -172,12 +172,12 @@ first one at once, then the window doubles (30 s, 1, 2… min)         6       1
 
 - **One per like:** the phone rings 500 times. The user's reaction is almost certain: notifications off, and then the next OTP doesn't come by push either.
 - **Cap (at most one per 5 minutes, drop the rest):** 4 pushes, but information is lost: the last two minutes' likes are never reported, and each push only says "X liked this", nothing about the other 124 people. A cap is a safety net, not a design.
-- **Aggregation Window (Collapse Key)** — collecting notifications for the same user, the same type, the same subject in a window and merging them into one ("X and 49 others liked this"), and sending to the device with a **collapse key**, so the new one replaces the old one instead of piling up (APNs and FCM both offer this idea, under different names). With a 30 s window, 26 pushes, nothing lost, but even the first one is 30 s late.
+- **Aggregation Window (Collapse Key)** - collecting notifications for the same user, the same type, the same subject in a window and merging them into one ("X and 49 others liked this"), and sending to the device with a **collapse key**, so the new one replaces the old one instead of piling up (APNs and FCM both offer this idea, under different names). With a 30 s window, 26 pushes, nothing lost, but even the first one is 30 s late.
 - **A window that grows:** the first one at once (the user learns "your post is getting responses"), then the window doubles: 30 s, 1 minute, 2 minutes… Only 6 pushes, the first one immediate, nothing lost. The price: the last like is reported 14 minutes later, which nobody notices for a like. The idea of exponential backoff, this time for the user's attention.
 
 Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, then one: "fan0 and 49 others liked this".
 
-**Quiet Hours** — holding non-urgent notifications during the user's own night (say 10 pm to 7 am) and sending them in the morning. Part B: about 37% of the day's notifications for 1 million users are created at night, and 95% of them (excluding the urgent ones) wait until morning. And a trap: if everyone is released at exactly 7:00, there is a wave at 7 am in every time zone, 3.5 million here, which is itself an unplanned campaign (and 1.4's OTP problem again). The way out: spread them randomly between 7:00 and 7:30 (11.3's jitter), in the bulk queue. Urgent ones (OTPs, security alerts) are never held.
+**Quiet Hours** - holding non-urgent notifications during the user's own night (say 10 pm to 7 am) and sending them in the morning. Part B: about 37% of the day's notifications for 1 million users are created at night, and 95% of them (excluding the urgent ones) wait until morning. And a trap: if everyone is released at exactly 7:00, there is a wave at 7 am in every time zone, 3.5 million here, which is itself an unplanned campaign (and 1.4's OTP problem again). The way out: spread them randomly between 7:00 and 7:30 (11.3's jitter), in the bulk queue. Urgent ones (OTPs, security alerts) are never held.
 
 **The life of a device token:** a push token is the address of one app install on one phone. When the app is deleted or the phone changed it dies, and on the next send APNs or FCM says "unregistered" (or something similar). The rule: delete the token as soon as that answer arrives. Smoke step 7: erin has two tokens, one dead; the first OTP makes two calls and deletes the dead one, the second OTP makes one call. Without this, 1.2's 2.16 billion wasted pushes keep growing every day.
 
@@ -205,7 +205,7 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 - Step 8: frank has no push, so the OTP's channel plan moves to the next step, SMS.
 - Steps 9–10: the provider timed out on the first call but had sent the email; the service sent again with the same key, and the provider recognised the key and didn't send again. gina got one email.
 
-### 1.8 Step 5 — Trade-offs and wrap-up
+### 1.8 Step 5 - Trade-offs and wrap-up
 
 **The final design:**
 
@@ -217,7 +217,7 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 - **Cost:** SMS only as a fallback; an SMS cost metric by country.
 - **History:** a timeline for every notification, 90 days, to answer "why didn't I get it".
 
-> **Trade-off Table — a notification system's big decisions**
+> **Trade-off Table - a notification system's big decisions**
 
 | Decision     | Chose                                    | Alternative         | What I gave                                    | What I got                                                 |
 | ------------ | ---------------------------------------- | ------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
@@ -236,7 +236,7 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 
 "Design a notification system" comes up often, and what makes it interesting is that it is a "pipeline" question where the hardest part is outside our control. The shape of a good answer:
 
-1. **Types and urgency first.** OTP, transactional, social, marketing — different SLOs, different tiers. Say "all in one queue" and the interviewer will ask about the campaign.
+1. **Types and urgency first.** OTP, transactional, social, marketing - different SLOs, different tiers. Say "all in one queue" and the interviewer will ask about the campaign.
 2. **Numbers and cost.** The load, the campaign wave, and cost by channel (SMS).
 3. **The relationship with providers.** Limits (pacing, separate accounts), timeouts (retry + idempotency key), outages (breaker + failover, and the price of its duplicates).
 4. **The user's experience.** Preferences, quiet hours, aggregation, collapse keys, unsubscribe.
@@ -244,12 +244,12 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 
 **Follow-ups that are almost certain:**
 
-- _"OTPs while a campaign is running?"_ — Separate tiers, and the limit is the provider's, so more workers don't help. Pacing (with headroom), priority, separate accounts. The number: 67,500 OTPs expired in one FIFO.
-- _"Exactly once?"_ — Not possible; on a timeout we don't know. At-least-once + a key, if the provider honours it; if not, risk by type.
-- _"What if a provider goes down?"_ — A breaker, a backup provider; and accounting for duplicates, because failover loses the key.
-- _"Without spamming the user?"_ — Aggregation (a growing window), collapse keys, daily limits, quiet hours (spreading the morning wave).
-- _"How do you know a notification arrived?"_ — The provider's "accepted" is not delivery. Push has limited delivery receipts; email has bounce and complaint webhooks; SMS has delivery receipts (DLR). And an "opened" event from inside the app.
-- _"Templates and languages?"_ — Template versions, the user's language, and rendering the template at send time, so if a name changes, notifications already in the queue show the right name too.
+- _"OTPs while a campaign is running?"_ - Separate tiers, and the limit is the provider's, so more workers don't help. Pacing (with headroom), priority, separate accounts. The number: 67,500 OTPs expired in one FIFO.
+- _"Exactly once?"_ - Not possible; on a timeout we don't know. At-least-once + a key, if the provider honours it; if not, risk by type.
+- _"What if a provider goes down?"_ - A breaker, a backup provider; and accounting for duplicates, because failover loses the key.
+- _"Without spamming the user?"_ - Aggregation (a growing window), collapse keys, daily limits, quiet hours (spreading the morning wave).
+- _"How do you know a notification arrived?"_ - The provider's "accepted" is not delivery. Push has limited delivery receipts; email has bounce and complaint webhooks; SMS has delivery receipts (DLR). And an "opened" event from inside the app.
+- _"Templates and languages?"_ - Template versions, the user's language, and rendering the template at send time, so if a name changes, notifications already in the queue show the right name too.
 
 **In real production:** the most common incidents: OTPs and password resets getting stuck during a big campaign, and a wave of "I can't log in"; a bug that sends the same notification a thousand times (a retry loop without a key), which users screenshot and post on social media; the SMS bill growing tenfold in a month (an SMS pumping attack: someone requests OTPs to fake numbers over and over to send SMS to expensive countries, which needs limits like 11.2's and per-country alerts); and push delivery rates slowly falling because of dead tokens, which nobody notices.
 
@@ -259,7 +259,7 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 
 - **A notification system's limits are outside it:** the provider's speed limit, its prices, its failures. Design means your own rules around someone else's limits
 - **Cost is in the channel:** SMS is 1% of notifications but 82% of the bill. SMS only as a fallback, and watch the cost by country
-- **Urgent and bulk die in one queue:** 67,500 OTPs expired behind a campaign. Priority tiers, separate provider accounts, and campaigns paced — with headroom (released at 90%, 7,503 expire again)
+- **Urgent and bulk die in one queue:** 67,500 OTPs expired behind a campaign. Priority tiers, separate provider accounts, and campaigns paced - with headroom (released at 90%, 7,503 expire again)
 - **A timeout means "I don't know":** without retries 2% is lost, retries without a key send 1% twice, with a key at the provider zero. Failover loses the key, so fail over only on certain failure (a breaker)
 - **Backoff alone doesn't save you in an outage** (p99 13 minutes); a breaker + a backup provider does (p99 40 s)
 - **The user's attention is a limited resource:** 500 likes down to 6 pushes, the first one immediate and nothing lost (a growing window + collapse key). A cap loses information; quiet hours create a morning wave, so spread it
@@ -272,12 +272,12 @@ Smoke steps 3–4 run this: bob's 50 likes, 0 pushes before the window closes, t
 | Term                                      | Meaning                                                                                                                                                                                                                      |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Priority Tier (Transactional vs Bulk)** | Notifications in separate tiers by urgency (OTP/security, transactional/social, marketing), each with its own queue and share of the provider; the system sets the tier from the type, not the calling service               |
-| **Provider Throughput Limit**             | The limit on how many per second an external provider takes from one account — more workers don't raise it; pacing, priority and separate accounts are built around it                                                       |
-| **Pacing**                                | Releasing a big job (a campaign) at a fixed rate instead of all at once (token bucket), so part of the limit is always free for the urgent — rate = limit − urgent peak − margin                                             |
-| **Provider Failover**                     | Sending through a backup provider when the primary fails — cuts delay in an outage, but an idempotency key doesn't carry from one provider to another, so failing over on a timeout means duplicates                         |
+| **Provider Throughput Limit**             | The limit on how many per second an external provider takes from one account - more workers don't raise it; pacing, priority and separate accounts are built around it                                                       |
+| **Pacing**                                | Releasing a big job (a campaign) at a fixed rate instead of all at once (token bucket), so part of the limit is always free for the urgent - rate = limit − urgent peak − margin                                             |
+| **Provider Failover**                     | Sending through a backup provider when the primary fails - cuts delay in an outage, but an idempotency key doesn't carry from one provider to another, so failing over on a timeout means duplicates                         |
 | **Aggregation Window (Collapse Key)**     | Merging notifications for the same user and subject in a window into one ("X and N others"), and replacing the old one on the device with a collapse key; let the window grow and the first is immediate and the total small |
-| **Quiet Hours**                           | Holding non-urgent notifications during the user's night and sending them in the morning — releasing everyone together in the morning is an unplanned campaign, so spread it                                                 |
-| **Device Token Lifecycle**                | A push token is the address of one app install; it dies when the app is deleted or the phone changed, and the provider says "unregistered" — delete it on that answer, or waste and a false delivery rate                    |
+| **Quiet Hours**                           | Holding non-urgent notifications during the user's night and sending them in the morning - releasing everyone together in the morning is an unplanned campaign, so spread it                                                 |
+| **Device Token Lifecycle**                | A push token is the address of one app install; it dies when the app is deleted or the phone changed, and the provider says "unregistered" - delete it on that answer, or waste and a false delivery rate                    |
 
 ---
 
@@ -300,15 +300,15 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 (b) **Today:** turn off SMS OTP in countries where you have almost no real users (or make it harder: a captcha first, then the SMS); strict limits on the OTP endpoint by IP, device and number prefix; a monthly cost cap and alert on the provider. **Don't:** turn off all SMS (real users can't log in), or block only by IP (attackers come from thousands of IPs, like 10.5's credential stuffing).
 
-(c) Permanently: (1) **rate limits and budgets by country and prefix** (11.2): a daily SMS limit per country, a few times its normal usage; when exceeded, turn off the fallback in that country and alert. False positive: a sudden legitimate rise in that country (a marketing drive) gets blocked, so have a fast way to raise the limit. (2) **The OTP conversion metric:** what % of sent OTPs are used, by country; normally 60–80%, nearly zero in an attack — this is the best signal. (3) **SMS only as a fallback** (1.2): push or in-app verification first; SMS only for those without push. (4) Checking the type of number (many providers offer a lookup: whether the number is mobile, which carrier). The price of each: one extra step for real users.
+(c) Permanently: (1) **rate limits and budgets by country and prefix** (11.2): a daily SMS limit per country, a few times its normal usage; when exceeded, turn off the fallback in that country and alert. False positive: a sudden legitimate rise in that country (a marketing drive) gets blocked, so have a fast way to raise the limit. (2) **The OTP conversion metric:** what % of sent OTPs are used, by country; normally 60–80%, nearly zero in an attack - this is the best signal. (3) **SMS only as a fallback** (1.2): push or in-app verification first; SMS only for those without push. (4) Checking the type of number (many providers offer a lookup: whether the number is mobile, which carrier). The price of each: one extra step for real users.
 
 **Question 2:**
 
-(a) **Tier:** critical (security). **Channel plan:** push and SMS **both** (not a fallback, together), because if the phone is stolen or the app deleted, push doesn't get through, and this is exactly the moment when telling them matters most; plus a permanent record inside the app and an email. **Quiet hours:** never — if money is withdrawn at 3 am, they need to know right then.
+(a) **Tier:** critical (security). **Channel plan:** push and SMS **both** (not a fallback, together), because if the phone is stolen or the app deleted, push doesn't get through, and this is exactly the moment when telling them matters most; plus a permanent record inside the app and an email. **Quiet hours:** never - if money is withdrawn at 3 am, they need to know right then.
 
 (b) Here **not sending is much worse** (fraud goes unnoticed), and sending twice is annoying and confusing ("was it withdrawn twice?"). So: aggressive retries, fast failover (a short breaker time), and to soften duplicates, the transaction's specific id and time in the text ("transaction #A93F, 14:02"), so when the user gets the same news twice they understand it is one event. Meaning: reduce the harm of duplicates, increase the certainty of sending.
 
-(c) "sent" means the provider took it, not that it was delivered. The ladder of evidence: (1) our history: when, which provider, which answer; (2) the SMS delivery receipt (DLR) from the carrier, if the provider offers it — "delivered to handset" vs "accepted"; (3) for push, a "received" ack from inside the app (when the app is open or it arrives in the background, within the platform's limits); (4) regular synthetic notifications to our own test numbers and devices (10.4), so we learn about a provider's or carrier's silent failure before the users do. In the end, what happened inside the carrier cannot be fully seen, and honestly accepting that and sending over several channels is the answer.
+(c) "sent" means the provider took it, not that it was delivered. The ladder of evidence: (1) our history: when, which provider, which answer; (2) the SMS delivery receipt (DLR) from the carrier, if the provider offers it - "delivered to handset" vs "accepted"; (3) for push, a "received" ack from inside the app (when the app is open or it arrives in the background, within the platform's limits); (4) regular synthetic notifications to our own test numbers and devices (10.4), so we learn about a provider's or carrier's silent failure before the users do. In the end, what happened inside the carrier cannot be fully seen, and honestly accepting that and sending over several channels is the answer.
 
 **Question 3:**
 
@@ -316,7 +316,7 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 - **Provider:** APNs/FCM take a very high rate, but not unlimited, and a sudden huge wave may get throttled (the limit is not published, it's the provider's policy). Sending in one minute means 1.6 million+ a second.
 - **Your own workers:** sixteen times 1.2's peak (100,000/s). Doing it in one minute holds up every other notification (OTPs included), 1.4's problem.
-- **The return wave:** a few percent of people open the app together after getting the notification: say 5% = 5 million people in one or two minutes. Login, feed, product pages — this is 11.3's reconnect storm, this time across the whole backend. And on the flash sale's inventory database (an early glimpse of 11.7).
+- **The return wave:** a few percent of people open the app together after getting the notification: say 5% = 5 million people in one or two minutes. Login, feed, product pages - this is 11.3's reconnect storm, this time across the whole backend. And on the flash sale's inventory database (an early glimpse of 11.7).
 
 (b) The design: make "close to 8" a window, say 7:45 to 8:15, and spread the sending (pacing), with headroom: ~55,000 a second, in the bulk tier. "Starts at 8" in the push's text (the time in the words, not in the moment of sending), so people who get it early also come at 8 or watch the clock. For the return wave: the sale page cached in advance on the CDN (4.5), a waiting room inside the app (a virtual queue) that controls the rate of entry, and capacity raised before 8 (10.7's autoscale, but planned in advance, because autoscale's delay can't catch this wave). And an agreement with marketing: campaigns of this size always follow this pattern, and requests for "everyone at once" get answered with numbers.
 
@@ -326,9 +326,9 @@ Think for yourself before looking at the answers. Write at least two or three li
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (four deterministic models and a real Express + Zod notification service, with a fake provider; no Docker needed)
+**Tier 1 - Runnable Code** (four deterministic models and a real Express + Zod notification service, with a fake provider; no Docker needed)
 
-> **Ready to run in the repo:** [`exercises/lesson-11.5-notification-system/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.5-notification-system) — `npm install`, then `npm run estimate`, `npm run queue`, `npm run retry`, `npm run aggregate`, `npm run smoke`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-11.5-notification-system/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.5-notification-system) - `npm install`, then `npm run estimate`, `npm run queue`, `npm run retry`, `npm run aggregate`, `npm run smoke`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `estimate` works out the load, campaigns, cost by channel, dead tokens and history. `queue` runs a campaign and OTPs below the provider's limit under four policies. `retry` measures retries on timeouts and failures, idempotency keys and failover, and backoff vs a breaker in a provider outage. `aggregate` shows four policies for viral likes, and night-time quiet. `smoke` runs a real notification service with a fake provider through 10 steps.
 
@@ -353,9 +353,9 @@ Think for yourself before looking at the answers. Write at least two or three li
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1 – 10 (complete, with exit challenges), 11.1 – 11.4
-Current: 11.5 — Case Study: Design a Notification System
-TaskFlow state: kept as it was at the end of Module 10 (set aside in Module 11). Case study 1 — URL shortener; 2 — rate
-limiter service; 3 — chat; 4 — news feed. Case study 5 — notifications: 300 million DAU, 35,000/s on average (peak
+Current: 11.5 - Case Study: Design a Notification System
+TaskFlow state: kept as it was at the end of Module 10 (set aside in Module 11). Case study 1 - URL shortener; 2 - rate
+limiter service; 3 - chat; 4 - news feed. Case study 5 - notifications: 300 million DAU, 35,000/s on average (peak
 100,000), a campaign +28,000/s for an hour. Cost: SMS is 1% of notifications but 82% of the bill → SMS only as a
 fallback. Three tiers (critical/normal/bulk), tier and channel plan from the type; separate provider accounts
 (transactional/marketing); campaigns paced, with headroom (67,500 OTPs expired in FIFO; 7,503 with 90% pacing).
@@ -371,8 +371,8 @@ Per-Conversation Sequence (Sequencer), Presence, Fan-out on Write (Push), Fan-ou
 Hybrid Fan-out, Timeline Cache, Tail Amplification, Hedged Request, Candidate Generation, Priority Tier,
 Provider Throughput Limit, Pacing, Provider Failover, Aggregation Window (Collapse Key), Quiet Hours,
 Device Token Lifecycle
-Weak spots: [where you got stuck — write it yourself]
-Next: 11.6 — Case Study: Design a Video Streaming Platform
+Weak spots: [where you got stuck - write it yourself]
+Next: 11.6 - Case Study: Design a Video Streaming Platform
 =======================
 ```
 
@@ -382,4 +382,4 @@ Next: 11.6 — Case Study: Design a Video Streaming Platform
 
 Today's thread: **for a system whose real work is done by others, design means your own rules around their limits.** A provider's speed limit doesn't grow with more workers, so urgent and bulk are separate, and big jobs are paced. A provider's timeout means "I don't know", so retries come with a key, and failover only on certain failure. And the scarcest resource is the user's attention: annoy them 500 times and they turn everything off, the urgent ones included.
 
-When you are ready, write `next` — we go to **Lesson 11.6: Design a Video Streaming Platform**. This time the size of the data decides everything: a few GB for an hour of video, in several resolutions, and hundreds of thousands of people watching at once. 8.1's and 8.2's object storage and uploads, 4.5's CDN, and 10.7's data transfer cost come together in one place. The questions: after an upload, how do we cut the video into pieces and make different qualities (the transcoding pipeline), how does quality drop on its own when the viewer's network gets bad (adaptive bitrate), and why is the biggest line on the month's bill almost always the CDN's egress.
+When you are ready, write `next` - we go to **Lesson 11.6: Design a Video Streaming Platform**. This time the size of the data decides everything: a few GB for an hour of video, in several resolutions, and hundreds of thousands of people watching at once. 8.1's and 8.2's object storage and uploads, 4.5's CDN, and 10.7's data transfer cost come together in one place. The questions: after an upload, how do we cut the video into pieces and make different qualities (the transcoding pipeline), how does quality drop on its own when the viewer's network gets bad (adaptive bitrate), and why is the biggest line on the month's bill almost always the CDN's egress.

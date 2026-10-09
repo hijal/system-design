@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { sequelize } from './db';
 
-// A realistic TaskFlow tasks table — 1,000,000 rows.
+// A realistic TaskFlow tasks table - 1,000,000 rows.
 // The status distribution is deliberately uneven (as in reality): most tasks get finished.
 //   done 70% · todo 22% · doing 7% · blocked 1%
 // This unevenness is the core of the lab's selectivity step (5).
@@ -13,7 +13,7 @@ async function main(): Promise<void> {
 	const started = performance.now();
 
 	await sequelize.query('DROP TABLE IF EXISTS tasks');
-	// The schema is in raw SQL, because in this lab we add and remove indexes by hand —
+	// The schema is in raw SQL, because in this lab we add and remove indexes by hand -
 	// so Sequelize's sync must not add anything by itself.
 	await sequelize.query(`
 		CREATE TABLE tasks (
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
 		)
 	`);
 
-	// seeding with generate_series — building 1,000,000 rows as JS objects would be much slower.
+	// seeding with generate_series - building 1,000,000 rows as JS objects would be much slower.
 	// setseed() fixes random(), so the same data is produced every time.
 	await sequelize.query(`
 		SELECT setseed(0.42);
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
 		FROM (SELECT g, random() AS r FROM generate_series(1, ${TASKS}) g) s
 	`);
 
-	// VACUUM: builds the visibility map — without it Postgres cannot do an "Index Only Scan"
+	// VACUUM: builds the visibility map - without it Postgres cannot do an "Index Only Scan"
 	// (step 6 of the lab). ANALYZE: statistics for the planner (step 5).
 	await sequelize.query('VACUUM ANALYZE tasks');
 

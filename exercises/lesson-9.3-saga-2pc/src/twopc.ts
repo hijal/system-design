@@ -15,12 +15,12 @@ import {
 } from './db';
 import { mulberry32, ms, pad, percentile, sleep } from './random';
 
-// Lesson 9.3 §1.2–1.3 — two-phase commit (2PC), with Postgres's real PREPARE TRANSACTION.
+// Lesson 9.3 §1.2–1.3 - two-phase commit (2PC), with Postgres's real PREPARE TRANSACTION.
 //
-// "Create task" = a task row in tasks_svc + the workspace's task_count + 1 in billing_svc — the same operation as
+// "Create task" = a task row in tasks_svc + the workspace's task_count + 1 in billing_svc - the same operation as
 // Lesson 9.1, the same seed, the same 83 crashes. This time the two databases are bound to one decision with 2PC:
-//   a. what happens on a crash, and the price (ops/s, p50) — next to one transaction and two separate writes
-//   b. when the coordinator dies after PREPARE: in-doubt transactions and their locks — what happens to everyone else
+//   a. what happens on a crash, and the price (ops/s, p50) - next to one transaction and two separate writes
+//   b. when the coordinator dies after PREPARE: in-doubt transactions and their locks - what happens to everyone else
 //   c. the coordinator coming back and deciding from its log, vs a participant deciding on its own without waiting
 
 const cfg = z
@@ -51,7 +51,7 @@ async function reset(): Promise<void> {
 		CREATE TABLE tasks (id bigserial PRIMARY KEY, workspace_id int NOT NULL REFERENCES workspaces, title text NOT NULL);`);
 	await mono.end();
 	const tasks = pool('tasks_svc', 1);
-	// twopc_log — the coordinator's ledger of decisions. Here the coordinator is the work service, so it's in its own database.
+	// twopc_log - the coordinator's ledger of decisions. Here the coordinator is the work service, so it's in its own database.
 	await tasks.query(`
 		DROP TABLE IF EXISTS tasks; DROP TABLE IF EXISTS twopc_log;
 		CREATE TABLE tasks (id bigserial PRIMARY KEY, workspace_id int NOT NULL, title text NOT NULL);
@@ -74,10 +74,10 @@ const closeAll = async (ps: Participants): Promise<void> => {
 	await ps.billing.end();
 };
 
-// where it stops: 'none' — the whole protocol; the rest are three moments of the coordinator's death
+// where it stops: 'none' - the whole protocol; the rest are three moments of the coordinator's death
 type Stop = 'none' | 'crash-before-prepare' | 'die-after-prepare' | 'die-after-decision';
 
-// The coordinator — here the work service itself (it is the one starting "create task")
+// The coordinator - here the work service itself (it is the one starting "create task")
 async function twoPhase(
 	ps: Participants,
 	op: Op,
@@ -92,28 +92,28 @@ async function twoPhase(
 		await Promise.all([a.query('BEGIN'), b.query('BEGIN')]);
 		// lock_timeout: the longest to wait for a row lock, in ms; 0 means forever (Postgres's default)
 		await b.query(`SET LOCAL lock_timeout = ${lockTimeoutMs}`);
-		// the work: each participant writes its own part — not committed yet, holding the row locks
+		// the work: each participant writes its own part - not committed yet, holding the row locks
 		await a.query(insertTask, [op.workspaceId, op.title]);
 		if (stop === 'crash-before-prepare') throw new Crash();
 		await b.query(bumpCounter, [op.workspaceId]);
-		// Phase 1 — prepare: "can you commit?" Each participant writes its part to disk and says "yes".
-		// After this it can no longer commit or roll back on its own — it holds the locks and waits for the coordinator.
+		// Phase 1 - prepare: "can you commit?" Each participant writes its part to disk and says "yes".
+		// After this it can no longer commit or roll back on its own - it holds the locks and waits for the coordinator.
 		await Promise.all([
 			a.query(`PREPARE TRANSACTION '${gid}:tasks'`),
 			b.query(`PREPARE TRANSACTION '${gid}:billing'`)
 		]);
 		prepared = true;
-		if (stop === 'die-after-prepare') return; // the coordinator died — the decision isn't written anywhere
+		if (stop === 'die-after-prepare') return; // the coordinator died - the decision isn't written anywhere
 		// The decision goes in the coordinator's own log. This write committing is the moment the whole transaction commits.
 		await a.query('INSERT INTO twopc_log (gid, decision) VALUES ($1, $2)', [gid, 'commit']);
 		if (stop === 'die-after-decision') return; // the decision is written, but nobody was told
-		// Phase 2 — commit: the decision to everyone
+		// Phase 2 - commit: the decision to everyone
 		await Promise.all([
 			a.query(`COMMIT PREPARED '${gid}:tasks'`),
 			b.query(`COMMIT PREPARED '${gid}:billing'`)
 		]);
 	} catch (error: unknown) {
-		// a crash drops the connection — Postgres itself ROLLs BACK a transaction that was not prepared
+		// a crash drops the connection - Postgres itself ROLLs BACK a transaction that was not prepared
 		if (error instanceof Crash) destroy = true;
 		else if (!prepared) await Promise.all([a.query('ROLLBACK'), b.query('ROLLBACK')]);
 		throw error;
@@ -166,7 +166,7 @@ function twoWritesPath(): Path {
 	return {
 		name: 'services: two separate writes (9.1)',
 		async run(op) {
-			await ps.tasks.query(insertTask, [op.workspaceId, op.title]); // commits on its own — can't be undone
+			await ps.tasks.query(insertTask, [op.workspaceId, op.title]); // commits on its own - can't be undone
 			if (op.crash) throw new Crash();
 			await ps.billing.query(bumpCounter, [op.workspaceId]);
 		},
@@ -292,8 +292,8 @@ async function loadWhileInDoubt(label: string, lockTimeoutMs: number): Promise<v
 	// "stuck" = the current operation has been running more than 1 s (a normal operation takes a few ms)
 	const stuckSince = busySince.filter((s): s is number => s !== null && deadline - s > 1000);
 	const allStuckAt =
-		stuckSince.length === cfg.CONCURRENCY ? `at ${ms(Math.max(...stuckSince) - began)}` : '—';
-	// the coordinator comes back and decides — releases the locks, the stuck clients move on
+		stuckSince.length === cfg.CONCURRENCY ? `at ${ms(Math.max(...stuckSince) - began)}` : '-';
+	// the coordinator comes back and decides - releases the locks, the stuck clients move on
 	await recover();
 	await running;
 	await closeAll(ps);
@@ -310,7 +310,7 @@ const logRow = z.object({ gid: z.string() });
 const gidRow = z.object({ gid: z.string() });
 
 // The coordinator came back: it reads its own log and sends the decision for each in-doubt transaction.
-// No "commit" in the log means a commit decision was never made — so rollback ("presumed abort").
+// No "commit" in the log means a commit decision was never made - so rollback ("presumed abort").
 async function recover(): Promise<{ tasks: Outcome; billing: Outcome }> {
 	const tasks = pool('tasks_svc', 1);
 	const billing = pool('billing_svc', 1);
@@ -343,7 +343,7 @@ async function recover(): Promise<{ tasks: Outcome; billing: Outcome }> {
 	return result;
 }
 
-// A billing operator got tired of waiting — rolled back their side's prepared transactions themselves
+// A billing operator got tired of waiting - rolled back their side's prepared transactions themselves
 // (commercial databases call this a "heuristic decision")
 async function billingGivesUp(): Promise<number> {
 	const billing = pool('billing_svc', 1);
@@ -394,7 +394,7 @@ async function main(): Promise<void> {
 	for (const path of [monolithPath(), twoWritesPath(), twoPhasePath()]) await runPath(path, ops);
 
 	console.log(
-		`\n── B. The coordinator died after PREPARE, before COMMIT — ${cfg.IN_DOUBT} workspaces' transactions "in doubt" ──`
+		`\n── B. The coordinator died after PREPARE, before COMMIT - ${cfg.IN_DOUBT} workspaces' transactions "in doubt" ──`
 	);
 	await reset();
 	const ps = participants();
@@ -407,7 +407,7 @@ async function main(): Promise<void> {
 		`   left prepared: ${await preparedCount(ps.tasks)} in tasks_svc, ${await preparedCount(ps.billing)} in billing_svc · "commit" in the coordinator's log: ${cfg.LOGGED}`
 	);
 	console.log(
-		`   reading workspace 1's task_count (SELECT): ${readValue} — ${ms(readMs)}, not blocked (MVCC: the committed old value)`
+		`   reading workspace 1's task_count (SELECT): ${readValue} - ${ms(readMs)}, not blocked (MVCC: the committed old value)`
 	);
 	await closeAll(ps);
 	await recover();
@@ -428,7 +428,7 @@ async function main(): Promise<void> {
 	await recoveryRow('billing rolled back alone, then coordinator', true);
 	await clearPrepared();
 	console.log(
-		'\n   (in 2PC a crash means nothing happens — as long as the coordinator dies before PREPARE. If it dies later, the locks are held until it comes back.)\n'
+		'\n   (in 2PC a crash means nothing happens - as long as the coordinator dies before PREPARE. If it dies later, the locks are held until it comes back.)\n'
 	);
 }
 

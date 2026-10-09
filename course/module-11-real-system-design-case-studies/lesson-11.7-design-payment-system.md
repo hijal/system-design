@@ -1,8 +1,8 @@
-# Lesson 11.7 — Case Study: Design a Payment System
+# Lesson 11.7 - Case Study: Design a Payment System
 
-**Module 11 — Real System Design Case Studies**
+**Module 11 - Real System Design Case Studies**
 
-> **Spaced Repetition (Lesson 7.5):** Dual write কী? একটা request এ database এ লেখা আর queue তে event পাঠানো, দুটো আলাদা system এ — কেন কোনো ক্রম (আগে DB, পরে queue, বা উল্টো) এটাকে নিরাপদ করে না? আর transactional outbox কীভাবে করে? আজ দ্বিতীয় system টা একটা queue না, একটা bank এর দিকের payment provider, আর "মাঝপথে crash" মানে কারো টাকা কাটা হলো আর আমাদের কাছে তার কোনো রেকর্ড নেই।
+> **Spaced Repetition (Lesson 7.5):** Dual write কী? একটা request এ database এ লেখা আর queue তে event পাঠানো, দুটো আলাদা system এ - কেন কোনো ক্রম (আগে DB, পরে queue, বা উল্টো) এটাকে নিরাপদ করে না? আর transactional outbox কীভাবে করে? আজ দ্বিতীয় system টা একটা queue না, একটা bank এর দিকের payment provider, আর "মাঝপথে crash" মানে কারো টাকা কাটা হলো আর আমাদের কাছে তার কোনো রেকর্ড নেই।
 
 **Prerequisite:** Lesson 2.5 (Idempotency key), Lesson 5.5 (Transaction, lost update), Lesson 6.4 (ঘড়ি), Lesson 7.4 (Retry), Lesson 7.5 (Dual write, outbox), Lesson 9.3 (Saga), Lesson 10.5 (Webhook এর signature, secret), Lesson 11.2 (Key splitting), Lesson 11.5 (Timeout মানে "জানি না")
 
@@ -12,7 +12,7 @@
 2. Double-entry ledger বানাতে পারবেন আর বলতে পারবেন কেন এটা একটা `balance` column এর চেয়ে নিরাপদ: টাকা শুধু সরে, Σ = 0 একটা প্রমাণযোগ্য নিয়ম, আর ইতিহাস কখনো বদলায় না; সাথে টাকা integer পয়সায়, rounding এর নিয়ম, আর গরম account এর lock এর ফাঁদ
 3. Reconciliation নকশা করতে পারবেন: দিনশেষে নিজের হিসাব আর PSP এর হিসাব মেলানো, কোন key দিয়ে, কোন জানালায়, যাতে আসল সমস্যা ধরা পড়ে আর মিথ্যা alert এর বন্যা না হয়
 
-**Tier:** 1 — Runnable Code (চারটা deterministic model আর একটা আসল Express + Zod payment service, fake PSP আর HMAC দেওয়া webhook সহ; Docker লাগে না)
+**Tier:** 1 - Runnable Code (চারটা deterministic model আর একটা আসল Express + Zod payment service, fake PSP আর HMAC দেওয়া webhook সহ; Docker লাগে না)
 
 ---
 
@@ -36,42 +36,42 @@ Module 11 এর আগের ছয়টা system এ প্রায় স�
 
 ## ১. Theory
 
-### ১.১ Step 1 — Requirement
+### ১.১ Step 1 - Requirement
 
 ```
 প্রশ্ন                                     ধরে নিলাম
 কী কী কাজ?                                 card এ payment, পুরো বা আংশিক refund, merchant এর সাপ্তাহিক payout
 কার মাধ্যমে?                               একটা PSP (প্রধান), পরে দ্বিতীয়টা
 কত?                                        দিনে ১ কোটি payment, গড় $৩০; sale এর দিনে ১০ গুণ
-Card এর data?                              আমাদের system এ ঢুকবে না — PSP এর tokenization (নিচে)
+Card এর data?                              আমাদের system এ ঢুকবে না - PSP এর tokenization (নিচে)
 কোন currency?                              আজ USD; বহু currency এক লাইনে শেষে
 বাদ দিলাম                                  fraud detection এর model, subscription, বহু currency এর রূপান্তর, কর
 ```
 
 **Non-functional, আর এখানে অগ্রাধিকার বদলায়:** সঠিকতা availability এর আগে। একজনের টাকা দুবার কাটার চেয়ে কয়েক সেকেন্ড "processing…" দেখানো অনেক ভালো। প্রতিটা payment এর একটা নিশ্চিত শেষ থাকতে হবে (সফল বা ব্যর্থ, কখনো চিরকাল "অজানা" না)। প্রতিটা টাকার নড়াচড়ার একটা অপরিবর্তনীয় রেকর্ড (audit), বছরের পর বছর। আর **PCI DSS** (card এর data নিরাপত্তার মান): card number যত কম জায়গায়, তত ভালো। তাই প্রচলিত নকশায় card number সরাসরি browser থেকে PSP তে যায় (PSP এর নিজের form বা SDK), আর আমরা পাই শুধু একটা token। আমাদের database এ কখনো card number থাকে না, আর compliance এর বোঝা অনেক ছোট।
 
-**Payment Service Provider (PSP)** — যে বাইরের কোম্পানি card network আর bank এর সাথে কথা বলে আমাদের হয়ে টাকা কাটে (Stripe, Adyen, বা কোনো দেশের স্থানীয় gateway এর মতো); আমাদের দিক থেকে একটা API, নিজের ধীরতা, ব্যর্থতা, আর নিজের হিসাব সহ।
+**Payment Service Provider (PSP)** - যে বাইরের কোম্পানি card network আর bank এর সাথে কথা বলে আমাদের হয়ে টাকা কাটে (Stripe, Adyen, বা কোনো দেশের স্থানীয় gateway এর মতো); আমাদের দিক থেকে একটা API, নিজের ধীরতা, ব্যর্থতা, আর নিজের হিসাব সহ।
 
-### ১.২ Step 2 — Estimation: চাপ ছোট, ভুল বড়
+### ১.২ Step 2 - Estimation: চাপ ছোট, ভুল বড়
 
 `npm run estimate`:
 
 ```
-── Part A — load: 10 million payments a day, $30 on average ──
+── Part A - load: 10 million payments a day, $30 on average ──
 payments / s (average)                                           116
 payments / s (on a sale day, 10×)                              1,157   small for a Postgres
 money per day                                           $300 million
 
-── Part B — the price of mistakes ──
+── Part B - the price of mistakes ──
 mistakes on 0.1% of payments                                $300,000      $110 million
 mistakes on 0.01% of payments                                $30,000     $10.9 million
 mistakes on 0.001% of payments                                $3,000        $1,095,000
 
-── Part C — ledger: 6 entries per payment ──
+── Part C - ledger: 6 entries per payment ──
 entries per day                                           60 million
 kept 7 years (legal)                                     153 billion   30.7 TB
 
-── Part D — where the money of one $30 payment goes (fee 2.9% + $0.3, approximate) ──
+── Part D - where the money of one $30 payment goes (fee 2.9% + $0.3, approximate) ──
 the customer paid                                             $30.00
 processing fee                                                 $1.17   3.9%
 the merchant gets                                             $28.83   a few days later, in the payout
@@ -81,7 +81,7 @@ the merchant gets                                             $28.83   a few day
 
 (একটা সৎ স্বীকারোক্তি: এই script লেখার সময় প্রথমবার fee এর শিরোনামে ছাপা হয়েছিল `2.9000000000000004%`, কারণ `0.029 * 100` একটা float। ১.৫ এ ঠিক এই সমস্যা।)
 
-### ১.৩ Step 3 — High-level design আর payment এর state machine
+### ১.৩ Step 3 - High-level design আর payment এর state machine
 
 ```
  browser ──card──► [PSP এর form/SDK] ──token──► browser ──► [checkout API]
@@ -95,11 +95,11 @@ the merchant gets                                             $28.83   a few day
                                                 │                                     │
                                                 └── ⑤ দিনশেষে settlement report ──► [reconciliation]
                                                                                       │
-                                         [recovery job] — "created"/"unknown" কে PSP তে জিজ্ঞেস করে
-                                         [payout job] — সপ্তাহে merchant এর balance → bank
+                                         [recovery job] - "created"/"unknown" কে PSP তে জিজ্ঞেস করে
+                                         [payout job] - সপ্তাহে merchant এর balance → bank
 ```
 
-**Payment Intent** — একটা payment এর রেকর্ড যা **PSP কে ডাকার আগেই** তৈরি হয়, একটা অনন্য id (যেটা PSP এর কাছে reference আর idempotency key হিসেবে যায়) আর একটা অবস্থা সহ। অবস্থাগুলো:
+**Payment Intent** - একটা payment এর রেকর্ড যা **PSP কে ডাকার আগেই** তৈরি হয়, একটা অনন্য id (যেটা PSP এর কাছে reference আর idempotency key হিসেবে যায়) আর একটা অবস্থা সহ। অবস্থাগুলো:
 
 ```
                  ┌───────────── declined ─────────────► failed
@@ -109,17 +109,17 @@ created ──PSP──► ├───────────── charged �
                                                          └─ recovery: PSP কে জিজ্ঞেস ──► succeeded / failed
 ```
 
-**Unknown State** — PSP এর কাছ থেকে নিশ্চিত উত্তর না আসা পর্যন্ত payment এর অবস্থা: সফলও না, ব্যর্থও না। Customer কে "processing" দেখায়, আর তিনটা পথের একটায় শেষ হয় (webhook, recovery এর জিজ্ঞাসা, বা reconciliation)। এটা ১১.৫ এর "timeout মানে জানি না" কে একটা পূর্ণ, দৃশ্যমান অবস্থা বানানো।
+**Unknown State** - PSP এর কাছ থেকে নিশ্চিত উত্তর না আসা পর্যন্ত payment এর অবস্থা: সফলও না, ব্যর্থও না। Customer কে "processing" দেখায়, আর তিনটা পথের একটায় শেষ হয় (webhook, recovery এর জিজ্ঞাসা, বা reconciliation)। এটা ১১.৫ এর "timeout মানে জানি না" কে একটা পূর্ণ, দৃশ্যমান অবস্থা বানানো।
 
-### ১.৪ Deep dive ১ — Timeout আর crash: কখন টাকা কাটা হয়েছে?
+### ১.৪ Deep dive ১ - Timeout আর crash: কখন টাকা কাটা হয়েছে?
 
 `npm run timeout` অংশ ক: ১০ লাখ payment, ১% timeout, যার ৬০% আসলে কাটা হয়েছিল:
 
 ```
 policy                                                charged twice  charged, no order     wait p99
-timeout = failed, let the user try again                      4,060              1,819            —
-resend it ourselves, a new request                            5,821                  0            —
-resend it ourselves, the same idempotency key                     0                  0            —
+timeout = failed, let the user try again                      4,060              1,819            -
+resend it ourselves, a new request                            5,821                  0            -
+resend it ourselves, the same idempotency key                     0                  0            -
 keep "unknown": webhook, else ask for the status                  0                  0         52 s
 ```
 
@@ -136,11 +136,11 @@ charge at the PSP → then write the payment to the DB                          
 intent in the DB (created) → PSP → the result in the DB                                0                 955
 ```
 
-আগে PSP তে charge করলে, crash এর পরে ৯৭০ জনের টাকা কাটা আর আমাদের কোথাও কিছু নেই — খোঁজার মতো কোনো সূত্রও না। আগে intent লিখলে, সেই crash এ payment টা `created` অবস্থায় পড়ে থাকে, আর **recovery job** (কয়েক মিনিট পরপর, "created বা unknown, X মিনিটের বেশি পুরনো" খোঁজে) PSP কে payment id দিয়ে জিজ্ঞেস করে আর ঠিক করে: ৯৫৫টা খুঁজে পায়, শূন্য হারায়। এটা ঠিক outbox এর ধারণা: নিজের DB তে "আমি এটা করতে যাচ্ছি" লিখে রাখুন, যাতে crash এর পরে কেউ শেষ করতে পারে।
+আগে PSP তে charge করলে, crash এর পরে ৯৭০ জনের টাকা কাটা আর আমাদের কোথাও কিছু নেই - খোঁজার মতো কোনো সূত্রও না। আগে intent লিখলে, সেই crash এ payment টা `created` অবস্থায় পড়ে থাকে, আর **recovery job** (কয়েক মিনিট পরপর, "created বা unknown, X মিনিটের বেশি পুরনো" খোঁজে) PSP কে payment id দিয়ে জিজ্ঞেস করে আর ঠিক করে: ৯৫৫টা খুঁজে পায়, শূন্য হারায়। এটা ঠিক outbox এর ধারণা: নিজের DB তে "আমি এটা করতে যাচ্ছি" লিখে রাখুন, যাতে crash এর পরে কেউ শেষ করতে পারে।
 
 **Webhook** এর একটা নিরাপত্তার দিক (10.5): webhook একটা public endpoint, যেখানে যে কেউ লিখতে পারে "pay_1 সফল"। তাই PSP প্রতিটা webhook এ body এর একটা HMAC signature দেয় (একটা ভাগ করা secret দিয়ে), আর আমরা **কাঁচা body** এর উপর সেটা যাচাই করি (parse করার আগে; JSON আবার serialize করলে byte বদলায়), constant-time তুলনায়। Smoke এর ধাপ ৬: জাল webhook ৪০১। আর webhook ও at-least-once আসে, দুবার আসতে পারে, ক্রম ছাড়া: তাই এর processing idempotent (একটা ইতিমধ্যে সফল payment আবার সফল হলে কিছু হয় না)।
 
-### ১.৫ Deep dive ২ — Double-entry ledger
+### ১.৫ Deep dive ২ - Double-entry ledger
 
 প্রথম চালের `merchant.balance += amount` এর দুটো সমস্যা। `npm run ledger`: ১,০০০টা wallet, ২ লাখ transfer, তার ৩০% একটা বড় merchant এর দিকে (একটা sale এর দিনের মতো), DB এর round trip ~২ ms, ০.১% মাঝপথে crash:
 
@@ -154,29 +154,29 @@ double-entry: lock only the account paying out                            0     
 
 - **পড়ুন, হিসাব করুন, লিখুন:** 5.5 এর lost update, এবার টাকায়। গরম merchant এর balance এ দুটো transfer একই পুরনো মান পড়ে, একটার যোগ হারায়। ১০০ সেকেন্ডে **৫১ লাখ পয়সা** ($৫১,০০০) নিঃশব্দে উধাও। Experiment এ DB ধীর (১০ ms) হলে ৮৪ লাখ: race এর জানালা বড়।
 - **প্রতিটা row atomic, কিন্তু দুটো আলাদা statement:** race নেই, কিন্তু debit এর পরে credit এর আগে crash হলে টাকা এক জায়গা থেকে গেল, আরেক জায়গায় পৌঁছাল না: ৩৬,০০০ পয়সা। আর দুই ক্ষেত্রেই কেউ টের পায় না, কারণ balance একটা সংখ্যা, তার ইতিহাস নেই।
-- **Double-Entry Ledger** — প্রতিটা টাকার নড়াচড়া একটা transaction, যেখানে অন্তত দুটো entry (একটা account এ debit, আরেকটায় credit), আর একটা transaction এর সব entry এর যোগফল **শূন্য**। Entry কখনো বদলায় বা মোছে না (ভুল ঠিক করতে আরেকটা উল্টো transaction)। Balance একটা derived মান: সেই account এর সব entry এর যোগফল। পাঁচশো বছরের পুরনো হিসাবরক্ষণের নিয়ম, আর কারণটা এখানেই দেখা যায়: **Σ সব entry = 0** সবসময় সত্য হতে হবে, তাই কোনো bug, race বা crash টাকা তৈরি বা ধ্বংস করলে সেটা গণিত দিয়ে ধরা পড়ে। এক database transaction এ entry গুলো লেখা হয়, তাই crash এ সব বা কিছুই না।
+- **Double-Entry Ledger** - প্রতিটা টাকার নড়াচড়া একটা transaction, যেখানে অন্তত দুটো entry (একটা account এ debit, আরেকটায় credit), আর একটা transaction এর সব entry এর যোগফল **শূন্য**। Entry কখনো বদলায় বা মোছে না (ভুল ঠিক করতে আরেকটা উল্টো transaction)। Balance একটা derived মান: সেই account এর সব entry এর যোগফল। পাঁচশো বছরের পুরনো হিসাবরক্ষণের নিয়ম, আর কারণটা এখানেই দেখা যায়: **Σ সব entry = 0** সবসময় সত্য হতে হবে, তাই কোনো bug, race বা crash টাকা তৈরি বা ধ্বংস করলে সেটা গণিত দিয়ে ধরা পড়ে। এক database transaction এ entry গুলো লেখা হয়, তাই crash এ সব বা কিছুই না।
 
 Smoke এর ধাপ ১: $৩০ এর payment মানে তিনটা entry: `psp_receivable +$30.00`(PSP আমাদের দেবে),`merchant:m_shop −$28.83` (আমরা merchant কে দেব), `revenue:fees −$1.17` (আমাদের আয়)। যোগফল শূন্য। (চিহ্নের নিয়ম: debit ধনাত্মক, credit ঋণাত্মক; দায় বা আয় এর account স্বাভাবিকভাবে ঋণাত্মক।) শেষ ধাপে ১২টা entry এর যোগফল **০ পয়সা**।
 
 **গরম account এর ফাঁদ:** প্রথম ledger এর নকশা দুটো account ই lock করে (overdraft এর check এর জন্য)। কিন্তু গরম merchant এর account এ সেকেন্ডে ৬০০টা transfer, প্রতিটা ~২ ms ধরে রাখে: চাহিদা ক্ষমতার বেশি, আর লাইন বাড়তেই থাকে, সবচেয়ে খারাপ অপেক্ষা **৩৭ সেকেন্ড।** Experiment ৩: গরম ভাগ ১০% হলে ২০ ms। লক্ষ্য করুন: overdraft এর check শুধু টাকা **যে দেয়** তার দরকার; টাকা পাওয়া account এর balance কমে না, তাই তাকে lock করার দরকার নেই। Credit একটা lock ছাড়া insert (append-only), আর balance পরে গোনা হয়: ৭ ms। আরও বড় মাপে: গরম account কে কয়েকটা sub-account এ ভাগ (11.2 এর key splitting), যোগফল payout এর সময়।
 
-**Minor Units** — টাকা সবসময় তার সবচেয়ে ছোট এককের integer এ রাখা (cent, পয়সা), কখনো float এ না। অংশ খ:
+**Minor Units** - টাকা সবসময় তার সবচেয়ে ছোট এককের integer এ রাখা (cent, পয়সা), কখনো float এ না। অংশ খ:
 
 ```
 sum in float (dollars)                              504892524.099961
 sum in integers (cents) ÷ 100                       504892524.100000
 0.1 + 0.2 = 0.30000000000000004; 0.029 * 100 = 2.9000000000000004
 
-fee 2.9%: rounding each then summing 1,464,194,395 cents, rounding once on the total 1,464,188,320 cents — difference 6,075 cents
+fee 2.9%: rounding each then summing 1,464,194,395 cents, rounding once on the total 1,464,188,320 cents - difference 6,075 cents
 ```
 
-এক কোটি দামের যোগে float এর ভুল মাত্র ০.০০৪ পয়সা — ছোট, কিন্তু শূন্য না, আর `===` দিয়ে তুলনা ভাঙে, আর দুটো system এর হিসাব "প্রায়" মেলে, কখনো পুরো না। দ্বিতীয় লাইনটা আরও সূক্ষ্ম: integer এও rounding এর **নিয়ম** লাগে। প্রতিটা payment এর fee আলাদা round করে যোগ বনাম মোটের উপর একবার round: ৬,০৭৫ পয়সা পার্থক্য। দুটোই যুক্তিসঙ্গত। কিন্তু আপনি একটা, PSP আরেকটা ব্যবহার করলে হিসাব কখনো মিলবে না। তাই rounding (কোথায়, কোন দিকে, half-up না banker's) একটা লেখা নিয়ম, PSP এর নিয়মের সাথে মিলিয়ে। আর বহু currency তে: প্রতিটা currency এর minor unit আলাদা (JPY এর কোনো পয়সা নেই, কিছু currency তে তিন দশমিক), তাই amount সবসময় currency এর সাথে জোড়া।
+এক কোটি দামের যোগে float এর ভুল মাত্র ০.০০৪ পয়সা - ছোট, কিন্তু শূন্য না, আর `===` দিয়ে তুলনা ভাঙে, আর দুটো system এর হিসাব "প্রায়" মেলে, কখনো পুরো না। দ্বিতীয় লাইনটা আরও সূক্ষ্ম: integer এও rounding এর **নিয়ম** লাগে। প্রতিটা payment এর fee আলাদা round করে যোগ বনাম মোটের উপর একবার round: ৬,০৭৫ পয়সা পার্থক্য। দুটোই যুক্তিসঙ্গত। কিন্তু আপনি একটা, PSP আরেকটা ব্যবহার করলে হিসাব কখনো মিলবে না। তাই rounding (কোথায়, কোন দিকে, half-up না banker's) একটা লেখা নিয়ম, PSP এর নিয়মের সাথে মিলিয়ে। আর বহু currency তে: প্রতিটা currency এর minor unit আলাদা (JPY এর কোনো পয়সা নেই, কিছু currency তে তিন দশমিক), তাই amount সবসময় currency এর সাথে জোড়া।
 
-### ১.৬ Deep dive ৩ — Reconciliation
+### ১.৬ Deep dive ৩ - Reconciliation
 
-Unknown, recovery, ledger — সব থাকার পরেও কিছু ফসকায়: একটা webhook হারায় আর recovery এর একটা bug, PSP এর দিকে capture যায়নি, PSP একটা charge দুবার নিল, একটা amount এক পয়সা আলাদা। এদের ধরার শেষ রক্ষাকবচ:
+Unknown, recovery, ledger - সব থাকার পরেও কিছু ফসকায়: একটা webhook হারায় আর recovery এর একটা bug, PSP এর দিকে capture যায়নি, PSP একটা charge দুবার নিল, একটা amount এক পয়সা আলাদা। এদের ধরার শেষ রক্ষাকবচ:
 
-**Reconciliation** — নিয়মিত (সাধারণত প্রতিদিন) নিজের হিসাব আর বাইরের হিসাব (PSP এর settlement report, bank এর statement) এক এক করে মেলানো, আর প্রতিটা অমিল একটা মানুষের বা স্বয়ংক্রিয় তদন্তে পাঠানো। **Settlement** — PSP যে টাকা কাটল সেটা আমাদের bank account এ আসে কয়েক দিন পরে, fee কেটে, একটা report সহ; ledger এর `psp_receivable` এই আসার সাথে কমে, আর তাও মেলাতে হয়।
+**Reconciliation** - নিয়মিত (সাধারণত প্রতিদিন) নিজের হিসাব আর বাইরের হিসাব (PSP এর settlement report, bank এর statement) এক এক করে মেলানো, আর প্রতিটা অমিল একটা মানুষের বা স্বয়ংক্রিয় তদন্তে পাঠানো। **Settlement** - PSP যে টাকা কাটল সেটা আমাদের bank account এ আসে কয়েক দিন পরে, fee কেটে, একটা report সহ; ledger এর `psp_receivable` এই আসার সাথে কমে, আর তাও মেলাতে হয়।
 
 `npm run reconcile`: একটা দিনে ১০ লাখ payment, ৩৭২টা আসল সমস্যা (চার ধরনের), আর একটা বাস্তব খুঁটিনাটি: PSP এর দিন UTC তে, আমাদের UTC+6 এ (বাংলাদেশ):
 
@@ -215,11 +215,11 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 ```
 
 - ধাপ ২: client (browser বা checkout service) timeout পেয়ে একই key তে আবার ডাকল: একই payment, PSP তে একটাই call। দুই স্তরে idempotency: client → আমরা (key), আমরা → PSP (payment id)।
-- ধাপ ৩: decline এ ledger এ কিছু লেখা হয় না — ledger শুধু টাকার আসল নড়াচড়া।
+- ধাপ ৩: decline এ ledger এ কিছু লেখা হয় না - ledger শুধু টাকার আসল নড়াচড়া।
 - ধাপ ৪-৫: 202 (accepted, এখনও অজানা), তারপর webhook এ succeeded। ধাপ ৭: webhook হারালে recovery।
 - ধাপ ৮-১০: refund একটা নতুন ledger transaction (উল্টো দিকে, fee এর আনুপাতিক অংশ সহ), নিজের idempotency key সহ, আর captured এর বেশি refund অসম্ভব।
 
-### ১.৮ Step 5 — Trade-off আর wrap-up
+### ১.৮ Step 5 - Trade-off আর wrap-up
 
 **চূড়ান্ত নকশা:**
 
@@ -228,9 +228,9 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 - **Ledger:** double-entry, append-only, এক DB transaction এ; Σ = 0 এর একটা নিয়মিত check আর alert; balance derived (বা ledger থেকে আপডেট করা cache, কিন্তু সত্য ledger); গরম account এ credit lock ছাড়া, প্রয়োজনে sub-account। টাকা integer minor unit এ, currency সহ; rounding এর লেখা নিয়ম।
 - **Reconciliation:** প্রতিদিন, payment id দিয়ে, ±১ দিনের জানালা, অমিল এর ধরন অনুযায়ী queue আর মালিক। Settlement আর bank এর statement এর সাথে দ্বিতীয় স্তর।
 - **Payout:** সাপ্তাহিক job, ledger এ `merchant → bank_payable`, bank এর দিকে আবার idempotency আর reconciliation।
-- **Scale:** একটা Postgres primary + synchronous replica (RPO শূন্য, 10.8) — throughput এর প্রয়োজন নেই, টেকসইতার আছে। Database এর isolation কড়া (5.5) যেখানে balance এর check।
+- **Scale:** একটা Postgres primary + synchronous replica (RPO শূন্য, 10.8) - throughput এর প্রয়োজন নেই, টেকসইতার আছে। Database এর isolation কড়া (5.5) যেখানে balance এর check।
 
-> **Trade-off Table — payment এর বড় সিদ্ধান্ত**
+> **Trade-off Table - payment এর বড় সিদ্ধান্ত**
 
 | সিদ্ধান্ত      | বেছে নিলাম                                   | বিকল্প                       | কী দিলাম                                 | কী পেলাম                                                    |
 | -------------- | -------------------------------------------- | ---------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
@@ -241,7 +241,7 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 | Amount         | Integer minor unit + rounding এর নিয়ম       | Float                        | প্রতিটা হিসাবে একক রূপান্তর              | Exact যোগ আর তুলনা; PSP এর সাথে মেলে                        |
 | Reconciliation | Payment id, ±১ দিন                           | Amount / একই তারিখ           | অমিল এক দিন দেরিতে চূড়ান্ত              | আসল সব ধরা পড়ে, মিথ্যা alert শূন্য (না হলে দিনে ৫ লাখ)     |
 
-**কী আগে ভাঙবে:** PSP এর দীর্ঘ outage (unknown এর স্তূপ, আর "দ্বিতীয় PSP তে পাঠাব?" এর প্রশ্ন — 11.5 এর মতো, failover এ key হারায়, তাই unknown গুলো কখনো দ্বিতীয় PSP তে না); একটা migration যা ledger এর entry কে "ঠিক" করতে UPDATE চালায় (append-only ভাঙে, audit হারায়); আর reconciliation এর অমিল যা কেউ পড়ে না, কারণ মিথ্যা alert এর অভ্যাস তৈরি হয়ে গেছে।
+**কী আগে ভাঙবে:** PSP এর দীর্ঘ outage (unknown এর স্তূপ, আর "দ্বিতীয় PSP তে পাঠাব?" এর প্রশ্ন - 11.5 এর মতো, failover এ key হারায়, তাই unknown গুলো কখনো দ্বিতীয় PSP তে না); একটা migration যা ledger এর entry কে "ঠিক" করতে UPDATE চালায় (append-only ভাঙে, audit হারায়); আর reconciliation এর অমিল যা কেউ পড়ে না, কারণ মিথ্যা alert এর অভ্যাস তৈরি হয়ে গেছে।
 
 **বহু currency এক লাইনে:** প্রতিটা amount তার currency সহ, ledger এর account currency প্রতি আলাদা, রূপান্তর একটা আলাদা ledger transaction তার নিজের হার সহ, আর কখনো দুটো currency এর amount সরাসরি যোগ না।
 
@@ -249,7 +249,7 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 
 ## ২. Interview Angle
 
-"Design a payment system" এ interviewer প্রায় সবসময় তিনটা জায়গায় যায়: idempotency আর timeout, ledger, আর reconciliation। Throughput নিয়ে প্রায় কিছু না — আর সেটা নিজে থেকে বলা (সংখ্যা দিয়ে) একটা ভালো লক্ষণ। ভালো উত্তরের আকৃতি:
+"Design a payment system" এ interviewer প্রায় সবসময় তিনটা জায়গায় যায়: idempotency আর timeout, ledger, আর reconciliation। Throughput নিয়ে প্রায় কিছু না - আর সেটা নিজে থেকে বলা (সংখ্যা দিয়ে) একটা ভালো লক্ষণ। ভালো উত্তরের আকৃতি:
 
 1. **সঠিকতা আগে, আর কেন।** চাপ ছোট (সেকেন্ডে হাজার), ভুল বড় (০.০১% = বছরে কোটি টাকা)। Card এর data PSP তে (PCI)।
 2. **State machine আর unknown।** Intent আগে, id = PSP এর idempotency key, timeout এ unknown, webhook (signed) আর recovery।
@@ -258,12 +258,12 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Double charge কীভাবে এড়াবেন?"_ — দুই স্তরে idempotency (client → আমরা, আমরা → PSP), timeout কে ব্যর্থ না ধরা। সংখ্যা: "ব্যর্থ" ধরলে ১০ লাখে ৪,০৬০ দুবার কাটা আর ১,৮১৯ হারানো।
-- _"PSP call এর পরে server মরলে?"_ — Intent আগে লেখা ছিল, তাই `created` অবস্থায় আছে; recovery job PSP কে id দিয়ে জিজ্ঞেস করে। উল্টো ক্রমে চিরকাল হারায়।
-- _"Exactly-once?"_ — বাইরের system এর সাথে না। At-least-once + idempotency + reconciliation।
-- _"Ledger কেন? একটা balance column তো সহজ।"_ — Race (৫১ লাখ পয়সা উধাও), crash (debit আছে credit নেই), আর কোনো ইতিহাস নেই। Ledger এ Σ = 0 একটা গাণিতিক check।
-- _"Saga কোথায়?"_ — Checkout এ: inventory reserve → payment → order confirm; payment ব্যর্থ হলে inventory ফেরত (9.3)। কিন্তু payment এর নিজের ভেতরে compensation মানে refund, যা নিজেই একটা payment, আর ব্যর্থ হতে পারে — তাই ledger আর reconciliation।
-- _"Database কী?"_ — সম্পর্কের, ACID, কড়া isolation, synchronous replica। এখানে eventual consistency এর জায়গা নেই (balance), বা আছে শুধু read এর দিকে (dashboard)।
+- _"Double charge কীভাবে এড়াবেন?"_ - দুই স্তরে idempotency (client → আমরা, আমরা → PSP), timeout কে ব্যর্থ না ধরা। সংখ্যা: "ব্যর্থ" ধরলে ১০ লাখে ৪,০৬০ দুবার কাটা আর ১,৮১৯ হারানো।
+- _"PSP call এর পরে server মরলে?"_ - Intent আগে লেখা ছিল, তাই `created` অবস্থায় আছে; recovery job PSP কে id দিয়ে জিজ্ঞেস করে। উল্টো ক্রমে চিরকাল হারায়।
+- _"Exactly-once?"_ - বাইরের system এর সাথে না। At-least-once + idempotency + reconciliation।
+- _"Ledger কেন? একটা balance column তো সহজ।"_ - Race (৫১ লাখ পয়সা উধাও), crash (debit আছে credit নেই), আর কোনো ইতিহাস নেই। Ledger এ Σ = 0 একটা গাণিতিক check।
+- _"Saga কোথায়?"_ - Checkout এ: inventory reserve → payment → order confirm; payment ব্যর্থ হলে inventory ফেরত (9.3)। কিন্তু payment এর নিজের ভেতরে compensation মানে refund, যা নিজেই একটা payment, আর ব্যর্থ হতে পারে - তাই ledger আর reconciliation।
+- _"Database কী?"_ - সম্পর্কের, ACID, কড়া isolation, synchronous replica। এখানে eventual consistency এর জায়গা নেই (balance), বা আছে শুধু read এর দিকে (dashboard)।
 
 **Production এ বাস্তবে:** সবচেয়ে প্রচলিত ঘটনা: একটা timeout এর ঢেউ এ (PSP এর ধীর মুহূর্তে) হাজার হাজার দুবার কাটা, কারণ checkout এর frontend "আবার চেষ্টা করুন" এর বোতাম দেখিয়েছিল; webhook এর signature যাচাই parse করা JSON এ (byte বদলায়, সব webhook ব্যর্থ) বা একদমই না; একটা "সামান্য" migration যা ledger এর entry UPDATE করল; time zone এর জন্য reconciliation এর প্রতিদিনের হাজার মিথ্যা alert, যার মধ্যে আসল একটা হারাল; আর float এ টাকা, যা মাসের শেষে finance এর spreadsheet এ কয়েক পয়সার একটা অমিল হিসেবে দেখা দেয় আর কেউ খুঁজে পায় না।
 
@@ -272,7 +272,7 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 ## ৩. Key Takeaway
 
 - **Payment এ চাপ ছোট, ভুল বড়:** সেকেন্ডে ~১,২০০ একটা Postgres এর জন্য কিছু না, কিন্তু ০.০১% ভুল বছরে $১.১ কোটি। নকশার কাজ প্রতিটা কিনারায় নির্ভুলতা
-- **Timeout মানে "জানি না" — তাই `unknown` একটা পূর্ণ অবস্থা:** "ব্যর্থ" ধরলে ১০ লাখে ৪,০৬০ দুবার কাটা আর ১,৮১৯ হারানো টাকা; key এ retry আর webhook/recovery এ শূন্য
+- **Timeout মানে "জানি না" - তাই `unknown` একটা পূর্ণ অবস্থা:** "ব্যর্থ" ধরলে ১০ লাখে ৪,০৬০ দুবার কাটা আর ১,৮১৯ হারানো টাকা; key এ retry আর webhook/recovery এ শূন্য
 - **আগে নিজের রেকর্ড, তারপর বাইরের কাজ:** PSP আগে করলে ০.১% crash এ ৯৭০টা কাটা টাকার কোনো চিহ্ন নেই; intent আগে লিখলে recovery সব খুঁজে পায় (7.5 এর outbox এর ধারণা)
 - **Double-entry ledger এ টাকা শুধু সরে:** Σ = 0 প্রমাণযোগ্য; balance column এ race এ ৫১ লাখ পয়সা আর crash এ ৩৬,০০০ নিঃশব্দে উধাও। Append-only, এক transaction
 - **গরম account এ শুধু যে দেয় তার lock:** দুই account lock এ ৩৭ s এর লাইন, debit lock এ ৭ ms
@@ -286,12 +286,12 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 | Term                               | অর্থ                                                                                                                                                                                |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Payment Service Provider (PSP)** | যে বাইরের কোম্পানি card network আর bank এর সাথে কথা বলে টাকা কাটে; আমাদের দিক থেকে একটা API, নিজের ধীরতা, ব্যর্থতা আর হিসাব সহ; card এর data tokenize করে PCI এর বোঝা নেয়          |
-| **Payment Intent**                 | PSP কে ডাকার **আগে** তৈরি করা payment এর রেকর্ড, একটা অনন্য id (PSP এর reference আর idempotency key) আর একটা অবস্থা সহ — crash এর পরে কেউ শেষ করতে পারে                             |
-| **Unknown State**                  | PSP এর নিশ্চিত উত্তরের আগের অবস্থা — সফলও না, ব্যর্থও না; webhook, PSP কে জিজ্ঞাসা (recovery), বা reconciliation এ শেষ হয়; timeout কে "ব্যর্থ" ধরা দুবার কাটা আর হারানো টাকা আনে   |
-| **Double-Entry Ledger**            | প্রতিটা টাকার নড়াচড়া একটা transaction, অন্তত দুটো entry, যোগফল শূন্য; entry কখনো বদলায় না; balance derived — Σ = 0 দিয়ে race, crash আর bug গাণিতিকভাবে ধরা পড়ে                 |
-| **Minor Units**                    | টাকা তার সবচেয়ে ছোট এককের integer এ (cent, পয়সা), currency সহ — float এর ভুল নেই; সাথে rounding এর একটা লেখা নিয়ম, যাতে নিজের আর PSP এর হিসাব মেলে                               |
-| **Reconciliation**                 | নিয়মিত নিজের হিসাব আর বাইরের হিসাব (PSP এর report, bank) অনন্য key দিয়ে এক এক করে মেলানো আর প্রতিটা অমিলের তদন্ত — সীমানায় (দিন, time zone) সহনশীলতা, নইলে মিথ্যা alert এর বন্যা |
-| **Settlement**                     | PSP এর কাটা টাকা কয়েক দিন পরে fee কেটে আমাদের bank এ আসা, একটা report সহ — ledger এর receivable কমায়, আর নিজেই আরেক স্তরের reconciliation চায়                                    |
+| **Payment Intent**                 | PSP কে ডাকার **আগে** তৈরি করা payment এর রেকর্ড, একটা অনন্য id (PSP এর reference আর idempotency key) আর একটা অবস্থা সহ - crash এর পরে কেউ শেষ করতে পারে                             |
+| **Unknown State**                  | PSP এর নিশ্চিত উত্তরের আগের অবস্থা - সফলও না, ব্যর্থও না; webhook, PSP কে জিজ্ঞাসা (recovery), বা reconciliation এ শেষ হয়; timeout কে "ব্যর্থ" ধরা দুবার কাটা আর হারানো টাকা আনে   |
+| **Double-Entry Ledger**            | প্রতিটা টাকার নড়াচড়া একটা transaction, অন্তত দুটো entry, যোগফল শূন্য; entry কখনো বদলায় না; balance derived - Σ = 0 দিয়ে race, crash আর bug গাণিতিকভাবে ধরা পড়ে                 |
+| **Minor Units**                    | টাকা তার সবচেয়ে ছোট এককের integer এ (cent, পয়সা), currency সহ - float এর ভুল নেই; সাথে rounding এর একটা লেখা নিয়ম, যাতে নিজের আর PSP এর হিসাব মেলে                               |
+| **Reconciliation**                 | নিয়মিত নিজের হিসাব আর বাইরের হিসাব (PSP এর report, bank) অনন্য key দিয়ে এক এক করে মেলানো আর প্রতিটা অমিলের তদন্ত - সীমানায় (দিন, time zone) সহনশীলতা, নইলে মিথ্যা alert এর বন্যা |
+| **Settlement**                     | PSP এর কাটা টাকা কয়েক দিন পরে fee কেটে আমাদের bank এ আসা, একটা report সহ - ledger এর receivable কমায়, আর নিজেই আরেক স্তরের reconciliation চায়                                    |
 
 ---
 
@@ -310,25 +310,25 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 
 **প্রশ্ন ১:**
 
-(ক) এক ঘণ্টায় ৩৬ লাখ checkout এর অর্ধেক (~১৮ লাখ) timeout হয়ে `unknown` এ জমে, key দিয়ে কয়েকবার retry এর পরে। Customer দেখে "processing", তারপর একটা নির্দিষ্ট সময় পরে (ধরুন ২ মিনিট) "আমরা আপনার payment নিশ্চিত করছি, নিশ্চিত হলে email পাবেন; আবার চেষ্টা করবেন না" — আর order টা "payment pending" অবস্থায়, inventory reserve করা (9.3 এর saga এর প্রথম ধাপ)। সবচেয়ে জরুরি: frontend এ "আবার চেষ্টা করুন" এর বোতাম **না**, কারণ সেটাই দুবার কাটার উৎস (১.৪ এর ৪,০৬০)।
+(ক) এক ঘণ্টায় ৩৬ লাখ checkout এর অর্ধেক (~১৮ লাখ) timeout হয়ে `unknown` এ জমে, key দিয়ে কয়েকবার retry এর পরে। Customer দেখে "processing", তারপর একটা নির্দিষ্ট সময় পরে (ধরুন ২ মিনিট) "আমরা আপনার payment নিশ্চিত করছি, নিশ্চিত হলে email পাবেন; আবার চেষ্টা করবেন না" - আর order টা "payment pending" অবস্থায়, inventory reserve করা (9.3 এর saga এর প্রথম ধাপ)। সবচেয়ে জরুরি: frontend এ "আবার চেষ্টা করুন" এর বোতাম **না**, কারণ সেটাই দুবার কাটার উৎস (১.৪ এর ৪,০৬০)।
 
-(খ) **নিরাপদ:** যেসব payment এখনও প্রধান PSP তে একবারও পাঠানো হয়নি (নতুন checkout, প্রধানের breaker খোলা থাকলে), আর যেসব প্রধান PSP **স্পষ্টভাবে** ব্যর্থ বলেছে (declined না, কিন্তু "service unavailable" এর মতো নিশ্চিত না-কাটা)। **নিরাপদ না:** যেকোনো `unknown` — প্রধান PSP হয়তো কেটেছে, আর দ্বিতীয় PSP প্রথমটার key জানে না (11.5 এর failover এর duplicate, এবার টাকায়)। এগুলো প্রধান PSP ফিরলে তার কাছেই নিশ্চিত হবে। আর failover এর জন্য customer এর card এর token দ্বিতীয় PSP তে কাজ করে কিনা, সেটাও একটা প্রশ্ন (token সাধারণত এক PSP এর)।
+(খ) **নিরাপদ:** যেসব payment এখনও প্রধান PSP তে একবারও পাঠানো হয়নি (নতুন checkout, প্রধানের breaker খোলা থাকলে), আর যেসব প্রধান PSP **স্পষ্টভাবে** ব্যর্থ বলেছে (declined না, কিন্তু "service unavailable" এর মতো নিশ্চিত না-কাটা)। **নিরাপদ না:** যেকোনো `unknown` - প্রধান PSP হয়তো কেটেছে, আর দ্বিতীয় PSP প্রথমটার key জানে না (11.5 এর failover এর duplicate, এবার টাকায়)। এগুলো প্রধান PSP ফিরলে তার কাছেই নিশ্চিত হবে। আর failover এর জন্য customer এর card এর token দ্বিতীয় PSP তে কাজ করে কিনা, সেটাও একটা প্রশ্ন (token সাধারণত এক PSP এর)।
 
 (গ) PSP ফেরার সাথে সাথে recovery job ১৮ লাখ `unknown` এর জন্য একসাথে status জিজ্ঞেস করলে, সদ্য সুস্থ PSP আবার ডুবতে পারে, আর তার সাথে নতুন checkout ও (11.3 এর reconnect storm, এবার আমরা ঢেউ টা পাঠাচ্ছি)। তাই recovery paced (11.5 এর মতো, PSP এর সীমার একটা ভাগে), পুরনোগুলো আগে, আর নতুন checkout এর জন্য ক্ষমতা রেখে। অনেক PSP একটা দিনের report বা bulk status API দেয়, যা হাজারটা আলাদা call এর চেয়ে ভালো।
 
 **প্রশ্ন ২:**
 
-(ক) Account: `customer:<team>:receivable` বা সরাসরি `psp_receivable` (card charge এর জন্য), `revenue:subscriptions` (আয়), প্রয়োজনে `deferred_revenue` (আগাম নেওয়া টাকা যা এখনও আয় হয়নি — মাসের শুরুতে পুরো মাসের টাকা নিলে, হিসাবের নিয়মে দিনে দিনে আয় হয়), `revenue:fees` বা `expense:psp_fees` (PSP এর fee), আর `credits:<team>` (downgrade এ ফেরত না দিয়ে পরের invoice এ বাদ দেওয়ার জন্য)। প্রতিটা ঘটনা (invoice, charge, proration, credit) একটা জোড়া entry।
+(ক) Account: `customer:<team>:receivable` বা সরাসরি `psp_receivable` (card charge এর জন্য), `revenue:subscriptions` (আয়), প্রয়োজনে `deferred_revenue` (আগাম নেওয়া টাকা যা এখনও আয় হয়নি - মাসের শুরুতে পুরো মাসের টাকা নিলে, হিসাবের নিয়মে দিনে দিনে আয় হয়), `revenue:fees` বা `expense:psp_fees` (PSP এর fee), আর `credits:<team>` (downgrade এ ফেরত না দিয়ে পরের invoice এ বাদ দেওয়ার জন্য)। প্রতিটা ঘটনা (invoice, charge, proration, credit) একটা জোড়া entry।
 
-(খ) Proration এর হিসাব **invoice তৈরির সময় একবার**, integer পয়সায়, একটা লেখা নিয়মে (যেমন: দিন প্রতি দাম পয়সায় floor, মোট half-up)। তারপর invoice এর মোট টাকাটাই PSP তে charge হয়, PSP কোনো হিসাব করে না। কারণ: customer invoice এ যা দেখে, card এ ঠিক তাই কাটা উচিত, আর ledger এ ঠিক তাই — তিনটা জায়গায় আলাদা rounding মানে ১.৫ এর ৬,০৭৫ পয়সার মতো একটা চিরকালের অমিল, আর customer এর "আমার invoice $২৯.৯৭ কিন্তু কাটা হয়েছে $২৯.৯৮" এর ticket।
+(খ) Proration এর হিসাব **invoice তৈরির সময় একবার**, integer পয়সায়, একটা লেখা নিয়মে (যেমন: দিন প্রতি দাম পয়সায় floor, মোট half-up)। তারপর invoice এর মোট টাকাটাই PSP তে charge হয়, PSP কোনো হিসাব করে না। কারণ: customer invoice এ যা দেখে, card এ ঠিক তাই কাটা উচিত, আর ledger এ ঠিক তাই - তিনটা জায়গায় আলাদা rounding মানে ১.৫ এর ৬,০৭৫ পয়সার মতো একটা চিরকালের অমিল, আর customer এর "আমার invoice $২৯.৯৭ কিন্তু কাটা হয়েছে $২৯.৯৮" এর ticket।
 
 (গ) Charge ব্যর্থ (declined, card এর মেয়াদ শেষ): subscription "past_due" অবস্থায়, কয়েক দিনে কয়েকবার retry (dunning), প্রতিটায় একই invoice এর জন্য নতুন attempt কিন্তু **invoice এর id দিয়ে idempotency**, যাতে দুটো attempt সফল হলেও একবারই কাটে। Customer কে email (11.5) card আপডেট করার লিংক সহ। একটা grace period (ধরুন ৭ দিন) পরে plan নামানো, data মোছা না। Ledger এ invoice এর receivable থাকে যতক্ষণ না টাকা আসে বা লিখে দেওয়া হয় (write-off, আরেকটা transaction)।
 
 **প্রশ্ন ৩:**
 
-(ক) সম্ভাব্য কারণ: (১) **Settlement এর সময়ের ফারাক** — মাসের শেষ কয়েক দিনের charge পরের মাসে settle হয় (১.৬ এর দিনের সীমা, এবার মাসের); (২) **Fee এর অমিল** — PSP এর আসল fee (আন্তর্জাতিক card, currency রূপান্তর এর বাড়তি fee) আমাদের ধরে নেওয়া fee এর থেকে আলাদা, বা rounding এর জায়গা আলাদা (১.৫); (৩) **Refund আর chargeback** — PSP chargeback (customer এর bank এর মাধ্যমে বিতর্ক) এর টাকা কেটে নিয়েছে, আমাদের ledger এ সেটা এখনও আসেনি (chargeback এর webhook হারিয়েছে বা প্রক্রিয়াকরণ হয়নি); (৪) **হারানো বা দুবার charge** — reconciliation এর অমিল যা কেউ সমাধান করেনি (১.৬ এর চার ধরন); (৫) PSP এর একটা reserve (ঝুঁকির জন্য টাকার একটা অংশ আটকে রাখা) যা আমাদের ledger এ নেই।
+(ক) সম্ভাব্য কারণ: (১) **Settlement এর সময়ের ফারাক** - মাসের শেষ কয়েক দিনের charge পরের মাসে settle হয় (১.৬ এর দিনের সীমা, এবার মাসের); (২) **Fee এর অমিল** - PSP এর আসল fee (আন্তর্জাতিক card, currency রূপান্তর এর বাড়তি fee) আমাদের ধরে নেওয়া fee এর থেকে আলাদা, বা rounding এর জায়গা আলাদা (১.৫); (৩) **Refund আর chargeback** - PSP chargeback (customer এর bank এর মাধ্যমে বিতর্ক) এর টাকা কেটে নিয়েছে, আমাদের ledger এ সেটা এখনও আসেনি (chargeback এর webhook হারিয়েছে বা প্রক্রিয়াকরণ হয়নি); (৪) **হারানো বা দুবার charge** - reconciliation এর অমিল যা কেউ সমাধান করেনি (১.৬ এর চার ধরন); (৫) PSP এর একটা reserve (ঝুঁকির জন্য টাকার একটা অংশ আটকে রাখা) যা আমাদের ledger এ নেই।
 
-(খ) (১) Charge এর তারিখ বনাম settlement এর তারিখ ধরে একটা ভাগ — "এই মাসে charge, পরের মাসে settle" এর যোগফল; (২) PSP এর settlement report এর প্রতিটা লাইনের fee বনাম আমাদের হিসাবের fee, payment id দিয়ে join, পার্থক্য currency আর card এর ধরন ধরে group; (৩) PSP এর report এ chargeback আর refund এর লাইন বনাম আমাদের ledger এর একই ধরনের transaction; (৪) দৈনিক reconciliation এর খোলা অমিলের তালিকা, বয়স ধরে; (৫) PSP এর balance বা reserve এর report।
+(খ) (১) Charge এর তারিখ বনাম settlement এর তারিখ ধরে একটা ভাগ - "এই মাসে charge, পরের মাসে settle" এর যোগফল; (২) PSP এর settlement report এর প্রতিটা লাইনের fee বনাম আমাদের হিসাবের fee, payment id দিয়ে join, পার্থক্য currency আর card এর ধরন ধরে group; (৩) PSP এর report এ chargeback আর refund এর লাইন বনাম আমাদের ledger এর একই ধরনের transaction; (৪) দৈনিক reconciliation এর খোলা অমিলের তালিকা, বয়স ধরে; (৫) PSP এর balance বা reserve এর report।
 
 (গ) **করবেন:** প্রতিটা খুঁজে পাওয়া কারণের জন্য একটা নতুন, ব্যাখ্যা সহ ledger transaction (যেমন `expense:psp_fees` এ বাড়তি fee, `chargeback_losses` এ chargeback), সঠিক তারিখে, একটা reference সহ (কোন report এর কোন লাইন)। যোগফল শূন্য থাকে, আর ইতিহাসে দেখা যায় কখন কেন। আর মূল কারণ (যেমন chargeback এর webhook এর processing) ঠিক করা, যাতে পরের মাসে না হয়। **করবেন না:** পুরনো entry UPDATE বা DELETE করে সংখ্যা মিলিয়ে দেওয়া, বা একটা "adjustment $৩,২১০" এর একক entry দিয়ে পার্থক্য চাপা দেওয়া যার কোনো ব্যাখ্যা নেই। দুটোই audit ভাঙে, আর পরের বার কেউ জানবে না কোন অংশটা আসলে কী ছিল।
 
@@ -338,9 +338,9 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 
 ## ৬. Practical Exercise
 
-**Tier 1 — Runnable Code** (চারটা deterministic model আর একটা আসল Express + Zod payment service, fake PSP আর HMAC দেওয়া webhook সহ; Docker লাগে না)
+**Tier 1 - Runnable Code** (চারটা deterministic model আর একটা আসল Express + Zod payment service, fake PSP আর HMAC দেওয়া webhook সহ; Docker লাগে না)
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-11.7-payment-system/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.7-payment-system) — `npm install`, তারপর `npm run estimate`, `npm run timeout`, `npm run ledger`, `npm run reconcile`, `npm run smoke`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-11.7-payment-system/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-11.7-payment-system) - `npm install`, তারপর `npm run estimate`, `npm run timeout`, `npm run ledger`, `npm run reconcile`, `npm run smoke`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
 
 `estimate` চাপ, টাকা, ভুলের দাম, ledger এর আকার আর একটা payment এর টাকার পথ হিসাব করে। `timeout` PSP timeout এর চারটা নীতি আর crash এ লেখার দুটো ক্রম মাপে। `ledger` একটা গরম merchant সহ balance column আর double-entry এর চারটা নকশা virtual time এ চালায়, আর float বনাম পয়সা আর rounding দেখায়। `reconcile` একটা দিনের data তে তিনটা মেলানোর নিয়ম তুলনা করে। `smoke` একটা আসল payment service কে fake PSP সহ ১৩টা ধাপে চালায়।
 
@@ -365,9 +365,9 @@ Smoke এর ধাপ ১১: PSP এর report এ `pay_3` দুবার (PS
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1 – 10 (সম্পূর্ণ, exit challenge সহ), 11.1 – 11.6
-Current: 11.7 — Case Study: Design a Payment System
-TaskFlow state: Module 10 এর শেষ অবস্থায় রাখা (Module 11 এ পাশে)। Case study ১ — URL shortener; ২ — rate limiter
-service; ৩ — chat; ৪ — news feed; ৫ — notification; ৬ — video streaming। Case study ৭ — payment: দিনে ১ কোটি payment
+Current: 11.7 - Case Study: Design a Payment System
+TaskFlow state: Module 10 এর শেষ অবস্থায় রাখা (Module 11 এ পাশে)। Case study ১ - URL shortener; ২ - rate limiter
+service; ৩ - chat; ৪ - news feed; ৫ - notification; ৬ - video streaming। Case study ৭ - payment: দিনে ১ কোটি payment
 ($৩০ কোটি), sale এ সেকেন্ডে ~১,২০০ (চাপ ছোট), ০.০১% ভুল = বছরে $১.১ কোটি (ভুল বড়)। Card এর data PSP এর tokenization এ।
 Payment intent আগে (id = PSP এর reference + idempotency key), state machine এ `unknown`; timeout = ব্যর্থ ধরলে ১০ লাখে
 ৪,০৬০ দুবার কাটা + ১,৮১৯ হারানো; key এ retry + HMAC webhook (কাঁচা body) + recovery job এ শূন্য; PSP আগে লিখলে ০.১% crash
@@ -385,7 +385,7 @@ Provider Throughput Limit, Pacing, Provider Failover, Aggregation Window (Collap
 Device Token Lifecycle, Egress, Bitrate Ladder, Manifest (HLS / DASH), Segment-Parallel Transcoding,
 Adaptive Bitrate (ABR), Rebuffer Ratio, Popularity-Tiered Encoding, Payment Service Provider (PSP),
 Payment Intent, Unknown State, Double-Entry Ledger, Minor Units, Reconciliation, Settlement
-Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
+Weak spots: [আপনি যেখানে আটকেছিলেন - নিজে লিখুন]
 Next: Module 11 Exit Challenge
 =======================
 ```
@@ -396,4 +396,4 @@ Next: Module 11 Exit Challenge
 
 আজকের সুতোটা: **যেখানে প্রতিটা ভুল টাকা, সেখানে নকশার কাজ throughput না, প্রতিটা কিনারায় নিশ্চয়তা।** Timeout কে ব্যর্থ ধরবেন না, তার নাম দিন (`unknown`) আর শেষ করার তিনটা পথ রাখুন। বাইরের কাজের আগে নিজের রেকর্ড লিখুন। টাকাকে সংখ্যা হিসেবে না, নড়াচড়ার ইতিহাস হিসেবে রাখুন, যাতে Σ = 0 প্রতিটা ভুল ধরে। আর সব কিছুর পরেও দিনশেষে বাইরের হিসাবের সাথে মেলান, কারণ কিছু না কিছু সবসময় ফসকায়।
 
-Module 11 এখানে শেষ। সাতটা system, প্রতিটা শূন্য থেকে, Lesson 1.2 এর পাঁচ ধাপে। আর প্রতিটায় একটা অভ্যাস ফিরে এসেছে: আগে সংখ্যা, তারপর যন্ত্র; আর সংখ্যা প্রায়ই বলে কোন যন্ত্র **লাগে না** (11.1 এর sharding আর Bloom filter, 11.4 এর গড়, 11.6 এর transcoding এর খরচ, আজকের throughput)। রেডি হলে `next` লিখুন — **Module 11 Exit Challenge** এ যাব। সেখানে একটা নতুন system দেব যা এই module এর কয়েকটা case study এর টুকরো একসাথে চায়, আর এবার কোনো script বা সংখ্যা আগে থেকে দেওয়া থাকবে না: requirement থেকে estimation, নকশা, আর trade-off, সব আপনার, ঠিক interview এর মতো।
+Module 11 এখানে শেষ। সাতটা system, প্রতিটা শূন্য থেকে, Lesson 1.2 এর পাঁচ ধাপে। আর প্রতিটায় একটা অভ্যাস ফিরে এসেছে: আগে সংখ্যা, তারপর যন্ত্র; আর সংখ্যা প্রায়ই বলে কোন যন্ত্র **লাগে না** (11.1 এর sharding আর Bloom filter, 11.4 এর গড়, 11.6 এর transcoding এর খরচ, আজকের throughput)। রেডি হলে `next` লিখুন - **Module 11 Exit Challenge** এ যাব। সেখানে একটা নতুন system দেব যা এই module এর কয়েকটা case study এর টুকরো একসাথে চায়, আর এবার কোনো script বা সংখ্যা আগে থেকে দেওয়া থাকবে না: requirement থেকে estimation, নকশা, আর trade-off, সব আপনার, ঠিক interview এর মতো।

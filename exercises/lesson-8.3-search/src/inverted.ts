@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { commentText, FILLER, STOPWORDS } from './data';
 
-// Lesson 8.3 §1.5–1.6 — an inverted index, by hand, in memory. The core idea inside Postgres's GIN and
+// Lesson 8.3 §1.5–1.6 - an inverted index, by hand, in memory. The core idea inside Postgres's GIN and
 // Elasticsearch/Lucene is the same: flipping "which words are in which document" into "which documents contain which word".
 //
 //   1. build: analyzer (lowercase, split into words, drop stopwords, a small stemmer) → posting lists
-//   2. search: a full scan vs the index — the same answer, how long each takes
+//   2. search: a full scan vs the index - the same answer, how long each takes
 //   3. two words together (AND): two ways to intersect posting lists, how many comparisons each takes
-//   4. ranking: BM25 — which document is most relevant
-// No Postgres needed — like.ts's same comments (the same formula), DOCS of them.
+//   4. ranking: BM25 - which document is most relevant
+// No Postgres needed - like.ts's same comments (the same formula), DOCS of them.
 
 const cfg = z
 	.object({ DOCS: z.coerce.number().int().positive().default(200_000) })
@@ -16,7 +16,7 @@ const cfg = z
 
 const STOP = new Set(STOPWORDS);
 
-// A toy stemmer — a small imitation of a few Porter stemmer rules: deploying/deployment/deployed → deploy,
+// A toy stemmer - a small imitation of a few Porter stemmer rules: deploying/deployment/deployed → deploy,
 // invoices/invoice → invoic, received/receive → receiv. A real analyzer has many more rules (and per language).
 export function stem(word: string): string {
 	let w = word;
@@ -64,7 +64,7 @@ function main(): void {
 		for (const [term, count] of counts) {
 			let p = index.get(term);
 			if (!p) index.set(term, (p = { docs: [], tf: [] }));
-			p.docs.push(id); // ids arrive in increasing order — so the list is always sorted
+			p.docs.push(id); // ids arrive in increasing order - so the list is always sorted
 			p.tf.push(count);
 		}
 	}
@@ -91,14 +91,14 @@ function main(): void {
 		`   time ${buildTime} · distinct terms ${index.size.toLocaleString('en')} · postings ${postings.toLocaleString('en')} (~${((postings * 8) / 1024 / 1024).toFixed(0)} MB, id + tf)`
 	);
 	console.log(
-		`   stopwords dropped: ${droppedStop.toLocaleString('en')} / ${allTokens.toLocaleString('en')} words (${Math.round((100 * droppedStop) / allTokens)}%) — kept, each list would be huge; share of documents: ${stopDocs.join(', ')}`
+		`   stopwords dropped: ${droppedStop.toLocaleString('en')} / ${allTokens.toLocaleString('en')} words (${Math.round((100 * droppedStop) / allTokens)}%) - kept, each list would be huge; share of documents: ${stopDocs.join(', ')}`
 	);
 	console.log(
 		`   longest posting lists: ${longest.map(([term, p]) => `${term} ${p.docs.length.toLocaleString('en')}`).join(' · ')}`
 	);
 
 	// ── 2. search: scan vs index ────────────────────────────────
-	console.log('\n── 2. "deploy checklist" — comments containing both words ──');
+	console.log('\n── 2. "deploy checklist" - comments containing both words ──');
 	t = performance.now();
 	let grep = 0;
 	for (let id = 1; id <= cfg.DOCS; id++) {
@@ -127,14 +127,14 @@ function main(): void {
 		`   ${'inverted index (intersecting posting lists)'.padEnd(44)}${ms(t).padStart(10)}   ${found.length.toLocaleString('en')}`
 	);
 	console.log(
-		`   (more with substrings: "redeploy" matches "deploy" too; the index also matches "deploying"/"deployment" — the same stem)`
+		`   (more with substrings: "redeploy" matches "deploy" too; the index also matches "deploying"/"deployment" - the same stem)`
 	);
 
 	// ── 3. AND: two ways to intersect posting lists ─────────────
 	const common = index.get(FILLER[0] ?? 'kax')?.docs ?? [];
 	const rare = index.get('rollback')?.docs ?? [];
 	console.log(
-		`\n── 3. "${FILLER[0] ?? ''} AND rollback" — one very common (${common.length.toLocaleString('en')} docs), one rare (${rare.length.toLocaleString('en')}) ──`
+		`\n── 3. "${FILLER[0] ?? ''} AND rollback" - one very common (${common.length.toLocaleString('en')} docs), one rare (${rare.length.toLocaleString('en')}) ──`
 	);
 	const merge = { count: 0 };
 	t = performance.now();
@@ -150,7 +150,7 @@ function main(): void {
 	);
 
 	// ── 4. ranking: BM25 ────────────────────────────────────────
-	console.log('\n── 4. The top 3 for "deploy checklist" — ordered by BM25 ──');
+	console.log('\n── 4. The top 3 for "deploy checklist" - ordered by BM25 ──');
 	const avgLen = [...docLength].reduce((a, b) => a + b, 0) / cfg.DOCS;
 	const scores = bm25(want, found, index, docLength, avgLen, cfg.DOCS);
 	for (const [id, score] of scores.slice(0, 3)) {
@@ -168,7 +168,7 @@ function main(): void {
 	console.log();
 }
 
-// two sorted lists, two fingers walking side by side — comparisons ≈ the sum of the two lists
+// two sorted lists, two fingers walking side by side - comparisons ≈ the sum of the two lists
 function mergeBoth(a: number[], b: number[], counter: { count: number }): number[] {
 	const out: number[] = [];
 	let i = 0;
@@ -187,7 +187,7 @@ function mergeBoth(a: number[], b: number[], counter: { count: number }): number
 	return out;
 }
 
-// start from the shortest list; binary search every id in the other lists — comparisons ≈ short × log(long)
+// start from the shortest list; binary search every id in the other lists - comparisons ≈ short × log(long)
 function intersect(lists: number[][], counter: { count: number }): number[] {
 	if (lists.length === 0) return [];
 	const sorted = [...lists].sort((a, b) => a.length - b.length);

@@ -2,9 +2,9 @@ import { performance } from 'node:perf_hooks';
 import { createSequelize } from './db';
 import { Task, initModels } from './models';
 
-// Lesson 5.6 §1.6 — the cost after the data comes back from the database.
+// Lesson 5.6 §1.6 - the cost after the data comes back from the database.
 // Sequelize turns every row into a full Model instance (getters/setters, change
-// tracking, and so on) — this is called hydration. With few rows it isn't noticeable; with many it is.
+// tracking, and so on) - this is called hydration. With few rows it isn't noticeable; with many it is.
 
 const ROWS = 100_000;
 const ROUNDS = 5;
@@ -22,7 +22,7 @@ async function seed(): Promise<void> {
 	);
 	await sequelize.query(
 		`INSERT INTO tasks (title, "projectId", "assigneeId")
-		 SELECT 'Task #' || g || ' — ' || repeat('lorem ipsum ', 5), 1 + g % 100, 1 + g % 100
+		 SELECT 'Task #' || g || ' - ' || repeat('lorem ipsum ', 5), 1 + g % 100, 1 + g % 100
 		 FROM generate_series(1, ${ROWS}) g`
 	);
 }
@@ -42,7 +42,7 @@ async function median(fn: () => Promise<number>): Promise<{ ms: number; count: n
 async function main(): Promise<void> {
 	await seed();
 	console.log(
-		`\nHydration: reading ${ROWS.toLocaleString('en-US')} tasks — the same query, returned in different shapes`
+		`\nHydration: reading ${ROWS.toLocaleString('en-US')} tasks - the same query, returned in different shapes`
 	);
 
 	const variants: [string, () => Promise<number>][] = [

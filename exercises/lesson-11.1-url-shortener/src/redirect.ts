@@ -94,7 +94,7 @@ const sample = (u: number): number => {
 };
 
 heading(
-	`Part A — the redirect cache: ${n(LINKS)} links, ${n(REQUESTS)} redirects, Zipf popularity (s = ${ZIPF_S}), LRU`
+	`Part A - the redirect cache: ${n(LINKS)} links, ${n(REQUESTS)} redirects, Zipf popularity (s = ${ZIPF_S}), LRU`
 );
 console.log(
 	row([
@@ -158,7 +158,7 @@ console.log(
 );
 
 heading(
-	`Part B — 301 vs 302: ${n(USERS)} people click a link, come back ${REPEAT_MEAN} more times on average (${GAP_HOURS} hours apart on average), ${share(HONOR_CACHE, 0)} of browsers keep the cache; the link is disabled on day ${TAKEDOWN_DAY}`
+	`Part B - 301 vs 302: ${n(USERS)} people click a link, come back ${REPEAT_MEAN} more times on average (${GAP_HOURS} hours apart on average), ${share(HONOR_CACHE, 0)} of browsers keep the cache; the link is disabled on day ${TAKEDOWN_DAY}`
 );
 console.log(
 	row([
@@ -218,7 +218,7 @@ console.log(
 );
 
 heading(
-	`Part C — unique visitors per link: ${big(MONTHLY_CLICKS)} clicks a month, Zipf over ${big(ACTIVE_LINKS)} links, ${share(UNIQUE_SHARE, 0)} of clicks unique`
+	`Part C - unique visitors per link: ${big(MONTHLY_CLICKS)} clicks a month, Zipf over ${big(ACTIVE_LINKS)} links, ${share(UNIQUE_SHARE, 0)} of clicks unique`
 );
 {
 	let harmonic = 0;
@@ -270,7 +270,7 @@ heading(
 		row([
 			['dense HLL (12 KB) per clicked link', 52],
 			[bytes(dense), 12]
-		]) + `   ${big(clicked)} links clicked — most of them small`
+		]) + `   ${big(clicked)} links clicked - most of them small`
 	);
 	console.log(
 		row([

@@ -1,6 +1,6 @@
 import { latency } from './random';
 
-// A model of an async replica: every write (LSN) becomes visible some time after it commits on the primary —
+// A model of an async replica: every write (LSN) becomes visible some time after it commits on the primary -
 // a minimum + an exponential tail, and now and then a "stall" (WAL replay conflicting with a long query,
 // vacuum, the network). The replica applies writes **in order**: when one stalls, everything behind it stalls.
 // The numbers are an assumed model, not measured from any particular system.

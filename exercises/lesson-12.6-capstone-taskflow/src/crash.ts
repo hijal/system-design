@@ -172,7 +172,7 @@ async function main(): Promise<void> {
 	const outboxLine = lines[2];
 	if (outboxLine !== undefined) {
 		console.log(
-			`outbox, on top of the relay crashes: ${workerCrashed.size} worker crashes after sending the email; provider calls ${n(outboxLine.providerCalls)} for ${n(outboxLine.emails)} emails — the provider's idempotency key absorbed the repeats`
+			`outbox, on top of the relay crashes: ${workerCrashed.size} worker crashes after sending the email; provider calls ${n(outboxLine.providerCalls)} for ${n(outboxLine.emails)} emails - the provider's idempotency key absorbed the repeats`
 		);
 	}
 

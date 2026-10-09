@@ -104,7 +104,7 @@ const STRATEGIES: Strategy[] = [
 ];
 
 heading(
-	`Part A — the Singapore region down for ${duration(OUTAGE_MINUTES)}: ${RPS} req/s, ${Math.round(WRITE_SHARE * 100)}% of them writes`
+	`Part A - the Singapore region down for ${duration(OUTAGE_MINUTES)}: ${RPS} req/s, ${Math.round(WRITE_SHARE * 100)}% of them writes`
 );
 console.log(
 	row([
@@ -147,7 +147,7 @@ console.log(
 	`\n(RPO = how far the data had reached the other region; "lost writes" = RPO × ${writesPerSecond} writes/s. Extra cost on top of 10.7's $8,276)`
 );
 
-heading('Part B — after changing DNS: what % of traffic still goes to the dead region');
+heading('Part B - after changing DNS: what % of traffic still goes to the dead region');
 const HONOR = 0.7;
 const CLAMP = 0.2;
 const STICKY = 0.1;
@@ -185,11 +185,11 @@ for (const [name, ttl] of [
 	);
 }
 console.log(
-	`\n(assumed: ${Math.round(HONOR * 100)}% of clients honour the TTL; ${Math.round(CLAMP * 100)}% have a resolver that treats the TTL as at least ${CLAMP_SECONDS / 60} minutes; ${Math.round(STICKY * 100)}% hold on to the old IP for up to an hour — open connections, the app's own cache)`
+	`\n(assumed: ${Math.round(HONOR * 100)}% of clients honour the TTL; ${Math.round(CLAMP * 100)}% have a resolver that treats the TTL as at least ${CLAMP_SECONDS / 60} minutes; ${Math.round(STICKY * 100)}% hold on to the old IP for up to an hour - open connections, the app's own cache)`
 );
 
 heading(
-	`Part C — Singapore is not dead, only cut off from the rest, for ${PARTITION_MINUTES} minutes (${Math.round(SG_WRITE_SHARE * 100)}% of writes are from Singapore users)`
+	`Part C - Singapore is not dead, only cut off from the rest, for ${PARTITION_MINUTES} minutes (${Math.round(SG_WRITE_SHARE * 100)}% of writes are from Singapore users)`
 );
 type Policy = { name: string; failoverAt: number | null; fence: boolean };
 const POLICIES: Policy[] = [
@@ -220,7 +220,7 @@ for (const p of POLICIES) {
 			return {
 				failed: rest * p.failoverAt,
 				divergent: sg * (PARTITION_MINUTES - p.failoverAt),
-				who: 'both sides — two primaries (split brain)'
+				who: 'both sides - two primaries (split brain)'
 			};
 		const leaseSeconds = 30;
 		return {

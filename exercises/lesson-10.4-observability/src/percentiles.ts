@@ -59,7 +59,7 @@ const requests = simulate();
 const all = sorted(requests.map((request) => request.latency));
 
 heading(
-	`A. One hour of board opens — ${n(requests.length)} requests, ${INSTANCES} instances, ${REPLICAS} replicas; r${REPLICAS}'s disk stalls ${STALLS.length} times an hour for ${STALL_SECONDS} s`
+	`A. One hour of board opens - ${n(requests.length)} requests, ${INSTANCES} instances, ${REPLICAS} replicas; r${REPLICAS}'s disk stalls ${STALLS.length} times an hour for ${STALL_SECONDS} s`
 );
 console.log(
 	row([
@@ -84,7 +84,7 @@ console.log(
 	])
 );
 
-heading("B. The dashboard rollup — building the hour's number from each minute's p99");
+heading("B. The dashboard rollup - building the hour's number from each minute's p99");
 const perMinute: number[][] = Array.from({ length: MINUTES }, () => []);
 for (const request of requests) perMinute[Math.floor(request.at / 60)]?.push(request.latency);
 const minuteP99 = perMinute.map((values) => percentile(sorted(values), 99));
@@ -146,7 +146,7 @@ for (const minute of [10, 11, 12, 13, 14, 30, 31, 32]) {
 	);
 }
 
-heading('C. Percentiles from a histogram — the estimate depends on where the bucket bounds are');
+heading('C. Percentiles from a histogram - the estimate depends on where the bucket bounds are');
 console.log(
 	row([
 		['percentile', 12],
@@ -177,7 +177,7 @@ for (const q of [50, 90, 99, 99.9]) {
 console.log(`   default bucket (ms): ${DEFAULT_BUCKETS.join(', ')}`);
 console.log(`   own buckets    (ms): ${TUNED_BUCKETS.join(', ')}`);
 console.log(
-	"   bucket counts can be added — adding 6 instances' histograms gives exactly one histogram; percentiles cannot be added or averaged"
+	"   bucket counts can be added - adding 6 instances' histograms gives exactly one histogram; percentiles cannot be added or averaged"
 );
 
 heading('D. The same requests, split along different dimensions');

@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { percentile } from './random';
 
-// Lesson 7.4 §1.5 — Backpressure: the consumer can do 100 per second. Two kinds of load, four policies.
+// Lesson 7.4 §1.5 - Backpressure: the consumer can do 100 per second. Two kinds of load, four policies.
 //
-//   burst     — 300/s for 5 s, then 50/s (on average below the consumer — just one wave)
-//   sustained — 130/s for the full 60 s (always above the consumer)
+//   burst     - 300/s for 5 s, then 50/s (on average below the consumer - just one wave)
+//   sustained - 130/s for the full 60 s (always above the consumer)
 //
 // Half the jobs are "urgent" (password reset, mention), half "less urgent" (weekly digest, analytics).
 // Time moves in 10 ms steps; on each step the consumer takes one job (100/s). Nothing is random.

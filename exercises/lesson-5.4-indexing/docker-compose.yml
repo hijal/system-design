@@ -1,4 +1,4 @@
-# Only PostgreSQL in a container — the scripts run as ordinary Node processes on your machine.
+# Only PostgreSQL in a container - the scripts run as ordinary Node processes on your machine.
 # Port 5435, so it doesn't clash with your machine's own Postgres (5432) or the earlier exercises
 # (4.4 → 5433, 5.2 → 5434).
 services:

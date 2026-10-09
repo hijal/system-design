@@ -1,6 +1,6 @@
-# Lesson 5.8 — three separate PostgreSQL instances, each one a "shard".
+# Lesson 5.8 - three separate PostgreSQL instances, each one a "shard".
 # shard0 is also used for the partitioning demo (npm run partition).
-# Ports 5440–5442 — to avoid clashing with the earlier exercises (5433–5439).
+# Ports 5440–5442 - to avoid clashing with the earlier exercises (5433–5439).
 x-shard: &shard
   image: postgres:17-alpine
   environment:

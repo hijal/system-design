@@ -25,7 +25,7 @@ const identityKey = newSigningKey('2026-10');
 const keyring = new Map([[identityKey.kid, identityKey.publicKey]]);
 const pem = publicPem(identityKey);
 
-heading('Part A — JWT verification: naive vs strict');
+heading('Part A - JWT verification: naive vs strict');
 const alice = claimsFor('alice', 'member', NOW);
 const valid = signRs256(alice, identityKey);
 const cases: [string, string][] = [
@@ -137,7 +137,7 @@ function routes(boards: ReadonlyMap<string, Board>, existence: 'leak' | 'hide'):
 const token = (u: User): Claims => claimsFor(u.id, u.role, NOW);
 const ok = (status: number): boolean => status >= 200 && status < 300;
 
-heading("Part B — BOLA: mallory's valid token, sequential board ids 1..N");
+heading("Part B - BOLA: mallory's valid token, sequential board ids 1..N");
 const sequential = buildBoards((i) => String(i + 1));
 const malloryClaims = token(mallory);
 console.log(
@@ -169,7 +169,7 @@ for (const route of leakTable) {
 	);
 }
 
-heading('Part C — does making the id a UUID fix it?');
+heading('Part C - does making the id a UUID fix it?');
 const uuidBoards = buildBoards(() => randomUUID());
 const exportRoute = routes(uuidBoards, 'hide').find((r) => r.name.includes('export'));
 if (exportRoute) {
@@ -204,7 +204,7 @@ if (exportRoute) {
 	);
 }
 
-heading('Part D — authorization matrix test (every route × every actor)');
+heading('Part D - authorization matrix test (every route × every actor)');
 const target = [...sequential.values()].find((b) => b.ws === 'ws-0042');
 const actors: [string, Claims | null, number[]][] = [
 	['owner', token({ id: 'owner-ws-0042', ws: 'ws-0042', role: 'admin' }), [200, 201, 204]],
@@ -229,5 +229,5 @@ if (target) {
 	}
 }
 console.log(
-	`\n${failures} cells failed — with this test in CI it would have been caught before merge`
+	`\n${failures} cells failed - with this test in CI it would have been caught before merge`
 );

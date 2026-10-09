@@ -74,7 +74,7 @@ for (let i = 0; i < total; i++) {
 }
 
 heading(
-	`A. One metric — http_requests — ${n(total)} requests in ${HOURS} hours (${RPS} req/s), ${n(USERS)} users, ${n(BOARDS)} boards; how many time series as the label set changes`
+	`A. One metric - http_requests - ${n(total)} requests in ${HOURS} hours (${RPS} req/s), ${n(USERS)} users, ${n(BOARDS)} boards; how many time series as the label set changes`
 );
 console.log(
 	row([
@@ -100,7 +100,7 @@ console.log(
 	`   in a histogram, each label combination has ${BUCKETS + 1} buckets (with +Inf) + _sum + _count = ${BUCKETS + 3} series; memory assumed ~${n(BYTES_PER_SERIES)} bytes/series`
 );
 
-heading("B. What each request's event costs depending on where it is kept — in a day");
+heading("B. What each request's event costs depending on where it is kept - in a day");
 const LOG_LINE = 350;
 const DEBUG_LINES = 25;
 const SPANS = 20;
@@ -129,5 +129,5 @@ for (const [label, perRequest] of lines)
 const baseline = (seen[0]?.size ?? 0) * (BUCKETS + 3);
 const samplesPerDay = baseline * ((24 * 3_600) / 15);
 console.log(
-	`   a log line ~${LOG_LINE} bytes, a span ~${SPAN} bytes — assumed. A metric's cost is not in the number of requests but in the number of series: the first row's ${n(baseline)} series, one sample every 15 s = ${n(samplesPerDay)} samples a day — the same if traffic doubles, double if the series double`
+	`   a log line ~${LOG_LINE} bytes, a span ~${SPAN} bytes - assumed. A metric's cost is not in the number of requests but in the number of series: the first row's ${n(baseline)} series, one sample every 15 s = ${n(samplesPerDay)} samples a day - the same if traffic doubles, double if the series double`
 );

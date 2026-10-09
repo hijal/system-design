@@ -16,7 +16,7 @@
 	const ogLocale = { bn: 'bn_BD', en: 'en_US' } as const;
 	const image = $derived(`${new URL(url).origin}/og-${locale}.png`);
 	const imageAlt = $derived(
-		`System Design Handbook — ${copy[locale].intro1} ${copy[locale].intro2}`
+		`System Design Handbook - ${copy[locale].intro1} ${copy[locale].intro2}`
 	);
 </script>
 

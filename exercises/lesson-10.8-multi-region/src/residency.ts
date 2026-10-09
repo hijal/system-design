@@ -63,7 +63,7 @@ const FLOWS: Flow[] = [
 		gbPerMonth: 2,
 		personal: 'none (clean labels)',
 		where: { single: 'out', partial: 'out', cell: 'out' },
-		fix: 'no personal data — fine outside'
+		fix: 'no personal data - fine outside'
 	},
 	{
 		name: 'search index (8.3)',
@@ -84,7 +84,7 @@ const FLOWS: Flow[] = [
 		gbPerMonth: 1,
 		personal: 'none (counts by day × plan × feature)',
 		where: { single: 'out', partial: 'out', cell: 'out' },
-		fix: 'no personal data — fine outside'
+		fix: 'no personal data - fine outside'
 	},
 	{
 		name: 'identity: user email and profile',
@@ -116,7 +116,7 @@ const DESIGNS: [Design, string][] = [
 ];
 
 heading(
-	`Part A — one EU customer's ${n(EU_WORKSPACES)} workspaces, ${n(EU_SEATS)} users: where their data goes`
+	`Part A - one EU customer's ${n(EU_WORKSPACES)} workspaces, ${n(EU_SEATS)} users: where their data goes`
 );
 console.log(
 	row([
@@ -166,7 +166,7 @@ console.log('\nhow to fix what remains with "partial":');
 for (const f of personalFlows.filter((x) => x.where.partial === 'out'))
 	console.log(`  ${f.name} → ${f.fix}`);
 
-heading("Part B — the cost of one cell vs this customer's revenue");
+heading("Part B - the cost of one cell vs this customer's revenue");
 const H = 730;
 const CELL: [string, number][] = [
 	['app (min 3, commit)', 3 * 0.192 * H * 0.65],

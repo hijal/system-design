@@ -2,11 +2,11 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { commentText, DOMAIN, env, FILLER, pgPool, STOPWORDS } from './data';
 
-// Lesson 8.3 §1.1–1.4 — four ways to search comments in Postgres, on the same 1,000,000 comments:
+// Lesson 8.3 §1.1–1.4 - four ways to search comments in Postgres, on the same 1,000,000 comments:
 //   a. ILIKE '%…%' without an index        c. a pg_trgm GIN index (trigram)
 //   b. a B-tree index (text_pattern_ops)    d. full-text search (tsvector + GIN), with ranking
 // Then: the write cost of each index, and searching for misspellings ("did you mean").
-// A real database, real time — the numbers will vary between machines. Every query runs three times; the middle one is shown.
+// A real database, real time - the numbers will vary between machines. Every query runs three times; the middle one is shown.
 
 const cfg = z
 	.object({ WRITE_ROWS: z.coerce.number().int().positive().default(20_000) })
@@ -88,7 +88,7 @@ const QUERIES: ReadonlyArray<readonly [string, string]> = [
 		"SELECT id FROM comments WHERE body ILIKE '%rollback%' LIMIT 20"
 	],
 	[
-		'first 20 "recieve" (misspelled — none exist)',
+		'first 20 "recieve" (misspelled - none exist)',
 		"SELECT id FROM comments WHERE body ILIKE '%recieve%' LIMIT 20"
 	]
 ];
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
 	const total = await pool.query('SELECT count(*)::int AS n FROM comments').catch(() => null);
 	if (!total) {
 		console.error(
-			'the comments table is missing — run `docker compose up -d --wait` and `npm run seed` first.'
+			'the comments table is missing - run `docker compose up -d --wait` and `npm run seed` first.'
 		);
 		process.exit(1);
 	}
@@ -106,8 +106,8 @@ async function main(): Promise<void> {
 		CREATE EXTENSION IF NOT EXISTS pg_trgm;
 		DROP INDEX IF EXISTS comments_lower_btree, comments_trgm, comments_fts;
 		ALTER TABLE comments DROP COLUMN IF EXISTS tsv;`);
-	// even when the previous run's tsv column is dropped its space stays in the table — VACUUM FULL rewrites the table,
-	// so every run starts with a table of the same size. (VACUUM has to run on its own — not in a multi-statement query)
+	// even when the previous run's tsv column is dropped its space stays in the table - VACUUM FULL rewrites the table,
+	// so every run starts with a table of the same size. (VACUUM has to run on its own - not in a multi-statement query)
 	await pool.query('VACUUM FULL ANALYZE comments');
 	console.log(
 		`\n   ${z.coerce.number().parse(total.rows[0]?.n).toLocaleString('en')} comments · table ${await size(pool, 'comments')}`
@@ -203,7 +203,7 @@ async function main(): Promise<void> {
 	const ftsDeploy = await timed(pool, q('deploy'));
 	const ftsRedeploy = await timed(pool, q('redeploy'));
 	console.log(
-		`   ILIKE '%deploy%': ${ilikeDeploy.rows.toLocaleString('en')} (including redeploy) · full-text "deploy": ${ftsDeploy.rows.toLocaleString('en')} (including deployment, deploying; redeploy excluded — a separate word, ${ftsRedeploy.rows.toLocaleString('en')} of them)`
+		`   ILIKE '%deploy%': ${ilikeDeploy.rows.toLocaleString('en')} (including redeploy) · full-text "deploy": ${ftsDeploy.rows.toLocaleString('en')} (including deployment, deploying; redeploy excluded - a separate word, ${ftsRedeploy.rows.toLocaleString('en')} of them)`
 	);
 	const ftsArt = await timed(pool, q('art'));
 	const ftsLog = await timed(pool, q('log'));

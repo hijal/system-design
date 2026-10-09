@@ -1,6 +1,6 @@
 import { commentText, env, pgPool } from './data';
 
-// Lesson 8.3 — ROWS comments in Postgres (1,000,000 by default). No indexes — like.ts builds and drops them itself.
+// Lesson 8.3 - ROWS comments in Postgres (1,000,000 by default). No indexes - like.ts builds and drops them itself.
 
 const BATCH = 1000;
 
@@ -9,7 +9,7 @@ async function main(): Promise<void> {
 	try {
 		await pool.query('SELECT 1');
 	} catch {
-		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
+		console.error('Postgres cannot be reached - run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	const t = performance.now();

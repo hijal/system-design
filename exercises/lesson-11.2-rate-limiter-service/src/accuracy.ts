@@ -353,11 +353,11 @@ for (const scenario of scenarios) {
 	}
 }
 console.log(
-	'\n"highest in 1 s" = the most accepted in any one-second window — ~1.2x (limit + burst) when a token bucket holds.'
+	'\n"highest in 1 s" = the most accepted in any one-second window - ~1.2x (limit + burst) when a token bucket holds.'
 );
 
 heading(
-	`lease size: ${SERVERS} servers, burst ${n(BURST)} — when lease × servers passes the burst`
+	`lease size: ${SERVERS} servers, burst ${n(BURST)} - when lease × servers passes the burst`
 );
 console.log(
 	row([

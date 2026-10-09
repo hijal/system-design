@@ -2,7 +2,7 @@ import { QueryTypes } from 'sequelize';
 import { z } from 'zod';
 import { sequelize } from './db';
 
-// The output of EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) is a tree — under every node
+// The output of EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) is a tree - under every node
 // more nodes (Plans). This is runtime input too, so it is parsed with Zod (main.md §6).
 // A recursive schema needs the TypeScript type written first, with z.lazy.
 type PlanNode = {
@@ -38,7 +38,7 @@ const explainRows = z
 export type PlanSummary = {
 	shape: string; // e.g. "Limit → Index Scan Backward [tasks_project_created]"
 	ms: number; // the median execution time over several runs
-	pages: number; // how many pages (8 KB) were touched in total — from cache or disk
+	pages: number; // how many pages (8 KB) were touched in total - from cache or disk
 	rows: number; // how many rows the topmost node returned
 };
 
@@ -65,7 +65,7 @@ async function runOnce(sql: string): Promise<{ plan: PlanNode; ms: number }> {
 			type: QueryTypes.SELECT
 		})
 	);
-	// Even after .length(1) TypeScript doesn't know index 0 exists (noUncheckedIndexedAccess) —
+	// Even after .length(1) TypeScript doesn't know index 0 exists (noUncheckedIndexedAccess) -
 	// so it is checked honestly here, not silenced with `!`.
 	const top = result[0]?.['QUERY PLAN'][0];
 	if (!top) throw new Error('unexpected EXPLAIN output');
@@ -73,7 +73,7 @@ async function runOnce(sql: string): Promise<{ plan: PlanNode; ms: number }> {
 }
 
 export async function explain(sql: string, runs = 5): Promise<PlanSummary> {
-	await runOnce(sql); // warm-up — bringing the pages into the buffer pool (Lesson 4.1, 5.3)
+	await runOnce(sql); // warm-up - bringing the pages into the buffer pool (Lesson 4.1, 5.3)
 	const samples: { plan: PlanNode; ms: number }[] = [];
 	for (let i = 0; i < runs; i++) samples.push(await runOnce(sql));
 	samples.sort((a, b) => a.ms - b.ms);

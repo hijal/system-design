@@ -7,9 +7,9 @@
 	import SocialMeta from '$lib/docs/SocialMeta.svelte';
 	let { data } = $props();
 	const t = $derived(copy[data.locale]);
-	const titleParts = $derived(data.lesson.title.split(' — '));
+	const titleParts = $derived(data.lesson.title.split(' - '));
 	const pageTitle = $derived(
-		`${data.lesson.kind === 'lesson' ? `${data.lesson.id} ` : ''}${titleParts[0].replace(/\s*\([^)]*\)/g, '')} — System Design`
+		`${data.lesson.kind === 'lesson' ? `${data.lesson.id} ` : ''}${titleParts[0].replace(/\s*\([^)]*\)/g, '')} - System Design`
 	);
 	const editions = $derived(
 		(['bn', 'en'] as const).filter((locale) =>
@@ -24,7 +24,7 @@
 	const mdUrl = $derived(`${page.url.origin}${page.url.pathname}.md?lang=${data.locale}`);
 	const isDone = $derived(courseProgress.isCompleted(data.lesson.id));
 	const aiPrompt = $derived(
-		`Read ${mdUrl} and help me understand it — I'm learning system design.`
+		`Read ${mdUrl} and help me understand it - I'm learning system design.`
 	);
 	const schema = $derived(
 		data.lesson.available
@@ -42,7 +42,7 @@
 	);
 	const schemaScript = $derived(
 		schema
-			? // Escaping keeps this component's own <script> block from ending early — Svelte
+			? // Escaping keeps this component's own <script> block from ending early - Svelte
 				// finds its closing tag textually, not JS-string-aware.
 				// eslint-disable-next-line no-useless-escape
 				`<script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}<\/script>`
@@ -212,7 +212,7 @@
 				</div>
 				<h1>{titleParts[0]}</h1>
 				{#if titleParts.length > 1}<p class="lesson-subtitle">
-						{titleParts.slice(1).join(' — ')}
+						{titleParts.slice(1).join(' - ')}
 					</p>{/if}
 				<div class="lesson-meta">
 					<span><Icon name="book" size={15} />{data.locale === 'bn' ? 'বাংলা' : 'English'}</span

@@ -1,6 +1,6 @@
-# Chat System Lab — Connection এর মাপ, Gateway Routing, Reconnect Storm, Delivery আর ক্রম, আর একটা আসল দুই-Gateway Chat
+# Chat System Lab - Connection এর মাপ, Gateway Routing, Reconnect Storm, Delivery আর ক্রম, আর একটা আসল দুই-Gateway Chat
 
-> Lesson 11.3 — Case Study: Design a Chat System (WhatsApp-style) · **Tier 1 — Runnable Code**
+> Lesson 11.3 - Case Study: Design a Chat System (WhatsApp-style) · **Tier 1 - Runnable Code**
 > (তিনটা deterministic model আর `ws` দিয়ে একটা আসল দুই-gateway chat; Docker লাগে না)
 
 ## কী বানাচ্ছি
@@ -12,20 +12,20 @@ message কীভাবে হারায় বা দুবার আসে, 
 
 | Script             | প্রশ্ন                                                                                               | Lesson §  |
 | ------------------ | ---------------------------------------------------------------------------------------------------- | --------- |
-| `npm run estimate` | ৫০ কোটি DAU — connection, memory, gateway, heartbeat, fan-out, receipt, storage, presence            | ১.২       |
+| `npm run estimate` | ৫০ কোটি DAU - connection, memory, gateway, heartbeat, fan-out, receipt, storage, presence            | ১.২       |
 | `npm run gateway`  | Broadcast বনাম user channel বনাম registry; একটা gateway মরলে reconnect এর চারটা নীতি; হারানো message | ১.৪ – ১.৫ |
 | `npm run delivery` | ৩% packet হারানো network এ at-most/at-least/dedupe; group এ চারটা ক্রমের নিয়ম                       | ১.৬ – ১.৭ |
 | `npm run smoke`    | আসল `ws`: দুটো gateway, registry, ack আর receipt, duplicate, offline sync, crash, একসাথে পাঠানো      | ১.৮       |
 
 **সৎ নোট:**
 
-- **Estimation এর input ধরে নেওয়া** — DAU, message এর সংখ্যা, group এর ভাগ, connection প্রতি ২০ KB memory, gateway প্রতি ৫
+- **Estimation এর input ধরে নেওয়া** - DAU, message এর সংখ্যা, group এর ভাগ, connection প্রতি ২০ KB memory, gateway প্রতি ৫
   লাখ connection। Connection প্রতি memory OS, TLS library আর buffer এর setting এ অনেক বদলায়; এখানে মাপা না।
-- **`gateway` এর reconnect model সরল** — বাকি fleet এর মোট ক্ষমতা ২০,০০০ handshake/s (TLS + auth + sync) ধরা, আর প্রত্যাখ্যাত
+- **`gateway` এর reconnect model সরল** - বাকি fleet এর মোট ক্ষমতা ২০,০০০ handshake/s (TLS + auth + sync) ধরা, আর প্রত্যাখ্যাত
   চেষ্টাও একটা পূর্ণ handshake এর ০.২ ভাগ খরচ করে বলে ধরা (TCP + TLS শুরু হওয়ার পরে প্রত্যাখ্যান)। এই সংখ্যাটা বদলালে
   collapse এর সীমা বদলায় (experiment ১)। Pub/sub এর অংশটা হিসাব, simulation না; Redis Cluster এর পুরনো `PUBLISH` সব node এ
   ছড়ানো আর `SPUBLISH` (Redis 7) এর কথা documentation থেকে।
-- **`delivery` এর network আর ঘড়ি synthetic** — প্রতিটা packet স্বাধীনভাবে ৩% হারায়, ফোনের ঘড়ি ±৫০০ ms আর ২% ফোন মিনিট খানেক
+- **`delivery` এর network আর ঘড়ি synthetic** - প্রতিটা packet স্বাধীনভাবে ৩% হারায়, ফোনের ঘড়ি ±৫০০ ms আর ২% ফোন মিনিট খানেক
   ভুল, chat server এর ঘড়ি ±৩০ ms।
 - **`smoke` আসল WebSocket (`ws`) চালায়**, এক process এ, কিন্তু registry আর store একটা in-memory `ChatCore`, Redis বা database
   না। Gateway এর "crash" মানে socket গুলো `terminate()` আর server বন্ধ। Push notification শুধু গোনা হয়, পাঠানো না।
@@ -55,7 +55,7 @@ npm run smoke
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-`npm run estimate` — heartbeat message এর চেয়ে বেশি; receipt delivery এর দ্বিগুণ; history রাখা বনাম না রাখা হাজার গুণ:
+`npm run estimate` - heartbeat message এর চেয়ে বেশি; receipt delivery এর দ্বিগুণ; history রাখা বনাম না রাখা হাজার গুণ:
 
 ```
 heartbeats / s (every 30 s)                                  5,000,000   more than the messages
@@ -66,18 +66,18 @@ only undelivered messages (deleted once delivered)              3.2 TB
 push to every contact / s                                   23,148,148   presence storm
 ```
 
-`npm run gateway` — broadcast এ প্রতিটা gateway সব কিছু পায়; jitter ছাড়া reconnect এ congestion collapse; শুধু push এ message
+`npm run gateway` - broadcast এ প্রতিটা gateway সব কিছু পায়; jitter ছাড়া reconnect এ congestion collapse; শুধু push এ message
 হারায়:
 
 ```
 broadcast to every gateway (one pub/sub channel)                                       4,444,444       0.3%             1,333,333,200
 session registry (user → gateway) + direct send                                           14,815     100.0%                 8,888,888
-at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         —         —  0% (in 10 min)
+at once, and again at once on failure                   5,000,000   3,000,000,000       6,000         -         -  0% (in 10 min)
 first one spread over 0–10 s + full jitter                251,980       3,304,742           7   30.47 s   76.55 s         89.40 s
 first one spread over 0–10 s + full jitter          391,250 (88%)                             0   16.82 s   64.77 s
 ```
 
-`npm run delivery` — retry ছাড়া হারায়, dedupe ছাড়া দুবার; ফোনের ঘড়িতে উত্তর প্রশ্নের উপরে; পৌঁছানোর ক্রমে সদস্যরা আলাদা ক্রম
+`npm run delivery` - retry ছাড়া হারায়, dedupe ছাড়া দুবার; ফোনের ঘড়িতে উত্তর প্রশ্নের উপরে; পৌঁছানোর ক্রমে সদস্যরা আলাদা ক্রম
 দেখে:
 
 ```
@@ -89,7 +89,7 @@ shown in the order they arrived                               0.41%             
 per-conversation seq (one sequencer)                          0.00%                          0.00%
 ```
 
-`npm run smoke` — ১১টা ধাপ:
+`npm run smoke` - ১১টা ধাপ:
 
 ```
 2   bob received it (on gw2, via the registry)                      1:hi
@@ -104,9 +104,9 @@ per-conversation seq (one sequencer)                          0.00%             
 
 - **Chat এর খরচ connection এ, message এ না।** ১৫ কোটি খোলা connection, ৩ TB memory, আর heartbeat message এর চেয়ে ৭ গুণ বেশি।
 - **Fan-out আর receipt আসল লেখার চাপ।** একটা পাঠানো message গড়ে ৬.৪টা delivery আর ১৩টা receipt।
-- **"History রাখব কিনা" একটা product এর সিদ্ধান্ত যা storage কে হাজার গুণ বদলায়** — ১৪.৬ PB বনাম ৩.২ TB।
+- **"History রাখব কিনা" একটা product এর সিদ্ধান্ত যা storage কে হাজার গুণ বদলায়** - ১৪.৬ PB বনাম ৩.২ TB।
 - **Broadcast pub/sub এ প্রতিটা gateway সব message পায়, ০.৩% কাজে লাগে।** Registry বা user channel এ শুধু নিজেরটা।
-- **Reconnect storm এ jitter ছাড়া কেউ ফেরে না** — প্রত্যাখ্যাত চেষ্টার খরচ সব ক্ষমতা খেয়ে ফেলে (congestion collapse)।
+- **Reconnect storm এ jitter ছাড়া কেউ ফেরে না** - প্রত্যাখ্যাত চেষ্টার খরচ সব ক্ষমতা খেয়ে ফেলে (congestion collapse)।
 - **আগে store, তারপর push।** Push একটা দ্রুত পথ, সত্য না; registry পুরনো হলে push হারায়, store থেকে sync আনে।
 - **At-least-once + dedupe = effectively once।** client_msg_id server এ, seq client এ।
 - **ক্রম আসে sequencer থেকে, ঘড়ি থেকে না।** ফোনের ঘড়ি কার্যকারণ ভাঙে, পৌঁছানোর ক্রম সদস্যদের মধ্যে মিল ভাঙে।
@@ -121,7 +121,7 @@ per-conversation seq (one sequencer)                          0.00%             
    (১৭.৪২%)?
 4. **দ্রুত উত্তর (bot):** `THINK_MS=20 npm run delivery`। ফোনের ঘড়িতে উত্তর উপরে কত (মাপা: ৩৮.৮৭%), পৌঁছানোর ক্রমে (৯.২৮%),
    আর server এর ঘড়িতে (০.০৯%)? Server এর ঘড়ি কেন যথেষ্ট না?
-5. **Code বদলানোর কাজ:** `src/chat.ts` এ একটা "typing…" indicator যোগ করুন — এটা কি store এ যাবে, receipt চাইবে, sync এ আসবে?
+5. **Code বদলানোর কাজ:** `src/chat.ts` এ একটা "typing…" indicator যোগ করুন - এটা কি store এ যাবে, receipt চাইবে, sync এ আসবে?
    Message এর সাথে এর নকশার পার্থক্যটা কোথায়?
 
 ## Project Structure
@@ -129,11 +129,11 @@ per-conversation seq (one sequencer)                          0.00%             
 ```
 src/
   util.ts      seed দেওয়া PRNG, lognormal, percentile, টেবিলের format, env parse
-  estimate.ts  script ক — connection, heartbeat, fan-out, receipt, storage, presence
-  gateway.ts   script খ — routing এর চার পথ, reconnect storm (চারটা নীতি), হারানো message
-  delivery.ts  script গ — ack/retry/dedupe, group এ চারটা ক্রমের নিয়ম
+  estimate.ts  script ক - connection, heartbeat, fan-out, receipt, storage, presence
+  gateway.ts   script খ - routing এর চার পথ, reconnect storm (চারটা নীতি), হারানো message
+  delivery.ts  script গ - ack/retry/dedupe, group এ চারটা ক্রমের নিয়ম
   chat.ts      ChatCore (registry, conversation log + seq, dedupe, fan-out, receipt, sync) আর Gateway (ws, Zod frame)
-  smoke.ts     script ঘ — দুটো gateway, তিনজন user, ১১টা ধাপ
+  smoke.ts     script ঘ - দুটো gateway, তিনজন user, ১১টা ধাপ
 ```
 
 Environment variable: `DAU`, `ONLINE_SHARE`, `MESSAGES_PER_USER`, `PEAK`, `GROUP_SHARE`, `GROUP_SIZE`, `CONN_BYTES`,

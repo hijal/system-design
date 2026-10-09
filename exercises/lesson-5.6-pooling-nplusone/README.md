@@ -1,6 +1,6 @@
-# TaskFlow Connection Pool, N+1 আর Hydration — মেপে দেখা
+# TaskFlow Connection Pool, N+1 আর Hydration - মেপে দেখা
 
-> Lesson 5.6 — Connection Pooling, N+1, Query Optimization · **Tier 1 — Runnable Code**
+> Lesson 5.6 - Connection Pooling, N+1, Query Optimization · **Tier 1 - Runnable Code**
 
 ## কী বানাচ্ছি
 
@@ -10,7 +10,7 @@
 | ------------------- | ------------------------------------------------------------------------------------------------- | --------- |
 | `npm run pool`      | নতুন connection বনাম pool; pool size বাড়ালে throughput/latency; `max_connections` ছাড়ালে কী হয় | ১.১ – ১.৪ |
 | `npm run nplusone`  | একই dashboard চারভাবে: N+1, `include`, batching; দুটো hasMany এর cartesian explosion              | ১.৫       |
-| `npm run hydration` | ১ লাখ row — Sequelize model instance বনাম `raw: true` বনাম দরকারি column                          | ১.৬       |
+| `npm run hydration` | ১ লাখ row - Sequelize model instance বনাম `raw: true` বনাম দরকারি column                          | ১.৬       |
 
 `npm run pool -- 2` দিলে শুধু ধাপ ২ চলে (১, ২, ৩ যেকোনোটা)।
 
@@ -18,7 +18,7 @@
 
 Node.js 22+ এবং Docker (শুধু PostgreSQL চালানোর জন্য)।
 
-Port **5437** — আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433–5436) সাথে সংঘাত এড়াতে।
+Port **5437** - আপনার মেশিনের Postgres (5432) বা আগের exercise গুলোর (5433–5436) সাথে সংঘাত এড়াতে।
 
 **গুরুত্বপূর্ণ:** `docker-compose.yml` এ Postgres container কে ইচ্ছা করে **২টা CPU core** এ সীমিত রাখা
 হয়েছে (`cpus: '2'`), যাতে pool size এর পরীক্ষা যেকোনো মেশিনে একই রকম ফল দেয়।
@@ -50,7 +50,7 @@ npm run hydration
    new connection every time      5.78 ms / query
    from the pool                  0.13 ms / query   (~44x faster)
 
-2. Pool size — 64 requests at once, 320 queries in total (database: 2 CPU cores)
+2. Pool size - 64 requests at once, 320 queries in total (database: 2 CPU cores)
    pool max │   CPU query: q/s    p50 ms    p99 ms │  WAIT query: q/s    p50 ms    p99 ms
           1 │       26      2492      2518        │       48      1329      1334
           2 │       50      1269      1298        │       97       662       665
@@ -69,7 +69,7 @@ npm run hydration
 ```
 
 ধাপ ২ কয়েকবার চালিয়ে প্রায় হুবহু একই সংখ্যা এসেছে। ধাপ ৩ এ কতগুলো ব্যর্থ হয় সেটা প্রতিবার
-বদলায় (আমার তিনটা রানে ৪৬, ৬৬, ৫০) — ১০০টা slot কে কখন দখল করে সেটা timing এর উপর নির্ভর করে।
+বদলায় (আমার তিনটা রানে ৪৬, ৬৬, ৫০) - ১০০টা slot কে কখন দখল করে সেটা timing এর উপর নির্ভর করে।
 কিন্তু **ব্যর্থতা সবসময় আসে**। শেষ লাইনটা (৪ আর ৬) প্রতিবার একই।
 
 **২. `npm run nplusone`**
@@ -87,12 +87,12 @@ npm run hydration
    include, separate: true             3    1,550       8.7 ms        12 ms
 ```
 
-`query` আর `rows` কলাম deterministic — হুবহু মিলবে। শেষ কলামটা **হিসাব, মাপা না** (নিচে দেখুন)।
+`query` আর `rows` কলাম deterministic - হুবহু মিলবে। শেষ কলামটা **হিসাব, মাপা না** (নিচে দেখুন)।
 
 **৩. `npm run hydration`**
 
 ```
-Hydration: reading 100,000 tasks — the same query, returned in different shapes
+Hydration: reading 100,000 tasks - the same query, returned in different shapes
    Model instance (default)              200 ms   (100,000 rows, 1.0x)
    raw: true                              96 ms   (100,000 rows, 2.1x)
    raw: true + only needed columns        68 ms   (100,000 rows, 2.9x)
@@ -100,20 +100,20 @@ Hydration: reading 100,000 tasks — the same query, returned in different shape
 
 ## কী দেখার জন্য এটা বানানো
 
-1. **Connection খোলা দামি, তাই pool।** প্রতি query তে নতুন connection ~৪৪ গুণ ধীর — আর এটা
+1. **Connection খোলা দামি, তাই pool।** প্রতি query তে নতুন connection ~৪৪ গুণ ধীর - আর এটা
    একই মেশিনে; network পেরোলে TCP আর TLS handshake (Lesson 2.2) যোগ হয়।
-2. **বড় pool ≠ দ্রুত।** CPU এর কাজে throughput এর চূড়া pool = ২ এ — ঠিক database এর core সংখ্যায়।
+2. **বড় pool ≠ দ্রুত।** CPU এর কাজে throughput এর চূড়া pool = ২ এ - ঠিক database এর core সংখ্যায়।
    তার বেশিতে throughput **কমে** (৫০ → ২৬ q/s), আর p99 বাড়তে থাকে। অপেক্ষার কাজে (WAIT)
    pool বাড়ালে প্রায় সমানুপাতে বাড়ে। Pool size ঠিক হয় **connection গুলো কী করছে** তার উপর।
-3. **N+1 local এ লুকিয়ে থাকে।** এখানে N+1 "মাত্র" ২১০ ms। কিন্তু ১০৫১টা query — app আর DB আলাদা
+3. **N+1 local এ লুকিয়ে থাকে।** এখানে N+1 "মাত্র" ২১০ ms। কিন্তু ১০৫১টা query - app আর DB আলাদা
    machine এ থাকলে প্রতিটা round trip এর দাম যোগ হয়। Production এ এটাই ধীর page এর সবচেয়ে
    সাধারণ কারণ।
-4. **একটা query সবসময় সেরা না।** দুটো hasMany একটা JOIN এ আনলে ১০,০০০ row — `separate: true`
+4. **একটা query সবসময় সেরা না।** দুটো hasMany একটা JOIN এ আনলে ১০,০০০ row - `separate: true`
    দিয়ে ৩টা query তে ১,৫৫০ row, আর দ্রুত।
 
 **শেষ কলামের হিসাব (`+1ms RTT হলে`):** exercise এ app আর database একই মেশিনে, তাই round trip
 প্রায় শূন্য। Production এ তারা আলাদা machine এ, আর প্রতিটা query তে অন্তত একটা network round trip
-লাগে। কলামটা শুধু `মাপা সময় + query সংখ্যা × ১ ms` — একটা সরল অনুমান, মাপা ফল না। বাস্তব round
+লাগে। কলামটা শুধু `মাপা সময় + query সংখ্যা × ১ ms` - একটা সরল অনুমান, মাপা ফল না। বাস্তব round
 trip আপনার infrastructure অনুযায়ী কম-বেশি হবে; নিজে মাপতে experiment ৩ দেখুন।
 
 ## নিজে ভেঙে দেখুন (Experiments)
@@ -123,10 +123,10 @@ trip আপনার infrastructure অনুযায়ী কম-বেশি
 
 2. **Pool exhaustion এর সময় বাড়ান।** `src/pool.ts` এর শেষ অংশে `acquire: 1_000` কে `60_000` (Sequelize
    এর default) করুন। কতগুলো সফল হলো, আর শেষটা কতক্ষণ অপেক্ষা করল? একটা ব্যস্ত API তে ৬০ সেকেন্ড
-   অপেক্ষা করা request user এর চোখে কেমন দেখায় — আর দ্রুত ব্যর্থ হওয়া কেন কখনো কখনো ভালো?
+   অপেক্ষা করা request user এর চোখে কেমন দেখায় - আর দ্রুত ব্যর্থ হওয়া কেন কখনো কখনো ভালো?
 
 3. **Network latency নকল করুন।** Linux এ: `docker compose exec postgres sh -c "apk add iproute2 && tc qdisc add dev eth0 root netem delay 1ms"`
-   (container এ `NET_ADMIN` capability লাগতে পারে — না চললে এটা বাদ দিন)। তারপর `npm run nplusone` —
+   (container এ `NET_ADMIN` capability লাগতে পারে - না চললে এটা বাদ দিন)। তারপর `npm run nplusone` -
    শেষ কলামের হিসাব আর আসল মাপা সময় কতটা কাছাকাছি?
 
 4. **N+1 নিজে খুঁজে বের করুন।** `src/nplusone.ts` এর `eager()` থেকে ভেতরের `include: [{ model: User, as: 'assignee' }]`
@@ -158,9 +158,9 @@ lesson-5.6-pooling-nplusone/
 
 এই মেশিনে চালিয়ে যাচাই করা হয়েছে (Node 26, Postgres 17, Sequelize 6.37):
 
-- `tsc --noEmit` — clean pass, কোনো type error নেই, কোথাও `any` নেই
-- `npm run pool` — ধাপ ২ দুবার (সংখ্যা প্রায় হুবহু এক), ধাপ ৩ তিনবার (ব্যর্থতা ৪৬–৬৬, প্রতিবার আছে)
-- `npm run nplusone` দুবার — query আর row সংখ্যা হুবহু এক, তিনটা পদ্ধতির ফল একই data
-- `npm run hydration` দুবার — অনুপাত ২.১x আর ~৩x, দুবারই
-- Experiment ৩ (`tc netem`) এই মেশিনে চালিয়ে দেখা **হয়নি** — Docker এর capability সেটিং এর উপর
+- `tsc --noEmit` - clean pass, কোনো type error নেই, কোথাও `any` নেই
+- `npm run pool` - ধাপ ২ দুবার (সংখ্যা প্রায় হুবহু এক), ধাপ ৩ তিনবার (ব্যর্থতা ৪৬–৬৬, প্রতিবার আছে)
+- `npm run nplusone` দুবার - query আর row সংখ্যা হুবহু এক, তিনটা পদ্ধতির ফল একই data
+- `npm run hydration` দুবার - অনুপাত ২.১x আর ~৩x, দুবারই
+- Experiment ৩ (`tc netem`) এই মেশিনে চালিয়ে দেখা **হয়নি** - Docker এর capability সেটিং এর উপর
   নির্ভর করে

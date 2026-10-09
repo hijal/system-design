@@ -15,7 +15,7 @@ const times: number[] = [];
 for (let i = 0; i < LIKES; i++) times.push(exponential(random, DECAY_S));
 times.sort((a, b) => a - b);
 
-heading(`Part A — someone's post went viral: ${n(LIKES)} likes, most in the first few minutes`);
+heading(`Part A - someone's post went viral: ${n(LIKES)} likes, most in the first few minutes`);
 console.log(
 	row([
 		['policy', 62],
@@ -102,7 +102,7 @@ console.log(
 );
 
 heading(
-	`Part B — night-time quiet (10 pm–7 am): ${n(USERS)} users × ${PER_USER_DAY} a day, ${pct(CRITICAL_SHARE, 1, 0)} urgent (OTP, security)`
+	`Part B - night-time quiet (10 pm–7 am): ${n(USERS)} users × ${PER_USER_DAY} a day, ${pct(CRITICAL_SHARE, 1, 0)} urgent (OTP, security)`
 );
 const total = USERS * PER_USER_DAY;
 const night = total * NIGHT_SHARE;
@@ -126,5 +126,5 @@ console.log(
 	])
 );
 console.log(
-	`${n(deferred)} at once at 7 am — a wave at 7 in every time zone. Spread them (random within 7:00–7:30), or this becomes a campaign of its own.`
+	`${n(deferred)} at once at 7 am - a wave at 7 in every time zone. Spread them (random within 7:00–7:30), or this becomes a campaign of its own.`
 );

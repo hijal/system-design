@@ -1,7 +1,7 @@
 import { eventual, MODELS, r, w, type History } from './checker';
 
-// Lesson 6.5 — seven incidents from Module 6, on the consistency ladder.
-// Every history is small and hand-made — times in ms; P1, P2, P3 are three clients.
+// Lesson 6.5 - seven incidents from Module 6, on the consistency ladder.
+// Every history is small and hand-made - times in ms; P1, P2, P3 are three clients.
 // Next to each, the lesson where you saw this incident.
 
 const CASES: { name: string; lesson: string; history: History }[] = [
@@ -69,7 +69,7 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 		history: [
 			w('P1', 'x', 1, 0, 10),
 			r('P2', 'x', 1, 20, 25), // the bot saw the title
-			w('P2', 'x', 2, 30, 40), // the bot wrote "[DONE]" — on the replica with the lagging clock
+			w('P2', 'x', 2, 30, 40), // the bot wrote "[DONE]" - on the replica with the lagging clock
 			r('P2', 'x', 1, 300, 305), // everyone still sees the old one
 			r('P1', 'x', 1, 310, 315),
 			r('P3', 'x', 1, 320, 325)
@@ -78,7 +78,7 @@ const CASES: { name: string; lesson: string; history: History }[] = [
 ];
 
 function main(): void {
-	const tick = (ok: boolean | null): string => (ok === null ? '—' : ok ? '✓' : '✗');
+	const tick = (ok: boolean | null): string => (ok === null ? '-' : ok ? '✓' : '✗');
 	console.log(
 		'\n   incident                               lesson   linear.  sequential  causal  RYW  mono.read  eventual'
 	);

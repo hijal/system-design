@@ -115,7 +115,7 @@ function run(policy: Policy): { months: Month[]; finalGb: number; noncurrentGb: 
 }
 
 heading(
-	`Part A — ${MONTHS} months of attachments: ${tb(START_GB)} + ${tb(START_NONCURRENT_GB)} of old versions at the start, ${tb(UPLOAD_GB)} new a month (+${Math.round(GROWTH * 100)}%/month)`
+	`Part A - ${MONTHS} months of attachments: ${tb(START_GB)} + ${tb(START_NONCURRENT_GB)} of old versions at the start, ${tb(UPLOAD_GB)} new a month (+${Math.round(GROWTH * 100)}%/month)`
 );
 console.log(
 	`objects: ${Math.round(SMALL_SHARE * 100)}% small (~${SMALL_KB} KB, thumbnails/avatars), the rest ~${LARGE_MB} MB; the small ones are ${Math.round(SMALL_SHARE * 100)}% by count, ${(smallByteShare * 100).toFixed(1)}% by bytes\n`
@@ -157,7 +157,7 @@ console.log(
 	`\n(live data in month ${MONTHS}: ${tb(plain.finalGb)}; keeping versions forever, old versions ${tb(plain.noncurrentGb)})`
 );
 
-heading(`Part B — the small-object trap: 1 TB of only ${SMALL_KB} KB objects, one year`);
+heading(`Part B - the small-object trap: 1 TB of only ${SMALL_KB} KB objects, one year`);
 const smallObjects = 1_000_000_000 / SMALL_KB;
 const standardYear = 1_000 * P.s3StandardGbMonth * 12;
 const iaYear =
@@ -201,7 +201,7 @@ console.log(
 	`\n(IA and Glacier IR bill every object as at least ${MIN_BILLABLE_KB} KB, and every transition is a request)`
 );
 
-heading('Part C — logs: where does the money go — ingesting, or keeping?');
+heading('Part C - logs: where does the money go - ingesting, or keeping?');
 const SCENARIOS: [string, number][] = [
 	['one line per request (10.4)', 2.8],
 	['+ debug in three services', 47.8],
@@ -234,7 +234,7 @@ console.log(
 	'\n("keep" = the monthly storage cost, on top of ingest; the S3 archive assumed compressed 8×)'
 );
 
-heading('Part D — the activity table: all in Postgres, or in S3 after 90 days (Parquet)');
+heading('Part D - the activity table: all in Postgres, or in S3 after 90 days (Parquet)');
 const ACTIVITY_START = env('ACTIVITY_GB', 1_100);
 const ACTIVITY_MONTHLY = env('ACTIVITY_MONTHLY_GB', 60);
 const COPIES = 4;

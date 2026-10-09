@@ -1,13 +1,13 @@
-# In this exercise only Redis runs in a container — the API, worker and fake email provider
+# In this exercise only Redis runs in a container - the API, worker and fake email provider
 # are ordinary Node processes on your machine. Port 6381, so it does not clash with a Redis already running
 # (or Lesson 4.4's 6380).
 services:
   redis:
     image: redis:8-alpine
     # A queue's Redis and a cache's Redis have opposite rules (Lesson 4.3/4.4 used allkeys-lru):
-    #   noeviction   — never drop a key when memory is full; dropping a job means losing work
-    #   appendonly   — every write goes to the AOF file on disk; jobs survive a Redis restart
-    #   everysec     — fsync every second: a crash can lose at most ~1 second of writes
+    #   noeviction   - never drop a key when memory is full; dropping a job means losing work
+    #   appendonly   - every write goes to the AOF file on disk; jobs survive a Redis restart
+    #   everysec     - fsync every second: a crash can lose at most ~1 second of writes
     command: redis-server --maxmemory 256mb --maxmemory-policy noeviction --appendonly yes --appendfsync everysec
     ports:
       - '6381:6379'

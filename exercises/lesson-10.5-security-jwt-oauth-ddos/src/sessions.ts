@@ -72,7 +72,7 @@ function liveAfterRevoke(policy: Policy, session: number, at: number): number {
 }
 
 heading(
-	`Part A — ${n(SESSIONS)} active sessions, ${RPS} req/s, ${HOURS} hours (${n(totalRequests)} requests)`
+	`Part A - ${n(SESSIONS)} active sessions, ${RPS} req/s, ${HOURS} hours (${n(totalRequests)} requests)`
 );
 console.log(
 	row([
@@ -211,7 +211,7 @@ function run(
 }
 
 heading(
-	`Part B — refresh token theft (access ${ACCESS_MINUTES} min, refresh ${REFRESH_DAYS} days), the attacker starts 10 minutes later`
+	`Part B - refresh token theft (access ${ACCESS_MINUTES} min, refresh ${REFRESH_DAYS} days), the attacker starts 10 minutes later`
 );
 for (const scenario of SCENARIOS) {
 	console.log(`\n${scenario.name}`);

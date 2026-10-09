@@ -7,12 +7,12 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { env, s3 } from './common';
 
-// Lesson 8.2 §1.1 — TaskFlow's API, in a separate process (forked by through-app.ts), so its memory and
+// Lesson 8.2 §1.1 - TaskFlow's API, in a separate process (forked by through-app.ts), so its memory and
 // event loop can be measured separately. Three upload paths:
-//   PUT /upload/buffer/:id — the whole body in memory (express.raw), then to S3     ← 8.1's saveAttachment
-//   PUT /upload/stream/:id — the body streamed straight towards S3 (stream)
-//   POST /uploads          — only hands out a presigned URL; the file never touches the app
-// And GET /api/ping — a cheap route like the board, whose latency shows how the app is doing for everyone else.
+//   PUT /upload/buffer/:id - the whole body in memory (express.raw), then to S3     ← 8.1's saveAttachment
+//   PUT /upload/stream/:id - the body streamed straight towards S3 (stream)
+//   POST /uploads          - only hands out a presigned URL; the file never touches the app
+// And GET /api/ping - a cheap route like the board, whose latency shows how the app is doing for everyone else.
 
 export const messageSchema = z.discriminatedUnion('type', [
 	z.object({ type: z.literal('ready'), port: z.number() }),
@@ -52,7 +52,7 @@ function main(): void {
 	let peakRss = baseRss;
 	setInterval(() => (peakRss = Math.max(peakRss, process.memoryUsage().rss)), 20).unref();
 
-	// counted while an upload request is open (Lesson 7.1 — what an open request holds on to)
+	// counted while an upload request is open (Lesson 7.1 - what an open request holds on to)
 	const track = (req: Request, res: Response, next: NextFunction): void => {
 		open++;
 		maxOpen = Math.max(maxOpen, open);
@@ -82,7 +82,7 @@ function main(): void {
 		'/upload/stream/:id',
 		track,
 		handle<{ id: string }>(async (req, res) => {
-			// req itself is a Readable stream — pieces come in, pieces go out; S3's stream PUT needs the size up front
+			// req itself is a Readable stream - pieces come in, pieces go out; S3's stream PUT needs the size up front
 			const length = z.coerce.number().int().positive().parse(req.headers['content-length']);
 			await s3.send(
 				new PutObjectCommand({
@@ -101,7 +101,7 @@ function main(): void {
 		express.json(),
 		handle(async (req, res) => {
 			const input = presignSchema.parse(req.body);
-			const key = `direct/${randomUUID()}`; // the server builds the key — never the client (§1.2)
+			const key = `direct/${randomUUID()}`; // the server builds the key - never the client (§1.2)
 			const url = await getSignedUrl(
 				s3,
 				new PutObjectCommand({

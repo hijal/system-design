@@ -1,6 +1,6 @@
-# Module 12 — Exit Challenge (Interview Mastery & Capstone)
+# Module 12 - Exit Challenge (Interview Mastery & Capstone)
 
-**Module 12 — Interview Mastery & Capstone**
+**Module 12 - Interview Mastery & Capstone**
 
 Module 12 is done: the ten mistakes and the rubric (12.1), speed at estimation (12.2), two mocks (12.3, 12.4), the story of your own system (12.5), and TaskFlow's full design doc and a measured core piece (12.6). And with it, the whole course is done.
 
@@ -10,7 +10,7 @@ In both mocks you had a script with you: the interviewer's answers in a closed s
 
 ## 1. Mini Design Challenge (Tier 3)
 
-### Part 1 — The mock, 50 minutes, no help
+### Part 1 - The mock, 50 minutes, no help
 
 12.3 and 12.4's rules: recording on, timer on, all of it out loud, the time box in the corner of the board (`Req 5 · Est 5 · HLD 10 · Deep 25 · Wrap 5`) and the two lowest dimensions from 12.4's score.
 
@@ -28,7 +28,7 @@ In both mocks you had a script with you: the interviewer's answers in a closed s
 > - **Payment:** ~65% digital (cards and mobile wallets, through a PSP, 11.7), ~35% cash on delivery.
 > - **Time requirements:** the restaurant accepts within 3 minutes, otherwise the order is cancelled and the customer told. A rider is assigned within 2 minutes of acceptance.
 > - **The current system:** a monolith, one Postgres. Riders' locations in a `rider_locations(rider_id PK, lat, lng, updated_at)` table, an `UPDATE` every 4 seconds. Dispatch is a job that every 10 seconds loops over all pending orders, computes in SQL the distance (haversine) to every free rider for each one, `ORDER BY distance LIMIT 1`, then `UPDATE orders SET rider_id = …`. Notifications are a FIFO queue. The customer's tracking screen polls the rider's location every 5 seconds.
-> - **Summary of last Ramadan's postmortem:** at 5:40 the database's CPU was at 100%. One round of dispatch took 15 minutes instead of 10 seconds; ~2,000 orders cancelled, a lot of food gone cold. Some riders got assignments for two different orders at the same moment and raced to two restaurants. Some restaurants cooked orders whose payment hadn't been confirmed yet, and those later failed. On customers' maps the rider was "jumping" — from one place to another, sometimes backwards.
+> - **Summary of last Ramadan's postmortem:** at 5:40 the database's CPU was at 100%. One round of dispatch took 15 minutes instead of 10 seconds; ~2,000 orders cancelled, a lot of food gone cold. Some riders got assignments for two different orders at the same moment and raced to two restaurants. Some restaurants cooked orders whose payment hadn't been confirmed yet, and those later failed. On customers' maps the rider was "jumping" - from one place to another, sometimes backwards.
 >
 > Product's goals: (1) a rider within 2 minutes of acceptance even in the iftar wave; (2) a rider never gets assignments for two orders at once (for now); (3) a restaurant doesn't start cooking until payment is confirmed, but the customer's wait mustn't become unbearable; (4) the rider moves smoothly on the customer's map; (5) the ETA is off by less than 5 minutes on average.
 
@@ -36,41 +36,41 @@ Now 50 minutes. The whole design: requirements, estimation (a "so" after every n
 
 **Stop at 50 minutes.** Recording off. Before reading Part 2 below, and without listening to the recording, write three lines: which two deep dives you chose and why, where you were most uncertain, and which follow-ups you think will come.
 
-### Part 2 — Follow-ups, in writing, after the mock
+### Part 2 - Follow-ups, in writing, after the mock
 
-The ten questions below are from an interviewer's notebook. For each, two tasks: (a) search the recording for whether you raised its subject **yourself** — if you did, write the `mm:ss`, and that's a strong signal; (b) if you didn't, write an answer now, 3-5 minutes each, as if the interviewer just asked. Next to each question is the Module 12 skill being tested.
+The ten questions below are from an interviewer's notebook. For each, two tasks: (a) search the recording for whether you raised its subject **yourself** - if you did, write the `mm:ss`, and that's a strong signal; (b) if you didn't, write an answer now, 3-5 minutes each, as if the interviewer just asked. Next to each question is the Module 12 skill being tested.
 
-**1. The iftar numbers (Lesson 12.2 — estimation chain, active window)**
-25% of 800,000 in half an hour: how many orders a second? 30,000 riders × every 4 seconds: how many location writes a second? And tracking: how many customers keep the map open at once (which orders are active, for how many minutes), and how many reads a second at a poll every 5 seconds? Put the three numbers side by side and say: where is this system's biggest load — in orders, or in locations? A "so" at the end of each, and a sanity check ("how much per rider?"). How many times the day's average is the iftar number? Why is the usual "peak × 3" wrong here?
+**1. The iftar numbers (Lesson 12.2 - estimation chain, active window)**
+25% of 800,000 in half an hour: how many orders a second? 30,000 riders × every 4 seconds: how many location writes a second? And tracking: how many customers keep the map open at once (which orders are active, for how many minutes), and how many reads a second at a poll every 5 seconds? Put the three numbers side by side and say: where is this system's biggest load - in orders, or in locations? A "so" at the end of each, and a sanity check ("how much per rider?"). How many times the day's average is the iftar number? Why is the usual "peak × 3" wrong here?
 
-**2. The clock and the choice of deep dives (Lesson 12.1 — framework, time box, the list of mistakes)**
-How many minutes did each step actually take? Were the two deep dives you chose this system's two hardest places — which of the postmortem's four failures did they cover? The ten-mistake checklist, with `mm:ss`.
+**2. The clock and the choice of deep dives (Lesson 12.1 - framework, time box, the list of mistakes)**
+How many minutes did each step actually take? Were the two deep dives you chose this system's two hardest places - which of the postmortem's four failures did they cover? The ten-mistake checklist, with `mm:ss`.
 
-**3. The nearest free rider (Lesson 12.5 — "not knowing", the depth ladder; 12.3 — thinking from the data structure)**
-The current dispatch computes the distance to every rider for every order. 30,000 riders × the iftar order rate: how many distance calculations a second? Geospatial indexes weren't taught in this course — **on purpose.** If you don't know the name, think from first principles: if you divide the city into the cells of a grid, what does finding "a nearby rider" look like? How big is a cell, and what about orders on a cell's boundary? When a location changes, where do you keep which cell the rider is in? Then write down the exact sentence you'd have started with in the interview, not knowing whether this has a common name.
+**3. The nearest free rider (Lesson 12.5 - "not knowing", the depth ladder; 12.3 - thinking from the data structure)**
+The current dispatch computes the distance to every rider for every order. 30,000 riders × the iftar order rate: how many distance calculations a second? Geospatial indexes weren't taught in this course - **on purpose.** If you don't know the name, think from first principles: if you divide the city into the cells of a grid, what does finding "a nearby rider" look like? How big is a cell, and what about orders on a cell's boundary? When a location changes, where do you keep which cell the rider is in? Then write down the exact sentence you'd have started with in the interview, not knowing whether this has a common name.
 
-**4. One rider, two orders (Lesson 12.6 — optimistic lock, the core write path; 5.5)**
+**4. One rider, two orders (Lesson 12.6 - optimistic lock, the core write path; 5.5)**
 Last Ramadan a rider got two assignments at the same moment. Which row of 12.6's 50-person test does this resemble? Write an SQL statement for a rider's assignment that gives the rider to only one of two simultaneous dispatches asking for them, and what the other one does (look for another rider, or wait). And when several dispatch instances run at once, how does the same **order** not get two riders?
 
-**5. The requirements change (Lesson 12.4 — adapting)**
+**5. The requirements change (Lesson 12.4 - adapting)**
 The interviewer: "Product's new decision: a rider can take at most two orders at once, if the two restaurants are close and the two customers are in the same direction." Which decision or assumption in your design breaks because of this (by name)? What happens to question 4's rule? What will you change, without throwing away the whole? And how does the dispatch question change shape with this change (from "the nearest rider for one order" to what)?
 
-**6. Push-back: payment and cooking (Lesson 12.4 — push-back; 11.7 — unknown)**
+**6. Push-back: payment and cooking (Lesson 12.4 - push-back; 11.7 - unknown)**
 You said (or should have said): while the payment is `unknown`, the restaurant won't start cooking. The interviewer: "The PSP's webhook sometimes takes a minute. That means some customers' food starts a minute late. Product says customers will hate it. And if you start cooking first, who eats the food from a failed payment?" Choose one, accept the price, and give two ways to lower the price. Does this question even exist for cash-on-delivery orders?
 
-**7. The location path (Lesson 12.3 — derived store, source of truth; 11.3 — connections; 6.4 — order)**
-Thousands of location `UPDATE`s a second on one Postgres — one of the reasons for the postmortem's CPU at 5:40. Where will you keep locations? Which is the source of truth, and do you need to keep location history at all (for what, how long)? On the customer's map the rider "jumps" and "goes backwards" — give two possible causes (one about the network, one about ordering), and a remedy for each. Poll or push (2.4): with numbers.
+**7. The location path (Lesson 12.3 - derived store, source of truth; 11.3 - connections; 6.4 - order)**
+Thousands of location `UPDATE`s a second on one Postgres - one of the reasons for the postmortem's CPU at 5:40. Where will you keep locations? Which is the source of truth, and do you need to keep location history at all (for what, how long)? On the customer's map the rider "jumps" and "goes backwards" - give two possible causes (one about the network, one about ordering), and a remedy for each. Poll or push (2.4): with numbers.
 
-**8. Three rows of failure modes (Lesson 12.6 — failure mode table; 10.3)**
+**8. Three rows of failure modes (Lesson 12.6 - failure mode table; 10.3)**
 Three rows in 12.6's table format: (a) the location service down for ten minutes, (b) the PSP slow, 30% of requests timing out, (c) a rider's app offline for ten minutes in the middle of a delivery. For each: how you'll know, what the customer/restaurant/rider sees, and what the design does.
 
-**9. Scaling triggers and cost (Lesson 12.6 — scaling triggers; 10.7)**
-Write three scaling triggers, each with a measured number and a specific change. Which do you think will be this system's biggest cost line (compute, the database, location writes, the map API, SMS/push)? And capacity for iftar's half hour: autoscale, or ahead of time (the same time every day — what kind of peak is this)?
+**9. Scaling triggers and cost (Lesson 12.6 - scaling triggers; 10.7)**
+Write three scaling triggers, each with a measured number and a specific change. Which do you think will be this system's biggest cost line (compute, the database, location writes, the map API, SMS/push)? And capacity for iftar's half hour: autoscale, or ahead of time (the same time every day - what kind of peak is this)?
 
-**10. The story (Lesson 12.5 — design narrative, retrospective)**
+**10. The story (Lesson 12.5 - design narrative, retrospective)**
 Write this design's 30-second version, in 12.5's structure. Then: which decision in this design are you least sure about, and which one number, if measured, would reduce that uncertainty most? And which decision taken at the start of the mock would you take differently now?
 
-### Part 3 — The score, and three mocks side by side
+### Part 3 - The score, and three mocks side by side
 
 Score yourself on 12.3's rubric, an `mm:ss` next to every score. Then the three mocks side by side:
 
@@ -86,13 +86,13 @@ follow-ups raised yourself in Part 2:    _ / 10
 
 The last line is this challenge's most important number. Of the ten, how many did you raise yourself before anyone asked? Remember 12.1's definition of senior: raising the questions **before** the interviewer asks them. Four or five is good; seven or eight means you're running an interview in a way most interviewers will remember.
 
-**Things to remember:** this challenge has four places where it's easiest to go wrong. (a) **Looking for the load in the wrong place.** "Food delivery" sounds like the load is in orders; the numbers say the load is in locations (question 1). The order rate is easy for one database even at iftar. (b) **The wrong peak.** Iftar is a daily event with its own clock, not "3× the average" (12.2's active window and the event peak). And it's known in advance, so scheduled capacity rather than autoscale (10.7). (c) **A made-up name for something you don't know.** If you don't know the geospatial index's common name, thinking from first principles with grid cells is a far stronger signal than a wrong name (12.5). (d) **Treating an external system's timeout as a decision.** A PSP's timeout means "I don't know" (11.7), and a rider's app going silent is also "I don't know" — the rider may be in a tunnel, the app may have crashed, they may have run off with the food. Each needs an `unknown` state and a time limit.
+**Things to remember:** this challenge has four places where it's easiest to go wrong. (a) **Looking for the load in the wrong place.** "Food delivery" sounds like the load is in orders; the numbers say the load is in locations (question 1). The order rate is easy for one database even at iftar. (b) **The wrong peak.** Iftar is a daily event with its own clock, not "3× the average" (12.2's active window and the event peak). And it's known in advance, so scheduled capacity rather than autoscale (10.7). (c) **A made-up name for something you don't know.** If you don't know the geospatial index's common name, thinking from first principles with grid cells is a far stronger signal than a wrong name (12.5). (d) **Treating an external system's timeout as a decision.** A PSP's timeout means "I don't know" (11.7), and a rider's app going silent is also "I don't know" - the rider may be in a tunnel, the app may have crashed, they may have run off with the food. Each needs an `unknown` state and a time limit.
 
 Send a summary of Part 1's recording, Part 2's ten answers (and which ones you raised yourself), and Part 3's table. I'll critique each follow-up, and match the differences between the three mocks against the evidence.
 
 ---
 
-## 2. Self-Check — By the End of This Module You Should Be Able To
+## 2. Self-Check - By the End of This Module You Should Be Able To
 
 **Module 12:**
 
@@ -106,17 +106,17 @@ Send a summary of Part 1's recording, Part 2's ten answers (and which ones you r
 
 **The whole course, one line per module:**
 
-- [ ] **1 — Framework:** the five steps on any question; the numbers for latency, throughput, availability and SLO/error budget; stateless vs stateful
-- [ ] **2 — Networking:** the path from DNS to the response; the price of TCP/TLS; the trade-offs of REST/GraphQL/gRPC and WebSocket/SSE/polling; idempotency keys and cursor pagination
-- [ ] **3 — Load balancing:** L4 vs L7, algorithms, health checks and graceful shutdown
-- [ ] **4 — Caching:** which layer, which strategy, invalidation and TTL, and failures like stampedes and hot keys
-- [ ] **5 — Databases:** schema, storage engines, indexes, isolation and anomalies, pooling and N+1, replication, sharding, CAP and quorum
-- [ ] **6 — Distributed systems:** the failure model and split brain, consensus, read-your-writes, logical clocks, consistency models
-- [ ] **7 — Async:** why async, queue vs pub/sub, retry/backoff/DLQ/backpressure, the outbox, batch vs stream
-- [ ] **8 — Storage:** object storage, presigned/multipart uploads, the inverted index
-- [ ] **9 — Service architecture:** when to split and when not, gateways and BFFs, sagas, breakers and bulkheads, rate limiting
-- [ ] **10 — Reliability and operations:** consistent hashing, probabilistic structures, graceful degradation, observability, security, deployment, cost, multi-region
-- [ ] **11 — Case studies:** seven systems from scratch, in each the numbers first and then the tools
+- [ ] **1 - Framework:** the five steps on any question; the numbers for latency, throughput, availability and SLO/error budget; stateless vs stateful
+- [ ] **2 - Networking:** the path from DNS to the response; the price of TCP/TLS; the trade-offs of REST/GraphQL/gRPC and WebSocket/SSE/polling; idempotency keys and cursor pagination
+- [ ] **3 - Load balancing:** L4 vs L7, algorithms, health checks and graceful shutdown
+- [ ] **4 - Caching:** which layer, which strategy, invalidation and TTL, and failures like stampedes and hot keys
+- [ ] **5 - Databases:** schema, storage engines, indexes, isolation and anomalies, pooling and N+1, replication, sharding, CAP and quorum
+- [ ] **6 - Distributed systems:** the failure model and split brain, consensus, read-your-writes, logical clocks, consistency models
+- [ ] **7 - Async:** why async, queue vs pub/sub, retry/backoff/DLQ/backpressure, the outbox, batch vs stream
+- [ ] **8 - Storage:** object storage, presigned/multipart uploads, the inverted index
+- [ ] **9 - Service architecture:** when to split and when not, gateways and BFFs, sagas, breakers and bulkheads, rate limiting
+- [ ] **10 - Reliability and operations:** consistent hashing, probabilistic structures, graceful degradation, observability, security, deployment, cost, multi-region
+- [ ] **11 - Case studies:** seven systems from scratch, in each the numbers first and then the tools
 
 If you can't tick a line, redo that module's exit challenge before rereading its lessons. Reading feels familiar; a challenge shows how much you can really do.
 
@@ -126,17 +126,17 @@ If you can't tick a line, redo that module's exit challenge before rereading its
 
 **To read:**
 
-- **Martin Kleppmann — _Designing Data-Intensive Applications_.** The background to almost every module of this course. After the course, read it all again: what felt abstract the first time (replication, consistency, streams), now has a number from one of your own exercises next to each chapter.
-- **Alex Xu — _System Design Interview_ (volumes 1 and 2).** To see the breadth of interview questions: questions you haven't done here (web crawler, key-value store, proximity service, Google Maps), each raw material for a new mock. Volume 2's "proximity service" chapter is one answer to Part 2's question 3 — read it **after finishing Part 2**.
-- **Roberto Vitillo — _Understanding Distributed Systems_.** Short, and a clean recap of Modules 5-10. Good for a quick skim in the week before an interview.
-- **Google — _Site Reliability Engineering_ and _The Site Reliability Workbook_.** Both published online for free. The original source of Module 10's SLOs, error budgets, alerts, incidents and postmortems; the next step after 12.6's failure mode table thinking.
-- **Alex Petrov — _Database Internals_.** If you want to go deeper into Modules 5.3 and 6.2: inside B-trees and LSMs, and the consensus algorithms.
+- **Martin Kleppmann - _Designing Data-Intensive Applications_.** The background to almost every module of this course. After the course, read it all again: what felt abstract the first time (replication, consistency, streams), now has a number from one of your own exercises next to each chapter.
+- **Alex Xu - _System Design Interview_ (volumes 1 and 2).** To see the breadth of interview questions: questions you haven't done here (web crawler, key-value store, proximity service, Google Maps), each raw material for a new mock. Volume 2's "proximity service" chapter is one answer to Part 2's question 3 - read it **after finishing Part 2**.
+- **Roberto Vitillo - _Understanding Distributed Systems_.** Short, and a clean recap of Modules 5-10. Good for a quick skim in the week before an interview.
+- **Google - _Site Reliability Engineering_ and _The Site Reliability Workbook_.** Both published online for free. The original source of Module 10's SLOs, error budgets, alerts, incidents and postmortems; the next step after 12.6's failure mode table thinking.
+- **Alex Petrov - _Database Internals_.** If you want to go deeper into Modules 5.3 and 6.2: inside B-trees and LSMs, and the consensus algorithms.
 
 **To watch:**
 
 - **Martin Kleppmann's Cambridge distributed systems lecture series** (on YouTube, eight parts). One of the clearest explanations of Module 6's logical clocks, quorums and consensus.
 - **MIT's distributed systems course (6.5840, formerly 6.824) lectures and labs.** Doing the Raft lab yourself is the next step after 6.2's exercise. Hard, it takes time, but after it "I understand consensus" in an interview isn't memorised anymore.
-- **Big companies' engineering blogs:** Uber's published writing on H3 (a hexagonal-grid geospatial index), and food delivery companies' writing on dispatch. Both are the real forms of Part 2's questions 3 and 5 — read them **after writing your own answers**. They are the companies' own writing, so from their point of view.
+- **Big companies' engineering blogs:** Uber's published writing on H3 (a hexagonal-grid geospatial index), and food delivery companies' writing on dispatch. Both are the real forms of Part 2's questions 3 and 5 - read them **after writing your own answers**. They are the companies' own writing, so from their point of view.
 
 **To build:**
 
@@ -165,4 +165,4 @@ Do the exit challenge and send it over. And this is the course's last challenge:
 
 At the start there were two goals, equally important: doing well in interviews, and really understanding, so that it's useful after you get the job. Module 12 was for the first, and every one of its habits (a "so" from every number, the clock, bringing up failures yourself, staying honest) was actually borrowed from the second. Over eleven modules TaskFlow went from one Express server to a full platform, and at every step one thing came back again and again: first the problem, then the numbers, then the tool, and next to every tool its price. Walking out of the interview room into your first design review, your first incident, your first "will this scale?" question, the same order works.
 
-If you want to go back to any module, or work on a system outside the course, write `design X`, `interview me`, `critique` or `war story` — the commands keep working after the course is over.
+If you want to go back to any module, or work on a system outside the course, write `design X`, `interview me`, `critique` or `war story` - the commands keep working after the course is over.

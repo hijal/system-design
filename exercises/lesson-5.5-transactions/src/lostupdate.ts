@@ -3,7 +3,7 @@ import { Transaction } from 'sequelize';
 import { Project, sequelize } from './db';
 import { withRetry, type RetryStats } from './retry';
 
-// Lesson 5.5 §1.6 — Lesson 5.2's counter race, now with seven strategies.
+// Lesson 5.5 §1.6 - Lesson 5.2's counter race, now with seven strategies.
 // Each strategy runs 100 "counter +1" at once. A final value of 100 means correct.
 
 const CONCURRENT = 100;
@@ -16,9 +16,9 @@ type Strategy = {
 
 const strategies: Strategy[] = [
 	{
-		// Lesson 5.2's (a) — no transaction
+		// Lesson 5.2's (a) - no transaction
 		label: '1. read-modify-write, no transaction',
-		// Static Project.update — with the instance's save() Sequelize would do an optimistic check itself
+		// Static Project.update - with the instance's save() Sequelize would do an optimistic check itself
 		// because of `version: true` (strategy 6), and then this would no longer be "naive".
 		increment: async (projectId) => {
 			const p = await Project.findByPk(projectId);
@@ -27,7 +27,7 @@ const strategies: Strategy[] = [
 		}
 	},
 	{
-		// Lesson 5.2's experiment 3 — "surely a transaction makes it safe?"
+		// Lesson 5.2's experiment 3 - "surely a transaction makes it safe?"
 		label: '2. same, in a READ COMMITTED transaction',
 		increment: (projectId) =>
 			sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) => {
@@ -40,7 +40,7 @@ const strategies: Strategy[] = [
 			})
 	},
 	{
-		// Pessimistic — a row lock at read time (SELECT ... FOR UPDATE)
+		// Pessimistic - a row lock at read time (SELECT ... FOR UPDATE)
 		label: '3. SELECT ... FOR UPDATE',
 		increment: (projectId) =>
 			sequelize.transaction({ isolationLevel: READ_COMMITTED }, async (transaction) => {
@@ -53,14 +53,14 @@ const strategies: Strategy[] = [
 			})
 	},
 	{
-		// hand the arithmetic to the database — SET x = x + 1 (Lesson 5.2's (b))
+		// hand the arithmetic to the database - SET x = x + 1 (Lesson 5.2's (b))
 		label: '4. atomic UPDATE … SET x = x + 1',
 		increment: async (projectId) => {
 			await Project.increment('openTaskCount', { by: 1, where: { id: projectId } });
 		}
 	},
 	{
-		// Snapshot isolation — on a conflict Postgres raises an error, and we rerun the whole thing
+		// Snapshot isolation - on a conflict Postgres raises an error, and we rerun the whole thing
 		label: '5. REPEATABLE READ + retry',
 		increment: (projectId, stats) =>
 			withRetry(
@@ -77,7 +77,7 @@ const strategies: Strategy[] = [
 			)
 	},
 	{
-		// Optimistic — no lock; the version is checked at write time (`version: true` on the model)
+		// Optimistic - no lock; the version is checked at write time (`version: true` on the model)
 		// Sequelize builds: UPDATE ... SET version = version + 1 WHERE id = ? AND version = ?
 		label: '6. optimistic locking (version) + retry',
 		increment: (projectId, stats) =>

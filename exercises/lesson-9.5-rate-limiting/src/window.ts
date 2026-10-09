@@ -94,12 +94,12 @@ function memory(make: () => RateLimiter): { bytesPerUser: number; entries: numbe
 
 function main(): void {
 	console.log(
-		`\n=== Lesson 9.5 — Window Algorithms ===\n` +
+		`\n=== Lesson 9.5 - Window Algorithms ===\n` +
 			`   limit: ${LIMIT} requests per ${WINDOW_MS} ms · one user\n`
 	);
 
 	console.log(
-		`── a. A burst at the window boundary — ${LIMIT} just before, ${LIMIT} just after ──`
+		`── a. A burst at the window boundary - ${LIMIT} just before, ${LIMIT} just after ──`
 	);
 	console.log(
 		`   ${padEnd('algorithm', LABEL)}${padLeft('allowed', COL)}${padLeft('span', COL)}${padLeft('times the limit', COL + 4)}`
@@ -113,7 +113,7 @@ function main(): void {
 	}
 
 	console.log(
-		`\n── b. The most one user can send — an attempt every ${STEP_MS} ms, the worst over every start time ──`
+		`\n── b. The most one user can send - an attempt every ${STEP_MS} ms, the worst over every start time ──`
 	);
 	console.log(
 		`   ${padEnd('algorithm', LABEL)}${padLeft(`worst / ${WINDOW_MS} ms`, COL + 4)}${padLeft('times the limit', COL + 4)}${padLeft('at phase', COL + 4)}`
@@ -132,7 +132,7 @@ function main(): void {
 		);
 	}
 
-	console.log(`\n── c. Memory — ${USERS.toLocaleString('en-US')} users, ${LIMIT} requests each ──`);
+	console.log(`\n── c. Memory - ${USERS.toLocaleString('en-US')} users, ${LIMIT} requests each ──`);
 	console.log(
 		`   ${padEnd('algorithm', LABEL)}${padLeft('entries', COL)}${padLeft('bytes/user', COL)}`
 	);

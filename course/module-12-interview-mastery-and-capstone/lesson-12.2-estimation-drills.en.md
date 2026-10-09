@@ -1,6 +1,6 @@
-# Lesson 12.2 — Estimation Drill: 10 Rapid-Fire
+# Lesson 12.2 - Estimation Drill: 10 Rapid-Fire
 
-**Module 12 — Interview Mastery & Capstone**
+**Module 12 - Interview Mastery & Capstone**
 
 > **Spaced Repetition (Lesson 1.5):** A service's availability is 99.9%. In a 30-day month, how many minutes at most can it be down? No paper, thirty seconds. One of today's ten drills stands on this number.
 
@@ -8,11 +8,11 @@
 
 **By the end of this lesson you will be able to:**
 
-1. Do any estimation question of six shapes — rate, volume, bandwidth, fleet, concurrency and probability — on paper as a **chain** in under two minutes, with a unit next to every number
+1. Do any estimation question of six shapes - rate, volume, bandwidth, fleet, concurrency and probability - on paper as a **chain** in under two minutes, with a unit next to every number
 2. Say with numbers where rounding in your head is safe and where it isn't: rounding moves the answer by a few tens of percent, a wrong step moves it by a few times to a thousand times
 3. Say a "so" at the end of every number: which decision the number changes, which tool it brings in or rules out
 
-**Tier:** 1 — Runnable Code (an interactive drill that times you and checks your answers, and a script that measures the effect of rounding and of wrong steps; no Docker needed)
+**Tier:** 1 - Runnable Code (an interactive drill that times you and checks your answers, and a script that measures the effect of rounding and of wrong steps; no Docker needed)
 
 ---
 
@@ -68,11 +68,11 @@ minutes in a 30-day month                 43,200      4 × 10^4     1.08×
 
 The most useful line is the first: **a day ≈ 10⁵ seconds.** Then to go from "X a day" to "per second", just count zeros: 2 billion a day (2 × 10⁹) means 2 × 10⁴ a second, ~20,000. The error is 16%, and always in the same direction: dividing by 10⁵ gives a slightly **lower** answer. Knowing that, nudge it up a little in your head.
 
-**Powers-of-Ten Rounding** — writing every number in the calculation as 1, 2, 3 or 5 times a power of ten (86,400 → 10⁵, 365 → 400, 47,000 → 5 × 10⁴), so multiplication becomes adding exponents and division becomes subtracting them. This is where the speed of mental math comes from.
+**Powers-of-Ten Rounding** - writing every number in the calculation as 1, 2, 3 or 5 times a power of ten (86,400 → 10⁵, 365 → 400, 47,000 → 5 × 10⁴), so multiplication becomes adding exponents and division becomes subtracting them. This is where the speed of mental math comes from.
 
 **Two unit traps.** Bandwidth is usually in **bits** (Mbps, Gbps), storage in **bytes** (MB, GB). There's a factor of 8 between them. And KB → MB → GB → TB → PB, each step is 1,000×. Both are the source of the biggest errors in Part B below.
 
-**Estimation Chain** — writing an estimation as a chain of small steps, each step multiplying or dividing the previous step's result by one number, with a unit written next to every step. Almost every system design estimation has the same shape:
+**Estimation Chain** - writing an estimation as a chain of small steps, each step multiplying or dividing the previous step's result by one number, with a unit written next to every step. Almost every system design estimation has the same shape:
 
 ```
  total amount           per second             peak              resource            headroom          so
@@ -82,9 +82,9 @@ The most useful line is the first: **a day ≈ 10⁵ seconds.** Then to go from 
 
 Every arrow is a step, and every step is a place where an error can happen: dividing by the wrong time (24 hours versus the 8 office hours), forgetting the peak, mixing up units, forgetting headroom. That's why you write the chain on paper: when there's an error, you can find which step.
 
-**Active Window** — the part of the day when traffic actually comes. For an app with users all over the world it's 24 hours. For an office app in one country it's 8-10 hours, and that alone makes the average 2-3× bigger, before you even add the peak factor. This is the place the senior in the TaskFlow story caught.
+**Active Window** - the part of the day when traffic actually comes. For an app with users all over the world it's 24 hours. For an office app in one country it's 8-10 hours, and that alone makes the average 2-3× bigger, before you even add the peak factor. This is the place the senior in the TaskFlow story caught.
 
-**Headroom** — the empty space you deliberately leave between the calculated demand and the capacity you build: keeping a server at most 60% busy, keeping a gateway half full. The reasons: if a machine or a zone dies, the others have to take its work, and near 100% the latency queue explodes (11.7's 37 seconds on the hot account).
+**Headroom** - the empty space you deliberately leave between the calculated demand and the capacity you build: keeping a server at most 60% busy, keeping a gateway half full. The reasons: if a machine or a zone dies, the others have to take its work, and near 100% the latency queue explodes (11.7's 37 seconds on the hot account).
 
 **Six shapes.** The ten drills are of these six kinds, and so is almost any interview question:
 
@@ -127,25 +127,25 @@ The last row differs from the others, so remember it separately: if each of n pa
 
 For each: the exact calculation (from `npm run answers`), one rounded-in-your-head version, and the "so".
 
-**1. Photo app, peak reads — ~69,000 /s.** 50 million × 40 = 2 billion views/day; ÷ 86,400 = 23,148 /s average; × 3 = **69,444**. In your head: 2 × 10⁹ ÷ 10⁵ = 20,000, × 3 = 60,000. **So:** one database won't handle this directly. Photo metadata in a cache, the images from a CDN (4.1, 4.5).
+**1. Photo app, peak reads - ~69,000 /s.** 50 million × 40 = 2 billion views/day; ÷ 86,400 = 23,148 /s average; × 3 = **69,444**. In your head: 2 × 10⁹ ÷ 10⁵ = 20,000, × 3 = 60,000. **So:** one database won't handle this directly. Photo metadata in a cache, the images from a CDN (4.1, 4.5).
 
-**2. Photo app, storage — ~18 PB/year.** 25 million × 2 MB = 50 TB/day; × 365 = **18.3 PB**. In your head: 50 TB × 400 = 20 PB. **So:** object storage, never the database. Moving old photos to a colder tier is a cost decision (8.1, 10.7).
+**2. Photo app, storage - ~18 PB/year.** 25 million × 2 MB = 50 TB/day; × 365 = **18.3 PB**. In your head: 50 TB × 400 = 20 PB. **So:** object storage, never the database. Moving old photos to a colder tier is a cost decision (8.1, 10.7).
 
-**3. Live video, egress — 6 Tbps.** 2 million × 3 Mbps = 6 × 10¹² bit/s = **6 Tbps**. The same in your head. **So:** only a CDN can do it. The origin serves the CDN, not the viewers (4.5, 11.6).
+**3. Live video, egress - 6 Tbps.** 2 million × 3 Mbps = 6 × 10¹² bit/s = **6 Tbps**. The same in your head. **So:** only a CDN can do it. The origin serves the CDN, not the viewers (4.5, 11.6).
 
-**4. API fleet — ~125 servers.** 30,000 × 0.02 s = 600 cores always busy; at the 60% limit ÷ 0.6 = 1,000 cores; ÷ 8 = **125**. **So:** ~125, plus some spares per zone. And the real lever is CPU per request: halving it saves ~60 machines (1.6, 10.7).
+**4. API fleet - ~125 servers.** 30,000 × 0.02 s = 600 cores always busy; at the 60% limit ÷ 0.6 = 1,000 cores; ÷ 8 = **125**. **So:** ~125, plus some spares per zone. And the real lever is CPU per request: halving it saves ~60 machines (1.6, 10.7).
 
-**5. Catalog cache — ~20 GB.** 10 million × 0.2 = 2 million items; × 5 KB = 10 GB; × 2 = **20 GB**. **So:** it fits in one Redis node and a replica. No cache cluster or sharding needed (4.4).
+**5. Catalog cache - ~20 GB.** 10 million × 0.2 = 2 million items; × 5 KB = 10 GB; × 2 = **20 GB**. **So:** it fits in one Redis node and a replica. No cache cluster or sharding needed (4.4).
 
-**6. Chat, writes — ~139,000 /s.** 100 million × 40 = 4 billion messages/day; ÷ 86,400 = 46,296 /s; × 3 = **138,889**. In your head: 4 × 10⁹ ÷ 10⁵ = 40,000, × 3 = 120,000. **So:** past one primary's limit. Partition by conversation, and an LSM-style store for an append-heavy log (5.3, 5.8, 11.3).
+**6. Chat, writes - ~139,000 /s.** 100 million × 40 = 4 billion messages/day; ÷ 86,400 = 46,296 /s; × 3 = **138,889**. In your head: 4 × 10⁹ ÷ 10⁵ = 40,000, × 3 = 120,000. **So:** past one primary's limit. Partition by conversation, and an LSM-style store for an append-heavy log (5.3, 5.8, 11.3).
 
-**7. Chat, gateways — ~200.** 100 million × 0.2 = 20 million connections; ÷ 200,000 = 100; ÷ 0.5 = **200**. **So:** 200 gateways means that to send a message you need to know which gateway the receiver is on: a session registry (11.3).
+**7. Chat, gateways - ~200.** 100 million × 0.2 = 20 million connections; ÷ 200,000 = 100; ÷ 0.5 = **200**. **So:** 200 gateways means that to send a message you need to know which gateway the receiver is on: a session registry (11.3).
 
-**8. Fan-out tail — ~39.5%.** The chance that every shard is fast is 0.99⁵⁰ = 60.5%; so at least one slow = **39.5%**. In your head: 50 × 1% = 50% (n × p = 0.5, not "small", so the approximation says a bit too much). **So:** a rare per-shard tail becomes a common per-request tail. Hedged requests, or fan out to fewer shards (11.4).
+**8. Fan-out tail - ~39.5%.** The chance that every shard is fast is 0.99⁵⁰ = 60.5%; so at least one slow = **39.5%**. In your head: 50 × 1% = 50% (n × p = 0.5, not "small", so the approximation says a bit too much). **So:** a rare per-shard tail becomes a common per-request tail. Hedged requests, or fan out to fewer shards (11.4).
 
-**9. Availability chain — ~129 minutes/month.** 0.999³ = 99.7%; (1 − 0.997) × 43,200 = **129.5**. In your head: 3 × 0.1% = 0.3%, × 43,200 ≈ 130 (here n × p = 0.003, very small, so the approximation is nearly perfect). **So:** three times one service's budget. If the product promises 99.9% for the whole, take one service off the path or make it async (1.5, 10.3).
+**9. Availability chain - ~129 minutes/month.** 0.999³ = 99.7%; (1 − 0.997) × 43,200 = **129.5**. In your head: 3 × 0.1% = 0.3%, × 43,200 ≈ 130 (here n × p = 0.003, very small, so the approximation is nearly perfect). **So:** three times one service's budget. If the product promises 99.9% for the whole, take one service off the path or make it async (1.5, 10.3).
 
-**10. Log volume — ~1,080 GB/day.** 500 × 50 × 500 B = 12.5 MB/s; × 86,400 = **1,080 GB** (~1 TB). In your head: 12.5 MB × 10⁵ = 1,250 GB. **So:** ~32 TB in 30 days in a search cluster. Sample the debug logs, keep metrics for trends, move old logs to object storage (10.4, 10.7).
+**10. Log volume - ~1,080 GB/day.** 500 × 50 × 500 B = 12.5 MB/s; × 86,400 = **1,080 GB** (~1 TB). In your head: 12.5 MB × 10⁵ = 1,250 GB. **So:** ~32 TB in 30 days in a search cluster. Sample the debug logs, keep metrics for trends, move old logs to object storage (10.4, 10.7).
 
 </details>
 
@@ -181,11 +181,11 @@ smallest slip: 1.67×
 
 Even the smallest wrong step (forgetting headroom, 1.67×) is bigger than the biggest rounding error. And the rest are 3× to 86,400×. And almost every one of them **flips** a decision: forget the peak and you design for 23,000 and the system dies in the morning rush; mix bits and bytes and you budget for a 48 Tbps CDN; read 5 KB as 5 MB and you get a 20 TB cache cluster that was never needed.
 
-**Unit Slip** — an error of unit or quantity in one step of an estimation chain (bits vs bytes, day vs second, KB vs MB, a missing factor), which moves the answer not by a few percent like rounding, but by a few times to a thousand times.
+**Unit Slip** - an error of unit or quantity in one step of an estimation chain (bits vs bytes, day vs second, KB vs MB, a missing factor), which moves the answer not by a few percent like rounding, but by a few times to a thousand times.
 
 The habit that follows is clear: **don't be afraid of the decimals, be afraid of the units.** And there's a cheap way to catch a wrong step.
 
-**Sanity Check** — after an answer comes out, checking by a separate, independent route whether the number is believable: what it works out to per user, or how it compares to a known large system. For example drill 6's 12 billion/s: "120 messages a second per user?" is caught in a second. Drill 5's 20 TB: "5 MB of JSON per product page?" too. A five-second "how much per user?" after every answer catches almost every big wrong step.
+**Sanity Check** - after an answer comes out, checking by a separate, independent route whether the number is believable: what it works out to per user, or how it compares to a known large system. For example drill 6's 12 billion/s: "120 messages a second per user?" is caught in a second. Drill 5's 20 TB: "5 MB of JSON per product page?" too. A five-second "how much per user?" after every answer catches almost every big wrong step.
 
 ### 1.6 "So": from numbers to decisions
 
@@ -196,7 +196,7 @@ Put the ten drills' "so"s side by side and four kinds appear, and in an intervie
 - **Cost is the real question.** Drills 2, 3, 4, 10. The technology here is simple (object storage, CDN, servers, logs), the question is the bill (10.7). And the "so" is which lever lowers it.
 - **The shape of the problem changes.** Drills 8 and 9: the number doesn't point to a tool but to an unexpected behaviour (a rare tail becomes common, a chain is weaker than each of its parts). These are usually the best places for a deep dive.
 
-> **Trade-off Table — estimation decisions**
+> **Trade-off Table - estimation decisions**
 
 | decision                  | one side                                                                     | the other side                                       | when to use which                                                                                                     |
 | ------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -237,12 +237,12 @@ Estimation comes up in interviews in a few familiar forms:
 
 | Term                       | Meaning                                                                                                                                                                                            |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Estimation Chain**       | Writing an estimation as a chain of small steps, each a multiplication or division, with its unit — both fast math and finding the wrong step come from this                                       |
+| **Estimation Chain**       | Writing an estimation as a chain of small steps, each a multiplication or division, with its unit - both fast math and finding the wrong step come from this                                       |
 | **Powers-of-Ten Rounding** | Writing every number as 1, 2, 3 or 5 × 10ⁿ (86,400 → 10⁵), so multiplying and dividing means adding and subtracting exponents; moves the answer a few tens of percent, doesn't change the decision |
-| **Active Window**          | The part of the day when traffic actually comes — 24 hours for a global app, 8-10 hours for a one-country office app; dividing by the wrong window gives an average 2-3× too low                   |
-| **Headroom**               | The empty space deliberately left between the calculated demand and the built capacity (servers up to 60%, gateways half full) — for failover and the latency queue                                |
-| **Unit Slip**              | An error of unit or quantity in one step of the chain (bits/bytes, day/second, KB/MB, a missing factor) — moves the answer by a few times to a thousand times                                      |
-| **Sanity Check**           | After an answer comes out, checking by an independent route — "how much per user?" or a comparison with a known system; catches most unit slips in five seconds                                    |
+| **Active Window**          | The part of the day when traffic actually comes - 24 hours for a global app, 8-10 hours for a one-country office app; dividing by the wrong window gives an average 2-3× too low                   |
+| **Headroom**               | The empty space deliberately left between the calculated demand and the built capacity (servers up to 60%, gateways half full) - for failover and the latency queue                                |
+| **Unit Slip**              | An error of unit or quantity in one step of the chain (bits/bytes, day/second, KB/MB, a missing factor) - moves the answer by a few times to a thousand times                                      |
+| **Sanity Check**           | After an answer comes out, checking by an independent route - "how much per user?" or a comparison with a known system; catches most unit slips in five seconds                                    |
 
 ---
 
@@ -263,9 +263,9 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 (a) 48 = 6 × 8. The candidate took the bitrate as **bytes** (3 MB/s per viewer) and then converted the answer to bits again, or read Mbps as MBps. A video's bitrate is almost always given in bits (Mbps), and network bandwidth is in bits too, so no conversion was needed here: 2 million × 3 Mbps = 6 Tbps.
 
-(b) A CDN budget and contract 8× too big (the egress bill is roughly linear, 11.6), or a big and wrong decision like "even a CDN can't do it, we'll build our own edge". The interviewer could have caught it with a simple question: "How much bandwidth does each viewer get in your calculation?" — the answer is 24 Mbps, several times an ordinary HD stream.
+(b) A CDN budget and contract 8× too big (the egress bill is roughly linear, 11.6), or a big and wrong decision like "even a CDN can't do it, we'll build our own edge". The interviewer could have caught it with a simple question: "How much bandwidth does each viewer get in your calculation?" - the answer is 24 Mbps, several times an ordinary HD stream.
 
-(c) "How much per viewer?" — 48 Tbps ÷ 2 million = 24 Mbps. For a live stream on a phone that's implausibly high (a 1080p stream is usually a few Mbps). That's exactly the five-second "how much per user" sanity check.
+(c) "How much per viewer?" - 48 Tbps ÷ 2 million = 24 Mbps. For a live stream on a phone that's implausibly high (a 1080p stream is usually a few Mbps). That's exactly the five-second "how much per user" sanity check.
 
 **Question 2:**
 
@@ -273,7 +273,7 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 (b) Users went up five times, but the peak write rate less than doubled (from 40 to ~70). Because the load has spread over time: when the active window grows, the same work arrives at a lower density. Spreading almost always reduces the peak, as long as the office hours don't overlap.
 
-(c) No. ~70 writes/s and ~700 reads/s are still nothing for one primary and replica. What changes is a different question: latency for users in three countries (10.8's multi-region, or is one region enough?), the law on where data must be kept, and the maintenance window — "night" is now someone's day.
+(c) No. ~70 writes/s and ~700 reads/s are still nothing for one primary and replica. What changes is a different question: latency for users in three countries (10.8's multi-region, or is one region enough?), the law on where data must be kept, and the maintenance window - "night" is now someone's day.
 
 **Question 3:**
 
@@ -289,19 +289,19 @@ Think before you look at the answers. Write at least two or three lines in your 
 
 ## 6. Practical Exercise
 
-**Tier 1 — Runnable Code** (an interactive drill that times you and checks your answers, and a script that measures the effect of rounding and of wrong steps; no Docker needed)
+**Tier 1 - Runnable Code** (an interactive drill that times you and checks your answers, and a script that measures the effect of rounding and of wrong steps; no Docker needed)
 
-> **Ready to run in the repo:** [`exercises/lesson-12.2-estimation-drills/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-12.2-estimation-drills) — `npm install`, then `npm run drill`, `npm run answers`, `npm run rounding`. The full setup, acceptance criteria and experiments are in the `README.md` there.
+> **Ready to run in the repo:** [`exercises/lesson-12.2-estimation-drills/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-12.2-estimation-drills) - `npm install`, then `npm run drill`, `npm run answers`, `npm run rounding`. The full setup, acceptance criteria and experiments are in the `README.md` there.
 
 `drill` shows the ten questions one at a time, times each one, compares your answer (written like `70k` or `20 GB`, validated with Zod) with the reference, and gives a summary at the end: how many within 2×, how many within 10×, how many over the time limit. `answers` shows each drill's chain step by step. `rounding` gives the three tables in 1.5 above.
 
-**Honest notes:** Verified by running in the sandbox on Node 26: `tsc --noEmit`, ESLint and Prettier clean; `answers` and `rounding` twice each, output byte-for-byte identical; `drill` with piped input (answers with units, bad input, an empty line, input ending early). The drills' givens are assumed, not measured numbers from hardware or any company. The "in your head" chain is one version of how I'd round; yours may differ a little, and so may the result. The 2× and 10× grading thresholds are judgement, not a standard. One thing to know: `drill` drops the unit text next to an answer, it doesn't convert it, so if the question asks for GB, `1.2 tb` is taken as 1.2 GB — answering in the unit asked is part of the drill.
+**Honest notes:** Verified by running in the sandbox on Node 26: `tsc --noEmit`, ESLint and Prettier clean; `answers` and `rounding` twice each, output byte-for-byte identical; `drill` with piped input (answers with units, bad input, an empty line, input ending early). The drills' givens are assumed, not measured numbers from hardware or any company. The "in your head" chain is one version of how I'd round; yours may differ a little, and so may the result. The 2× and 10× grading thresholds are judgement, not a standard. One thing to know: `drill` drops the unit text next to an answer, it doesn't convert it, so if the question asks for GB, `1.2 tb` is taken as 1.2 GB - answering in the unit asked is part of the drill.
 
 **Once the setup checks out, do these five:**
 
 1. **A cold first round:** run `npm run drill` without opening the answers in 1.4 above. Write each one's chain on paper. Save the summary: within 2×, within 10×, total time.
 
-2. **Classify each error:** for every answer outside 2×, compare your paper with the chain from `npm run answers`, and write: is this a rounding error or a wrong step? If a wrong step, which — peak, active window, unit, headroom, a missing factor, or n × p? By 1.5's numbers most should be wrong steps. Are yours?
+2. **Classify each error:** for every answer outside 2×, compare your paper with the chain from `npm run answers`, and write: is this a rounding error or a wrong step? If a wrong step, which - peak, active window, unit, headroom, a missing factor, or n × p? By 1.5's numbers most should be wrong steps. Are yours?
 
 3. **"So" first:** before doing the drill a second time, write a one-line "so" for each question, then compare with `drill`'s "so". Where is your decision different, and is that a different but reasonable path?
 
@@ -316,9 +316,9 @@ Think before you look at the answers. Write at least two or three lines in your 
 ```
 === PROGRESS LEDGER ===
 Completed: Modules 1 – 11 (complete, with exit challenges), 12.1
-Current: 12.2 — Estimation Drill: 10 Rapid-Fire
+Current: 12.2 - Estimation Drill: 10 Rapid-Fire
 TaskFlow state: as at the end of Module 10; the math for an enterprise tenant of 200,000 users: in the 8-hour office
-active window ~40 writes/s peak, ~400 reads/s — no new database, the real risk is the hot tenant (11.2).
+active window ~40 writes/s peak, ~400 reads/s - no new database, the real risk is the hot tenant (11.2).
 Estimation: chain (total → ÷ active window → × peak → ÷ capacity → ÷ headroom → so), a unit at every step; constants:
 a day ≈ 10⁵ s (1.16×), a month ≈ 43,200 minutes, a year ≈ 3 × 10⁷ s. Across ten drills the biggest rounding error is
 1.27× (the n × p approximation); one wrong step is 1.67× to 86,400× (bits/bytes 8×, KB/MB 1,000×, day/second 86,400×).
@@ -326,8 +326,8 @@ Probabilities compound: 50 shards × 1% = 39.5% slow, three 99.9% services = ~13
 a tool isn't needed, a limit is crossed, cost, the shape of the problem.
 Terms learned (Module 12): Signal, Rubric, Clarifying Question, Stated Assumption, Time Box, Check-in, Estimation Chain,
 Powers-of-Ten Rounding, Active Window, Headroom, Unit Slip, Sanity Check
-Weak spots: [where you got stuck — write it yourself; from the drill's summary and the error classes]
-Next: 12.3 — Mock interview #1
+Weak spots: [where you got stuck - write it yourself; from the drill's summary and the error classes]
+Next: 12.3 - Mock interview #1
 =======================
 ```
 
@@ -337,4 +337,4 @@ Next: 12.3 — Mock interview #1
 
 Today's thread: **don't be afraid to round, be afraid to skip a step.** Decimals don't change any decision; a forgotten peak, a bits-and-bytes mix-up, dividing by the wrong time do. So the chain on paper, a unit at every step, the five seconds of "how much per user?" at the end, and then a "so".
 
-When you are ready, write `next` — **Lesson 12.3: Mock interview #1.** This time one question, the full 45 minutes, and you are the candidate. The lesson is laid out as an interviewer's script: the question, a clock for your answer, and each of the interviewer's follow-ups in a closed section that you open only after giving your own answer. At the end, a framework for honest feedback and a score along 12.1's rubric, and what a model answer's hour looks like — without 12.1's ten mistakes, and with a five-minute estimation like today's.
+When you are ready, write `next` - **Lesson 12.3: Mock interview #1.** This time one question, the full 45 minutes, and you are the candidate. The lesson is laid out as an interviewer's script: the question, a clock for your answer, and each of the interviewer's follow-ups in a closed section that you open only after giving your own answer. At the end, a framework for honest feedback and a score along 12.1's rubric, and what a model answer's hour looks like - without 12.1's ten mistakes, and with a five-minute estimation like today's.

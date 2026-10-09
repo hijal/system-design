@@ -3,7 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { modes, type Mode } from './modes';
 
-// Lesson 7.1 — three real Node processes: the email provider, the TaskFlow API, and this load generator.
+// Lesson 7.1 - three real Node processes: the email provider, the TaskFlow API, and this load generator.
 //
 //   npm run scenario -- sync-in-tx     → one mode
 //   npm run compare                    → all four modes in turn, with a comparison at the end
@@ -12,7 +12,7 @@ import { modes, type Mode } from './modes';
 // The same load the whole time: ASSIGN_RPS assigns (with email) and LIST_RPS task lists every second.
 // Like a browser/Nginx, the client gives up after CLIENT_TIMEOUT_MS.
 //
-// With CRASH_AT_MS set, the API process is SIGKILLed at that moment and started again —
+// With CRASH_AT_MS set, the API process is SIGKILLed at that moment and started again -
 // imitating a deploy or crash (experiment 2 in the README).
 
 const config = z
@@ -179,7 +179,7 @@ async function run(mode: Mode): Promise<Result> {
 			sleep(config.CRASH_AT_MS).then(async () => {
 				crashed = true;
 				api.child.kill('SIGKILL');
-				phaseLog('API process SIGKILL — deploy/crash; starting a new process');
+				phaseLog('API process SIGKILL - deploy/crash; starting a new process');
 				api = await start('api.js', apiEnv);
 			})
 		);
@@ -188,7 +188,7 @@ async function run(mode: Mode): Promise<Result> {
 	await sleep(config.PHASE_MS);
 	clearInterval(assignTimer);
 	clearInterval(listTimer);
-	phaseLog('load stopped — waiting for the remaining requests and emails to finish');
+	phaseLog('load stopped - waiting for the remaining requests and emails to finish');
 	await Promise.all([...inFlight]);
 
 	// let the emails still queued or in flight finish (at most 30 seconds)
@@ -202,7 +202,7 @@ async function run(mode: Mode): Promise<Result> {
 	api.child.kill();
 	provider.child.kill();
 	if (crashed)
-		phaseLog("(email timing counts only the new process — the old one's memory is gone)");
+		phaseLog("(email timing counts only the new process - the old one's memory is gone)");
 
 	return {
 		mode,
@@ -272,7 +272,7 @@ function summarize(result: Result): Summary {
 		listTotal: list.length,
 		// the user was told "done", but the email never arrived
 		lost: ok.filter((s) => !result.delivered.has(s.taskId)).length,
-		// the user was told "failed", yet both the assign and the email happened — the "don't know" of Lesson 6.1
+		// the user was told "failed", yet both the assign and the email happened - the "don't know" of Lesson 6.1
 		unknown: failed.filter((s) => result.delivered.has(s.taskId)).length,
 		emailP99: percentile(result.stats.emailDelaysMs, 99)
 	};

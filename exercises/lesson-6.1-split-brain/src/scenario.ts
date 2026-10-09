@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { z } from 'zod';
 import { createServices, type ServiceEvent } from './services';
 
-// Lesson 6.1 §1.5–1.6 — two real Node processes (A and B) compete to be the reminder job's leader.
+// Lesson 6.1 §1.5–1.6 - two real Node processes (A and B) compete to be the reminder job's leader.
 // A becomes leader first, then stops for 2.5 seconds at batch 3. The lease lasts 1 second.
 //
 //   npm run split-brain  → storage does not check the token
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
 	const services = createServices(mode === 'fenced', start, leaseMs);
 	const server = services.app.listen(0);
 	await new Promise<void>((resolve) => server.once('listening', () => resolve()));
-	// after listen(0), address() is always an AddressInfo (not a pipe) — so this assertion is safe
+	// after listen(0), address() is always an AddressInfo (not a pipe) - so this assertion is safe
 	const { port } = server.address() as AddressInfo;
 	const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -95,7 +95,7 @@ async function main(): Promise<void> {
 	server.close();
 
 	console.log(
-		`\n   ${mode === 'fenced' ? 'FENCED — storage checks the token' : 'UNFENCED — storage ignores the token'}` +
+		`\n   ${mode === 'fenced' ? 'FENCED - storage checks the token' : 'UNFENCED - storage ignores the token'}` +
 			`   (lease ${leaseMs} ms, A stops at batch 3, ${pauseMs} ms)\n`
 	);
 	const all = [...services.events.map(describe), ...workerLines].sort((x, y) => x.at - y.at);

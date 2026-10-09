@@ -1,6 +1,6 @@
-# Lesson 10.8 — Multi-Region & Geo-Distribution
+# Lesson 10.8 - Multi-Region & Geo-Distribution
 
-**Module 10 — Reliability, Security & Operations**
+**Module 10 - Reliability, Security & Operations**
 
 > **Spaced Repetition (Lesson 2.1):** Server এর IP বদলানোর (migration) আগে DNS এর TTL কমিয়ে রাখা হয় কেন? আর TTL কমালেই কি সব user সাথে সাথে নতুন IP তে যায়? আজ একটা region মরার পরে DNS বদলানো হবে, আর দেখবেন TTL ৬০ সেকেন্ড হলেও পাঁচ মিনিট পরে ৯% traffic এখনও মরা region এ যাচ্ছে।
 
@@ -12,7 +12,7 @@
 2. RPO আর RTO দিয়ে একটা DR কৌশল বাছতে পারবেন (backup, pilot light, warm standby, active-active), প্রতিটার মাসিক দাম সহ। DNS এর failover এর লেজ বুঝবেন, আর বলতে পারবেন কেন স্বয়ংক্রিয় failover এর আসল বিপদ region এর মৃত্যু না, partition, আর witness কী করে
 3. একাধিক region এ লেখা নিলে কত লেখা নীরবে হারায় আর কখন, সেটা বলতে পারবেন। আর home region, cell আর data residency দিয়ে একটা নকশা দাঁড় করাতে পারবেন, যেখানে একজন customer এর data কোন পথে কোথায় যায় আপনি জানেন
 
-**Tier:** 1 — Runnable Code (চারটা deterministic model; cloud account বা Docker লাগে না)
+**Tier:** 1 - Runnable Code (চারটা deterministic model; cloud account বা Docker লাগে না)
 
 ---
 
@@ -49,7 +49,7 @@ Data residency        নির্দিষ্ট data নির্দিষ্�
 
 এগুলো এক না, আর একটা আরেকটার বিপরীতও হতে পারে। DR চায় data **অন্য জায়গায়** কপি হোক। Residency চায় data **একটা জায়গার বাইরে** না যাক। EU এর data এর DR কপি সিঙ্গাপুরে রাখলে residency ভাঙে। Latency এর জন্য প্রতিটা region এ read replica রাখলে residency এর data সব region এ ছড়ায়। তাই প্রথম প্রশ্ন সবসময়: **কোন কারণে?** আর তার আগের প্রশ্ন: সস্তা কোনো পথে কি সেটা মেটে? দূরত্বের সমস্যার অনেকটা CDN আর edge এ মেটে (১.২)। Region এর বিভ্রাটের কিছুটা backup এ মেটে (১.৪)। দ্বিতীয় region মানে মোটামুটি দ্বিতীয় একটা production: দ্বিগুণ খরচ (10.7), দ্বিগুণ deploy (10.6), আর consistency এর সব কঠিন প্রশ্ন (Module 6) নতুন করে, এবার ১০০ ms দূরত্বে।
 
-### ১.২ Latency — দূরত্ব round trip এ গুণ হয়
+### ১.২ Latency - দূরত্ব round trip এ গুণ হয়
 
 আলো optical fiber এ সেকেন্ডে প্রায় দুই লাখ কিলোমিটার যায়। সিঙ্গাপুর থেকে লন্ডন ১০,০০০ কিলোমিটারের বেশি, আর তার যাওয়া-আসা internet এর পথ ঘুরে প্রায় ১৭০ ms। এর নিচে নামার কোনো engineering নেই। যা করা যায় তা হলো **round trip এর সংখ্যা কমানো**, আর যেগুলো বাকি থাকে সেগুলোকে **কাছের** কিছুর সাথে করা।
 
@@ -102,7 +102,7 @@ all (weighted)                186 ms      698 ms
 
 শেষ topology, **cell**: প্রতিটা workspace এর একটা home region, আর সেই workspace এর সব data আর সব লেখা সেখানে। নিজের region এর workspace এ সব কিছু দ্রুত। লন্ডনে লেখা ৩৮ ms, কারণ লেখাও স্থানীয়। কিন্তু p95 ৭০০ ms এর কাছে: যে ২০% সময় user অন্য region এর workspace খোলে, পুরো board যায় দূরের home region এ। Experiment ১ এ অর্ধেক workspace অন্য region এর হলে overall p50 ২৫৩ ms। Cell ভালো যখন **বেশিরভাগ সহযোগিতা একটা region এর ভেতরে** (একটা কোম্পানি, একটা দেশ)। আর খারাপ যখন একটা workspace এর মানুষ সারা পৃথিবী জুড়ে।
 
-### ১.৩ লেখা আর consensus — পদার্থবিদ্যার দাম
+### ১.৩ লেখা আর consensus - পদার্থবিদ্যার দাম
 
 পড়া কাছে আনা যায় (replica)। লেখা আনা কঠিন, কারণ লেখার একটা মালিক লাগে (5.7)। আর যদি লেখাকে একাধিক region এ টেকসই (durable) করতে চান, যাতে একটা region মরলেও লেখা না হারায়, তাহলে লেখার commit কে অন্য region এর ack এর জন্য অপেক্ষা করতে হয়। `npm run latency` অংশ খ, Raft এর মতো majority এর commit (6.2):
 
@@ -119,9 +119,9 @@ Majority এর commit লাগে **দ্বিতীয় নিকটত�
 
 User এর মুখোমুখি বেশিরভাগ লেখা এই দাম দিতে চায় না। তাই সাধারণ পথ হলো: লেখা এক region এর ভেতরে (AZ জুড়ে) synchronous, আর অন্য region এ **asynchronous**, কয়েক সেকেন্ডের lag সহ। দাম হলো region হারালে সেই কয়েক সেকেন্ডের লেখা। পরের অংশের RPO।
 
-### ১.৪ Disaster recovery — RPO, RTO আর তাদের দাম
+### ১.৪ Disaster recovery - RPO, RTO আর তাদের দাম
 
-**RPO / RTO** — Recovery Point Objective: একটা দুর্যোগের পরে **কতটা পুরনো** অবস্থায় ফিরতে রাজি, মানে সর্বোচ্চ কত সময়ের লেখা হারানো সহ্য (RPO ৫ সেকেন্ড = শেষ ৫ সেকেন্ডের লেখা হারাতে পারে)। Recovery Time Objective: দুর্যোগের পরে **কতক্ষণে** আবার চালু হতে হবে। দুটো আলাদা হাতল, আর দুটোরই দাম আছে। ছোট RPO কেনা হয় replication দিয়ে, ছোট RTO কেনা হয় অন্য জায়গায় আগে থেকে চালু থাকা capacity দিয়ে।
+**RPO / RTO** - Recovery Point Objective: একটা দুর্যোগের পরে **কতটা পুরনো** অবস্থায় ফিরতে রাজি, মানে সর্বোচ্চ কত সময়ের লেখা হারানো সহ্য (RPO ৫ সেকেন্ড = শেষ ৫ সেকেন্ডের লেখা হারাতে পারে)। Recovery Time Objective: দুর্যোগের পরে **কতক্ষণে** আবার চালু হতে হবে। দুটো আলাদা হাতল, আর দুটোরই দাম আছে। ছোট RPO কেনা হয় replication দিয়ে, ছোট RTO কেনা হয় অন্য জায়গায় আগে থেকে চালু থাকা capacity দিয়ে।
 
 `npm run failover` অংশ ক: সিঙ্গাপুর region ৪ ঘণ্টা বন্ধ, ৩০০ req/s, তার ১০% লেখা। পাঁচটা কৌশল। প্রতিটার RTO হলো ধাপগুলোর যোগফল (ধরে নেওয়া সময়), আর মাসিক বাড়তি খরচ 10.7 এর $৮,২৭৬ এর উপরে:
 
@@ -139,7 +139,7 @@ warm:        detect 5 → decide 10 → scale out 5 → replica promote 2 → DN
 active:      detect 2 → automatic promote (with witness) 1 → global LB / anycast 1
 ```
 
-**Active-Passive / Active-Active** — Active-passive এ একটা region traffic নেয়, আরেকটা অপেক্ষা করে। কতটা প্রস্তুত হয়ে অপেক্ষা করে তার তিনটা পরিচিত ধাপ: **backup & restore** (শুধু data এর কপি), **pilot light** (data চলমান replica তে, compute বন্ধ), **warm standby** (ছোট মাপে সব চালু)। Active-active এ সব region traffic নেয়, তাই একটা মরলে বাকিরা শুধু তার ভাগ নেয়। প্রস্তুতি যত বেশি, RTO তত কম, মাসিক দাম তত বেশি।
+**Active-Passive / Active-Active** - Active-passive এ একটা region traffic নেয়, আরেকটা অপেক্ষা করে। কতটা প্রস্তুত হয়ে অপেক্ষা করে তার তিনটা পরিচিত ধাপ: **backup & restore** (শুধু data এর কপি), **pilot light** (data চলমান replica তে, compute বন্ধ), **warm standby** (ছোট মাপে সব চালু)। Active-active এ সব region traffic নেয়, তাই একটা মরলে বাকিরা শুধু তার ভাগ নেয়। প্রস্তুতি যত বেশি, RTO তত কম, মাসিক দাম তত বেশি।
 
 টেবিল থেকে চারটা জিনিস:
 
@@ -148,11 +148,11 @@ active:      detect 2 → automatic promote (with witness) 1 → global LB / any
 3. **ছোট outage এ ধীর কৌশল কিছুই কেনে না।** Experiment ২: outage ৩০ মিনিট হলে backup আর pilot light এর failover শেষ হওয়ার আগেই region ফিরে আসে। শুধু warm standby (২৭ মিনিট) আর active-active কাজে লাগে। আর মাঝপথে failover শুরু করে ফেললে আরেকটা সমস্যা: region ফিরল, এখন দুটো জায়গায় data, কোনটা সত্য? **Failback** (পুরনো region এ ফেরা) প্রায়ই failover এর চেয়ে কঠিন, কারণ এবার তাড়া নেই কিন্তু data দুই দিকে চলেছে।
 4. **জার্মান customer এর চুক্তি (RPO ≤ ১ মিনিট, RTO ≤ ৩০ মিনিট):** backup বাদ, pilot light বাদ (৪২ মিনিট), warm standby কোনো রকমে মেলে (২৭ মিনিট), আর সেটাও শুধু যদি "সিদ্ধান্ত" ১০ মিনিটে হয়, যার মানে আগে থেকে লেখা নিয়ম আর অনুশীলন। Active-active আরামে মেলে, মাসে $৩,৮৩৬ এ। এটা একটা ব্যবসার প্রশ্ন: চুক্তির আয় (১.৭) এই দাম বহন করে কিনা।
 
-### ১.৫ Traffic কে সরানো — DNS এর লেজ আর split brain
+### ১.৫ Traffic কে সরানো - DNS এর লেজ আর split brain
 
 RTO এর শেষ ধাপ: user দের traffic নতুন region এ পাঠানো।
 
-**Geo-Routing** — user এর request কে তার অবস্থান বা মাপা latency ধরে কোনো একটা region এ পাঠানো, আর একটা region মরলে বাকিগুলোতে সরানো। দুটো প্রধান যন্ত্র আছে। **GeoDNS / latency-based DNS** একই নামের জন্য আলাদা জায়গায় আলাদা IP দেয়, failover মানে DNS এর উত্তর বদলানো। **Anycast / global load balancer** একই IP পৃথিবীর অনেক জায়গা থেকে ঘোষণা করে (4.5), আর provider এর network নিজেই সুস্থ region এ পাঠায়, DNS না বদলে।
+**Geo-Routing** - user এর request কে তার অবস্থান বা মাপা latency ধরে কোনো একটা region এ পাঠানো, আর একটা region মরলে বাকিগুলোতে সরানো। দুটো প্রধান যন্ত্র আছে। **GeoDNS / latency-based DNS** একই নামের জন্য আলাদা জায়গায় আলাদা IP দেয়, failover মানে DNS এর উত্তর বদলানো। **Anycast / global load balancer** একই IP পৃথিবীর অনেক জায়গা থেকে ঘোষণা করে (4.5), আর provider এর network নিজেই সুস্থ region এ পাঠায়, DNS না বদলে।
 
 **Spaced repetition এর উত্তর:** migration এর আগে TTL কমানো হয় যাতে resolver গুলো পুরনো উত্তর বেশিক্ষণ cache না করে। কিন্তু সবাই TTL মানে না। `npm run failover` অংশ খ, ধরে নেওয়া client এর মিশ্রণ: ৭০% TTL মানে, ২০% এর resolver TTL কে অন্তত ৫ মিনিট ধরে, ১০% পুরনো IP ধরে থাকে এক ঘণ্টা পর্যন্ত (খোলা connection, app এর নিজের DNS cache)। DNS বদলানোর পরে কত % traffic এখনও মরা region এ:
 
@@ -171,7 +171,7 @@ TTL ৬০ আর ৩০০ এর পার্থক্য শুধু প্�
 ```
 policy                                   failed writes  divergent writes  who could write
 no automatic failover                      15,300                   0  Singapore only; everyone else's writes fail
-Mumbai promotes itself after 2 minutes    3,060               2,160  both sides — two primaries (split brain)
+Mumbai promotes itself after 2 minutes    3,060               2,160  both sides - two primaries (split brain)
 with a witness (majority + lease, fencing)       5,625                   0  the Mumbai side; Singapore stops itself after 30 s
 ```
 
@@ -179,7 +179,7 @@ with a witness (majority + lease, fencing)       5,625                   0  the 
 - **মুম্বাই নিজের চোখে দেখে সিদ্ধান্ত নেয়:** লেখা ব্যর্থ কম, কিন্তু ৮ মিনিট **দুটো primary**। সিঙ্গাপুর জানে না সে "মৃত", তার user দের ২,১৬০টা লেখা নেয়। Partition সারলে এই লেখাগুলো মুম্বাইয়ের ইতিহাসের সাথে মেলে না। হাতে মেলাতে হয়, নয়তো হারায়। 6.1 এর split brain, region এর মাপে।
 - **Witness:** একটা তৃতীয় region (ধরুন ফ্রাঙ্কফুর্ট, একটা ছোট node) ভোট দেয়। Primary হতে লাগে majority, আর primary নিজের lease নবায়ন করতে পারে শুধু majority এর সাথে কথা বলে। সিঙ্গাপুর বিচ্ছিন্ন, তাই ৩০ সেকেন্ডে lease শেষ হলে **নিজেকে থামায়** (fencing)। দুটো primary কখনো একসাথে থাকে না। দাম: সিঙ্গাপুরের user দের লেখা ৯.৫ মিনিট ব্যর্থ (৫,৬২৫টা মোট ব্যর্থ, failover না করার চেয়ে কম)। এটা 6.2 এর Raft এর যুক্তি, region এর মাপে। স্বয়ংক্রিয় failover নিরাপদ হয় শুধু quorum আর fencing দিয়ে। নইলে সবচেয়ে নিরাপদ স্বয়ংক্রিয় failover হলো মানুষের হাতে একটা বোতাম।
 
-### ১.৬ একাধিক region এ লেখা — 6.4 এর pilot এর আসল দাম
+### ১.৬ একাধিক region এ লেখা - 6.4 এর pilot এর আসল দাম
 
 এবার support এর ticket এর স্তূপ। 6.4 এর pilot প্রতিটা region এ লেখা নেয় আর LWW দিয়ে মেলায়। কতগুলো লেখা হারাচ্ছে?
 
@@ -198,17 +198,17 @@ writes to the workspace's home region      0        0%                    0     
 - **Field ধরে মেলানো হারানো edit তিন ভাগের এক ভাগ করে।** একজন status বদলাল, আরেকজন title: দুটোই টেকে। এটাই সবচেয়ে সস্তা উন্নতি।
 - **HLC ঘড়ির ভুল সরায়, concurrent না।** "ঘড়ির জন্য উল্টো" (একটা edit আরেকটা দেখার পরে লেখা হয়েছিল, কিন্তু পিছিয়ে থাকা ঘড়ির জন্য পুরনোটা জিতল) HLC এ শূন্য। Experiment ৪: ফ্রাঙ্কফুর্টের ঘড়ি ২ সেকেন্ড পিছিয়ে থাকলে wall clock এ ৬৮৫টা, HLC এ ০। কিন্তু সত্যিকারের concurrent ৬৩৩টা HLC এও হারায়। 6.4 এর কথা: HLC কার্যকারণ রাখে, concurrent চেনে না।
 
-**Home Region** — প্রতিটা data এর (এখানে workspace এর) একটা মালিক region, আর তার সব লেখা সেখানে যায়, user যেখানেই থাকুক। এক জায়গায় লেখা মানে single-leader (5.7), তাই কোনো write conflict নেই। অন্য region এর user এর লেখা home এ যেতে একটা দূরের round trip দেয়। 5.7 এর "conflict এড়ানো, বাস্তবে সবচেয়ে প্রচলিত।"
+**Home Region** - প্রতিটা data এর (এখানে workspace এর) একটা মালিক region, আর তার সব লেখা সেখানে যায়, user যেখানেই থাকুক। এক জায়গায় লেখা মানে single-leader (5.7), তাই কোনো write conflict নেই। অন্য region এর user এর লেখা home এ যেতে একটা দূরের round trip দেয়। 5.7 এর "conflict এড়ানো, বাস্তবে সবচেয়ে প্রচলিত।"
 
 দাম, অংশ খ: যৌথ session এর edit এর ১৪.৩% অন্য region থেকে আসে, তাদের বাড়তি latency p50 ১১৯ ms, p95 ২৩৫ ms। সব edit এর মধ্যে মাত্র ২.৮৬% এই দাম দেয়। আর এর বিনিময়ে দিনে ২,০৬৮টা নীরব ক্ষতি থেকে **শূন্য**। বেশিরভাগ product এর জন্য এটা সহজ সিদ্ধান্ত: optimistic UI (client নিজের লেখা সাথে সাথে দেখায়) ১১৯ ms লুকায়, আর কোনো UI হারানো লেখা লুকাতে পারে না।
 
 যেখানে সত্যিই অনেকে একসাথে একই লেখা লেখে (description এর rich text, Google Docs এর মতো), সেখানে LWW এর বদলে **CRDT** বা operational transform: এমন data structure যার concurrent পরিবর্তন সবসময় নিজে থেকে মেলে, কিছু না হারিয়ে (6.4 এর sibling এর ধারণার স্বয়ংক্রিয় রূপ)। দাম জটিলতা আর metadata। আর তখনও প্রায়ই একটা home region sequencer হিসেবে কাজ করে।
 
-### ১.৭ Data residency আর cell — data কোথায় কোথায় যায়
+### ১.৭ Data residency আর cell - data কোথায় কোথায় যায়
 
 জার্মান চুক্তি: "সব ব্যক্তিগত data EU এর ভেতরে।" প্রথম পরিকল্পনা ছিল ফ্রাঙ্কফুর্টে একটা database আর app। কিন্তু data শুধু database এ থাকে না।
 
-**Data Residency** — নির্দিষ্ট data (প্রায়ই ব্যক্তিগত data) একটা নির্দিষ্ট ভৌগোলিক সীমানার ভেতরে store আর process করার বাধ্যবাধকতা। আসে চুক্তি থেকে, বা দেশের আইন থেকে (data localization)। একটা সতর্কতা: EU এর GDPR নিজে সবসময় EU তে **রাখা** বাধ্য করে না; সে বাইরে **পাঠানোর** জন্য আইনি ভিত্তি আর সুরক্ষা চায়। অনেক চুক্তি আর কিছু দেশের আইন এর চেয়ে কড়া। কোনটা প্রযোজ্য, সেটা আইনজীবীর প্রশ্ন, engineer এর না (এখানে যাচাই করা না)। Engineer এর প্রশ্ন হলো: **data আসলে কোন কোন পথে যায়?**
+**Data Residency** - নির্দিষ্ট data (প্রায়ই ব্যক্তিগত data) একটা নির্দিষ্ট ভৌগোলিক সীমানার ভেতরে store আর process করার বাধ্যবাধকতা। আসে চুক্তি থেকে, বা দেশের আইন থেকে (data localization)। একটা সতর্কতা: EU এর GDPR নিজে সবসময় EU তে **রাখা** বাধ্য করে না; সে বাইরে **পাঠানোর** জন্য আইনি ভিত্তি আর সুরক্ষা চায়। অনেক চুক্তি আর কিছু দেশের আইন এর চেয়ে কড়া। কোনটা প্রযোজ্য, সেটা আইনজীবীর প্রশ্ন, engineer এর না (এখানে যাচাই করা না)। Engineer এর প্রশ্ন হলো: **data আসলে কোন কোন পথে যায়?**
 
 `npm run residency` এই customer এর (৩০০ workspace, ৬,০০০ user) data এর পথগুলো গোনে, তিনটা নকশায়:
 
@@ -231,9 +231,9 @@ paths taking personal data outside                                              
 personal data going outside / month                                                                        6.9 TB              3.9 TB                0 GB
 ```
 
-**Database আর S3 ফ্রাঙ্কফুর্টে সরালে ১১টা পথের মাত্র ২টা ঠিক হয়।** বাকি ৯টা এই course এর প্রায় প্রতিটা module এর একটা করে সিদ্ধান্ত। 10.3 এর DR কপি (সিঙ্গাপুরে, কারণ "অন্য region"), 4.5 এর CDN (private file সারা পৃথিবীর PoP এ cache), 10.4 এর কেন্দ্রীয় log আর trace (user id, IP — IP ও ব্যক্তিগত data), 8.3 এর search cluster, 7.6 এর analytics, 9.2 এর identity, আর বাইরের service (email, error tracker, যাদের request body তে কী আছে কেউ জানে না)। Residency একটা database এর setting না। এটা system এর প্রতিটা পথের একটা গুণ।
+**Database আর S3 ফ্রাঙ্কফুর্টে সরালে ১১টা পথের মাত্র ২টা ঠিক হয়।** বাকি ৯টা এই course এর প্রায় প্রতিটা module এর একটা করে সিদ্ধান্ত। 10.3 এর DR কপি (সিঙ্গাপুরে, কারণ "অন্য region"), 4.5 এর CDN (private file সারা পৃথিবীর PoP এ cache), 10.4 এর কেন্দ্রীয় log আর trace (user id, IP - IP ও ব্যক্তিগত data), 8.3 এর search cluster, 7.6 এর analytics, 9.2 এর identity, আর বাইরের service (email, error tracker, যাদের request body তে কী আছে কেউ জানে না)। Residency একটা database এর setting না। এটা system এর প্রতিটা পথের একটা গুণ।
 
-**Cell-Based Architecture** — system কে কয়েকটা স্বাধীন, সম্পূর্ণ কপিতে (cell) ভাগ করা। প্রতিটা cell এ নিজের app, database, cache, queue, log, search, প্রতিটা customer (বা workspace) ঠিক একটা cell এ। আর উপরে একটা পাতলা global স্তর (routing, identity এর directory, billing), যে জানে কোন customer কোন cell এ। Region ধরে cell হলে residency আর latency মেটে। আর একই region এ কয়েকটা cell হলে blast radius (10.3) ছোট হয়: একটা cell এর ভুল deploy বা খারাপ data শুধু সেই cell এর customer দের ছোঁয়।
+**Cell-Based Architecture** - system কে কয়েকটা স্বাধীন, সম্পূর্ণ কপিতে (cell) ভাগ করা। প্রতিটা cell এ নিজের app, database, cache, queue, log, search, প্রতিটা customer (বা workspace) ঠিক একটা cell এ। আর উপরে একটা পাতলা global স্তর (routing, identity এর directory, billing), যে জানে কোন customer কোন cell এ। Region ধরে cell হলে residency আর latency মেটে। আর একই region এ কয়েকটা cell হলে blast radius (10.3) ছোট হয়: একটা cell এর ভুল deploy বা খারাপ data শুধু সেই cell এর customer দের ছোঁয়।
 
 পুরো EU cell এ ব্যক্তিগত data এর কোনো পথ বাইরে যায় না। যা বাইরে যায় (metric, aggregate analytics) তাতে কোনো ব্যক্তিগত data নেই, আর সেটা নকশা দিয়ে নিশ্চিত করা (10.4 এর label এর নিয়ম, analytics এ user id ছাড়া গণনা)। DR কপি দ্বিতীয় একটা EU region এ (১.১ এর বিরোধের সমাধান: DR এর "অন্য জায়গা" মানে সীমানার ভেতরে অন্য জায়গা)। Identity তে user এর profile EU তে, আর global directory তে শুধু email এর একটা hash থেকে "এই user এর home cell কোনটা।" Login এর প্রথম ধাপ শুধু এতটুকু জানে।
 
@@ -257,12 +257,12 @@ the cell's cost as % of revenue                     13%
 
 ### ১.৮ TaskFlow এর সিদ্ধান্ত
 
-> **Trade-off Table — চারটা topology, তিনটা কারণ**
+> **Trade-off Table - চারটা topology, তিনটা কারণ**
 
 | Topology                          | Latency (দূরের user)                            | DR (region হারালে)                     | Residency                      | দাম আর জটিলতা                                         |
 | --------------------------------- | ----------------------------------------------- | -------------------------------------- | ------------------------------ | ----------------------------------------------------- |
-| এক region + CDN edge              | Handshake ছোট; প্রতিটা call দূরে (লন্ডন ৫৯৯ ms) | কিছুই না, বা backup (RPO ঘণ্টা)        | একটা জায়গা — হয় মেলে, নয় না | সবচেয়ে কম                                            |
-| + read replica সব region এ        | পড়া দ্রুত (১৩১ ms); লেখা ধীর (৩৫৫), RYW ভাঙে   | Replica promote — pilot light এর মতো   | Data সব region এ ছড়ায় ✗      | প্রতি region এ app + replica; RYW এর নকশা             |
+| এক region + CDN edge              | Handshake ছোট; প্রতিটা call দূরে (লন্ডন ৫৯৯ ms) | কিছুই না, বা backup (RPO ঘণ্টা)        | একটা জায়গা - হয় মেলে, নয় না | সবচেয়ে কম                                            |
+| + read replica সব region এ        | পড়া দ্রুত (১৩১ ms); লেখা ধীর (৩৫৫), RYW ভাঙে   | Replica promote - pilot light এর মতো   | Data সব region এ ছড়ায় ✗      | প্রতি region এ app + replica; RYW এর নকশা             |
 | Active-passive (warm standby)     | কোনো লাভ নেই                                    | RTO ২৭ মি, RPO ৫ s                     | Standby সীমানার ভেতরে হলে ✓    | +$১,২৫৯; failover এর অনুশীলন                          |
 | Active-active, home region (cell) | নিজের region এ সব দ্রুত; অন্যের workspace এ ধীর | একটা region এর cell হারায়, বাকিরা চলে | ✓ region ধরে cell              | প্রতি cell এর ভিত্তি খরচ; global স্তর; সব কিছু N বার  |
 | Active-active, সব জায়গায় লেখা   | সব দ্রুত                                        | RTO মিনিট                              | ✗                              | Write conflict (দিনে হাজার হারানো লেখা), সবচেয়ে জটিল |
@@ -288,10 +288,10 @@ Multi-region প্রায় সব বড় design প্রশ্নের
 
 **যে follow-up গুলো প্রায় নিশ্চিত:**
 
-- _"Global database ব্যবহার করব না কেন (Spanner, CockroachDB, DynamoDB global tables)?"_ — তারা সমস্যা সরায় না, দাম স্পষ্ট করে। Synchronous হলে প্রতিটা লেখার commit region জুড়ে majority এর ack (তিন region এ ৬০ ms+)। Multi-leader async হলে conflict আর LWW। প্রশ্ন হলো আপনি কোন দামটা বাছছেন।
-- _"Active-active এ একই row দুই region এ লেখা হলে?"_ — LWW (নীরব ক্ষতি; field ধরে কমে, HLC ঘড়ির ভুল সরায়), CRDT (নিজে মেলে, জটিল), বা home region (conflict নেই, দূরের লেখায় একটা round trip)। সংখ্যা দিন: link খারাপ হলে conflict লাফায়।
-- _"Failover কীভাবে স্বয়ংক্রিয় করবেন?"_ — Partition আর মৃত্যু আলাদা করা যায় না। তাই quorum (তৃতীয় region এ witness) আর lease দিয়ে fencing। নইলে split brain। অনেক জায়গায় database এর failover ইচ্ছা করে মানুষের হাতে রাখা হয়।
-- _"RPO শূন্য চাই।"_ — তাহলে প্রতিটা লেখার commit অন্য region এর ack এর জন্য অপেক্ষা করবে। দাম প্রতিটা লেখায় দ্বিতীয় নিকটতম region এর RTT। কোন data এর জন্য সত্যিই শূন্য লাগে (টাকা), কোনটার জন্য ৫ সেকেন্ড ঠিক আছে (task এর title)?
+- _"Global database ব্যবহার করব না কেন (Spanner, CockroachDB, DynamoDB global tables)?"_ - তারা সমস্যা সরায় না, দাম স্পষ্ট করে। Synchronous হলে প্রতিটা লেখার commit region জুড়ে majority এর ack (তিন region এ ৬০ ms+)। Multi-leader async হলে conflict আর LWW। প্রশ্ন হলো আপনি কোন দামটা বাছছেন।
+- _"Active-active এ একই row দুই region এ লেখা হলে?"_ - LWW (নীরব ক্ষতি; field ধরে কমে, HLC ঘড়ির ভুল সরায়), CRDT (নিজে মেলে, জটিল), বা home region (conflict নেই, দূরের লেখায় একটা round trip)। সংখ্যা দিন: link খারাপ হলে conflict লাফায়।
+- _"Failover কীভাবে স্বয়ংক্রিয় করবেন?"_ - Partition আর মৃত্যু আলাদা করা যায় না। তাই quorum (তৃতীয় region এ witness) আর lease দিয়ে fencing। নইলে split brain। অনেক জায়গায় database এর failover ইচ্ছা করে মানুষের হাতে রাখা হয়।
+- _"RPO শূন্য চাই।"_ - তাহলে প্রতিটা লেখার commit অন্য region এর ack এর জন্য অপেক্ষা করবে। দাম প্রতিটা লেখায় দ্বিতীয় নিকটতম region এর RTT। কোন data এর জন্য সত্যিই শূন্য লাগে (টাকা), কোনটার জন্য ৫ সেকেন্ড ঠিক আছে (task এর title)?
 
 **Production এ বাস্তবে:** সবচেয়ে সাধারণ ঘটনাগুলো: DR region যা কখনো পরীক্ষা হয়নি, আর দুর্যোগের দিনে দেখা গেল config, secret বা quota নেই। দীর্ঘ DNS TTL। স্বয়ংক্রিয় failover একটা network এর ঝাঁকুনিতে আর তার পরে split brain। Read replica দূরে আর read-your-writes এর অভিযোগ। Multi-leader এর LWW যার ক্ষতি কেউ গোনে না। "EU তে data" এর দাবি, যখন log, backup আর search সিঙ্গাপুরে। আর global স্তর (identity, routing) যা নিজেই একটা single point of failure, সব cell কে একসাথে নামিয়ে দেয়।
 
@@ -299,7 +299,7 @@ Multi-region প্রায় সব বড় design প্রশ্নের
 
 ## ৩. Key Takeaway
 
-- **Multi-region এর তিনটা কারণ (latency, DR, residency) তিনটা আলাদা নকশা চায়, আর কখনো একে অপরের বিরুদ্ধে যায়।** প্রথমে সস্তা পথ: CDN edge এ TLS লন্ডনের board ৯২৫ থেকে ৫৯৯ ms, আর BFF এ একটা call সহ ২০৯ ms — কোনো দ্বিতীয় region ছাড়া
+- **Multi-region এর তিনটা কারণ (latency, DR, residency) তিনটা আলাদা নকশা চায়, আর কখনো একে অপরের বিরুদ্ধে যায়।** প্রথমে সস্তা পথ: CDN edge এ TLS লন্ডনের board ৯২৫ থেকে ৫৯৯ ms, আর BFF এ একটা call সহ ২০৯ ms - কোনো দ্বিতীয় region ছাড়া
 - **দূরত্ব round trip এ গুণ হয়, আর app কে DB থেকে দূরে নেওয়া সবচেয়ে খারাপ।** দূরে read replica পড়া দ্রুত করে (১৩১ ms), কিন্তু লন্ডনের লেখা ১৯২ থেকে ৩৫৫ ms, আর লেখার পরের পড়া ৬১% সময় পুরনো
 - **Region জুড়ে টেকসই লেখার দাম দ্বিতীয় নিকটতম region এর RTT।** তিন AZ এ ২ ms, তিন region এ ৬০ ms। বিজোড় সংখ্যা, leader লেখকদের কাছে। তাই বেশিরভাগ লেখা region এর ভেতরে sync, বাইরে async
 - **RPO আর RTO কেনা যায়, দাম স্পষ্ট।** Async replica (pilot light, $৮৩৩) RPO কে ১২ ঘণ্টা থেকে ৫ সেকেন্ডে আনে। প্রতিটা মিনিটের RTO এর দাম তারপর বাড়ে (active-active $৩,৮৩৬, ৪ মিনিট)। RTO এর সবচেয়ে বড় অংশ মানুষের সিদ্ধান্ত, তাই runbook আর অনুশীলন। ছোট outage এ ধীর কৌশল কিছুই কেনে না
@@ -314,12 +314,12 @@ Multi-region প্রায় সব বড় design প্রশ্নের
 | Term                               | অর্থ                                                                                                                                                                                                                        |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **RPO / RTO**                      | RPO = দুর্যোগে সর্বোচ্চ কত সময়ের লেখা হারানো সহ্য (replication কেনে); RTO = কতক্ষণে আবার চালু (আগে থেকে চালু capacity আর অনুশীলন কেনে)। দুটো আলাদা হাতল, প্রতিটার মাসিক দাম আছে                                            |
-| **Active-Passive / Active-Active** | Active-passive: একটা region traffic নেয়, আরেকটা অপেক্ষা করে — backup & restore, pilot light (data চালু, compute বন্ধ), warm standby (ছোট মাপে সব চালু)। Active-active: সব region traffic নেয়                              |
-| **Geo-Routing**                    | User কে অবস্থান বা latency ধরে region এ পাঠানো আর region মরলে সরানো — GeoDNS (failover এ DNS এর লেজ থাকে) বা anycast / global load balancer (DNS বদলায় না)                                                                 |
-| **Witness (quorum এর তৃতীয় ভোট)** | একটা তৃতীয় region এর ছোট node যে failover এর ভোটে majority বানায়; primary শুধু majority এর সাথে lease নবায়ন করতে পারে, বিচ্ছিন্ন হলে নিজেকে থামায় — region এর মাপে split brain ঠেকানো (6.1, 6.2)                        |
-| **Home Region**                    | প্রতিটা data এর (যেমন workspace এর) একটা মালিক region, সব লেখা সেখানে — multi-region এ single-leader, write conflict নেই; দাম অন্য region এর user এর লেখায় একটা দূরের round trip                                           |
+| **Active-Passive / Active-Active** | Active-passive: একটা region traffic নেয়, আরেকটা অপেক্ষা করে - backup & restore, pilot light (data চালু, compute বন্ধ), warm standby (ছোট মাপে সব চালু)। Active-active: সব region traffic নেয়                              |
+| **Geo-Routing**                    | User কে অবস্থান বা latency ধরে region এ পাঠানো আর region মরলে সরানো - GeoDNS (failover এ DNS এর লেজ থাকে) বা anycast / global load balancer (DNS বদলায় না)                                                                 |
+| **Witness (quorum এর তৃতীয় ভোট)** | একটা তৃতীয় region এর ছোট node যে failover এর ভোটে majority বানায়; primary শুধু majority এর সাথে lease নবায়ন করতে পারে, বিচ্ছিন্ন হলে নিজেকে থামায় - region এর মাপে split brain ঠেকানো (6.1, 6.2)                        |
+| **Home Region**                    | প্রতিটা data এর (যেমন workspace এর) একটা মালিক region, সব লেখা সেখানে - multi-region এ single-leader, write conflict নেই; দাম অন্য region এর user এর লেখায় একটা দূরের round trip                                           |
 | **Cell-Based Architecture**        | System কে স্বাধীন, সম্পূর্ণ কপিতে (cell) ভাগ করা, প্রতিটা customer একটা cell এ, উপরে পাতলা global স্তর (routing, identity এর directory, billing); residency, latency আর ছোট blast radius দেয়, দাম প্রতি cell এর ভিত্তি খরচ |
-| **Data Residency**                 | নির্দিষ্ট data নির্দিষ্ট সীমানার ভেতরে store আর process করার বাধ্যবাধকতা (চুক্তি বা আইন থেকে); database এর setting না, প্রতিটা পথের গুণ — backup, CDN, log, trace, search, analytics, বাইরের service                        |
+| **Data Residency**                 | নির্দিষ্ট data নির্দিষ্ট সীমানার ভেতরে store আর process করার বাধ্যবাধকতা (চুক্তি বা আইন থেকে); database এর setting না, প্রতিটা পথের গুণ - backup, CDN, log, trace, search, analytics, বাইরের service                        |
 
 ---
 
@@ -341,25 +341,25 @@ Multi-region প্রায় সব বড় design প্রশ্নের
 (ক) RPO ≤ ১ মিনিট মানে async replica (pilot light বা তার উপরে)। RTO ≤ ৩০ মিনিট মানে warm standby বা active-active। দ্বিতীয় region অবশ্যই EU এর ভেতরে, ফ্রাঙ্কফুর্টের থেকে আলাদা failure domain (ধরুন আয়ারল্যান্ড বা প্যারিস)। Warm standby এর ধাপ:
 
 ```
-ধরা            5 মি   (10.4 এর burn rate এর page — ফ্রাঙ্কফুর্টের SLI, বাইরে থেকে মাপা)
+ধরা            5 মি   (10.4 এর burn rate এর page - ফ্রাঙ্কফুর্টের SLI, বাইরে থেকে মাপা)
 সিদ্ধান্ত       10 মি   (runbook এ আগে থেকে লেখা শর্ত; কে সিদ্ধান্ত নেয় নাম ধরে)
 scale out      5 মি   (standby এর app ২ → পূর্ণ মাপ; autoscale এর max আগে থেকে উঁচু)
-promote        2 মি   (replica → primary, ফ্রাঙ্কফুর্টকে fencing — পুরনো primary যেন না লেখে)
+promote        2 মি   (replica → primary, ফ্রাঙ্কফুর্টকে fencing - পুরনো primary যেন না লেখে)
 traffic        5 মি   (DNS TTL ৬০ s, বা global LB এ এক ক্লিক)
-মোট           27 মি   — সীমা ৩০ এর নিচে, কিন্তু মাত্র ৩ মিনিটের margin
+মোট           27 মি   - সীমা ৩০ এর নিচে, কিন্তু মাত্র ৩ মিনিটের margin
 ```
 
-সবচেয়ে অনিশ্চিত **সিদ্ধান্ত**। একটা partial outage (কিছু service ধীর, কিছু ঠিক) এ "এটা কি failover এর মতো খারাপ?" এর তর্ক সহজে ২০ মিনিট নেয়। প্রতিকার: runbook এ সংখ্যায় শর্ত ("ফ্রাঙ্কফুর্টের সফলতার SLI ১০ মিনিট ধরে ৯০% এর নিচে, আর provider এর status এ region এর ঘটনা — failover করুন, জিজ্ঞেস না করে")। আর বছরে একবারের প্রমাণ শুধু চুক্তির জন্য না, এই ২৭ মিনিট আসলে ২৭ কিনা, সেটা জানার একমাত্র উপায়। দ্বিতীয় অনিশ্চিত: standby এ এমন কিছু নেই যা prod এ আছে (একটা secret, একটা নতুন queue, একটা quota)। তাই standby এর config prod এর সাথে একই IaC থেকে, আর CI তে একটা diff।
+সবচেয়ে অনিশ্চিত **সিদ্ধান্ত**। একটা partial outage (কিছু service ধীর, কিছু ঠিক) এ "এটা কি failover এর মতো খারাপ?" এর তর্ক সহজে ২০ মিনিট নেয়। প্রতিকার: runbook এ সংখ্যায় শর্ত ("ফ্রাঙ্কফুর্টের সফলতার SLI ১০ মিনিট ধরে ৯০% এর নিচে, আর provider এর status এ region এর ঘটনা - failover করুন, জিজ্ঞেস না করে")। আর বছরে একবারের প্রমাণ শুধু চুক্তির জন্য না, এই ২৭ মিনিট আসলে ২৭ কিনা, সেটা জানার একমাত্র উপায়। দ্বিতীয় অনিশ্চিত: standby এ এমন কিছু নেই যা prod এ আছে (একটা secret, একটা নতুন queue, একটা quota)। তাই standby এর config prod এর সাথে একই IaC থেকে, আর CI তে একটা diff।
 
 (খ) Runbook এর শুরু:
 
 1. **শর্ত:** ফ্রাঙ্কফুর্টের board/login এর SLI ১০ মিনিট ধরে < ৯০% (বাইরের synthetic probe থেকে), **অথবা** provider ফ্রাঙ্কফুর্টে region স্তরের ঘটনা ঘোষণা করেছে। On-call engineer incident খোলে, EU cell এর মালিক (নাম, বিকল্প নাম) কে ডাকে।
 2. **সিদ্ধান্ত:** EU cell এর মালিক অথবা on-call lead, ৫ মিনিটের মধ্যে, এই runbook এর শর্ত দেখে। "অপেক্ষা করি আরেকটু" এর জন্য সর্বোচ্চ ১০ মিনিট।
-3. **Fencing আগে:** ফ্রাঙ্কফুর্টের database এ লেখা বন্ধ (security group এ app এর connection বন্ধ, বা DB কে read-only) — যদি পৌঁছানো যায়। না গেলে witness এর lease এর উপর ভরসা (সে নিজেকে থামাবে)।
+3. **Fencing আগে:** ফ্রাঙ্কফুর্টের database এ লেখা বন্ধ (security group এ app এর connection বন্ধ, বা DB কে read-only) - যদি পৌঁছানো যায়। না গেলে witness এর lease এর উপর ভরসা (সে নিজেকে থামাবে)।
 4. **Standby promote আর scale:** একটা script (`dr-failover eu`), যেটা game day তে বারবার চালানো হয়েছে। Replica promote, app এর min ক্ষমতা পূর্ণ মাপে।
 5. **Traffic:** global LB এ EU cell এর target বদল। Status page আর customer এর contact কে জানানো (চুক্তিতে নোটিশের সময় থাকে)।
 
-(গ) এটাই cell এর নকশার সবচেয়ে সূক্ষ্ম প্রশ্ন। Global স্তর সিঙ্গাপুরে, সিঙ্গাপুর মরলে নতুন login এর প্রথম ধাপ (email → কোন cell) উত্তর দিতে পারে না। নকশা: (১) **directory প্রতিটা cell এ cache করা** (10.3 এর static stability) — EU cell জানে তার নিজের user দের, তাই EU user এর login EU cell এই শেষ হয়, global স্তর ছাড়া। (২) routing এর তালিকা (workspace → cell) global LB এর config এ, প্রতিটা cell এর কাছেও কপি। (৩) Global স্তর নিজেই কয়েকটা region এ (ছোট, প্রায় শুধু পড়ে, তাই replicate করা সস্তা), আর তার data তে কোনো ব্যক্তিগত তথ্য নেই, শুধু hash আর cell এর id। পরীক্ষা: game day তে global স্তর বন্ধ করে দেখুন EU এর user login করে কাজ করতে পারে কিনা। না পারলে, আপনার "স্বাধীন" cell আসলে স্বাধীন না।
+(গ) এটাই cell এর নকশার সবচেয়ে সূক্ষ্ম প্রশ্ন। Global স্তর সিঙ্গাপুরে, সিঙ্গাপুর মরলে নতুন login এর প্রথম ধাপ (email → কোন cell) উত্তর দিতে পারে না। নকশা: (১) **directory প্রতিটা cell এ cache করা** (10.3 এর static stability) - EU cell জানে তার নিজের user দের, তাই EU user এর login EU cell এই শেষ হয়, global স্তর ছাড়া। (২) routing এর তালিকা (workspace → cell) global LB এর config এ, প্রতিটা cell এর কাছেও কপি। (৩) Global স্তর নিজেই কয়েকটা region এ (ছোট, প্রায় শুধু পড়ে, তাই replicate করা সস্তা), আর তার data তে কোনো ব্যক্তিগত তথ্য নেই, শুধু hash আর cell এর id। পরীক্ষা: game day তে global স্তর বন্ধ করে দেখুন EU এর user login করে কাজ করতে পারে কিনা। না পারলে, আপনার "স্বাধীন" cell আসলে স্বাধীন না।
 
 **প্রশ্ন ২:**
 
@@ -380,7 +380,7 @@ traffic        5 মি   (DNS TTL ৬০ s, বা global LB এ এক ক্�
 
 - **Login:** browser global স্তরে email দেয়। Global directory তে শুধু `hash(email) → [EU cell, SG cell]`। Login (password বা SSO) হয় user এর **home cell** এ, যেখানে তার credential থাকে (নিচে গ)। Login এর পরে একটা token, যা দুটো cell ই যাচাই করতে পারে (10.5 এর JWT, প্রতিটা cell এর কাছে public key)। Token এ শুধু user id, কোনো ব্যক্তিগত data না।
 - **"আমার সব কাজ":** browser (বা BFF) প্রতিটা cell কে আলাদা করে জিজ্ঞেস করে, user এর token দিয়ে, আর ফলগুলো **browser এ** বা user এর নিজের region এর BFF এ জোড়া হয়। EU এর task এর তালিকা EU cell থেকে সরাসরি user এর কাছে যায়, অন্য কোনো cell এ জমা হয় না। একটা global "সব কাজ" এর table (সব cell এর task এর কপি) সবচেয়ে সহজ নকশা, আর ঠিক সেটাই residency ভাঙে।
-- **Search:** একই ছক — প্রতিটা cell এর নিজের index, query fan-out (5.8 এর scatter-gather), ফল জোড়া হয় user এর দিকে। কোনো global index না।
+- **Search:** একই ছক - প্রতিটা cell এর নিজের index, query fan-out (5.8 এর scatter-gather), ফল জোড়া হয় user এর দিকে। কোনো global index না।
 
 (খ) একটা cell মরলে (10.3): fan-out এর সেই অংশ timeout এ ব্যর্থ। Page পুরোটা ভাঙবে না। দেখাবে অন্য cell এর কাজ, আর একটা স্পষ্ট বার্তা: "EU workspace এর কাজ এখন দেখানো যাচ্ছে না।" এটা একটা soft dependency। Timeout ছোট (একটা cell এর ধীরতা পুরো page কে ধীর না করুক), আর সেই cell এর জন্য breaker (9.4)।
 
@@ -392,9 +392,9 @@ traffic        5 মি   (DNS TTL ৬০ s, বা global LB এ এক ক্�
 
 ## ৬. Practical Exercise
 
-**Tier 1 — Runnable Code** (চারটা deterministic model; cloud account বা Docker লাগে না)
+**Tier 1 - Runnable Code** (চারটা deterministic model; cloud account বা Docker লাগে না)
 
-> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-10.8-multi-region/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.8-multi-region) — `npm install`, তারপর `npm run latency`, `npm run failover`, `npm run conflicts`, `npm run residency`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
+> **Repo তে চালানোর মতো অবস্থায় আছে:** [`exercises/lesson-10.8-multi-region/`](https://github.com/hijal/system-design/tree/main/exercises/lesson-10.8-multi-region) - `npm install`, তারপর `npm run latency`, `npm run failover`, `npm run conflicts`, `npm run residency`। পুরো setup, acceptance criteria আর experiment ওখানকার `README.md` এ আছে।
 
 `latency` পাঁচটা শহরের user কে চারটা topology তে চালায়: board খোলা, task তৈরি, লেখার পরে পুরনো পড়া। সাথে region জুড়ে majority এর commit। `failover` এ সিঙ্গাপুরের চার ঘণ্টার বিভ্রাটে পাঁচটা DR কৌশল (RTO, RPO, খরচ), DNS বদলানোর পরের লেজ, আর partition এ তিনটা failover এর নীতি। `conflicts` এক দিনের ১০ লাখ edit এ LWW এর তিনটা নিয়ম আর home region তুলনা করে। `residency` একজন EU customer এর data এর ১২টা পথ তিনটা নকশায় গোনে, আর একটা cell এর দাম তার আয়ের সাথে মেলায়।
 
@@ -406,7 +406,7 @@ traffic        5 মি   (DNS TTL ৬০ s, বা global LB এ এক ক্�
 
 2. **নিজের DR:** `DECIDE_MINUTES=3 npm run failover` আর `DECIDE_MINUTES=30 npm run failover`। কোন কৌশলের RTO কতটা নড়ে? তারপর `OUTAGE_MINUTES=30` এর সাথে মিলিয়ে বলুন: TaskFlow এর বেশিরভাগ region এর বিভ্রাট যদি ১ ঘণ্টার কম হয়, তাহলে কোন কৌশল আসলে কিছু কেনে?
 
-3. **Conflict এর জানালা:** `CROSS_REGION=0.6 npm run conflicts`, তারপর `INCIDENT_LAG_S=60`। হারানো edit কীভাবে বাড়ে? এই দুটো সংখ্যা TaskFlow এ বাস্তবে কে নিয়ন্ত্রণ করে — product, না infrastructure?
+3. **Conflict এর জানালা:** `CROSS_REGION=0.6 npm run conflicts`, তারপর `INCIDENT_LAG_S=60`। হারানো edit কীভাবে বাড়ে? এই দুটো সংখ্যা TaskFlow এ বাস্তবে কে নিয়ন্ত্রণ করে - product, না infrastructure?
 
 4. **পঞ্চম region:** `src/geo.ts` এ `tokyo` যোগ করুন (RTT আপনার আন্দাজে), আর `latency.ts` এর consensus এর টেবিলে পাঁচ region এর একটা সারি। Commit কত, আর কয়টা region হারানো সহ্য করে? চার region এর চেয়ে ভালো কেন?
 
@@ -419,7 +419,7 @@ traffic        5 মি   (DNS TTL ৬০ s, বা global LB এ এক ক্�
 ```
 === PROGRESS LEDGER ===
 Completed: Module 1, 2, 3, 4, 5, 6, 7, 8, 9 (সম্পূর্ণ, exit challenge সহ), 10.1 – 10.7
-Current: 10.8 — Multi-region & geo-distribution
+Current: 10.8 - Multi-region & geo-distribution
 TaskFlow state: modular monolith + billing; gateway + BFF; saga; breaker + bulkhead; rate limit; cache ring;
 Bloom/HLL; brownout; OpenTelemetry, burn rate; AuthN/AuthZ, OAuth PKCE, secret manager, DDoS এর স্তর;
 graceful shutdown, canary + gate, flag, expand/contract; বিল $৮,২৭৬ (autoscale, commit, endpoint, lifecycle,
@@ -433,7 +433,7 @@ replication + IaC (pilot light, RPO ~৫ s, RTO ~৪০ মি, ~$৮৩৩/ম�
 (log, trace, search, error tracker, email এর EU processing, CDN cache), DR আরেক EU region এ warm standby (RTO
 ~২৭ মি), বাইরে শুধু metric আর aggregate analytics; global স্তর (routing, hash(email) → cell, billing) ছোট,
 প্রতি cell এ cache (static stability); workspace তৈরির সময় region বাছা। Cell এর খরচ ~$৪,৮৭০/মাস (প্রথম EU
-customer এর আয়ের ১৩%)। সব region এ read replica — না (residency আর লেখা দুটোই ভাঙে)।
+customer এর আয়ের ১৩%)। সব region এ read replica - না (residency আর লেখা দুটোই ভাঙে)।
 Terms learned (Module 10): Hash Ring, Virtual Node, Preference List, Rendezvous Hashing (HRW), Jump
 Consistent Hash, Bounded-Load Consistent Hashing, Hash Slot, Probabilistic Data Structure, Bloom Filter,
 False Positive Rate, Counting Bloom Filter, Cardinality, HyperLogLog, Count-Min Sketch, Fault Tolerance,
@@ -444,7 +444,7 @@ Stuffing, DDoS (Volumetric / L7), Deploy / Release, Blue-Green Deployment, Canar
 Version Skew, Lock Queue, Expand / Contract, Unit Economics, Cost Allocation, Commitment Discount, Spot
 Instance, Data Transfer Cost, Storage Tiering, Cost Anomaly Detection, RPO / RTO, Active-Passive /
 Active-Active, Geo-Routing, Witness, Home Region, Cell-Based Architecture, Data Residency
-Weak spots: [আপনি যেখানে আটকেছিলেন — নিজে লিখুন]
+Weak spots: [আপনি যেখানে আটকেছিলেন - নিজে লিখুন]
 Next: Module 10 Exit Challenge
 =======================
 ```
@@ -455,4 +455,4 @@ Next: Module 10 Exit Challenge
 
 আজকের সুতোটা: **multi-region তিনটা আলাদা সমস্যার তিনটা আলাদা উত্তর, আর প্রতিটার একটা স্পষ্ট দাম।** দূরত্ব round trip এ গুণ হয়, তাই প্রথমে round trip কমান, তারপর পড়াকে কাছে আনুন। লেখাকে কাছে আনলে দিতে হয় consistency, আর লেখার data কে টেকসই করলে দিতে হয় latency। RPO আর RTO কেনা যায়, আর তাদের বড় অংশ মানুষের অনুশীলন। Failover এর আসল বিপদ partition, আর তার উত্তর quorum। আর data residency একটা database এর setting না, system এর প্রতিটা পথের একটা গুণ।
 
-Module 10 এখানে শেষ। আট lesson এ TaskFlow এর গায়ে আটটা স্তর বসেছে: consistent hashing আর probabilistic structure, fault tolerance আর chaos, observability, security, নিরাপদ deploy, cost, আর multi-region। প্রতিটা lesson এ একটা প্রশ্ন আলাদা করে মেপেছি। বাস্তবে একটা খারাপ রাতে সব একসাথে আসে: একটা region এর বিভ্রাট, তার মধ্যে একটা canary, একটা DDoS, আর মাসের শেষে একটা বিল। রেডি হলে `next` লিখুন — **Module 10 Exit Challenge** এ যাব। সেখানে একটা ঘটনার timeline দেব, যেখানে এই module এর প্রতিটা lesson এর একটা টুকরো আছে। আপনি সেটা পড়ে বলবেন কী ভাঙল, কেন, আর কোন সিদ্ধান্ত তাকে থামাতে পারত। তারপর একটা checklist আর পড়ার তালিকা।
+Module 10 এখানে শেষ। আট lesson এ TaskFlow এর গায়ে আটটা স্তর বসেছে: consistent hashing আর probabilistic structure, fault tolerance আর chaos, observability, security, নিরাপদ deploy, cost, আর multi-region। প্রতিটা lesson এ একটা প্রশ্ন আলাদা করে মেপেছি। বাস্তবে একটা খারাপ রাতে সব একসাথে আসে: একটা region এর বিভ্রাট, তার মধ্যে একটা canary, একটা DDoS, আর মাসের শেষে একটা বিল। রেডি হলে `next` লিখুন - **Module 10 Exit Challenge** এ যাব। সেখানে একটা ঘটনার timeline দেব, যেখানে এই module এর প্রতিটা lesson এর একটা টুকরো আছে। আপনি সেটা পড়ে বলবেন কী ভাঙল, কেন, আর কোন সিদ্ধান্ত তাকে থামাতে পারত। তারপর একটা checklist আর পড়ার তালিকা।

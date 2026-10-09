@@ -2,7 +2,7 @@ import { type ChildProcess, fork } from 'node:child_process';
 import path from 'node:path';
 import { z } from 'zod';
 
-// Starting and stopping the service processes, and accounting for their CPU. Each process is a separate Node — like separate containers in a real deploy.
+// Starting and stopping the service processes, and accounting for their CPU. Each process is a separate Node - like separate containers in a real deploy.
 
 const readySchema = z.object({ type: z.literal('ready'), port: z.number() });
 const cpuSchema = z.object({ type: z.literal('cpu'), micros: z.number() });
@@ -29,7 +29,7 @@ export function stop(proc: Proc): Promise<void> {
 	if (proc.child.exitCode !== null || proc.child.signalCode !== null) return Promise.resolve();
 	return new Promise((resolve) => {
 		proc.child.once('exit', () => resolve());
-		proc.child.kill('SIGKILL'); // like a crash — not a graceful shutdown
+		proc.child.kill('SIGKILL'); // like a crash - not a graceful shutdown
 	});
 }
 

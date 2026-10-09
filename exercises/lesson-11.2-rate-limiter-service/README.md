@@ -1,31 +1,31 @@
-# Rate Limiter Service Lab — Estimation, Accuracy বনাম Latency, Hot Tenant, Failure, আর একটা আসল Limiter
+# Rate Limiter Service Lab - Estimation, Accuracy বনাম Latency, Hot Tenant, Failure, আর একটা আসল Limiter
 
-> Lesson 11.2 — Case Study: Design a Rate Limiter Service · **Tier 1 — Runnable Code**
+> Lesson 11.2 - Case Study: Design a Rate Limiter Service · **Tier 1 - Runnable Code**
 > (চারটা deterministic model আর একটা আসল limiter service + client + দুটো API server; Docker বা Redis লাগে না)
 
 ## কী বানাচ্ছি
 
 9.5 এ rate limiting এর algorithm ছিল একটা process এর ভেতরে। এখানে প্রশ্নটা একটা **service** এর: শত শত API server, লাখ লাখ
-request/s, একটা ভাগ করা store। কত shard আর কত খরচ? প্রতি request এ কেন্দ্রে যাওয়া, সীমা ভাগ করা, token lease, আর async sync —
+request/s, একটা ভাগ করা store। কত shard আর কত খরচ? প্রতি request এ কেন্দ্রে যাওয়া, সীমা ভাগ করা, token lease, আর async sync -
 কোনটা কতটা ঠিক, কত দ্রুত, আর কেন্দ্রে কত চাপ দেয়? একজন বড় customer একটা shard কে কতটা চাপে? আর store ধীর বা বন্ধ হলে API
 এর কী হয়?
 
 | Script             | প্রশ্ন                                                                                         | Lesson § |
 | ------------------ | ---------------------------------------------------------------------------------------------- | -------- |
 | `npm run estimate` | ৫ লাখ request/s এ Redis op, shard, network, cross-AZ খরচ, memory, latency এর বাজেট             | ১.২      |
-| `npm run accuracy` | ৬টা কৌশল × ৪টা অবস্থা — গৃহীত হার, ভুল করে আটকানো, কেন্দ্রের op, বাড়তি latency; lease এর আকার | ১.৫      |
-| `npm run hotkey`   | Zipf tenant এ ব্যস্ততম shard — বেশি shard, lease, key ভাগ করা                                  | ১.৬      |
-| `npm run failure`  | Store সুস্থ, ধীর, blackhole — timeout, fail open/closed, local fallback, breaker               | ১.৭      |
+| `npm run accuracy` | ৬টা কৌশল × ৪টা অবস্থা - গৃহীত হার, ভুল করে আটকানো, কেন্দ্রের op, বাড়তি latency; lease এর আকার | ১.৫      |
+| `npm run hotkey`   | Zipf tenant এ ব্যস্ততম shard - বেশি shard, lease, key ভাগ করা                                  | ১.৬      |
+| `npm run failure`  | Store সুস্থ, ধীর, blackhole - timeout, fail open/closed, local fallback, breaker               | ১.৭      |
 | `npm run smoke`    | আসল HTTP: limiter service, client library (timeout, breaker, lease, fallback), দুটো API server | ১.৮      |
 
 **সৎ নোট:**
 
-- **Estimation এর input ধরে নেওয়া** — ৫ লাখ request/s, ৪০০ API server, প্রতি request এ ২টা নিয়ম। Redis shard প্রতি "~১ লাখ
+- **Estimation এর input ধরে নেওয়া** - ৫ লাখ request/s, ৪০০ API server, প্রতি request এ ২টা নিয়ম। Redis shard প্রতি "~১ লাখ
   op/s Lua সহ" একটা মোটামুটি আন্দাজ (script এর আকার, hardware, pipelining এর উপর অনেক নির্ভর করে), এখানে মাপা না। Cross-AZ এর
   দাম $0.01/GB প্রতি দিকে (10.7 এর মতো), আনুমানিক।
 - **`accuracy`, `hotkey`, `failure` virtual time এর model**, আসল Redis বা network না। Store এর RTT lognormal (median ০.৫ ms)।
   "GET তারপর SET" এর race model এ দেখানো, Redis এ চালানো না। Async sync এর model সরল: সব server একসাথে sync করে।
-- **`failure` এর breaker সরল** — ১ s এ ২০টা ব্যর্থতায় ৫ s খোলা, সব server একই জিনিস দেখে বলে ধরা।
+- **`failure` এর breaker সরল** - ১ s এ ২০টা ব্যর্থতায় ৫ s খোলা, সব server একই জিনিস দেখে বলে ধরা।
 - **`smoke` আসল HTTP চালায়** (একটা limiter, চারটা API app, এক process এ), কিন্তু limiter এর store in-memory `Map`, Redis না।
   Limiter এর ঘড়ি নকল (deterministic); client এর breaker আসল ঘড়ি ব্যবহার করে। Latency এর সংখ্যা ছাপা হয় না, শুধু "১০০ ms এর
   কম" কিনা।
@@ -56,14 +56,14 @@ npm run smoke
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-`npm run estimate` — সব নিয়ম একটা Lua script এ রাখলে op আর খরচ অর্ধেক:
+`npm run estimate` - সব নিয়ম একটা Lua script এ রাখলে op আর খরচ অর্ধেক:
 
 ```
 a separate Redis call per rule                    1,000,000          20      300 MB/s         $10,368
 all rules in one Lua script (on the same shard)    500,000          10      150 MB/s          $5,184
 ```
 
-`npm run accuracy` — atomic না হলে race এ সীমা ফাঁস; async sync আক্রমণে ২ গুণ; সীমা ভাগ করা skewed traffic এ ভুল আটকায়;
+`npm run accuracy` - atomic না হলে race এ সীমা ফাঁস; async sync আক্রমণে ২ গুণ; সীমা ভাগ করা skewed traffic এ ভুল আটকায়;
 lease × server burst ছাড়ালে ভুল আটকানো লাফায়:
 
 ```
@@ -77,7 +77,7 @@ token lease (4 at a time, wait if not granted)           813     0.81x          
 20                 1,000                   0.89x           341             11.6%           108
 ```
 
-`npm run hotkey` — shard দ্বিগুণ করলে ব্যস্ততম shard প্রায় একই; lease বা key ভাগ করলে নামে:
+`npm run hotkey` - shard দ্বিগুণ করলে ব্যস্ততম shard প্রায় একই; lease বা key ভাগ করলে নামে:
 
 ```
 one op per request, 16 shards                    500,000     31,250         63,494          63%          2.03x
@@ -85,7 +85,7 @@ the same, 32 shards                              500,000     15,625         52,3
 leases on big tenants (> 1,000/s)                413,256     25,828         33,521          34%          1.30x
 ```
 
-`npm run failure` — timeout ছাড়া blackhole এ প্রতি server এ হাজার হাজার ঝুলে থাকা request; breaker + উদার fallback এ বাড়তি
+`npm run failure` - timeout ছাড়া blackhole এ প্রতি server এ হাজার হাজার ঝুলে থাকা request; breaker + উদার fallback এ বাড়তি
 latency শূন্য, দাম abuser এর ৩ গুণ:
 
 ```
@@ -94,7 +94,7 @@ timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms  
 + breaker → local bucket, generous (3 × limit / N)        0.00 ms    0.00 ms                   0              0.0%   3.1x limit
 ```
 
-`npm run smoke` — দুটো API server মিলে ঠিক ১০টা; lease এ ১০০ request এ ২০টা call; limiter ধীর বা বন্ধ হলেও API দ্রুত উত্তর
+`npm run smoke` - দুটো API server মিলে ঠিক ১০টা; lease এ ১০০ request এ ২০টা call; limiter ধীর বা বন্ধ হলেও API দ্রুত উত্তর
 দেয়, login fail closed:
 
 ```
@@ -117,7 +117,7 @@ timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms  
 - **Token lease কেন্দ্রের চাপ কমায়, কিন্তু lease × server ≤ burst না হলে token আটকে থাকে** আর সীমার নিচের customer আটকায়।
 - **Hot tenant কে বেশি shard বাঁচায় না।** একটা key একটা shard এ যায়। Lease বা key ভাগ করা লাগে।
 - **Limiter মরলে API মরা উচিত না।** Timeout, breaker, আর নিয়ম ধরে fail mode। Fallback কৃপণ হলে বৈধ user আটকায়, উদার হলে abuser
-  বেশি পায় — একটা সচেতন সিদ্ধান্ত।
+  বেশি পায় - একটা সচেতন সিদ্ধান্ত।
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
@@ -139,14 +139,14 @@ timeout 5 ms → local bucket (limit / N)                   5.00 ms    5.00 ms  
 src/
   util.ts             seed দেওয়া PRNG, lognormal, percentile, টেবিলের format, env parse, fmix32
   sim.ts              token bucket আর virtual time এর event scheduler (min-heap)
-  estimate.ts         script ক — op/s, shard, network, cross-AZ খরচ, memory, latency বাজেট
-  accuracy.ts         script খ — ৬টা কৌশল × ৪টা অবস্থা, lease এর আকারের sweep
-  hotkey.ts           script গ — Zipf tenant, hash slot → shard, lease আর key ভাগ
-  failure.ts          script ঘ — store সুস্থ/ধীর/blackhole × ৫টা নীতি
+  estimate.ts         script ক - op/s, shard, network, cross-AZ খরচ, memory, latency বাজেট
+  accuracy.ts         script খ - ৬টা কৌশল × ৪টা অবস্থা, lease এর আকারের sweep
+  hotkey.ts           script গ - Zipf tenant, hash slot → shard, lease আর key ভাগ
+  failure.ts          script ঘ - store সুস্থ/ধীর/blackhole × ৫টা নীতি
   limiter-service.ts  Express limiter: POST /v1/check, POST /v1/lease, নিয়ম (Zod), নকল ঘড়ি, ধীর করার admin endpoint
   client.ts           client library: timeout (AbortSignal), breaker, lease, নিয়ম ধরে fail mode, local fallback
   api.ts              API app: middleware যা client কে ডাকে, 429/503 আর Retry-After
-  smoke.ts            script ঙ — limiter + চারটা API app চালিয়ে ১১টা ধাপ
+  smoke.ts            script ঙ - limiter + চারটা API app চালিয়ে ১১টা ধাপ
 ```
 
 Environment variable: `API_RPS`, `API_SERVERS`, `ACTIVE_KEYS`, `RULES`, `SHARD_OPS`, `HEADROOM`, `STATE_BYTES`,

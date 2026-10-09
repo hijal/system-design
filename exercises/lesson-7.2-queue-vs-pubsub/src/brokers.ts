@@ -2,11 +2,11 @@ import { type Outage, type Recorder, type ServiceSpec } from './model';
 import type { Sim } from './sim';
 import type { TaskEvent } from './workload';
 
-// Lesson 7.2 — three kinds of broker, each with the core behaviour of its real counterpart:
+// Lesson 7.2 - three kinds of broker, each with the core behaviour of its real counterpart:
 //
-//   runPubSub  — like Redis Pub/Sub: whoever is connected right now gets it; nothing is stored
-//   runQueue   — like a RabbitMQ queue: messages are stored, one consumer gets each, deleted on ack
-//   runLog     — like Kafka / Redis Streams: append-only log, partitions, consumer groups and offsets
+//   runPubSub  - like Redis Pub/Sub: whoever is connected right now gets it; nothing is stored
+//   runQueue   - like a RabbitMQ queue: messages are stored, one consumer gets each, deleted on ack
+//   runLog     - like Kafka / Redis Streams: append-only log, partitions, consumer groups and offsets
 //
 // Every service's workers process events; "processing done" means the side effect has happened.
 // Work that was half done at the moment of an outage is discarded (no side effect).
@@ -14,7 +14,7 @@ import type { TaskEvent } from './workload';
 interface Workers {
 	busy: number;
 	down: boolean;
-	// Goes up on an outage — in-flight work of an old generation is not counted even if it finishes
+	// Goes up on an outage - in-flight work of an old generation is not counted even if it finishes
 	generation: number;
 }
 
@@ -79,12 +79,12 @@ export function runPubSub(
 
 		for (const event of events) {
 			sim.at(event.publishedAt, () => {
-				// If not connected, this message exists nowhere for this subscriber — ever
+				// If not connected, this message exists nowhere for this subscriber - ever
 				if (!connected) return;
 				buffer.push(event);
 				rec.backlog(service.name, buffer.length);
 				if (buffer.length > opts.bufferLimit) {
-					// The broker cuts off the slow subscriber, dropping everything piled up — to save itself
+					// The broker cuts off the slow subscriber, dropping everything piled up - to save itself
 					disconnect();
 					sim.after(opts.reconnectMs, () => {
 						if (!w.down) connected = true;
@@ -116,13 +116,13 @@ export function runPubSub(
 // ── Queue ───────────────────────────────────────────────────────────────────────────────
 
 export interface QueueOptions {
-	// 'shared' — a single queue, every service's workers compete on it
-	// 'per-service' — fanout exchange: each service has its own queue, every message goes to every queue
+	// 'shared' - a single queue, every service's workers compete on it
+	// 'per-service' - fanout exchange: each service has its own queue, every message goes to every queue
 	layout: 'shared' | 'per-service';
 	// the time between processing done (side effect) and the ack reaching the broker
 	ackDelayMs: number;
 	outages: Outage[];
-	// A service that joins late: its queue is created at this moment — earlier messages never went there
+	// A service that joins late: its queue is created at this moment - earlier messages never went there
 	joinAt?: Record<string, number>;
 }
 
@@ -154,7 +154,7 @@ export function runQueue(
 		return w;
 	};
 
-	// Round-robin like RabbitMQ: every worker is a consumer (prefetch = 1), and turns rotate —
+	// Round-robin like RabbitMQ: every worker is a consumer (prefetch = 1), and turns rotate -
 	// two workers of the same service mean two turns
 	const slots = new Map<Queue, ServiceSpec[]>(
 		queues.map((q) => [q, q.consumers.flatMap((s) => Array.from({ length: s.workers }, () => s))])
@@ -218,7 +218,7 @@ export function runQueue(
 				w.generation++;
 				w.busy = 0;
 				// Connection closed → every unacked message goes back to the queue, in its old place.
-				// Those whose side effect had already happened (the ack was on its way) — will be processed again.
+				// Those whose side effect had already happened (the ack was on its way) - will be processed again.
 				for (const queue of queues) {
 					const back = [...queue.unacked.values()].filter((u) => u.service === service.name);
 					for (const u of back) queue.unacked.delete(u.event.id);
@@ -238,7 +238,7 @@ export function runQueue(
 
 export interface LogGroup {
 	service: ServiceSpec;
-	// How many consumers in the group — each processes one message at a time
+	// How many consumers in the group - each processes one message at a time
 	consumers: number;
 	// A group that joins late: at this moment it starts reading from the start of the log (Kafka's `earliest`)
 	joinAt?: number;
@@ -287,7 +287,7 @@ export function runLog(
 		let position = new Array<number>(opts.partitions).fill(0);
 		let done = new Array<number>(opts.partitions).fill(0);
 		let committed = new Array<number>(opts.partitions).fill(0);
-		// Consumer i gets the partitions where p % consumers === i — extra consumers sit idle
+		// Consumer i gets the partitions where p % consumers === i - extra consumers sit idle
 		const consumers = Array.from({ length: group.consumers }, (_, i) => ({
 			partitions: Array.from({ length: opts.partitions }, (_, p) => p).filter(
 				(p) => p % group.consumers === i
@@ -300,7 +300,7 @@ export function runLog(
 			if (!joined || w.down) return;
 			for (const consumer of consumers) {
 				if (consumer.busy) continue;
-				// round-robin over its own partitions — but strictly in order within each partition
+				// round-robin over its own partitions - but strictly in order within each partition
 				for (let k = 0; k < consumer.partitions.length; k++) {
 					const p = consumer.partitions[(consumer.next + k) % consumer.partitions.length];
 					if (p === undefined) continue;
@@ -327,7 +327,7 @@ export function runLog(
 				}
 			}
 		};
-		// Consumer lag: in the log but not yet processed by this group — not stored in the broker, just a distance
+		// Consumer lag: in the log but not yet processed by this group - not stored in the broker, just a distance
 		const recordLag = (): void => {
 			if (joined)
 				rec.backlog(
@@ -364,7 +364,7 @@ export function runLog(
 			},
 			() => {
 				w.down = false;
-				// Starting over: from the last committed offset — whatever was processed after it will be processed again
+				// Starting over: from the last committed offset - whatever was processed after it will be processed again
 				position = [...committed];
 				done = [...committed];
 				pump();

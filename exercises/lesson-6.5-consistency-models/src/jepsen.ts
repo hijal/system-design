@@ -1,16 +1,16 @@
 import { eventual, MODELS, type History, type Op } from './checker';
 import { latency, mulberry32 } from './random';
 
-// Lesson 6.5 §1.7 — the idea of Jepsen, in small: run a system, record the history of every operation,
+// Lesson 6.5 §1.7 - the idea of Jepsen, in small: run a system, record the history of every operation,
 // then use a checker to verify which consistency model it actually provides.
 //
 // Four systems, 300 random histories each (3 clients, 5 operations each, one key):
-//   primary  — every read and write on one primary
-//   replica  — writes on the primary, reads on either of two async replicas (Lesson 5.7, 6.3)
-//   sticky   — each client always reads from the same replica
-//   token    — version token: never reads from a replica behind the newest version the client has seen/written;
+//   primary  - every read and write on one primary
+//   replica  - writes on the primary, reads on either of two async replicas (Lesson 5.7, 6.3)
+//   sticky   - each client always reads from the same replica
+//   token    - version token: never reads from a replica behind the newest version the client has seen/written;
 //              goes to the primary instead (Lesson 6.3)
-// Finally every client reads once more 1 second later — to check eventual.
+// Finally every client reads once more 1 second later - to check eventual.
 
 type System = 'primary' | 'replica' | 'sticky' | 'token';
 const HISTORIES = 300;
@@ -37,16 +37,16 @@ function generate(system: System, seed: number): History {
 			const kind = !last && random() < 0.35 ? 'write' : 'read';
 			const start = t;
 			const end = t + 2 + random() * 8;
-			// when the operation actually took effect — some moment between its start and end
+			// when the operation actually took effect - some moment between its start and end
 			const at = start + random() * (end - start);
 			planned.push({ process, kind, start, end, at, value: kind === 'write' ? nextValue++ : 0 });
 			t = end + random() * 20;
 		}
 	}
 
-	// Writes on the primary, in the order they took effect — this is the primary's log
+	// Writes on the primary, in the order they took effect - this is the primary's log
 	const log = planned.filter((p) => p.kind === 'write').sort((a, b) => a.at - b.at);
-	// when each write becomes visible on each replica — a lag, sometimes large, and in order
+	// when each write becomes visible on each replica - a lag, sometimes large, and in order
 	const visible = [0, 1].map(() => {
 		let prev = 0;
 		return log.map((wr) => {
@@ -105,9 +105,9 @@ function main(): void {
 		token: 'version token'
 	};
 	console.log(
-		`\n   ${HISTORIES} random histories per system (${CLIENTS.length} clients × ${OPS_EACH + 1} ops) — what percentage obeys each model`
+		`\n   ${HISTORIES} random histories per system (${CLIENTS.length} clients × ${OPS_EACH + 1} ops) - what percentage obeys each model`
 	);
-	console.log('   (seeded — the same result every time)\n');
+	console.log('   (seeded - the same result every time)\n');
 	console.log(
 		'   system                        linear.  sequential  causal    RYW   mono.read  eventual'
 	);
@@ -127,7 +127,7 @@ function main(): void {
 		);
 	}
 	console.log(
-		'\n   100% means "never broken in these 300 histories" — not a proof. Below 100% means it definitely breaks.\n'
+		'\n   100% means "never broken in these 300 histories" - not a proof. Below 100% means it definitely breaks.\n'
 	);
 }
 

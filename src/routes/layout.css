@@ -2569,7 +2569,7 @@ body:has(.reader-page) .workspace {
 }
 
 /* ============================================================
-   Bigger mobile tap targets — language switch and the meta-row
+   Bigger mobile tap targets - language switch and the meta-row
    buttons measured under ~32px on a phone; touch guidance wants
    closer to 40-44px.
    ============================================================ */
@@ -2660,7 +2660,7 @@ body:has(.reader-page) .workspace {
 	color-scheme: dark;
 }
 /* A couple of surfaces are painted with a fixed light/near-black pair
-   instead of a token (self-contained brand tile) —
+   instead of a token (self-contained brand tile) -
    they read fine unchanged on a dark page, so they're deliberately left out. */
 
 @media print {

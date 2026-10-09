@@ -13,7 +13,7 @@ const url = z
 export const pool = (db: DbName, max: number): Pool =>
 	new Pool({ connectionString: `${url}/${db}`, max });
 
-// Pretending the process dies — deploy, OOM, timeout. Which operation it happens on is seeded.
+// Pretending the process dies - deploy, OOM, timeout. Which operation it happens on is seeded.
 export class Crash extends Error {
 	override readonly name = 'Crash';
 }
@@ -25,13 +25,13 @@ export async function ensureDatabases(): Promise<void> {
 	try {
 		await admin.query('SELECT 1');
 	} catch {
-		console.error('Postgres cannot be reached — run `docker compose up -d --wait` first.');
+		console.error('Postgres cannot be reached - run `docker compose up -d --wait` first.');
 		process.exit(1);
 	}
 	const r = await admin.query('SHOW max_prepared_transactions');
 	if (setting.parse(r.rows[0]).max_prepared_transactions < 64) {
 		console.error(
-			"max_prepared_transactions is too small — run Postgres with this repo's docker-compose.yml (the setting is in command)."
+			"max_prepared_transactions is too small - run Postgres with this repo's docker-compose.yml (the setting is in command)."
 		);
 		process.exit(1);
 	}
@@ -44,7 +44,7 @@ export async function ensureDatabases(): Promise<void> {
 
 const gidRow = z.object({ gid: z.string() });
 
-// Throw away prepared transactions from an earlier run (or one stopped with Ctrl+C) — otherwise they
+// Throw away prepared transactions from an earlier run (or one stopped with Ctrl+C) - otherwise they
 // hold row locks, and the next DROP TABLE waits forever. ROLLBACK PREPARED has to run connected to the
 // database where the transaction was prepared.
 export async function clearPrepared(): Promise<void> {

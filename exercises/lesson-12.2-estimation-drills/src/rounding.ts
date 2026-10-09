@@ -1,7 +1,7 @@
 import { answerOf, drills } from './drills';
 import { factorOff, heading, num, padEnd, padLeft, row, times } from './util';
 
-heading('Part A — rounding: exact chain vs the powers-of-ten version you do in your head');
+heading('Part A - rounding: exact chain vs the powers-of-ten version you do in your head');
 console.log(
 	row([
 		['drill', 34],
@@ -27,7 +27,7 @@ for (const drill of drills) {
 }
 console.log(`worst rounding error: ${times(worstRounding)}`);
 
-heading('Part B — slips: one wrong step in the same chains');
+heading('Part B - slips: one wrong step in the same chains');
 console.log(
 	padEnd('drill', 34) + padEnd('the slip', 54) + padLeft('wrong answer', 16) + padLeft('off by', 10)
 );
@@ -45,7 +45,7 @@ for (const drill of drills) {
 }
 console.log(`smallest slip: ${times(smallestSlip)}`);
 
-heading('Part C — the constants worth rounding');
+heading('Part C - the constants worth rounding');
 const constants: [string, number, number, string][] = [
 	['seconds in a day', 86_400, 1e5, '10^5'],
 	['seconds in a 30-day month', 2_592_000, 2.5e6, '2.5 × 10^6'],

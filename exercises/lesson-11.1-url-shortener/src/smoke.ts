@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 		return created.data.code;
 	};
 
-	heading('Part A — API behaviour (a real Express server, in-memory store, fake clock)');
+	heading('Part A - API behaviour (a real Express server, in-memory store, fake clock)');
 	console.log(padEnd('#', 4) + padEnd('request', 54) + padEnd('status', 8) + 'result');
 	let step = 0;
 	const show = (request: string, status: number, detail: string): void => {
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
 	const after = await get(`/api/links/${b}/stats`);
 	show(`GET /api/links/${b}/stats  (after flush)`, after.status, describe(after.json));
 
-	heading(`Part B — ${n(BULK)} links created, block size ${n(BLOCK_SIZE)}`);
+	heading(`Part B - ${n(BULK)} links created, block size ${n(BLOCK_SIZE)}`);
 	const callsBefore = shortener.sequence.calls;
 	const codes = new Set<string>();
 	const sample: string[] = [];

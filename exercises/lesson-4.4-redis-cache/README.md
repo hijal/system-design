@@ -1,12 +1,12 @@
 # TaskFlow Redis Caching Layer
 
-> Lesson 4.4 — Redis Hands-on · **Tier 1 — Runnable Code**
+> Lesson 4.4 - Redis Hands-on · **Tier 1 - Runnable Code**
 >
-> Lesson 4.6 (Cache Failure Patterns) এর stampede demo ও এখানেই — `npm run stampede`
+> Lesson 4.6 (Cache Failure Patterns) এর stampede demo ও এখানেই - `npm run stampede`
 
 ## কী বানাচ্ছি
 
-TaskFlow এর `GET /api/tasks` এ একটা সত্যিকারের **Cache-Aside** layer — Express + Sequelize +
+TaskFlow এর `GET /api/tasks` এ একটা সত্যিকারের **Cache-Aside** layer - Express + Sequelize +
 PostgreSQL + Redis দিয়ে। সাথে `PATCH /api/tasks/:id` এ **invalidate-on-write**, আর একটা
 bench script যেটা cache এর লাভটা দাবি না করে **মেপে দেখায়**।
 
@@ -14,16 +14,16 @@ Module 4 এর প্রথম তিন lesson এ যা যা কাগজ�
 
 | সিদ্ধান্ত                       | কোথায়                                         | Lesson |
 | ------------------------------- | ---------------------------------------------- | ------ |
-| Cache-Aside (read)              | `src/server.ts` — `GET /api/tasks`             | 4.2    |
-| আগে DB, পরে invalidate          | `src/server.ts` — `PATCH /api/tasks/:id`       | 4.3    |
+| Cache-Aside (read)              | `src/server.ts` - `GET /api/tasks`             | 4.2    |
+| আগে DB, পরে invalidate          | `src/server.ts` - `PATCH /api/tasks/:id`       | 4.3    |
 | Derived view ও মুছতে হবে        | `tasks:user:N` **আর** `tasks:user:N:completed` | 4.3    |
-| TTL ৬০s safety net              | `src/server.ts` — `TTL_SECONDS`                | 4.3    |
-| `allkeys-lru`                   | `docker-compose.yml` — redis command           | 4.3    |
-| Cache fail করলেও request বাঁচবে | `src/cache.ts` — সব catch                      | 4.2    |
+| TTL ৬০s safety net              | `src/server.ts` - `TTL_SECONDS`                | 4.3    |
+| `allkeys-lru`                   | `docker-compose.yml` - redis command           | 4.3    |
+| Cache fail করলেও request বাঁচবে | `src/cache.ts` - সব catch                      | 4.2    |
 
 ## Prerequisite
 
-Node.js 22+ এবং Docker (শুধু PostgreSQL আর Redis চালানোর জন্য — app নিজে সাধারণ Node
+Node.js 22+ এবং Docker (শুধু PostgreSQL আর Redis চালানোর জন্য - app নিজে সাধারণ Node
 process হিসেবে চলবে)।
 
 Port হিসেবে **5433** (Postgres) আর **6380** (Redis) ব্যবহার করা হয়েছে, যাতে আপনার মেশিনে
@@ -47,7 +47,7 @@ Server চলবে http://localhost:3000 এ।
 
 ## কীভাবে বুঝবো কাজ করছে (Acceptance Criteria)
 
-**১. প্রথম request — cache খালি, তাই DB তে যাবে**
+**১. প্রথম request - cache খালি, তাই DB তে যাবে**
 
 ```bash
 curl -i "http://localhost:3000/api/tasks?userId=7" | head -20
@@ -55,7 +55,7 @@ curl -i "http://localhost:3000/api/tasks?userId=7" | head -20
 
 Expected: header এ `X-Cache: MISS`, body তে `"source":"database"`
 
-**২. দ্বিতীয় request — এখন cache থেকে**
+**২. দ্বিতীয় request - এখন cache থেকে**
 
 ```bash
 curl -i "http://localhost:3000/api/tasks?userId=7" | head -20
@@ -69,7 +69,7 @@ Expected: `X-Cache: HIT`, `"source":"cache"`, আর `tookMs` স্পষ্ট
 npm run bench
 ```
 
-Expected (আমার মেশিনে মাপা — আপনারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
+Expected (আমার মেশিনে মাপা - আপনারটায় সংখ্যা ভিন্ন হবে, অনুপাতটা মিলবে):
 
 ```
   dataset        : 5000 tasks
@@ -82,7 +82,7 @@ Expected (আমার মেশিনে মাপা — আপনারটা
 **৪. Invalidation কাজ করছে?**
 
 ```bash
-# warm the cache — both views
+# warm the cache - both views
 curl -s "http://localhost:3000/api/tasks?userId=7" > /dev/null
 curl -s "http://localhost:3000/api/tasks?userId=7&completed=true" > /dev/null
 redis-cli -p 6380 KEYS 'tasks:user:7*'
@@ -95,7 +95,7 @@ curl -s -X PATCH http://localhost:3000/api/tasks/1 \
 # Expected: "invalidated": ["tasks:user:7", "tasks:user:7:completed"] in the response
 
 redis-cli -p 6380 KEYS 'tasks:user:7*'
-# Expected: empty — both were deleted
+# Expected: empty - both were deleted
 ```
 
 **৫. Cache stampede (Lesson 4.6)**
@@ -104,7 +104,7 @@ redis-cli -p 6380 KEYS 'tasks:user:7*'
 npm run stampede
 ```
 
-একই মুহূর্তে ৫০টা request পাঠায় cache সদ্য খালি হওয়া অবস্থায় — একবার single-flight
+একই মুহূর্তে ৫০টা request পাঠায় cache সদ্য খালি হওয়া অবস্থায় - একবার single-flight
 ছাড়া, একবার সহ। Expected (আমার মেশিনে মাপা):
 
 ```
@@ -112,10 +112,10 @@ npm run stampede
   with single-flight    : DB queries   1   (254 ms)
 ```
 
-**script টা `?delay=200` দিয়ে একটা "দামি query" নকল করে — আর সেটা ইচ্ছাকৃত।** আসল
+**script টা `?delay=200` দিয়ে একটা "দামি query" নকল করে - আর সেটা ইচ্ছাকৃত।** আসল
 query (~১২ ms) এতই দ্রুত যে প্রথম request শেষ হয়ে cache ভরে ফেলে বাকিরা আসার আগেই,
 ফলে stampede ঘটেই না (DB query ১-২টা)। Stampede তখনই বিপজ্জনক যখন origin এর কাজটা
-ধীর — Lesson 4.6 §১.২ এ এটা বিস্তারিত আছে।
+ধীর - Lesson 4.6 §১.২ এ এটা বিস্তারিত আছে।
 
 **৬. Redis মরে গেলে app বাঁচে?**
 
@@ -125,32 +125,32 @@ curl -i "http://localhost:3000/api/tasks?userId=7" | head -20
 docker compose start redis
 ```
 
-Expected: **HTTP 200-ই আসবে**, `X-Cache: ERROR`, `"source":"database"` — request fail
+Expected: **HTTP 200-ই আসবে**, `X-Cache: ERROR`, `"source":"database"` - request fail
 করবে না। কিন্তু `tookMs` দেখুন, চমকে যাবেন (নিচের experiment ২ দ্রষ্টব্য)।
 
 ## কী দেখার জন্য এটা বানানো
 
 একটা সংখ্যা নয়, **তিনটা আচরণ**:
 
-1. **Hit আর miss এর পার্থক্য** — `tookMs` আর `X-Cache` header এ সরাসরি দেখা যায়
-2. **Invalidation এ derived view** — `tasks:user:7:completed` টাও মুছতে হচ্ছে, শুধু মূল
+1. **Hit আর miss এর পার্থক্য** - `tookMs` আর `X-Cache` header এ সরাসরি দেখা যায়
+2. **Invalidation এ derived view** - `tasks:user:7:completed` টাও মুছতে হচ্ছে, শুধু মূল
    list না। এটাই বাস্তবে সবচেয়ে বেশি ভুলে যাওয়া জিনিস
-3. **Cache মরলে কী হয়** — correctness ঠিক থাকে, কিন্তু performance ধসে পড়ে
+3. **Cache মরলে কী হয়** - correctness ঠিক থাকে, কিন্তু performance ধসে পড়ে
 
 ## নিজে ভেঙে দেখুন (Experiments)
 
 1. **TTL কমিয়ে দিন।** `src/server.ts` এ `TTL_SECONDS` ৬০ থেকে ২ করে দিন, rebuild করে
-   `npm run bench` চালান — hit ratio এখনো ২০/২০ দেখাবে, কারণ bench এর ২০টা request
+   `npm run bench` চালান - hit ratio এখনো ২০/২০ দেখাবে, কারণ bench এর ২০টা request
    ২ সেকেন্ডের অনেক আগেই শেষ হয়ে যায়। এবার একটা request পাঠিয়ে **৩ সেকেন্ড অপেক্ষা
    করে** আবার পাঠান, `X-Cache` header দেখুন। Hit ratio আসলে TTL আর request এর হারের
-   সম্পর্কের উপর নির্ভর করে — Lesson 4.3 এর প্রশ্ন ২ এর উত্তরটা এবার নিজের চোখে দেখুন।
+   সম্পর্কের উপর নির্ভর করে - Lesson 4.3 এর প্রশ্ন ২ এর উত্তরটা এবার নিজের চোখে দেখুন।
 
 2. **Redis বন্ধ করে latency মাপুন।** `docker compose stop redis` করে পরপর কয়েকটা request
-   পাঠান, `tookMs` লক্ষ্য করুন। আমার মেশিনে: **৬২৩ → ১৪৯২ → ২২৯৯ → ৩০৯৫ → ৩৮৯৫ ms** —
+   পাঠান, `tookMs` লক্ষ্য করুন। আমার মেশিনে: **৬২৩ → ১৪৯২ → ২২৯৯ → ৩০৯৫ → ৩৮৯৫ ms** -
    অথচ DB একদম সুস্থ। কেন বাড়ছে? (ইঙ্গিত: ioredis এর `enableOfflineQueue`, default
-   `true`।) এবার `src/cache.ts` এ একে একে তিনটা জিনিস চেষ্টা করুন — `connectTimeout: 100`,
-   তারপর `commandTimeout: 100`, তারপর `enableOfflineQueue: false` — আর প্রতিবার সংখ্যা
-   মিলাও। কোনটায় কোনো লাভই হয় না, আর কেন — সেটা বোঝা এই exercise এর সবচেয়ে
+   `true`।) এবার `src/cache.ts` এ একে একে তিনটা জিনিস চেষ্টা করুন - `connectTimeout: 100`,
+   তারপর `commandTimeout: 100`, তারপর `enableOfflineQueue: false` - আর প্রতিবার সংখ্যা
+   মিলাও। কোনটায় কোনো লাভই হয় না, আর কেন - সেটা বোঝা এই exercise এর সবচেয়ে
    গুরুত্বপূর্ণ শিক্ষা (বিস্তারিত Lesson 4.4 এর প্রশ্ন ৩)।
 
 3. **Invalidation ইচ্ছা করে ভাঙুন।** `PATCH` handler এ `affected` array থেকে
@@ -178,7 +178,7 @@ lesson-4.4-redis-cache/
 └── src/
     ├── db.ts            # Sequelize + Task model (InferAttributes সহ)
     ├── cache.ts         # Redis client, Zod validation, fail-safe helper
-    ├── server.ts        # Express — cache-aside read, invalidate-on-write
+    ├── server.ts        # Express - cache-aside read, invalidate-on-write
     ├── seed.ts          # ৫০০০ task তৈরি করে
     └── bench.ts         # MISS বনাম HIT মেপে দেখায়
 ```
@@ -187,6 +187,6 @@ lesson-4.4-redis-cache/
 
 এই মেশিনে চালিয়ে যাচাই করা হয়েছে (Node 26, Postgres 17, Redis 8):
 
-- `tsc --noEmit` — clean pass, কোনো type error নেই, কোথাও `any` নেই
+- `tsc --noEmit` - clean pass, কোনো type error নেই, কোথাও `any` নেই
 - উপরের **ছয়টা acceptance criteria-ই** চালিয়ে মিলিয়ে দেখা হয়েছে
-- `npm run bench` এর সংখ্যাগুলো সত্যিকারের মাপা — অনুমান করা না
+- `npm run bench` এর সংখ্যাগুলো সত্যিকারের মাপা - অনুমান করা না

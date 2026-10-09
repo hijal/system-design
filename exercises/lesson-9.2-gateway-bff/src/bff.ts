@@ -5,12 +5,12 @@ import { commentSchema, type PageComment, type TaskPage, taskSchema, userSchema 
 import { DESKTOP, Link, MOBILE, type Profile } from './link';
 import { ms, pad, percentile } from './random';
 
-// Lesson 9.2 §1.3 — TaskFlow's "task detail" page: the task, the assignee, 20 comments and their authors.
+// Lesson 9.2 §1.3 - TaskFlow's "task detail" page: the task, the assignee, 20 comments and their authors.
 //
 // Two paths:
-//   browser → services directly — the browser itself calls the three services, and assembles the page itself
-//   browser → BFF — one request; the BFF calls the same three services inside the data center and builds the page's shape
-// The browser's link is a model (RTT + shared bandwidth — link.ts); inside the data center every call gets NET_MS.
+//   browser → services directly - the browser itself calls the three services, and assembles the page itself
+//   browser → BFF - one request; the BFF calls the same three services inside the data center and builds the page's shape
+// The browser's link is a model (RTT + shared bandwidth - link.ts); inside the data center every call gets NET_MS.
 
 const cfg = z
 	.object({
@@ -19,11 +19,11 @@ const cfg = z
 	})
 	.parse(process.env);
 
-// The browser assembling it itself — exactly what the (web) BFF does, but every step from the browser
+// The browser assembling it itself - exactly what the (web) BFF does, but every step from the browser
 async function directPage(link: Link, s: Services, id: number): Promise<TaskPage> {
 	const t = taskSchema.parse(await link.get(`${s.tasks.url}/tasks/${id}`)); // step 1
 	const [assigneeRaw, commentsRaw] = await Promise.all([
-		link.get(`${s.users.url}/users/${t.assigneeId}`), // step 2 — in parallel
+		link.get(`${s.users.url}/users/${t.assigneeId}`), // step 2 - in parallel
 		link.get(`${s.comments.url}/comments?taskId=${id}`)
 	]);
 	const assignee = userSchema.parse(assigneeRaw);
@@ -89,7 +89,7 @@ async function main(): Promise<void> {
 	const mobileBff = await start('mobile-bff', { ROLE: 'bff', SHAPE: 'mobile', ...urls });
 	const s: Services = { tasks, users, comments, webBff, mobileBff };
 	try {
-		// whether exactly the same page comes from both paths — otherwise the comparison means nothing
+		// whether exactly the same page comes from both paths - otherwise the comparison means nothing
 		const fast: Profile = { name: 'check', rttMs: 0, mbps: 10_000 };
 		const direct = await directPage(new Link(fast), s, 7);
 		const viaBff = await new Link(fast).get(`${webBff.url}/pages/task/7`);
@@ -135,7 +135,7 @@ async function main(): Promise<void> {
 		];
 		for (const row of rows) await measure(row);
 		console.log(
-			'\n   (the web BFF page and the page the browser assembles itself are exactly the same — verified. Mobile BFF: 200-character description, last 5 comments.)\n'
+			'\n   (the web BFF page and the page the browser assembles itself are exactly the same - verified. Mobile BFF: 200-character description, last 5 comments.)\n'
 		);
 	} finally {
 		await Promise.all(Object.values(s).map(stop));

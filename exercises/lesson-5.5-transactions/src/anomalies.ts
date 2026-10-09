@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { Member, Project, Task, sequelize, sleep } from './db';
 import { pgErrorCode } from './retry';
 
-// Lesson 5.5 — running the steps of two transactions (A and B) **in a fixed order** to see each
-// anomaly with your own eyes. No reliance on a race — the interleaving is arranged by hand, so the result
+// Lesson 5.5 - running the steps of two transactions (A and B) **in a fixed order** to see each
+// anomaly with your own eyes. No reliance on a race - the interleaving is arranged by hand, so the result
 // is the same every time. Each transaction has its own connection (a Sequelize unmanaged transaction).
 
 const { READ_UNCOMMITTED, READ_COMMITTED, REPEATABLE_READ, SERIALIZABLE } =
@@ -54,8 +54,8 @@ function heading(text: string): void {
 // pull Postgres's error code out of a failed transaction and describe it in one line
 function describeFailure(error: unknown): string {
 	const code = pgErrorCode(error);
-	if (code === '40001') return 'ERROR 40001 — could not serialize access (serialization failure)';
-	return `ERROR ${code ?? '?'} — ${error instanceof Error ? error.message : String(error)}`;
+	if (code === '40001') return 'ERROR 40001 - could not serialize access (serialization failure)';
+	return `ERROR ${code ?? '?'} - ${error instanceof Error ? error.message : String(error)}`;
 }
 
 async function reset(): Promise<void> {
@@ -101,14 +101,14 @@ async function lostUpdate(level: Level): Promise<void> {
 	}
 	const final = (await Project.findByPk(1))?.openTaskCount;
 	const verdict = bFailed
-		? " — B's work didn't happen, but B knows it; a retry gives 7. Not silently lost"
+		? " - B's work didn't happen, but B knows it; a retry gives 7. Not silently lost"
 		: final === 6
-			? ' — one update silently lost, nobody got an error'
+			? ' - one update silently lost, nobody got an error'
 			: '';
 	log('→', `final value ${final} (should be 7)${verdict}`);
 }
 
-// ── 1b. SELECT ... FOR UPDATE — pessimistic lock ────────────────────────────
+// ── 1b. SELECT ... FOR UPDATE - pessimistic lock ────────────────────────────
 async function lostUpdateForUpdate(): Promise<void> {
 	await reset();
 	console.log('\n   [READ COMMITTED + SELECT ... FOR UPDATE]');
@@ -210,27 +210,27 @@ async function writeSkew(level: Level): Promise<void> {
 	const admins = await Member.count({ where: { projectId: 1, role: 'admin' } });
 	log(
 		'→',
-		`admins now: ${admins}${admins === 0 ? ' — the rule is broken, even though both checked it!' : ' — the rule holds'}`
+		`admins now: ${admins}${admins === 0 ? ' - the rule is broken, even though both checked it!' : ' - the rule holds'}`
 	);
 }
 
-// ── 5. Dirty read — Postgres never allows it ────────────────────────────────
+// ── 5. Dirty read - Postgres never allows it ────────────────────────────────
 async function dirtyRead(): Promise<void> {
 	await reset();
 	console.log('\n   [B = READ UNCOMMITTED]  A renamed it but did not COMMIT');
 	const a = await begin(READ_COMMITTED);
 	await exec(`UPDATE projects SET name = 'Draft name' WHERE id = 1`, a);
-	log('A', `renamed to "Draft name" — not committed yet`);
+	log('A', `renamed to "Draft name" - not committed yet`);
 	const b = await begin(READ_UNCOMMITTED);
 	log('B', `read: "${await readText('SELECT name AS v FROM projects WHERE id = 1', b)}"`);
 	await b.commit();
 	await a.rollback();
-	log('A', 'ROLLBACK — "Draft name" was never true');
+	log('A', 'ROLLBACK - "Draft name" was never true');
 	log('→', 'in Postgres READ UNCOMMITTED actually behaves like READ COMMITTED');
 }
 
 async function main(): Promise<void> {
-	heading('1. Lost update — read-modify-write');
+	heading('1. Lost update - read-modify-write');
 	await lostUpdate(READ_COMMITTED);
 	await lostUpdate(REPEATABLE_READ);
 	await lostUpdateForUpdate();
