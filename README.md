@@ -79,5 +79,9 @@ only hands the running Worker an unused string, and the lockfile error stays. Bu
 and runtime variables are separate: build variables are not readable at runtime, and
 runtime `vars` are not visible to the build.
 
+The `previews.vars.BUN_VERSION` entry in `wrangler.jsonc` mirrors the existing
+Previews Base runtime variable required by `wrangler preview` configuration sync.
+It does not replace the **Previews Base → Builds** variable used to select Bun.
+
 Node.js needs no variable - `.nvmrc` pins it to 24, which the build image already
 defaults to.
