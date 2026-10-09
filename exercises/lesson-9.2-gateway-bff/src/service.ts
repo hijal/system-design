@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { z } from 'zod';
@@ -58,6 +59,16 @@ async function call<T>(url: string, schema: z.ZodType<T>): Promise<T> {
 }
 
 const app = express();
+// Limit failed authorization attempts without throttling the successful benchmark traffic.
+app.use(
+	rateLimit({
+		windowMs: 60_000,
+		limit: 100,
+		skipSuccessfulRequests: true,
+		standardHeaders: 'draft-7',
+		legacyHeaders: false
+	})
+);
 if (env.NET_MS > 0 && ['tasks', 'users', 'comments'].includes(env.ROLE))
 	app.use((_req, _res, next) => void sleep(env.NET_MS).then(() => next()));
 

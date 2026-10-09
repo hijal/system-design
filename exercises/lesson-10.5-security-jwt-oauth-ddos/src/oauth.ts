@@ -24,7 +24,8 @@ type Pending = { state: string; verifier: string };
 
 const CLIENT_ID = 'taskflow-web';
 const CALLBACK = 'https://app.taskflow.test/auth/callback';
-const EVIL_CALLBACK = 'https://app.taskflow.test.evil.example/auth/callback';
+// A same-origin open redirect can still leak a code when the full callback is not pinned.
+const EVIL_CALLBACK = 'https://app.taskflow.test/redirect?next=https://evil.example/callback';
 const CODE_TTL = 60;
 
 const random = (bytes: number): string => randomBytes(bytes).toString('base64url');
@@ -35,9 +36,12 @@ class AuthorizationServer {
 	readonly #grants = new Map<string, Grant>();
 	constructor(readonly defenses: Defenses) {}
 	#redirectAllowed(uri: string): boolean {
-		return this.defenses.exactRedirect
-			? uri === CALLBACK
-			: uri.startsWith('https://app.taskflow.test');
+		if (this.defenses.exactRedirect) return uri === CALLBACK;
+		try {
+			return new URL(uri).origin === new URL(CALLBACK).origin;
+		} catch {
+			return false;
+		}
 	}
 	authorize(
 		user: string,
@@ -138,7 +142,7 @@ const ATTACKS: Attack[] = [
 		}
 	},
 	{
-		name: "redirect_uri bait (prefix match), mallory's own PKCE",
+		name: "redirect_uri bait (open redirect), mallory's PKCE",
 		run: (server) => {
 			const verifier = random(32);
 			const redirect = server.authorize('alice', EVIL_CALLBACK, random(24), s256(verifier), 0);

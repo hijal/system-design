@@ -26,17 +26,17 @@ app.use(express.json());
 // A stampede is a real problem only when the origin's work is slow - if the query
 // takes 10 ms, the first request finishes and fills the cache before the rest arrive.
 // Production code would have nothing like this.
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+function sleepForDemo(): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, 200));
 }
 
 async function loadFromDatabase(
 	userId: number,
 	completedOnly: boolean,
-	delayMs = 0
+	simulateSlowQuery = false
 ): Promise<TaskDTO[]> {
 	dbQueryCount++;
-	if (delayMs > 0) await sleep(delayMs);
+	if (simulateSlowQuery) await sleepForDemo();
 	const rows = await Task.findAll({
 		where: completedOnly ? { userId, completed: true } : { userId },
 		order: [['id', 'ASC']]
@@ -82,15 +82,14 @@ app.get(
 		// step 2 - DB. With ?sf=1 single-flight is on, and then concurrent misses of the
 		// same key share a single DB query (Lesson 4.6).
 		const useSingleFlight = req.query.sf === '1';
-		const delayMs = Number(req.query.delay ?? 0);
-		const safeDelay = Number.isFinite(delayMs) && delayMs > 0 ? Math.min(delayMs, 5_000) : 0;
+		const simulateSlowQuery = req.query.delay === '200';
 
 		// Important: inside single-flight the DB load **and** the cache write -
 		// both have to be there. Wrapping only the load leaves a narrow gap:
 		// the load has finished and the in-flight entry is gone, but the cache is not written yet -
 		// a request arriving at exactly that moment will miss and start another load.
 		const loadAndCache = async (): Promise<TaskDTO[]> => {
-			const rows = await loadFromDatabase(userId, completedOnly, safeDelay);
+			const rows = await loadFromDatabase(userId, completedOnly, simulateSlowQuery);
 			await writeList(key, rows, TTL_SECONDS);
 			return rows;
 		};

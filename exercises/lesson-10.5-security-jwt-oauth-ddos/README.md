@@ -91,7 +91,7 @@ rotation + reuse detection           15 min   1     1
 
 ```
 Code theft (mobile scheme / log), mallory redeems first  succeeded ✗  succeeded ✗  blocked  blocked  blocked
-redirect_uri bait (prefix match), mallory's own PKCE  succeeded ✗  succeeded ✗  succeeded ✗  succeeded ✗  blocked
+redirect_uri bait (open redirect), mallory's PKCE  succeeded ✗  succeeded ✗  succeeded ✗  succeeded ✗  blocked
 ```
 
 `npm run secrets` - HEAD এ শূন্য, history তে তিনটা আসল secret; rotation একা ফাঁসের সময় খুব একটা কমায় না:
