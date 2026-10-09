@@ -73,10 +73,13 @@ bumps `lockfileVersion`, CI breaks until the variable is raised to match.
 
 It must be a **build** variable. Adding `BUN_VERSION` under _Variables & Secrets_ - the
 runtime section, which offers to sync itself into the `vars` key of this Wrangler config
+does not change the build image; it only hands the running Worker an unused string,
+and the lockfile error stays. Build and runtime variables are separate: build variables
+are not readable at runtime, and runtime `vars` are not visible to the build.
 
-- does not change the build image; it only hands the running Worker an unused string,
-  and the lockfile error stays. Build and runtime variables are separate: build variables
-  are not readable at runtime, and runtime `vars` are not visible to the build.
+After changing a build variable, retry the failed build or push a new commit to a PR
+branch to run a fresh preview build. A production deployment does not update an older
+PR preview check.
 
 Node.js needs no variable - `.nvmrc` pins it to 24, which the build image already
 defaults to.
